@@ -204,6 +204,8 @@ class OllamaProvider:
         }
 
 
+from scp.security.provider_keys import ProviderCredentialError, load_openrouter_keys
+
 class OpenRouterProvider:
     """OpenRouter cloud LLM provider — 3 keys + PAID primary + FREE fallback.
 
@@ -258,11 +260,11 @@ class OpenRouterProvider:
         """Load API keys from env vars (3 keys supported for round-robin)."""
         if cls._API_KEYS:
             return  # already loaded
-        keys = []
-        for var in ("OPENROUTER_API_KEY", "OPENROUTER_API_KEY_2", "OPENROUTER_API_KEY_3"):
-            k = os.environ.get(var, "")
-            if k and k != "your-key-here":
-                keys.append(k)
+        try:
+            keys = load_openrouter_keys()
+        except ProviderCredentialError as exc:
+            logger.error("[LLM Gateway] provider credential configuration rejected: %s", str(exc))
+            keys = []
         cls._API_KEYS = keys
         if keys:
             cls._key_cycle = itertools.cycle(keys)

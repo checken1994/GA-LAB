@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from scp.security.secret_loader import read_secret
+from scp.security.provider_keys import ProviderCredentialError, load_openrouter_keys
 import re
 import time
 import urllib.error
@@ -380,15 +380,14 @@ def _call_openrouter(prompt: str, max_tokens: int = 4000) -> str | None:
     Reality > Model: tested Bug #2 (PredictiveEngine) → LLM generated correct fix
     but truncated at "logger.info(\"V" — incomplete. After fix: max_tokens=4000.
     """
-    api_key = read_secret("OPENROUTER_API_KEY", "OPENROUTER_API_KEY_FILE")
+    try:
+        _provider_keys = load_openrouter_keys()
+    except ProviderCredentialError as exc:
+        logger.warning("[llm_fix] Provider credential configuration rejected: %s", str(exc))
+        _provider_keys = []
+    api_key = _provider_keys[0] if _provider_keys else ""
     if not api_key:
-        # Try file-backed/env fallback keys without logging their values.
-        for i in (2, 3):
-            api_key = read_secret(f"OPENROUTER_API_KEY_{i}", f"OPENROUTER_API_KEY_{i}_FILE")
-            if api_key:
-                break
-    if not api_key:
-        logger.warning("[llm_fix] No OPENROUTER_API_KEY set — cannot generate fix")
+        logger.warning("[llm_fix] No OpenRouter provider key configured; cannot generate fix")
         return None
 
     base_url = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
