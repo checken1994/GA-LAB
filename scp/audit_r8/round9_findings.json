@@ -1,0 +1,102 @@
+[
+  {
+    "id": "SA-R8-1",
+    "severity": "CRITICAL",
+    "dna": "#22 (PASS ≠ TRUE) + #26 (Reality có quyền cuối cùng)",
+    "claim": "R7-Full section 0 + section 7.1: 'Lint errors: 0 (fixed via useSyncExternalStore)' and the verification block '$ bun run lint / $ eslint . / # 0 errors, 0 warnings'. SA-1 finding claimed header.tsx had react-hooks/set-state-in-effect, fixed via useSyncExternalStore, and now the whole dashboard lints clean.",
+    "reality": "Running `bun install` then `bun run lint` (eslint .) on /home/z/my-project/r7full-ref/dashboard produces 2 lint errors, NOT 0. Both are the SAME bug class as SA-1 (react-hooks/set-state-in-effect): (1) src/components/ui/carousel.tsx:98:5 'onSelect(api)' calls setState synchronously in effect; (2) src/hooks/use-mobile.ts:14:5 'setIsMobile(...)' calls setState synchronously in effect. SA-1 caught only 1 of 3 instances of this lint rule violation; R7-Full's claim that the dashboard is now lint-clean is FALSE.",
+    "evidence": "Command: `cd /home/z/my-project/r7full-ref/dashboard && bun install && bun run lint`. Output (last lines): '✖ 2 problems (2 errors, 0 warnings)' with file:line citations for carousel.tsx:98:5 and use-mobile.ts:14:5. eslint exited with code 1.",
+    "verdict": "FALSE",
+    "fix": "Apply the same useSyncExternalStore (or equivalent) pattern to carousel.tsx and use-mobile.ts, OR add an eslint-disable-next-line comment with justification. Then re-run `bun run lint` and verify exit code 0 BEFORE claiming '0 lint errors'. This is exactly DNA #22: R7-Full should have re-run lint after the SA-1 fix and would have caught the other 2 instances — instead it claimed PASS without TRUE verification."
+  },
+  {
+    "id": "SA-R8-2",
+    "severity": "HIGH",
+    "dna": "#22 (PASS ≠ TRUE) + #21 (Audit the auditor)",
+    "claim": "R7-Full section 2.2 SA-8 row says fix='Updated to 15' for the sidebar off-by-one ('14 phần' vs 15 sections in SECTIONS array). Implies the visible text '14 phần' was updated to '15 phần'.",
+    "reality": "sidebar.tsx STILL contains the original '14 phần' string at line 114: 'Điều hướng nhanh đến 14 phần của báo cáo audit Round 7.' (sheet description for screen readers). Only the SECTIONS array was extended to 15 items; the human-readable string was NOT updated. Ironically, the self-audit.ts data file (line 132) explicitly documents the recommended fix ('SheetDescription should be updated to 15 phần') — but R7-Full never actually applied its own recommendation to sidebar.tsx. R7-Full's SA-8 fix is INCOMPLETE: documented in self-audit.ts as a recommendation, never applied to the source code.",
+    "evidence": "Command: `grep -rn '14 phần' /home/z/my-project/r7full-ref/dashboard/src/`. Output: 'sidebar.tsx:114: Điều hướng nhanh đến 14 phần...' AND 'self-audit.ts:124: ...14 phần...'. Command: `grep -rn '15 phần'`. Output: only matches in self-audit.ts:132 (the recommendation), NOT in sidebar.tsx. The SECTIONS array length is 15 (`grep -cE '^\\s+\\{ href: \"' sidebar.tsx` = 15).",
+    "verdict": "FALSE",
+    "fix": "Update sidebar.tsx:114 from '14 phần' to '15 phần'. Re-run eslint + screen-reader test. The fact that R7-Full documented this fix in self-audit.ts but didn't apply it is a meta-finding: R7-Full treated 'documenting the recommendation' as equivalent to 'applying the fix' — DNA #22 violation."
+  },
+  {
+    "id": "SA-R8-3",
+    "severity": "HIGH",
+    "dna": "#19 (Lineage rõ ràng) + #26 (Reality có quyền cuối cùng)",
+    "claim": "R7-Full section 4 table row R7-6: 'File patched: runtime/judge.py, Lines changed: +35, Fix applied: Propagate weight into ingestion_decision voting'. The patch is described as landing in runtime/judge.py.",
+    "reality": "The R7-6 patch does NOT exist in runtime/judge.py. grep for 'R7-6', 'effective_weight', and 'ingestion_decision' in runtime/judge.py returns ZERO matches. The actual patch lives in TWO different files: (1) runtime/judge_parts/judgecore_mixin.py:744+ (propagates effective_weight into values_for_resolution); (2) core/conflict_resolver.py:103+ (honors effective_weight as a multiplier). The patch IS real and substantive — but the file:line citation in the report is wrong. Only R7-7 (V100 crawler restart-with-backoff) is actually in runtime/judge.py:1085+.",
+    "evidence": "Command: `grep -n 'R7-6\\|effective_weight\\|ingestion_decision' /home/z/my-project/scp/runtime/judge.py`. Output: (empty). Command: `grep -rn 'SCP-DNA-FIX R7-6' /home/z/my-project/scp/`. Output: judgecore_mixin.py:744 + conflict_resolver.py:103 + conflict_resolver.py:224. Three matches, NONE in runtime/judge.py.",
+    "verdict": "FALSE",
+    "fix": "Update R7-Full section 4 table: change R7-6 'File patched' from 'runtime/judge.py' to 'runtime/judge_parts/judgecore_mixin.py + core/conflict_resolver.py'. This is the same class of inaccuracy R7-Full itself flagged in SA-4/SA-5 (R7's fictional file:line citations) — R7-Full reproduced the same mistake in its own report."
+  },
+  {
+    "id": "SA-R8-4",
+    "severity": "MEDIUM",
+    "dna": "#22 (PASS ≠ TRUE) + #19 (Lineage rõ ràng)",
+    "claim": "R7-Full section 4 table row R7-4: 'Fix applied: Bayesian prior + min-sample threshold'. Implies a Bayesian prior was implemented to smooth cold-start source reputations.",
+    "reality": "NO Bayesian prior is implemented anywhere in source_reputation.py or judgecore_mixin.py. The actual R7-4 fix is: (1) source_reputation.py:518 adds `COLD_START_THRESHOLD = 10` constant + `get_outcome_count()` accessor; (2) judgecore_mixin.py:840+ skips cold-start sources (<10 outcomes) from worst-source scaling, treating them as neutral rep=1.0. This is a 'min-sample threshold + skip' approach, NOT a Bayesian prior. A Bayesian prior would mix observed frequencies with a Beta(α,β) prior — none of that math is present.",
+    "evidence": "Command: `grep -ni 'bayes\\|prior\\|beta(' /home/z/my-project/scp/knowledge/source_reputation.py`. Output: (empty). Command: `grep -n 'R7-4\\|COLD_START' /home/z/my-project/scp/knowledge/source_reputation.py`. Output: lines 509, 518, 521, 545 — only COLD_START_THRESHOLD + get_outcome_count, no Bayesian math.",
+    "verdict": "FALSE",
+    "fix": "Update R7-Full section 4 row R7-4 'Fix applied' from 'Bayesian prior + min-sample threshold' to 'Cold-start skip + min-sample threshold (COLD_START_THRESHOLD=10; sources with <10 outcomes are treated as neutral rep=1.0 and excluded from worst-source scaling)'. The implemented approach is simpler than a Bayesian prior but still addresses the cold-start drag."
+  },
+  {
+    "id": "SA-R8-5",
+    "severity": "MEDIUM",
+    "dna": "#14 (Số đếm phải khớp) + #22 (PASS ≠ TRUE)",
+    "claim": "R7-Full section 1.2: '13 Patched SCP Python files — all ast.parse OK'. Section 7.2: '13/13 PASS'. Section 4 totals: '11 files patched + 1 test file created = ~737 LOC changed. 13/13 patched files pass ast.parse.'",
+    "reality": "The math is internally inconsistent: 11 + 1 = 12, not 13. Section 5.3 lists exactly 12 distinct files: chemistryslm.py, _lifespan.py, why_engine.py, source_reputation.py, judgecore_mixin.py, types.py, conflict_resolver.py, judge.py, engine.py, v105_routes.py, test_none_safety.py, + tests/property/__init__.py (mentioned in the listing footnote). Running ast.parse on all 12 returns 12 PASS / 0 FAIL — so the 'all parse OK' part is TRUE, but the count '13/13' is wrong. Either R7-Full is double-counting one file (e.g. test_none_safety.py + __init__.py as 'one test file' would give 11+1=12, not 13), or it miscounted by 1.",
+    "evidence": "Command: `cd /home/z/my-project/scp && for f in runtime/slms_parts/chemistryslm.py api/_lifespan.py meta/why_engine.py knowledge/source_reputation.py runtime/judge_parts/judgecore_mixin.py runtime/judge_parts/types.py core/conflict_resolver.py runtime/judge.py autofix/engine.py api/routes/v105_routes.py tests/property/test_none_safety.py tests/property/__init__.py; do python3 -c \"import ast; ast.parse(open('$f').read())\" && echo OK; done`. Output: 12 'OK' lines. No 13th file exists. Section 4's own text says '11 + 1' (=12) but then claims '13/13'.",
+    "verdict": "FALSE",
+    "fix": "Change all '13/13 patched files' references to '12/12 patched files'. Update section 4 totals to '11 files patched + 1 test file + 1 __init__.py created = 13 files total' IF __init__.py is intended to count separately, OR '11 + 1 = 12' if not. Pick one consistent counting basis and apply it everywhere."
+  },
+  {
+    "id": "SA-R8-6",
+    "severity": "MEDIUM",
+    "dna": "#22 (PASS ≠ TRUE) + #19 (Lineage rõ ràng)",
+    "claim": "R7-Full section 4 row R7-9: 'verified already-fixed by R6-9' — 'Memory + disk prune + atomic rename already in place; added metric'. Implies R6-9 already implemented the disk prune and atomic rename, and R7-Full only added a metric.",
+    "reality": "canary_monitor.py:224-259 contains a NEW `[SCP-DNA-FIX R7-9]` patch that ADDS disk prune + atomic rename logic — these were NOT 'already in place from R6-9'. The patch comment itself says: 'self.tokens dict — triggers_file (disk) accumulated expired tokens forever. file → disk leak. Now rewrites triggers_file atomically (.tmp + rename)'. The 'Now rewrites' phrasing confirms this is NEW code added by R7-Full, not pre-existing from R6-9. R7-Full's description understates its own work — claiming 'already in place' when actually newly implemented.",
+    "evidence": "Command: `grep -n 'R7-9\\|triggers_file\\|atomic.*rename' /home/z/my-project/scp/security/canary_monitor.py`. Output: lines 224 (SCP-DNA-FIX R7-9 marker), 228 ('Now rewrites triggers_file atomically'), 240 (Prune disk), 257 (.tmp suffix), 259 (atomic rename via .replace()). The comment 'Now rewrites' is definitive: this is new code, not pre-existing.",
+    "verdict": "FALSE",
+    "fix": "Update R7-Full section 4 row R7-9 from 'verified already-fixed by R6-9 — Memory + disk prune + atomic rename already in place; added metric' to 'memory prune from R6-9 reused; ADDED disk prune + atomic rename + metric (canary_monitor.py:224-259, ~35 LOC)'. The fix is real; the description under-attributes R7-Full's own contribution."
+  },
+  {
+    "id": "SA-R8-7",
+    "severity": "LOW",
+    "dna": "#14 (Số đếm phải khớp) + #19 (Lineage rõ ràng)",
+    "claim": "R7-Full section 5.1 header: 'src/components/ # 21 components — +1 vs R7'. Section 1.2: '43 Dashboard files (12 data + 21 components + 3 API + 4 config/layout + 3 new self-audit/v2Note)'.",
+    "reality": "Reality has 24 custom (non-shadcn/ui) component files in src/components/: layout/{header,footer,sidebar}=3, dashboard/{hero,stats-grid,dna-banner,closing-section}=4, dna/dna-grid=1, audit/{round7-methodology,round7-findings,source-comparison,self-audit-section}=4, autofix/{pipeline-flow,tier-system,autofix-section,improvements,fix-diff-viewer}=5, scanners/scanner-grid=1, bugs/{critical-silent,dead-controls,type-errors,race-conditions,sql-injection,resource-leaks}=6. Total: 3+4+1+4+5+1+6=24. R7-Full's own section 5.1 listing ALSO shows 24 components (counting the listed items), contradicting its own '21 components' header. Internal inconsistency + wrong vs reality.",
+    "evidence": "Command: `find /home/z/my-project/r7full-ref/dashboard/src/components -type f -name '*.tsx' -not -path '*/ui/*' | wc -l`. Output: 24. Manual count of the section 5.1 listing (which enumerates components by directory) also yields 24.",
+    "verdict": "FALSE",
+    "fix": "Update section 5.1 header to '24 components — +1 vs R7 (if R7 was 23)'. Update section 1.2 to '12 data + 24 components + 3 API + 4 config/layout + 3 new = 46' (or recompute). Make the breakdown consistent with reality AND with the section 5.1 listing."
+  },
+  {
+    "id": "SA-R8-8",
+    "severity": "LOW",
+    "dna": "#14 (Số đếm phải khớp)",
+    "claim": "R7-Full section 5.1 header: 'src/lib/audit-data/ # 13 data files (mỗi task 1 file) — +1 vs R7'.",
+    "reality": "Reality has 14 .ts files in src/lib/audit-data/: autofix-engine.ts, autofix-improvements.ts, bugs-critical.ts, bugs-dead-controls.ts, bugs-race.ts, bugs-resource-leaks.ts, bugs-sql.ts, bugs-type-errors.ts, dna.ts, index.ts, round7.ts, scanners.ts, self-audit.ts, sources.ts. Count: 14. R7-Full's own section 5.1 listing also shows 14 files (counting the listed items), contradicting its own '13 data files' header.",
+    "evidence": "Command: `ls /home/z/my-project/r7full-ref/dashboard/src/lib/audit-data/*.ts | wc -l`. Output: 14. Manual count of section 5.1 listing also yields 14.",
+    "verdict": "FALSE",
+    "fix": "Update section 5.1 header to '14 data files — +1 vs R7 (if R7 was 13)'. Update section 1.2 dashboard file total to reflect 14 (not 12 or 13)."
+  },
+  {
+    "id": "SA-R8-9",
+    "severity": "LOW",
+    "dna": "#14 (Số đếm phải khớp) + #19 (Lineage rõ ràng)",
+    "claim": "R7-Full section 6: 'Totals: 498 files, 6.5 MB.' Implies the zip contains 498 files total.",
+    "reality": "Unzipping scp-dna-audit-round7-full.zip and counting all files (`find . -type f | wc -l`) returns 500, NOT 498. The figure 498 matches 'excluding all README.md files' (the zip has 2 README.md files: /README.md and /scp/benchmark/README.md). The report does NOT disclose this counting method, leaving the reader to assume 498 is the total — which is false.",
+    "evidence": "Command: `cd /tmp/zipcheck && find . -type f | wc -l`. Output: 500. Command: `find . -type f -not -name 'README.md' | wc -l`. Output: 498. The 2 README.md files: /tmp/zipcheck/README.md and /tmp/zipcheck/scp/benchmark/README.md.",
+    "verdict": "FALSE",
+    "fix": "Either (a) update the claim to '500 files (498 excluding README.md)' OR (b) update to '500 files' and clarify the previous figure was a non-README count. Document the counting basis in the report."
+  },
+  {
+    "id": "SA-R8-10",
+    "severity": "LOW",
+    "dna": "#19 (Lineage rõ ràng) + #26 (Reality có quyền cuối cùng)",
+    "claim": "R7-Full section 1.1: 'scp-dna-audit-round7-full.zip (6.5MB, 498 files)'. Implies the .zip file is 6.5 MB.",
+    "reality": "The .zip file itself is 1.7 MB (`ls -la` on the uploaded zip shows 1,720,804 bytes ≈ 1.7 MB). The 6.5 MB figure refers to the EXTRACTED size (`du -sh` on extracted contents = 6.5 MB), not the .zip file size. The report's '6.5MB' is ambiguous — most readers interpret 'a zip is 6.5MB' as the .zip file size, which is false.",
+    "evidence": "Command: `ls -la '/home/z/my-project/upload/scp-dna-audit-round7-full (1).zip'`. Output: 1720804 bytes (1.7 MB). Command: `du -sh /tmp/zipcheck`. Output: 6.5M.",
+    "verdict": "FALSE",
+    "fix": "Update section 1.1 to 'scp-dna-audit-round7-full.zip (1.7 MB compressed; 6.5 MB extracted; 500 files)'. Clarify which size is being reported."
+  }
+]

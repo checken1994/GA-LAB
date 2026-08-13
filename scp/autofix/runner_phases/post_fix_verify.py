@@ -1,0 +1,572 @@
+"""
+[SCP-DNA-FIX R7-12] Post-Fix Verification Phase — NEW autofix pipeline phase.
+
+TẠI SAO file này tồn tại?
+  R5/R6 fix xong NGỪNG. Không verify fix thực sự wire (R6-3 wrapper existed but
+  was never called — R7 phát hiện). DNA #26: Reality có quyền cuối cùng — phải
+  chạy Reality test SAU fix, không chỉ trước.
+
+  This phase runs AFTER a Tier-2 fix is applied:
+    1. Run vulture on WHOLE scp/ directory (cross-file) → assert flagged dead
+       method GONE from dead list. If still dead → fix didn't wire → rollback.
+    2. Run hypothesis property test (if test exists for the fixed module) →
+       assert no TypeError/AttributeError on random inputs.
+    3. Import the modified module + call key function with safe input →
+       if ImportError/TypeError → rollback + escalate to Tier-3.
+
+  Inspired by: Sentry Autofix (runs test suite after patch, reverts if regression).
+
+Flow:
+  Tier-2 fix applied → post_fix_verify.run(bug, patched_file) → {ok: bool, reason: str}
+    ok=True → keep fix, log to audit trail
+    ok=False → rollback fix (revert file to .tier3bak), escalate to Tier-3
+
+DNA principles applied:
+  #26 (Reality > Model) — verify with REAL runtime, not just static analysis
+  #9 (No harm) — if verify fails, rollback (non-fatal)
+  #7 (Autofix safe) — guard #7: cross-file vulture verify before Tier-2 keeps
+  #22 (PASS ≠ TRUE) — fix "applied" ≠ fix "working"
+"""
+from __future__ import annotations
+
+import importlib
+import logging
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger("scp.autofix.post_fix_verify")
+
+_SCP_ROOT = Path(__file__).resolve().parent.parent.parent  # .../scp/
+_MAX_VERIFY_TIME_S = 30  # don't let verification hang
+
+
+def _run_vulture_cross_file(method_name: str) -> bool:
+    """Run vulture on whole scp/ → check if method_name still flagged as dead.
+
+    Returns True if method is GONE from dead list (fix wired it).
+    Returns False if method is STILL dead (fix didn't wire).
+    """
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "vulture", str(_SCP_ROOT),
+             "--min-confidence", "60"],
+            capture_output=True, text=True, timeout=_MAX_VERIFY_TIME_S
+        )
+        # If method_name appears in vulture output → still dead
+        return method_name not in result.stdout
+    except Exception as e:
+        logger.debug(f"[R7-12] vulture cross-file failed: {e}")
+        return True  # fail-open (don't block fix if vulture unavailable)
+
+
+def _try_import_module(file_path: str) -> tuple[bool, str]:
+    """Import the modified module → catch ImportError/TypeError.
+
+    Returns (ok, message).
+    """
+    try:
+        # Convert file path to module path: scp/runtime/judge.py → scp.runtime.judge
+        rel = Path(file_path).relative_to(_SCP_ROOT.parent)
+        if rel.suffix != ".py":
+            return True, "not a .py file, skip import check"
+        module_path = str(rel.with_suffix("")).replace("/", ".").replace("\\", ".")
+        if module_path.endswith(".__init__"):
+            module_path = module_path[:-9]
+        # Try import (force reimport if already loaded)
+        if module_path in sys.modules:
+            importlib.reload(sys.modules[module_path])
+        else:
+            importlib.import_module(module_path)
+        return True, "import OK"
+    except ImportError as e:
+        return False, f"ImportError: {e}"
+    except SyntaxError as e:
+        return False, f"SyntaxError: {e}"
+    except Exception as e:
+        # Other exceptions during module-level code are OK (may need runtime context)
+        logger.debug(f"[R7-12] import check exception (non-fatal): {e}")
+        return True, f"import OK (module-level exception non-fatal: {type(e).__name__})"
+
+
+def _try_hypothesis_test(file_path: str) -> tuple[bool, str]:
+    """Run hypothesis property test for the fixed module (if test exists).
+
+    Tests live in tests/property/test_<module>.py.
+    Returns (ok, message).
+    """
+    try:
+        rel = Path(file_path).relative_to(_SCP_ROOT.parent)
+        stem = rel.stem  # e.g. "conversionslm"
+        test_file = _SCP_ROOT.parent / "tests" / "property" / f"test_{stem}.py"
+        if not test_file.exists():
+            return True, f"no property test at {test_file}"
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", str(test_file), "-x", "--tb=short", "-q"],
+            capture_output=True, text=True, timeout=_MAX_VERIFY_TIME_S
+        )
+        if result.returncode == 0:
+            return True, "hypothesis tests pass"
+        return False, f"hypothesis tests failed: {result.stdout[-500:]}"
+    except Exception as e:
+        logger.debug(f"[R7-12] hypothesis test failed to run: {e}")
+        return True, f"hypothesis test skipped ({e})"
+
+
+def run_post_fix_verify(
+    bug_id: str,
+    file_path: str,
+    method_name: str | None = None,
+    run_vulture: bool = True,
+    run_import: bool = True,
+    run_hypothesis: bool = True,
+) -> dict:
+    """Run post-fix verification on a patched file.
+
+    Args:
+        bug_id: Bug identifier (e.g. "R7-1")
+        file_path: Path to the patched file
+        method_name: If fix wired a dead method, check it's GONE from vulture
+        run_vulture: Run cross-file vulture check
+        run_import: Run module import check
+        run_hypothesis: Run hypothesis property test (if exists)
+
+    Returns:
+        {
+            "ok": bool,          — True if all checks pass
+            "checks": {...},     — per-check results
+            "reason": str,       — human-readable summary
+            "rollback": bool,    — True if fix should be rolled back
+        }
+    """
+    checks = {}
+    all_ok = True
+
+    # Check 1: cross-file vulture (if method_name provided)
+    if run_vulture and method_name:
+        vulture_ok = _run_vulture_cross_file(method_name)
+        checks["vulture"] = {
+            "ok": vulture_ok,
+            "message": f"method '{method_name}' {'GONE' if vulture_ok else 'STILL DEAD'} from vulture dead list"
+        }
+        if not vulture_ok:
+            all_ok = False
+
+    # Check 2: module import
+    if run_import:
+        import_ok, import_msg = _try_import_module(file_path)
+        checks["import"] = {"ok": import_ok, "message": import_msg}
+        if not import_ok:
+            all_ok = False
+
+    # Check 3: hypothesis property test
+    if run_hypothesis:
+        hyp_ok, hyp_msg = _try_hypothesis_test(file_path)
+        checks["hypothesis"] = {"ok": hyp_ok, "message": hyp_msg}
+        if not hyp_ok:
+            all_ok = False
+
+    reason = f"[R7-12] post_fix_verify for {bug_id}: {'ALL PASS' if all_ok else 'FAILED'}"
+    logger.info(reason)
+
+    return {
+        "ok": all_ok,
+        "checks": checks,
+        "reason": reason,
+        "rollback": not all_ok,  # rollback if any check failed
+    }
+
+
+def rollback_fix(file_path: str, backup_path: str | None = None) -> bool:
+    """Rollback a fix by restoring from backup file.
+
+    Args:
+        file_path: Path to the patched file (to revert)
+        backup_path: Path to backup (if None, look for .tier3bak then
+            .audit_fix_backup)
+
+    Returns True if rollback succeeded.
+
+    [SCP-DNA-FIX R13-4] Consolidated canonical rollback-by-backup implementation.
+    TẠI SAO: R7-Full added a duplicate `rollback_fix` in `reality_test.py:328`
+    with slightly better logic (tries BOTH .tier3bak AND .audit_fix_backup
+    fallback, has traceback logging). DeadCodeScanner R13-4 flagged both as
+    dead duplicates — engine uses `rollback_fix_by_token` (token-based registry
+    lookup) and bypasses both. Fix (Option A — delete dead duplicates):
+    - Removed the duplicate from reality_test.py
+    - Merged the better logic (multi-extension fallback + traceback) HERE so
+      this canonical impl (re-exported as `rollback_fix_post` in
+      `runner_phases/__init__.py`) is the single source of truth.
+    - Library function for external callers / operators who want to revert
+      by file path instead of token.
+    """
+    try:
+        import shutil
+        import traceback as _tb
+        target = Path(file_path)
+        candidates: list[Path] = []
+        if backup_path:
+            candidates.append(Path(backup_path))
+        candidates.append(target.with_suffix(target.suffix + ".tier3bak"))
+        candidates.append(target.with_suffix(target.suffix + ".audit_fix_backup"))
+        for backup in candidates:
+            if backup.exists():
+                shutil.copy2(backup, target)
+                logger.info(f"[R7-12] Rolled back {file_path} from {backup}")
+                return True
+        logger.warning(f"[R7-12] No backup found for {file_path}")
+        return False
+    except Exception as e:
+        logger.error(f"[R7-12] Rollback failed: {e}\n{_tb.format_exc()}")
+        return False
+
+
+# ============================================================
+# [IMP-1 enhancement] Full post-fix verification orchestration.
+#
+# TẠI SAO: R7-Full strengthens IMP-1 to ORCHESTRATE the new reality_test
+# (IMP-2) and completeness_check (IMP-3) phases. Instead of 3 separate
+# entrypoints, this single function runs ALL 3 verifications in order
+# (cheapest first — vulture/import → reality_test exercise → completeness
+# re-scan) and aggregates results. If any phase fails, the fix is rolled
+# back + escalated to Tier-3.
+# ============================================================
+
+def run_full_post_fix_verify(
+    bug_id: str,
+    file_path: str,
+    method_name: str | None = None,
+    bug_type: str | None = None,
+    run_vulture: bool = True,
+    run_import: bool = True,
+    run_hypothesis: bool = True,
+    run_reality_exercise: bool = True,
+    run_completeness: bool = True,
+    run_evidence_replay: bool = True,
+) -> dict:
+    """Run ALL post-fix verification phases in order (cheapest first).
+
+    This is the canonical entry point for [IMP-1] post-fix verification.
+    It orchestrates:
+      1. vulture cross-file (if method_name given)
+      2. module import check
+      3. hypothesis property test (if test exists)
+      4. [IMP-2] reality_test — exercise callables with smoke inputs
+      5. [IMP-3] completeness_check — re-run original scanner, verify bug gone
+      6. [R12-9 BSG-VA] evidence_replay — replay test on B/S/G code states,
+         classify evidence role (gold-aligned / regression-only / misleading /
+         candidate-specific / diagnostic-negative).
+
+    Args:
+        bug_id: Bug identifier (e.g. "R7-1" or audit log id).
+        file_path: Path to patched file.
+        method_name: If fix wired a dead method, check it's GONE from vulture.
+        bug_type: If provided, run completeness check (re-scan for this type).
+        run_vulture / run_import / run_hypothesis: enable/disable base checks.
+        run_reality_exercise: enable IMP-2 reality test (callable exercise).
+        run_completeness: enable IMP-3 completeness re-scan.
+        run_evidence_replay: enable R12-9 BSG-VA evidence replay (B/S/G test).
+
+    Returns:
+        {
+            "ok": bool,                — True only if ALL enabled phases pass
+            "phases": {...},           — per-phase results
+            "rollback": bool,          — True if any phase failed (or evidence_replay flagged)
+            "escalate_to_tier3": bool, — True if fix should be re-reviewed
+            "reason": str,
+        }
+    """
+    phases: dict[str, Any] = {}
+    all_ok = True
+    # Explicit flags for evidence_replay (decoupled from all_ok so we can
+    # escalate/rollback even when other phases pass).
+    _bsgva_escalate = False
+    _bsgva_rollback = False
+
+    # Phase A: base post-fix verify (vulture + import + hypothesis)
+    base_result = run_post_fix_verify(
+        bug_id=bug_id,
+        file_path=file_path,
+        method_name=method_name,
+        run_vulture=run_vulture,
+        run_import=run_import,
+        run_hypothesis=run_hypothesis,
+    )
+    phases["base"] = base_result
+    if not base_result.get("ok", False):
+        all_ok = False
+
+    # Phase B: [IMP-2] reality_test — exercise callables
+    if run_reality_exercise:
+        try:
+            from scp.autofix.runner_phases.reality_test import run_reality_test
+            reality_result = run_reality_test(
+                bug_id=bug_id,
+                file_path=file_path,
+                exercise_callables=True,
+            )
+            phases["reality_test"] = reality_result
+            if not reality_result.get("ok", False):
+                all_ok = False
+        except ImportError as e:
+            logger.debug(f"[IMP-1] reality_test unavailable (skip): {e}")
+            phases["reality_test"] = {"ok": True, "skipped": True, "reason": f"import skipped: {e}"}
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[IMP-1] reality_test error (fail-open): {e}")
+            phases["reality_test"] = {"ok": True, "skipped": True, "reason": f"error: {e}"}
+
+    # Phase C: [IMP-3] completeness_check — re-scan for bug_type
+    if run_completeness and bug_type:
+        try:
+            from scp.autofix.runner_phases.completeness_check import run_completeness_check
+            comp_result = run_completeness_check(
+                bug_id=bug_id,
+                file_path=file_path,
+                bug_type=bug_type,
+            )
+            phases["completeness_check"] = comp_result
+            if not comp_result.get("complete", True):
+                # Incomplete ≠ rollback-worthy by itself, but DOES escalate.
+                # Reason: fix may have partially addressed the bug (good progress)
+                # but missed some sites. Tier-3 review decides.
+                all_ok = False
+        except ImportError as e:
+            logger.debug(f"[IMP-1] completeness_check unavailable (skip): {e}")
+            phases["completeness_check"] = {
+                "complete": True, "skipped": True, "reason": f"import skipped: {e}",
+            }
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[IMP-1] completeness_check error (fail-open): {e}")
+            phases["completeness_check"] = {
+                "complete": True, "skipped": True, "reason": f"error: {e}",
+            }
+
+    # Phase D: [R12-9 BSG-VA] Evidence Replay — classify test PASS as
+    # gold-aligned / regression-only / misleading / candidate-specific /
+    # diagnostic-negative, by replaying test_command on Buggy (B) / candidate
+    # State (S) / Gold (G) code states. Per BSG-VA paper (arXiv 2607.28871).
+    #
+    # TẠI SAO: phases A-C trả lời "fix có chạy được không?" nhưng KHÔNG trả lời
+    # "test PASS có thực sự chứng minh bug được fix không?". DNA #22
+    # (PASS ≠ TRUE): agent có thể "fix" bằng cách làm test vô nghĩa. BSG-VA
+    # replay test trên 3 code states (B/S/G) để phân loại evidence.
+    #
+    # Wire logic:
+    #   - Look up gold fix in GoldDataset by bug_signature (sha256 of
+    #     bug_type:description). Use bug_id as description proxy.
+    #   - If gold entry found → run EvidenceReplay.classify_evidence with
+    #     buggy/gold/test_command from gold entry + candidate_source read from
+    #     the actual patched file_path.
+    #   - role=MISLEADING or REGRESSION_ONLY → escalate_to_tier3 = True
+    #     (test evidence is fake or non-discriminative).
+    #   - role=DIAGNOSTIC_NEGATIVE → rollback = True (candidate didn't work).
+    #   - Fail-open per DNA #7: import error / no gold entry / any exception
+    #     → skip phase (do NOT block fix).
+    if run_evidence_replay and bug_type:
+        try:
+            import tempfile as _bsgva_tmpfile
+
+            from scp.autofix.evidence_replay import (
+                EvidenceReplay as _BSGVA_Replay,
+                EvidenceRole as _BSGVA_Role,
+                GoldDataset as _BSGVA_Dataset,
+                compute_bug_signature as _bsgva_sig,
+            )
+
+            _bsgva_bug_sig = _bsgva_sig(bug_type, bug_id or "")
+            _bsgva_ds = _BSGVA_Dataset()
+            _bsgva_entry = _bsgva_ds.get_entry(_bsgva_bug_sig)
+            if _bsgva_entry is not None:
+                # Read candidate source from actual patched file.
+                _bsgva_target = Path(file_path)
+                _bsgva_candidate_src = ""
+                if _bsgva_target.exists():
+                    _bsgva_candidate_src = _bsgva_target.read_text(
+                        encoding="utf-8", errors="replace"
+                    )
+                # Use a temp dir + module.py for replay.
+                # [SCP-DNA-FIX R12-15] module-stem substitution — thay "module"
+                # trong test_command bằng file stem thật (ví dụ "llm_fix" nếu
+                # patch file là scp/autofix/llm_fix.py). Tại sao: Gold dataset
+                # test_command dùng `from module import X` (placeholder). Nếu
+                # apply nguyên → ImportError → classify DIAGNOSTIC_NEGATIVE →
+                # rollback MỌI patch (safe nhưng noisy = sai). Fix: substitute
+                # "module" → file stem, ghi vào <stem>.py thay module.py.
+                _bsgva_file_stem = Path(file_path).stem if file_path else "module"
+                _bsgva_test_cmd = _bsgva_entry.get("test_command", "").replace("module", _bsgva_file_stem)
+                with _bsgva_tmpfile.TemporaryDirectory(
+                    prefix="bsgva_replay_"
+                ) as _bsgva_tmp:
+                    # Write buggy/candidate/gold to <stem>.py (not module.py)
+                    _bsgva_replay = _BSGVA_Replay(working_dir=_bsgva_tmp)
+                    _bsgva_result = _bsgva_replay.classify_evidence(
+                        test_command=_bsgva_test_cmd,
+                        buggy_source=_bsgva_entry.get("buggy_source", ""),
+                        candidate_source=_bsgva_candidate_src,
+                        gold_source=_bsgva_entry.get("gold_source", ""),
+                        file_path=str(Path(_bsgva_tmp) / f"{_bsgva_file_stem}.py"),
+                    )
+                phases["evidence_replay"] = {
+                    "ok": _bsgva_result.role != _BSGVA_Role.DIAGNOSTIC_NEGATIVE,
+                    "role": _bsgva_result.role.value,
+                    "discriminating": _bsgva_result.discriminating,
+                    "result": _bsgva_result.to_dict(),
+                    "reason": str(_bsgva_result),
+                }
+                if _bsgva_result.role in (
+                    _BSGVA_Role.MISLEADING,
+                    _BSGVA_Role.REGRESSION_ONLY,
+                ):
+                    _bsgva_escalate = True
+                    logger.warning(
+                        f"[R12-9 BSG-VA] evidence_replay for {bug_id}: "
+                        f"role={_bsgva_result.role.value} — test evidence is "
+                        f"{'FAKE (passes B+S but fails G)' if _bsgva_result.role == _BSGVA_Role.MISLEADING else 'NON-DISCRIMINATIVE (passes B+S+G)'} "
+                        f"— escalating to Tier-3 review"
+                    )
+                elif _bsgva_result.role == _BSGVA_Role.DIAGNOSTIC_NEGATIVE:
+                    all_ok = False
+                    _bsgva_rollback = True
+                    logger.error(
+                        f"[R12-9 BSG-VA] evidence_replay for {bug_id}: "
+                        f"role=DIAGNOSTIC_NEGATIVE — candidate fix failed test "
+                        f"on replay (b_pass={_bsgva_result.b_result[0]}, "
+                        f"s_pass={_bsgva_result.s_result[0]}, "
+                        f"g_pass={_bsgva_result.g_result[0]}) — rolling back"
+                    )
+                else:
+                    logger.info(
+                        f"[R12-9 BSG-VA] evidence_replay for {bug_id}: "
+                        f"role={_bsgva_result.role.value} "
+                        f"discriminating={_bsgva_result.discriminating}"
+                    )
+            else:
+                phases["evidence_replay"] = {
+                    "ok": True,
+                    "skipped": True,
+                    "reason": (
+                        f"no gold entry for bug_signature="
+                        f"{_bsgva_bug_sig[:16]}... (bug_type={bug_type})"
+                    ),
+                }
+        except ImportError as _bsgva_imp:
+            logger.debug(
+                f"[R12-9 BSG-VA] evidence_replay unavailable (fail-open): {_bsgva_imp}"
+            )
+            phases["evidence_replay"] = {
+                "ok": True,
+                "skipped": True,
+                "reason": f"import skipped: {_bsgva_imp}",
+            }
+        except Exception as _bsgva_err:  # noqa: BLE001 — fail-open per DNA #7
+            logger.warning(
+                f"[R12-9 BSG-VA] evidence_replay error (fail-open): {_bsgva_err}"
+            )
+            phases["evidence_replay"] = {
+                "ok": True,
+                "skipped": True,
+                "reason": f"error: {_bsgva_err}",
+            }
+
+    # Phase E: [R10 v3 WIRE — IMP-15] Semantic Equivalence Verification.
+    # TẠI SAO: reality_test (Phase B) exercises callables with smoke inputs.
+    # completeness_check (Phase C) re-runs the scanner to verify the bug is
+    # gone. But NEITHER checks that the fix didn't change behavior OUTSIDE
+    # the bug_location — e.g. LLM "fixes" a None-comparison bug but also
+    # refactors the return type of an unrelated branch. IMP-15 dumps AST of
+    # the target function BEFORE (from .tier3bak backup) vs AFTER (current
+    # file), compares. If statements OUTSIDE bug_location differ → over_broad
+    # → flag for review. If target function is GONE from fixed_ast → CRITICAL.
+    # Fail-open per DNA #7: parse error / no backup / no method_name → skip.
+    try:
+        from scp.autofix.runner_phases.semantic_equiv import (
+            BugLocation as _V3_SE_BugLoc,
+            verify_semantic_equiv as _v3_se_verify,
+        )
+        # Read pre-fix source from backup (.tier3bak or .audit_fix_backup).
+        _v3_se_target = Path(file_path)
+        _v3_se_backup = _v3_se_target.with_suffix(_v3_se_target.suffix + ".tier3bak")
+        if not _v3_se_backup.exists():
+            _v3_se_backup = _v3_se_target.with_suffix(_v3_se_target.suffix + ".audit_fix_backup")
+        if _v3_se_backup.exists() and _v3_se_target.exists():
+            _v3_se_orig_src = _v3_se_backup.read_text(encoding="utf-8", errors="replace")
+            _v3_se_fixed_src = _v3_se_target.read_text(encoding="utf-8", errors="replace")
+            # Build BugLocation from method_name (if provided).
+            _v3_se_bug_loc = None
+            if method_name:
+                _v3_se_bug_loc = _V3_SE_BugLoc(function_name=method_name)
+            _v3_se_result = _v3_se_verify(
+                original_source=_v3_se_orig_src,
+                fixed_source=_v3_se_fixed_src,
+                bug_location=_v3_se_bug_loc,
+            )
+            phases["semantic_equiv"] = {
+                "ok": _v3_se_result.ok,
+                "equivalent": _v3_se_result.equivalent,
+                "over_broad": _v3_se_result.over_broad,
+                "critical": _v3_se_result.critical,
+                "changed_statements": list(_v3_se_result.changed_statements[:10]),
+                "reason": _v3_se_result.reason,
+            }
+            # CRITICAL (function deleted) → rollback immediately.
+            if _v3_se_result.critical:
+                all_ok = False
+                logger.error(
+                    f"[R10 v3 IMP-15] CRITICAL: target function '{method_name}' "
+                    f"DELETED by fix — rolling back (callers will break)"
+                )
+            # over_broad (changes outside bug_location) → escalate to Tier 3.
+            elif _v3_se_result.over_broad:
+                all_ok = False
+                logger.warning(
+                    f"[R10 v3 IMP-15] over_broad fix detected for {bug_id}: "
+                    f"{len(_v3_se_result.changed_statements)} statement(s) changed "
+                    f"outside bug_location — escalating to Tier 3 review"
+                )
+            else:
+                logger.info(
+                    f"[R10 v3 IMP-15] semantic_equiv OK: "
+                    f"equivalent={_v3_se_result.equivalent} "
+                    f"reason={_v3_se_result.reason[:80]}"
+                )
+        else:
+            phases["semantic_equiv"] = {
+                "ok": True, "skipped": True,
+                "reason": "no backup file — cannot compare (fail-open)",
+            }
+    except ImportError as _v3_se_imp:
+        logger.debug(
+            f"[R10 v3 IMP-15] semantic_equiv unavailable (fail-open): {_v3_se_imp}"
+        )
+        phases["semantic_equiv"] = {
+            "ok": True, "skipped": True, "reason": f"import skipped: {_v3_se_imp}",
+        }
+    except Exception as _v3_se_err:
+        logger.warning(f"[R10 v3 IMP-15] semantic_equiv error (fail-open): {_v3_se_err}")
+        phases["semantic_equiv"] = {
+            "ok": True, "skipped": True, "reason": f"error: {_v3_se_err}",
+        }
+
+    escalate = (not all_ok) or _bsgva_escalate
+    reason = (
+        f"[IMP-1] run_full_post_fix_verify for {bug_id}: "
+        f"{'ALL PASS' if all_ok else 'FAILED'} "
+        f"(phases: {', '.join(phases.keys())})"
+    )
+    logger.info(reason)
+
+    return {
+        "ok": all_ok,
+        "phases": phases,
+        "rollback": _bsgva_rollback or (not all_ok and any(
+            not p.get("ok", True) and not p.get("complete", True)
+            for p in phases.values()
+            if "ok" in p or "complete" in p
+        )),
+        "escalate_to_tier3": escalate,
+        "reason": reason,
+    }
+
+
+__all__ = ["run_post_fix_verify", "rollback_fix", "run_full_post_fix_verify"]

@@ -1,0 +1,63 @@
+"""SCP V105 — Threat + Harm endpoints (Layer 2+3).
+
+Live — admin auth required (Fix 4-a-003). Router IS registered in
+api_server.py (around line 589-611) via `app.include_router(threat_router)`.
+All 4 routes below (`/v105/threats/ai-scan/stats`,
+`/v105/threats/ai-scan/findings`, `/v105/threats/harm/stats`,
+`/v105/threats/harm/incidents`) are LIVE and require `Depends(verify_admin)`
+because `data/ai_threats.jsonl` + `data/ai_harm_incidents.jsonl` contain
+sensitive threat findings + attack signatures an attacker could use to
+bypass detection.
+"""
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+
+from fastapi import APIRouter, Depends
+
+from scp.api._shared import verify_admin
+
+logger = logging.getLogger("scp.api.threats")
+router = APIRouter(prefix="/v105/threats", tags=["threats"])
+
+@router.get("/ai-scan/stats", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
+async def ai_threat_stats():
+    from scp.core.ai_threat_scanner import get_threat_stats
+    return get_threat_stats()
+
+@router.get("/ai-scan/findings", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
+async def ai_threat_findings(limit: int = 20, source: str = ""):
+    db = Path("data/ai_threats.jsonl")
+    if not db.exists(): return {"findings": [], "total": 0}
+    findings = []
+    with open(db, encoding="utf-8") as f:
+        for line in f:
+            try:
+                t = json.loads(line)
+                if not source or t.get("source") == source:
+                    findings.append(t)
+            except Exception as _e: logger.debug(f"[silent-except] {_e}")  # noqa: S110
+    findings.reverse()
+    return {"findings": findings[:limit], "total": len(findings)}
+
+@router.get("/harm/stats", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
+async def harm_stats():
+    from scp.core.harm_detector import get_harm_stats
+    return get_harm_stats()
+
+@router.get("/harm/incidents", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
+async def harm_incidents(limit: int = 20, harm_type: str = ""):
+    db = Path("data/ai_harm_incidents.jsonl")
+    if not db.exists(): return {"incidents": [], "total": 0}
+    incidents = []
+    with open(db, encoding="utf-8") as f:
+        for line in f:
+            try:
+                inc = json.loads(line)
+                if not harm_type or inc.get("harm_type") == harm_type:
+                    incidents.append(inc)
+            except Exception as _e: logger.debug(f"[silent-except] {_e}")  # noqa: S110
+    incidents.reverse()
+    return {"incidents": incidents[:limit], "total": len(incidents)}

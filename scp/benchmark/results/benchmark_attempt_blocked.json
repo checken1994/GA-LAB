@@ -1,0 +1,29 @@
+{
+  "benchmark_attempt": {
+    "timestamp": "2026-08-10T22:45:00Z",
+    "result": "BLOCKED",
+    "blocker": "OpenRouter free tier daily limit exhausted on all 3 API keys",
+    "details": {
+      "key_1_status": "429 — free-models-per-day-high-balance (0/1000 remaining)",
+      "key_2_status": "429 — free-models-per-day-high-balance (0/1000 remaining)",
+      "key_3_status": "429 — free-models-per-day-high-balance (0/1000 remaining)",
+      "reset_time": "2026-08-11T00:00:00Z",
+      "minutes_until_reset": 75
+    }
+  },
+  "scp_server_attempt": {
+    "started": true,
+    "boot_completed": false,
+    "health_endpoint": "empty response (lifespan hung)",
+    "ask_endpoint": "empty response",
+    "root_cause": "FastLearning engine makes 50 LLM calls at startup, all 429, lifespan cannot complete",
+    "process_status": "alive but unresponsive (stuck in lifespan)",
+    "fix_needed": "SCP has hard dependency on OpenRouter availability for startup — CRITICAL runtime reliability issue"
+  },
+  "baseline_attempt": {
+    "tried": true,
+    "result": "BLOCKED",
+    "blocker": "Same OpenRouter 429 — cannot call baseline LLM either",
+    "paid_model_attempt": "openai/gpt-4o-mini rejected: not available in your region"
+  }
+}

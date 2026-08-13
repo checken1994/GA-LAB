@@ -1,0 +1,269 @@
+/**
+ * API /api/scp/status — overall SCP system status.
+ *
+ * Combines:
+ *   1. SCP liveness (live fetch of /health, fail-open if down)
+ *   2. Autofix engine metadata (engine version v4, modules wired status)
+ *   3. R9 audit metadata
+ *
+ * [Task 1-A · Fix 4-c-012 + 4-d-021] All 6 v4 modules ARE wired into
+ * engine.py + runner.py + llm_fix.py (per R19-FIX-6 reconciliation against
+ * scp/autofix/engine.py imports). Prior comment block said "0/6 wired" and
+ * UI text said "standalone / deferred" — both contradicted the data array
+ * which marks all 6 wired:true. DNA #22 (PASS ≠ TRUE) + #5 (single source
+ * fabricates consensus): comment must match code must match reality.
+ *
+ * [Task 6-A · Fix 4-c-006] v4 module LOC is now COMPUTED from actual files at
+ * module load (computeAutofixLoc reads scp/autofix/*.py via fs.readFileSync +
+ * counts '\n'). Previously hardcoded 728/723/798/642/743/755 = 4,389 total —
+ * drifted +505 from reality (actual 4,894 per `wc -l` as of audit). If the
+ * Python tree is unreachable at module load (e.g. dashboard deployed without
+ * backend), computeAutofixLoc falls back to LAST_VERIFIED_FALLBACK_LOC with
+ * a documented `lastVerified` date — never silently uses a stale constant.
+ * DNA #22 (PASS ≠ TRUE) + #14 (numbers must match reality) + #26 (reality
+ * has final authority).
+ *
+ * This endpoint is dynamic (force-dynamic, revalidate=0) because SCP
+ * liveness changes at runtime.
+ */
+import { readdirSync, readFileSync, statSync } from "fs"
+import path from "path"
+import { NextResponse } from "next/server"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+const SCP_BASE_URL =
+  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8000"
+
+const START_HINT = "Run: python -m scp 8000 (in your scp folder)"
+
+// SCP root: parent of dashboard/. Override via env for container deploys.
+const SCP_ROOT = process.env.SCP_ROOT ?? "/home/z/my-project/scp-system"
+
+// [4-c-006] Last-verified fallback LOC values (per `wc -l` of actual files).
+// Used ONLY when computeAutofixLoc cannot read the actual file at module load
+// (e.g. dashboard deployed separately from backend). Last verified date
+// documents when the fallback was last cross-checked against reality.
+// Drift will recur if SCP changes; recompute via `wc -l scp/autofix/*.py`
+// after backend updates and bump the date.
+const LAST_VERIFIED_DATE = "2025-01 (Phase 6-A audit)"
+const LAST_VERIFIED_FALLBACK_LOC: Record<string, number> = {
+  "scp/autofix/property_validator.py": 916,
+  "scp/autofix/type_flow_verifier.py": 801,
+  "scp/autofix/speculative_prefixer.py": 838,
+  "scp/autofix/callgraph_delta.py": 734,
+  "scp/autofix/runner_phases/shadow_canary.py": 755,
+  "scp/autofix/policy_gate.py": 850,
+}
+
+/**
+ * [4-c-006] Compute LOC of an actual scp/autofix/*.py file at module load.
+ * Reads the file via fs.readFileSync and counts '\n' (matches `wc -l`).
+ * Falls back to a documented last-verified constant if the file is
+ * unreachable (dashboard deployed without backend tree).
+ *
+ * Returns { loc, live } where `live` indicates whether the value was
+ * computed from the actual file (true) or fell back to the documented
+ * constant (false). Caller can surface this to operators so they know
+ * whether the number is fresh or stale.
+ */
+function computeAutofixLoc(relPath: string): { loc: number; live: boolean } {
+  const abs = path.join(SCP_ROOT, relPath)
+  try {
+    const stats = statSync(abs)
+    if (!stats.isFile()) {
+      throw new Error(`not a file: ${abs}`)
+    }
+    const content = readFileSync(abs, "utf-8")
+    // `wc -l` counts newline characters. A file with no trailing newline still
+    // has its last line; split('\n').length - 1 matches wc -l, but to align
+    // exactly with wc -l semantics (which counts \n bytes), we count newlines.
+    const newlineCount = (content.match(/\n/g) ?? []).length
+    // Edge case: file with content but no trailing newline → wc -l reports
+    // lines-1, but split('\n').length includes the last partial line. Use
+    // the larger of (newlineCount, split('\n').length - 1) for safety.
+    const splitCount = content.split("\n").length - 1
+    const loc = Math.max(newlineCount, splitCount)
+    if (loc <= 0) {
+      throw new Error(`empty or unreadable: ${abs}`)
+    }
+    return { loc, live: true }
+  } catch {
+    const fallback = LAST_VERIFIED_FALLBACK_LOC[relPath]
+    if (typeof fallback === "number") {
+      return { loc: fallback, live: false }
+    }
+    // Unknown file path — return 0 rather than fabricating a number.
+    return { loc: 0, live: false }
+  }
+}
+
+// v4 modules (6 IMP-19..24) — created by Subagent C in R9.
+// [R19-FIX-6] UPDATED: all 6 v4 modules ARE NOW WIRED into engine.py +
+// runner.py + llm_fix.py (engine.py imports/calls each module — verified
+// at L599, L604, L634, L844, L922, L925, L1502, L1609; runner.py L394;
+// llm_fix.py L744). DNA #22 (PASS ≠ TRUE): dashboard previously said
+// "not wired / standalone / deferred" but code reality = wired. Comment +
+// text reconciled in Task 1-A.
+//
+// [4-c-006] LOC for each module is now computed live from the actual file
+// at module load via computeAutofixLoc. See LAST_VERIFIED_FALLBACK_LOC for
+// the documented fallback used when the backend tree is unreachable.
+const V4_MODULES = [
+  {
+    imp: "IMP-19",
+    file: "scp/autofix/property_validator.py",
+    axis: "ACCURACY",
+    name: "Property-Based Validation",
+    wired: true,
+    loc: computeAutofixLoc("scp/autofix/property_validator.py").loc,
+    locLive: computeAutofixLoc("scp/autofix/property_validator.py").live,
+  },
+  {
+    imp: "IMP-20",
+    file: "scp/autofix/type_flow_verifier.py",
+    axis: "ACCURACY",
+    name: "Cross-File Type-Flow",
+    wired: true,
+    loc: computeAutofixLoc("scp/autofix/type_flow_verifier.py").loc,
+    locLive: computeAutofixLoc("scp/autofix/type_flow_verifier.py").live,
+  },
+  {
+    imp: "IMP-21",
+    file: "scp/autofix/speculative_prefixer.py",
+    axis: "SPEED",
+    name: "Speculative Pre-Fix",
+    wired: true,
+    loc: computeAutofixLoc("scp/autofix/speculative_prefixer.py").loc,
+    locLive: computeAutofixLoc("scp/autofix/speculative_prefixer.py").live,
+  },
+  {
+    imp: "IMP-22",
+    file: "scp/autofix/callgraph_delta.py",
+    axis: "SPEED",
+    name: "Incremental Call-Graph",
+    wired: true,
+    loc: computeAutofixLoc("scp/autofix/callgraph_delta.py").loc,
+    locLive: computeAutofixLoc("scp/autofix/callgraph_delta.py").live,
+  },
+  {
+    imp: "IMP-23",
+    file: "scp/autofix/runner_phases/shadow_canary.py",
+    axis: "SAFETY",
+    name: "Shadow-Apply + Canary",
+    wired: true,
+    loc: computeAutofixLoc("scp/autofix/runner_phases/shadow_canary.py").loc,
+    locLive: computeAutofixLoc(
+      "scp/autofix/runner_phases/shadow_canary.py"
+    ).live,
+  },
+  {
+    imp: "IMP-24",
+    file: "scp/autofix/policy_gate.py",
+    axis: "SAFETY",
+    name: "Constitutional Policy Gate",
+    wired: true,
+    loc: computeAutofixLoc("scp/autofix/policy_gate.py").loc,
+    locLive: computeAutofixLoc("scp/autofix/policy_gate.py").live,
+  },
+]
+
+const V3_MODULES = [
+  { imp: "IMP-13", file: "scp/autofix/ast_diff_cache.py", wired: true },
+  { imp: "IMP-14", file: "scp/autofix/confidence_ranker.py", wired: true },
+  { imp: "IMP-15", file: "scp/autofix/runner_phases/semantic_equiv.py", wired: true },
+  { imp: "IMP-16", file: "scp/autofix/runner_phases/blast_radius.py", wired: true },
+  { imp: "IMP-17", file: "scp/autofix/runner_phases/auto_rollback.py", wired: true },
+  { imp: "IMP-18", file: "scp/autofix/parallel_scanner.py", wired: true },
+]
+
+export async function GET() {
+  const checkedAt = new Date().toISOString()
+
+  // --- 1. SCP liveness ---
+  let scpStatus: "online" | "degraded" | "offline" = "offline"
+  let scpHealth: Record<string, unknown> | null = null
+  let scpError: string | null = null
+  let scpHttpStatus: number | null = null
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+    const res = await fetch(`${SCP_BASE_URL}/health`, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    })
+    clearTimeout(timeout)
+    scpHttpStatus = res.status
+    if (res.ok) {
+      scpStatus = "online"
+      scpHealth = (await res.json()) as Record<string, unknown>
+    } else {
+      scpStatus = "degraded"
+    }
+  } catch (e) {
+    scpError = e instanceof Error ? e.message : String(e)
+  }
+
+  // --- 2. Autofix engine metadata ---
+  // [4-c-006] v4Loc is now the sum of live-computed module LOCs.
+  // If any module fell back to the documented constant, v4LocLive=false so
+  // operators can see the number may be stale.
+  const v4LocTotal = V4_MODULES.reduce((sum, m) => sum + m.loc, 0)
+  const v4LocAllLive = V4_MODULES.every((m) => m.locLive)
+  const engine = {
+    version: "v4",
+    versionHistory: ["v2 (R7)", "v3 (R8)", "v4 (R9)"],
+    totalAutofixPyFiles: 63, // 51 v2 + 6 v3 + 6 v4
+    modulesByGeneration: {
+      v2_count: 51,
+      v3_count: 6,
+      v4_count: 6,
+    },
+    modulesWired: {
+      v3: V3_MODULES.filter((m) => m.wired).length, // 6/6 wired (R8)
+      v4: V4_MODULES.filter((m) => m.wired).length, // 6/6 wired (R19-FIX-6 — Task 1-A reconciled)
+    },
+    modulesStandalone: {
+      v3: V3_MODULES.filter((m) => !m.wired).length, // 0/6 standalone
+      v4: V4_MODULES.filter((m) => !m.wired).length, // 0/6 standalone (all wired R19-FIX-6)
+    },
+    // [4-c-006] Live-computed v4 LOC (was hardcoded 4,389 — drifted +505
+    // from actual 4,894). Now reflects actual file sizes at module load.
+    v4Loc: v4LocTotal,
+    v4LocLive: v4LocAllLive,
+    v4LocLastVerifiedDate: LAST_VERIFIED_DATE,
+    v4LocMethod: v4LocAllLive
+      ? "live (computed from scp/autofix/*.py at module load)"
+      : `fallback (last verified ${LAST_VERIFIED_DATE}; at least one module's file was unreachable at ${SCP_ROOT})`,
+  }
+
+  // --- 3. R9 audit metadata ---
+  const audit = {
+    round: 9,
+    pythonFilesAstParseOk: "377/377",
+    r9BugsFound: 7,
+    r9BugsPatched: 7,
+    saR9Findings: 6,
+    r8ClaimsVerifiedTrue: 19,
+    r8ClaimsVerifiedFalse: 6,
+    crossValidation: "SA-R9-2 (Subagent A) = R9-7 (Subagent B) — same R8-1 regression, 2 independent lineages (DNA #5)",
+  }
+
+  return NextResponse.json({
+    scp: scpStatus,
+    scpHealth,
+    scpError: scpError?.slice(0, 200) ?? null,
+    scpHttpStatus,
+    checkedAt,
+    hint: scpStatus === "online" ? null : START_HINT,
+    engine,
+    audit,
+    modules: {
+      v3: V3_MODULES,
+      v4: V4_MODULES,
+    },
+  })
+}

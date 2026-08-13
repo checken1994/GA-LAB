@@ -1,0 +1,32 @@
+# Local secrets and isolated test runtime
+.env
+.env.*
+!.env.example
+.private-secrets/
+data-test/
+*.log
+.mypy_cache/
+__pycache__/
+
+# Generated/runtime artifacts
+**/node_modules/
+**/venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+dashboard/.next/
+dashboard/out/
+desktop/release/
+desktop/runtime/
+**/release/
+**/runtime/
+dist/
+build/
+**/.private-secrets/
+**/data/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.bak
+*.tmp

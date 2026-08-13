@@ -1,0 +1,195 @@
+{
+  "round": "R9",
+  "auditing": "R8",
+  "audit_name": "Round 10 Self-Audit (R9 of R8 — recursion level 4)",
+  "agent": "Subagent A",
+  "task_id": "1-a",
+  "date": "2026-08-08",
+  "dna_principles_applied": [22, 21, 23, 19, 26, 5, 14, 9],
+  "methodology": [
+    "Read R8 reports fully (SCP_DNA_AUDIT_ROUND8_CHANGES.md, ROUND9_SELF_AUDIT.md, R8_FINDINGS.md, FIXES_APPLIED_R8.md, AUTOFIX_V3_MANIFEST.md)",
+    "Run Reality checks (ast.parse, grep, wc, bun run lint, bun run build, real Python import)",
+    "Verify each R8-1..7 patch present + CORRECT (not just present)",
+    "Smoke-test 6 v3 modules (ast.parse + import + invocation)",
+    "Document discrepancies with exact command + output evidence"
+  ],
+  "claims_verified_true": [
+    {
+      "claim": "0 lint errors, 0 warnings",
+      "evidence": "cd /home/z/my-project && bun run lint → exit code 0, no output",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "371/371 .py ast.parse OK (at R8 time)",
+      "evidence": "find /home/z/my-project/scp -name '*.py' -type f | wc -l → 377 (current; +6 from R9 v4 modules in parallel). At R8 time (timestamps 20:14), count was 371. All 377 current files ast.parse OK, 0 FAIL.",
+      "verdict": "TRUE at R8 time (R9 v4 modules added 6 more in parallel — see SA-R9-6)"
+    },
+    {
+      "claim": "57 total autofix .py (51 v2 + 6 v3) at R8 time",
+      "evidence": "find /home/z/my-project/scp/autofix -name '*.py' -type f | wc -l → 63 (current; +6 from R9 v4). v3 modules = 6 (ast_diff_cache, confidence_ranker, parallel_scanner, semantic_equiv, blast_radius, auto_rollback). v2 = 63-6 = 57 (current); at R8 time, v2 = 51.",
+      "verdict": "TRUE at R8 time"
+    },
+    {
+      "claim": "26 DNA principles",
+      "evidence": "grep -cE '^\\s+id: [0-9]+,$' /home/z/my-project/src/lib/audit-data/dna.ts → 26 (ids 1-26)",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "7 world's-best tools mapped",
+      "evidence": "WORLD_TOOLS array in /home/z/my-project/src/lib/audit-data/autofix-v3.ts has 7 entries: Sentry Autofix, GitHub Copilot Autofix, Semgrep, CodeQL/DeepCode, Hypothesis+QuickCheck, pytest-xdist+ruff --parallel, terraform plan+git diff",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "17 data files (14 R7-Full + 3 NEW R8)",
+      "evidence": "ls /home/z/my-project/src/lib/audit-data/*.ts | wc -l → 17. NEW R8 files: round8.ts, round9-self-audit.ts, autofix-v3.ts (3 NEW).",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "20 dashboard sections render",
+      "evidence": "Sidebar SECTIONS array has 20 entries; 20 unique id= anchors found in src/components/. Page.tsx renders 22 React components (Hero+StatsGrid both anchor to #dashboard; DnaBanner+DnaGrid both anchor to #dna). '20 sections' interpretation: 20 anchored sections = 20 sidebar entries.",
+      "verdict": "TRUE (under anchored-sections interpretation)"
+    },
+    {
+      "claim": "R8-1 patch present + correct",
+      "evidence": "api_server.py:354-385 + api/_lifespan.py:283-311 both patched. In-memory _recent count replaces SQLite query. governance_kill event_type filter matches docstring intent. Both ast.parse OK.",
+      "verdict": "TRUE (patch present + functionally correct; see SA-R9-2 for race condition regression)"
+    },
+    {
+      "claim": "R8-2 patch present + correct (_tier3_auto_expired flag)",
+      "evidence": "autofix/engine.py:1089-1126 has _tier3_auto_expired flag + env-var transition detection (0→1 re-arm). ast.parse OK. Fail-closed preserved.",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "R8-3 patch present + correct (3-generation rotation)",
+      "evidence": "runtime/storage_manager.py:167-222 implements 3-generation shift (delete .3.gz, shift .2→.3, .1→.2, write new .1). ast.parse OK. Code correct (see SA-R9-4 for misleading comment)."
+    },
+    {
+      "claim": "R8-4 patch present + correct (cold-start WARN)",
+      "evidence": "runtime/judge.py:1097-1126 tracks _scheduler_started_at, computes _stale_since from either last_success or _scheduler_started_at, fires WARN if 12h elapsed. ast.parse OK.",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "R8-5 patch present + correct (per-token .tier3bak)",
+      "evidence": "autofix/engine.py:1193-1273 generates _rollback_token BEFORE backup write, uses .tier3bak.{token} filename. api/routes/v105_routes.py:336-372 derives bak_path from rollback_token with legacy fallback. Both ast.parse OK.",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "R8-6 patch present + correct (threading.Lock on healing_history)",
+      "evidence": "runtime/healing_v14.py:9 (import threading), :66 (init _history_lock), :224 (mutation under lock), :360-361 (snapshot under lock). Covers ALL healing_history accesses in the file. No external access in other files. ast.parse OK.",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "R8-7 patch present + correct (eager-init lock)",
+      "evidence": "meta/why_engine.py:321-336 __init__ eagerly inits self._execute_pending_lock = _threading.Lock(). :775-785 removed lazy hasattr check (only mention is in removal comment at :777). ast.parse OK.",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "R8-1 root cause: notifications table truly doesn't exist",
+      "evidence": "grep -rnE 'CREATE TABLE.*notifications' /home/z/my-project/scp/ --include='*.py' → 0 matches (only matches in R8-1 patch comments). UserNotificationSystem stores notifications in-memory (_recent list) + JSONL file (notifications.jsonl), NOT in SQLite.",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "0 v2 files modified (light-touch)",
+      "evidence": "grep -nE 'ast_diff_cache|confidence_ranker|parallel_scanner|semantic_equiv|blast_radius|auto_rollback' /home/z/my-project/scp/autofix/engine.py → 0 matches. engine.py has zero references to v3 modules.",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "SA-R8-2 fix verified (sidebar rewritten with correct count + R8 sections)",
+      "evidence": "sidebar.tsx:119 uses dynamic {SECTIONS.length} (renders as 20). SECTIONS array includes round8-audit, round9-self-audit, v3-improvements, world-tools (4 NEW R8 sections).",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "6/6 v3 modules real Python (not stubs), ast.parse OK, smoke-tested",
+      "evidence": "All 6 v3 files ast.parse OK. All 6 import cleanly (verified via Python import with sys.path). All 6 have substantive content (5+ defs/classes each, 268-459 effective LOC each). Smoke-test invocations succeed when called with documented API signatures.",
+      "verdict": "TRUE"
+    },
+    {
+      "claim": "R8 dashboard builds cleanly",
+      "evidence": "cd /home/z/my-project && bun run build → '✓ Compiled successfully in 10.6s', '✓ Generating static pages using 1 worker (7/7)'. 0 errors.",
+      "verdict": "TRUE"
+    }
+  ],
+  "findings": [
+    {
+      "id": "SA-R9-1",
+      "severity": "MEDIUM",
+      "dna": [14, 19, 22],
+      "r8_claim": "AUTOFIX_V3_MANIFEST.md has inconsistent LOC totals: summary table (line 28) says 'Total new v3 LOC: 2,582'; footer (line 269) says 'Total NEW v3 LOC: 2,585'; per-file (line 264) says 'semantic_equiv.py (IMP-15) — 396 LOC'. Main R8 report (SCP_DNA_AUDIT_ROUND8_CHANGES.md) says '2,586 LOC'.",
+      "reality": "Actual: ast_diff_cache.py=412, confidence_ranker.py=402, semantic_equiv.py=397 (NOT 396), blast_radius.py=372, auto_rollback.py=575, parallel_scanner.py=428. Sum = 2,586 (matches main report). Manifest has TWO different wrong numbers (2,582 + 2,585) AND wrong per-file LOC for semantic_equiv.py.",
+      "evidence": "wc -l on all 6 v3 files → 412+402+397+372+575+428 = 2586 total. Manifest summary table claims 2,582 (off by 4). Manifest footer claims 2,585 (off by 1, due to semantic_equiv claimed as 396 not 397). Main R8 report claims 2,586 (CORRECT).",
+      "disposition": "Update manifest summary table 2,582→2,586, footer 2,585→2,586, per-file semantic_equiv 396→397. Main report's 2,586 is correct."
+    },
+    {
+      "id": "SA-R9-2",
+      "severity": "HIGH",
+      "dna": [22, 26, 9],
+      "r8_claim": "R8-1 fix in api_server.py:367-372 + api/_lifespan.py:295-300: 'Query the in-memory UserNotificationSystem._recent list directly' to count governance_kill events in last 10min.",
+      "reality": "The fix iterates _notif._recent via generator expression `sum(1 for _n in _recent if ...)` with NO lock and NO snapshot copy. _recent is mutated by notify() (runtime/notifications.py:174 `self._recent.append(notification)`) called from judge.judge() in V98 pipeline thread + sync API endpoint threads. Iteration runs in background _attack_mode_monitor daemon thread. CPython list iterator caches ob_size; concurrent append raises RuntimeError: list changed size during iteration. The exception is swallowed by the existing `try/except Exception as e: logger.debug(...)` at api_server.py:383-384 — silently killing the monitor (same silent-failure pattern R8-1 was supposed to fix). This is the SAME bug class as R8-6 (which R8 fixed for healing_history by adding threading.Lock). R8 was inconsistent: applied lock to healing_history but NOT to _recent.",
+      "evidence": "api_server.py:367-372 has `kill_count = sum(1 for _n in _recent if ...)` with no lock. Compare to R8-6 fix at healing_v14.py:224+360 which uses `with self._history_lock: snapshot = list(self.healing_history)`. R8-6's own description explicitly identifies the mutation+iteration-without-lock pattern as the bug — yet R8-1 introduces the same pattern. notify() is called from 6+ sites in judge.py + judge_parts/judgecore_mixin.py + judge_parts/judgebg_mixin.py.",
+      "disposition": "Add threading.Lock to UserNotificationSystem.__init__ (e.g., self._recent_lock = threading.Lock()). Guard notify() mutation with lock. Guard R8-1 iteration with snapshot pattern: `with _notif._recent_lock: snapshot = list(_notif._recent)` then iterate snapshot. Mirrors R8-6 pattern exactly."
+    },
+    {
+      "id": "SA-R9-3",
+      "severity": "MEDIUM",
+      "dna": [22, 9, 26],
+      "r8_claim": "R8-1 fix description: 'Fix: đếm trực tiếp từ in-memory UserNotificationSystem._recent, lọc theo event_type=governance_kill trong 10 phút gần nhất.' (implies bounded/cheap iteration)",
+      "reality": "UserNotificationSystem._recent grows UNBOUNDED — notify() at runtime/notifications.py:174 does `self._recent.append(notification)` with NO trim, NO maxlen, NO deque. R8-1's fix iterates this list every 5 minutes (300s sleep). Original SQL approach would have been O(1) per poll (COUNT with WHERE timestamp > ? using index). New approach is O(N) per poll where N = total notifications ever sent. Worst case: 1 notif/sec × 1 year = 31.5M entries × ~200 bytes/dict = ~6.3 GB RAM + ~5-10s CPU per poll. R8-1 EXPOSES pre-existing unbounded-growth bug (SQL path failed silently, so list was never iterated before R8-1).",
+      "evidence": "grep -nE '_recent' /home/z/my-project/scp/runtime/notifications.py → 4 matches: line 95 (init, no maxlen), 174 (append, no trim), 257+259 (get_recent slice — doesn't trim list). No deque, no `if len > MAX: del`, no periodic prune.",
+      "disposition": "In UserNotificationSystem.notify() (separate fix): add trim after append (`if len(self._recent) > 1000: del self._recent[:-1000]`) OR use collections.deque(maxlen=1000). In R8-1 fix: use snapshot under lock (see SA-R9-2 fix) AND document iteration cost. File separate R10 bug for unbounded _recent growth root cause."
+    },
+    {
+      "id": "SA-R9-4",
+      "severity": "LOW",
+      "dna": [19, 26],
+      "r8_claim": "R8-3 fix code comment at runtime/storage_manager.py:204-205: `# gen=2 → .1.gz index 0` and `# gen=2 → .2.gz index 1`",
+      "reality": "For gen=2: src_path = gz_paths[gen-1] = gz_paths[1] = .2.gz (NOT .1.gz as comment claims), dst_path = gz_paths[gen] = gz_paths[2] = .3.gz (NOT .2.gz as comment claims). The CODE is correct (moves .2→.3 for gen=2, then .1→.2 for gen=1, then writes new .1); only the inline COMMENT is misleading.",
+      "evidence": "Trace: gz_paths = [f.with_suffix(f'.{gen}.gz') for gen in range(1, 4)] → [.1.gz, .2.gz, .3.gz]. For gen=2 (loop var), src=gz_paths[1]=.2.gz, dst=gz_paths[2]=.3.gz. Comment says src=.1.gz and dst=.2.gz — both wrong.",
+      "disposition": "Update inline comments to: `# gen=2 → src=.2.gz (index 1), dst=.3.gz (index 2); gen=1 → src=.1.gz (index 0), dst=.2.gz (index 1)`. Cosmetic fix only — no behavioral change."
+    },
+    {
+      "id": "SA-R9-5",
+      "severity": "LOW",
+      "dna": [19, 22],
+      "r8_claim": "AUTOFIX_V3_MANIFEST.md 'Integration approach (light-touch)' section: 'Each module's docstring clearly states its integration point:' (followed by a TABLE of integration points)",
+      "reality": "Each v3 module's docstring has a 'Flow:' section describing USAGE PATTERN (e.g., `before_scan: ASTDiffCache.partition_files(...)`), but does NOT explicitly state the INTEGRATION POINT (e.g., 'wire this in engine.py:apply_fix() at line N'). Only confidence_ranker.py mentions 'engine.py integration' — and it's in a code COMMENT (line 344), not in the docstring. Integration point mappings are in the manifest's TABLE, separate from module docstrings.",
+      "evidence": "grep -niE 'wire|standalone|engine\\.py' on all 6 v3 files → only 1 match (confidence_ranker.py:344 code comment). Each module has 'Flow:' section but no explicit integration point in docstring.",
+      "disposition": "Reword manifest claim: 'Each module's docstring describes its Flow (usage pattern). Specific integration points in the existing codebase are listed in the table below.'"
+    },
+    {
+      "id": "SA-R9-6",
+      "severity": "LOW",
+      "dna": [23, 26, 5],
+      "r8_claim": "R8 claims '371/371 .py ast.parse OK' + '57 total autofix .py (51 v2 + 6 v3)'",
+      "reality": "At R9 audit time, actual counts are 377 .py + 63 autofix .py. The +6 delta is NOT an R8 inaccuracy — it is R9 Subagent C concurrently creating 6 NEW v4 modules (IMP-19..IMP-24: property_validator.py, speculative_prefixer.py, callgraph_delta.py, shadow_canary.py, policy_gate.py, type_flow_verifier.py) at timestamps 20:19-20:25, DURING my Round 10 audit. R8 v3 modules were created at 20:14 (before R9 started). R8's counts were TRUE at R8 time.",
+      "evidence": "ls -la on v3 files → all timestamped 20:14 (R8 time). ls -la on v4 files → timestamped 20:19-20:25 (R9 time, during this audit). 6 v4 files declare themselves as 'R9 v4 IMP-19..24' in first-line docstrings.",
+      "disposition": "META finding for orchestrator: R9 audit is racing with R9 implementation. R9 final report should re-verify counts AFTER all subagents finish. R8 is INNOCENT of any count inaccuracy. Final R9 counts should be: 377 .py, 63 autofix .py (51 v2 + 6 v3 + 6 v4), 6,904 LOC v3+v4 (2,586 v3 + 4,318 v4)."
+    }
+  ],
+  "summary": {
+    "total_findings": 6,
+    "by_severity": {
+      "CRITICAL": 0,
+      "HIGH": 1,
+      "MEDIUM": 2,
+      "LOW": 3
+    },
+    "claims_verified_true": 18,
+    "claims_verified_false": 6,
+    "claims_unverifiable": 7,
+    "patches_present": "7/7 (R8-1 through R8-7 all present at claimed file:line)",
+    "patches_correct": "7/7 structurally correct (no missing patches, no wrong-file-line citations); R8-1 has a HIGH regression (SA-R9-2)",
+    "v3_modules_real": "6/6 (all ast.parse OK, all import cleanly, all have substantive content 268-459 effective LOC each, all smoke-testable with documented API)",
+    "r8_main_report_LOC": "2,586 (CORRECT — matches reality)",
+    "r8_manifest_LOC_inconsistency": "manifest has TWO different wrong numbers (2,582 + 2,585); main report is correct"
+  },
+  "honest_disclosure_unverifiable": [
+    "Agent Browser verification (20 sections render, 0 console errors, dark mode, mobile, sticky footer) — orchestrator will re-verify",
+    "R8-6/R8-7 concurrent stress-test claims — patches present + structurally correct, but no 10-thread stress test run",
+    "R8-1 in-production behavior (does in-memory _recent count actually trigger attack mode?) — would require running SCP server + sending 50 KILLs + waiting 6+ min",
+    "R8-2 env-var transition detection under realistic operator workflows — logic correct, not end-to-end tested",
+    "R8-3 3-generation rotation under real disk pressure — logic correct, no actual rotation triggered",
+    "R8-4 cold-start WARN under real 12h+ runtime — logic correct, no 12h+ test",
+    "R8-5 per-token rollback under real multi-fix-per-file scenario — patch correct, no actual rollback triggered",
+    "The 6 R9 v4 modules being created by Subagent C in parallel — observed their existence + first-line docstrings, did NOT audit content (they are R9 deliverables, not R8)"
+  ]
+}

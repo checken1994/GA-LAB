@@ -1,0 +1,35 @@
+registry_http=PASS|200
+registry_version=PASS|3.5
+registry_count=PASS|25
+dry_run_pc.directory_tree=PASS|ok
+dry_run_pc.file_hash=PASS|ok
+dry_run_pc.git_status=PASS|ok
+dry_run_pc.list_dir=PASS|ok
+dry_run_pc.process_info=PASS|ok
+dry_run_pc.process_list_owned=PASS|ok
+dry_run_pc.process_snapshot=PASS|ok
+dry_run_pc.process_start_managed=PASS|ok
+dry_run_pc.process_stop_owned=PASS|ok
+dry_run_pc.read_file=PASS|ok
+dry_run_pc.search_workspace=PASS|ok
+dry_run_pc.service_snapshot=PASS|ok
+dry_run_pc.status=PASS|ok
+dry_run_pc.validate_jsonl=PASS|ok
+dry_run_pc.workspace_diff_check=PASS|ok
+dry_run_pc.write_file=PASS|ok
+dry_run_web.browse_public=PASS|ok
+dry_run_web.dom_snapshot=PASS|ok
+dry_run_web.extract_links=PASS|ok
+dry_run_web.follow_public_link=PASS|ok
+dry_run_web.open_public_tab=PASS|ok
+dry_run_web.read_logged_in=PASS|ok
+dry_run_web.search_public=PASS|ok
+dry_run_web.tab_snapshot=PASS|ok
+dry_run_web.wait_for_text=PASS|ok
+actual_safe_pc.status=PASS|{'success': True, 'data': {'controller': 'online', 'version': '3.1', 'workingDir': 'C:\\Users\\check\\Downloads\\scp', 'killSwitch': False, 'auditEntries': 59, 'capabilityLevels': {'READ_ONLY': 0, 'DRY_RUN': 1, 'SANDBOX': 2, 'WORKSPACE': 3, 'REAL': 4, 'PRIVILEGED': 5}, 'policy': 'allowlist + explicit approval + audit + backup'}, 'evidence': {'controller': 'online'}, 'verification': {'passed': True, 'rule': 'controller_online'}, 'action': 'pc.status', 'durationMs': 4, 'policy': {'name': 'pc.status', 'description': 'Read PC Controller status', 'domain': 'pc', 'risk': 'low', 'capability_level': 0, 'requires_approval': False, 'mutates_state': False, 'verifier': 'controller_online', 'rollback': 'none'}}
+actual_safe_pc.process_list_owned=PASS|{'success': True, 'processes': [], 'count': 0, 'catalog': [{'commandId': 'hands_probe', 'description': 'Fixed SCP-owned diagnostic process', 'approval': 'capability>=3 and approved'}], 'verification': {'passed': True, 'rule': 'owned_process_report'}, 'action': 'pc.process_list_owned', 'durationMs': 0, 'policy': {'name': 'pc.process_list_owned', 'description': 'List processes started and owned by Hands', 'domain': 'pc', 'risk': 'low', 'capability_level': 0, 'requires_approval': False, 'mutates_state': False, 'verifier': 'owned_process_report', 'rollback': 'none'}}
+actual_safe_pc.validate_jsonl=PASS|{'success': True, 'path': 'C:\\Users\\check\\Downloads\\scp\\data\\hands\\audit.jsonl', 'validLines': 176, 'invalidLines': 0, 'invalid': [], 'verification': {'passed': True, 'rule': 'jsonl_parse_report'}, 'action': 'pc.validate_jsonl', 'durationMs': 4, 'policy': {'name': 'pc.validate_jsonl', 'description': 'Validate JSONL syntax in a non-sensitive file', 'domain': 'pc', 'risk': 'low', 'capability_level': 0, 'requires_approval': False, 'mutates_state': False, 'verifier': 'jsonl_parse_report', 'rollback': 'none'}}
+actual_safe_web.tab_snapshot=PASS|{'success': True, 'pages': [], 'evidence': {'pageCount': 0}, 'verification': {'passed': True, 'rule': 'page_targets'}, 'action': 'web.tab_snapshot', 'durationMs': 2370, 'policy': {'name': 'web.tab_snapshot', 'description': 'Read bounded local DevTools page targets', 'domain': 'web', 'risk': 'low', 'capability_level': 0, 'requires_approval': False, 'mutates_state': False, 'verifier': 'page_targets', 'rollback': 'none'}}
+actual_safe_web.search_public=PASS|{'success': True, 'query': 'SCP self correcting process', 'results': [{'title': 'Main - SCP', 'url': 'https://www.bing.com/ck/a?!&&p=94bcfc06dd7edda013a69f4c6e9a62bf201c1f32601ee034dbd7790c83926464JmltdHM9MTc4NjQ5MjgwMA&ptn=3&ver=2&hsh=4&fclid=3c1f4bd4-311d-6ce6-32e8-5c6030706dbf&u=a1aHR0cHM6Ly9zY3Atd2lraS53aWtpZG90LmNvbS8&ntb=1', 'snippet': '', 'provider': 'bing'}, {'title': 'à¸ªà¸–à¸²à¸à¸±à¸™ SCP', 'url': 'https://www.bing.com/ck/a?!&&p=98d32c687da64aa20dc441e0646ae575201dac551e5bdfbd449dee95f7017115JmltdHM9MTc4NjQ5MjgwMA&ptn=3&ver=2&hsh=4&fclid=3c1f4bd4-311d-6ce6-32e8-5c6030706dbf&u=a1aHR0cDovL3NjcC10aC53aWtpZG90LmNvbS8&ntb=1', 'snippet': '', 'provider': 'bing'}], 'providersTried': ['duckduckgo', 'bing'], 'errors': [], 'untrustedData': True, 'method': 'public-search', 'timestamp': 1786591114.423213, 'verification': {'passed': True, 'rule': 'results_normalized'}, 'action': 'web.search_public', 'durationMs': 1414, 'policy': {'name': 'web.search_public', 'description': 'Search public Internet sources', 'domain': 'web', 'risk': 'low', 'capability_level': 0, 'requires_approval': False, 'mutates_state': False, 'verifier': 'results_normalized', 'rollback': 'none'}}
+actualOutcomes=[{"action":"pc.status","status":200,"success":true,"verified":true,"latencyMs":12.06,"error":""},{"action":"pc.process_list_owned","status":200,"success":true,"verified":true,"latencyMs":5.77,"error":""},{"action":"pc.validate_jsonl","status":200,"success":true,"verified":true,"latencyMs":30.79,"error":""},{"action":"web.tab_snapshot","status":200,"success":true,"verified":true,"latencyMs":2372.65,"error":""},{"action":"web.search_public","status":200,"success":true,"verified":true,"latencyMs":1430.73,"error":""}]
+HANDS_V35_REGISTRY_SMOKE_PASS=True
