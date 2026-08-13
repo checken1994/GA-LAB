@@ -40,7 +40,7 @@ import time
 from typing import Any, Optional
 
 logger = logging.getLogger("scp.security.auth")
-from scp.security.secret_loader import read_secret
+from scp.security.auth_config import AuthConfigError, load_auth_config
 
 # [G5-FIX] Header import — verify_admin uses it in signature (FastAPI dep marker).
 try:
@@ -111,8 +111,13 @@ def verify_admin(
             detail="Too many auth attempts — try again later",
         )
 
-    auth_password = read_secret("SCP_AUTH_PASSWORD", "SCP_AUTH_PASSWORD_FILE")
-    auth_token = read_secret("SCP_AUTH_TOKEN_SECRET", "SCP_AUTH_TOKEN_SECRET_FILE")
+    try:
+        auth_config = load_auth_config()
+    except AuthConfigError as exc:
+        logger.error("verify_admin: invalid auth configuration (%s)", exc.code)
+        raise HTTPException(status_code=503, detail="Authentication configuration unavailable") from exc
+    auth_password = auth_config.password
+    auth_token = auth_config.token
     # Deny by default if NEITHER is configured (no dev-mode bypass).
     # [Fix 4-a-006] 503 → 401: "Auth not configured" is an authorization
     # failure (caller's credentials don't match the empty config), NOT a

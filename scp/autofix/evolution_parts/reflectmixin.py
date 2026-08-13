@@ -151,14 +151,18 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
         # Skip for now — KB query is complex
 
         # Step 2: Audit
+        cycle_started = time.monotonic()
+        logger.info("[EVOLUTION_STAGE] scan_start max_bugs=%s", max_bugs)
         from scp.autofix.runner import ast_scan_scp
         bugs = ast_scan_scp(max_bugs=max_bugs)
+        logger.info("[EVOLUTION_STAGE] scan_complete findings=%s elapsed_ms=%s", len(bugs), int((time.monotonic() - cycle_started) * 1000))
         logger.info(f"[EVOLUTION] Audit found {len(bugs)} bugs")
 
         # Step 3: Fix
         fixed = 0
         reflects = []
-        for bug in bugs:
+        for bug_index, bug in enumerate(bugs, 1):
+            logger.info("[EVOLUTION_STAGE] finding_start index=%s total=%s file=%s line=%s", bug_index, len(bugs), getattr(bug, "file", ""), getattr(bug, "line", ""))
             # [V9.0-WHY-GATE] WHY gates evolution cycle — PRIMARY CONTROL GATE
             # TẠI SAO: v8.0 WHY = cố vấn. v9.0 WHY = chốt. WHY Gate can skip a
             # bug in the evolve cycle (e.g., relaxation that loosens security)
@@ -189,12 +193,16 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
             try:
                 # Use LLM bridge (from v5.1 FIX-3)
                 from scp.autofix.llm_fix import process_bug_with_llm
+                logger.info("[EVOLUTION_STAGE] fix_start index=%s", bug_index)
                 result = process_bug_with_llm(bug, self.autofix)
+                logger.info("[EVOLUTION_STAGE] fix_complete index=%s action=%s", bug_index, result.get("action") if isinstance(result, dict) else "unknown")
                 if result.get("action") == "fixed":
                     fixed += 1
                     # Step 4: Reflect
                     fix_diff = result.get("patched", "")
+                    logger.info("[EVOLUTION_STAGE] reflect_start index=%s", bug_index)
                     reflect_result = self.reflect(bug, str(fix_diff))
+                    logger.info("[EVOLUTION_STAGE] reflect_complete index=%s", bug_index)
                     reflects.append({
                         "file": bug.file, "line": bug.line,
                         "self_falsified": reflect_result.self_falsified,

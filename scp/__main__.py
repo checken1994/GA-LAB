@@ -60,11 +60,23 @@ def _load_env_at_startup() -> None:
         _env_path = Path(__file__).resolve().parent.parent / ".env"
     if not _env_path.exists() or not _env_path.is_file():
         return
+    if _override:
+        # Explicit env-file is an isolated boundary: always apply its keys.
+        for _line in _env_path.read_text(encoding="utf-8-sig").splitlines():
+            _line = _line.strip()
+            if not _line or _line.startswith("#") or "=" not in _line:
+                continue
+            _key, _, _val = _line.partition("=")
+            _key = _key.strip()
+            _val = _val.strip().strip(chr(34)).strip(chr(39))
+            if _key:
+                os.environ[_key] = _val
+        return
     try:
         from dotenv import load_dotenv
-        load_dotenv(_env_path)
+        load_dotenv(_env_path, override=False)
     except ImportError:
-        for _line in _env_path.read_text(encoding="utf-8").splitlines():
+        for _line in _env_path.read_text(encoding="utf-8-sig").splitlines():
             _line = _line.strip()
             if not _line or _line.startswith("#") or "=" not in _line:
                 continue

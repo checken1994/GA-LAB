@@ -63,7 +63,18 @@ try:
     else:
         _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     if _env_path.exists() and _env_path.is_file():
-        load_dotenv(_env_path)
+        if _override:
+            for _line in _env_path.read_text(encoding="utf-8-sig").splitlines():
+                _line = _line.strip()
+                if not _line or _line.startswith("#") or "=" not in _line:
+                    continue
+                _key, _, _val = _line.partition("=")
+                _key = _key.strip()
+                _val = _val.strip().strip(chr(34)).strip(chr(39))
+                if _key:
+                    os.environ[_key] = _val
+        else:
+            load_dotenv(_env_path, override=False)
 except ImportError:
     _override = os.environ.get("SCP_ENV_FILE")
     if _override:
@@ -80,7 +91,7 @@ except ImportError:
             _key, _, _val = _line.partition("=")
             _key = _key.strip()
             _val = _val.strip().strip(chr(34)).strip(chr(39))
-            if _key and _key not in os.environ:
+            if _key and (_override or _key not in os.environ):
                 os.environ[_key] = _val
 from scp.autofix.classifier import BugReport, BugTier
 from scp.autofix.engine import get_autofix_engine
@@ -507,6 +518,8 @@ def _main() -> int:
                         help="Cap bugs processed this run (0 = no limit)")
     parser.add_argument("--ast-scan", action="store_true",
                         help="AST-scan scp/ for bugs (same as server STARTUP-GATE)")
+    parser.add_argument("--scan-only", action="store_true",
+                        help="Scan scp/ and return findings without WHY/fix/reflect")
     parser.add_argument("--verbose", "-v", action="store_true")
     # [IMP-11 R7-Full] Parallel fix worker pool (default: off — backward compat).
     parser.add_argument("--parallel", type=int, default=0, metavar="N",
@@ -564,6 +577,8 @@ def _main() -> int:
                         help="Reflect on last fix — learn WHY bug occurred (Tier 4)")
     parser.add_argument("--evolve", action="store_true",
                         help="Run evolution cycle: WHY -> Audit -> Fix -> Reflect (Tier 4)")
+    parser.add_argument("--evolution-timeout-seconds", type=float, default=300.0,
+                        help="Hard deadline for evolution child process (default 300s)")
     parser.add_argument("--evolution-stats", action="store_true",
                         help="Show evolution engine stats")
 
@@ -573,6 +588,14 @@ def _main() -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     )
+
+    if args.scan_only:
+        bugs = ast_scan_scp(max_bugs=args.max_bugs)
+        print(json.dumps({"source": "scan_only", "total_bugs": len(bugs), "bugs": [
+            {"file": b.file, "line": b.line, "bug_type": b.bug_type,
+             "tier": int(b.tier)} for b in bugs
+        ]}, indent=2, default=str))
+        return 0
 
     # [EVOLUTION] Tier 4 modes
     if args.build_module or args.evolve or args.reflect or args.evolution_stats:
@@ -598,7 +621,11 @@ def _main() -> int:
             return 0
 
         if args.evolve:
-            result = eng.evolve_cycle(max_bugs=args.max_bugs or 20)
+            from scp.core.bounded_evolution import run_bounded_evolution
+            result = run_bounded_evolution(
+                max_bugs=args.max_bugs or 20,
+                timeout_seconds=args.evolution_timeout_seconds,
+            )
             print(json.dumps(result, indent=2, default=str))
             return 0
 

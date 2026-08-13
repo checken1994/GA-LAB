@@ -87,9 +87,14 @@ def _status(mode: str, result: Any, error: BaseException | None) -> str:
     if mode == "evolution":
         if payload.get("action") == "skipped":
             return "NO_NEW_FACTS"
-        if _int_or_none(payload.get("bugs_fixed")) or _int_or_none(payload.get("lessons_stored")):
-            return "SUCCESS"
-        return "NO_NEW_FACTS"
+        bugs_found = _int_or_none(payload.get("bugs_found")) or 0
+        bugs_fixed = _int_or_none(payload.get("bugs_fixed")) or 0
+        lessons_stored = _int_or_none(payload.get("lessons_stored")) or 0
+        if bugs_found == 0 and lessons_stored == 0:
+            return "NO_NEW_FACTS"
+        if bugs_fixed == 0 and lessons_stored == 0:
+            return "PROVIDER_FAILED"
+        return "SUCCESS"
     asked = metrics["asked"] or 0
     verified = metrics["verified"] or 0
     stored = metrics["stored"] or 0
