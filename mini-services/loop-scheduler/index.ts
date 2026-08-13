@@ -70,6 +70,7 @@ function _loadEnvFile() {
   const _p = _isAbsolute ? _override : join(process.cwd(), _override);
   if (!existsSync(_p)) throw new Error(`[loop-scheduler] explicit env file not found: ${_p}`);
   const _content = readFileSync(_p, "utf-8");
+  const _envRoot = dirname(_p);
   for (const _line of _content.split("\n")) {
     const _trimmed = _line.trim();
     if (!_trimmed || _trimmed.startsWith("#") || !_trimmed.includes("=")) continue;
@@ -78,6 +79,16 @@ function _loadEnvFile() {
     let _val = _trimmed.slice(_eqIdx + 1).trim();
     if ((_val.startsWith('"') && _val.endsWith('"')) || (_val.startsWith("'") && _val.endsWith("'"))) _val = _val.slice(1, -1);
     if (_key && !process.env[_key]) process.env[_key] = _val;
+    if (_key.endsWith("_FILE") && _val) {
+      const _rawPath = _val.replace(/^@file:/, "").replace(/^file:\/\//, "");
+      const _secretPath = (/^[A-Za-z]:[\\/]|^[/\\]/.test(_rawPath)) ? _rawPath : join(_envRoot, _rawPath);
+      if (!existsSync(_secretPath)) throw new Error(`[loop-scheduler] secret file not found for ${_key}: ${_secretPath}`);
+      process.env[_key] = _secretPath;
+      const _secretValue = readFileSync(_secretPath, "utf-8").trim();
+      if (!_secretValue) throw new Error(`[loop-scheduler] secret file empty for ${_key}`);
+      const _valueKey = _key.slice(0, -5);
+      if (!process.env[_valueKey]) process.env[_valueKey] = _secretValue;
+    }
   }
   console.log(`[loop-scheduler] env source=${_p}`);
 }

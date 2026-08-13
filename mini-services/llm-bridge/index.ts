@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
  *   POST /api/generate — {model, prompt,  stream} → z-ai-web-dev-sdk → Ollama generate JSON
  *   GET  /api/version  — fake Ollama version (some clients ping this)
  *
- * Port: 11434 (Ollama default). Override via ZAI_BRIDGE_PORT env var.
+ * Port: 11434 (Ollama default). Override via SCP_LLM_BRIDGE_PORT (or legacy ZAI_BRIDGE_PORT) env var.
  *
  * Model handling:
  *   The model field is ACCEPTED but IGNORED — z-ai-web-dev-sdk picks its own
@@ -158,7 +158,7 @@ function resolveModel(requestedModel: string | undefined): string {
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const PORT = Number(process.env.ZAI_BRIDGE_PORT ?? 11434);
+const PORT = Number(process.env.SCP_LLM_BRIDGE_PORT ?? process.env.ZAI_BRIDGE_PORT ?? 11434);
 // [SCP-DNA-FIX 4-d-009] Bind 127.0.0.1 (loopback only) — was 0.0.0.0.
 // DNA #6 (Gốc tin cậy bên ngoài): binding 0.0.0.0 + no auth + CORS *
 // let any webpage (file://, malicious site, browser extension) POST
@@ -453,7 +453,7 @@ function isRateLimitError(err: any): boolean {
 // lived here. Its default URL was `process.env.OLLAMA_BASE_URL ||
 // "http://127.0.0.1:11434"` — but 11434 IS THIS BRIDGE'S OWN PORT. When
 // OpenRouter AND Groq both failed, callProviderDirect() POSTed to
-// http://127.0.0.1:11434/api/chat → the bridge received its own request →
+// http://127.0.0.1:${PORT}/api/chat → the bridge received its own request →
 // callZaiChat → OpenRouter failed again → fell through to the (now-removed)
 // ollama entry → itself → infinite recursion → stack overflow / OOM.
 // This was a regression introduced by R19-FIX-2 (the fix that ADDED the
@@ -715,7 +715,7 @@ h1{color:#7fd1ff} a{color:#7fff9e} pre{background:#0e1722;padding:1rem;border-ra
 </head><body>
 <h1>SCP LLM Bridge</h1>
 <p>Ollama-compatible HTTP bridge → <code>z-ai-web-dev-sdk</code>.</p>
-<p>Listens on port <strong>11434</strong> so SCP's default <code>OLLAMA_HOST=http://127.0.0.1:11434</code>
+<p>Listens on port <strong>${PORT}</strong> so SCP's configured bridge endpoint is visible here.
 config works without changes.</p>
 <h2>Endpoints</h2>
 <pre>GET  /api/tags      — fake Ollama model list
@@ -724,9 +724,9 @@ POST /api/generate  — {model, prompt,  stream} → real LLM
 GET  /api/version   — fake Ollama version
 GET  /              — this page</pre>
 <h2>Quick test</h2>
-<pre>curl -s http://127.0.0.1:11434/api/tags | jq .
+<pre>curl -s http://127.0.0.1:${PORT}/api/tags | jq .
 
-curl -s -X POST http://127.0.0.1:11434/api/chat \\
+curl -s -X POST http://127.0.0.1:${PORT}/api/chat \\
   -H 'Content-Type: application/json' \\
   -d '{"model":"qwen2.5:7b","messages":[{"role":"user","content":"What is 2+2? Reply with just the number."}],"stream":false}' | jq .</pre>
 </body></html>`;

@@ -135,7 +135,11 @@ function commandFor(label) {
       cwd: path.join(SCP_ROOT, 'mini-services', 'llm-bridge'),
       file: 'bun',
       args: ['run', 'dev'],
-      env: { SCP_BASE_URL: 'http://127.0.0.1:8000' },
+      env: {
+        SCP_BASE_URL: 'http://127.0.0.1:8000',
+        ZAI_BRIDGE_PORT: String(DESKTOP_BRIDGE_PORT),
+        ZAI_BRIDGE_HOST: '127.0.0.1',
+      },
     },
     scheduler: {
       cwd: path.join(SCP_ROOT, 'mini-services', 'loop-scheduler'),
@@ -145,7 +149,7 @@ function commandFor(label) {
         SCP_ROOT,
         SCP_MODEL_VERSION: MODEL_VERSION,
         SCP_BASE_URL: 'http://127.0.0.1:8000',
-        LLM_BRIDGE_URL: 'http://127.0.0.1:11434',
+        LLM_BRIDGE_URL: DESKTOP_BRIDGE_URL,
       },
     },
     scp: {

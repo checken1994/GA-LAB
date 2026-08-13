@@ -25,6 +25,7 @@ import os
 import json
 import subprocess
 import time
+import tempfile
 import http.client
 from pathlib import Path
 
@@ -132,12 +133,16 @@ def main() -> int:
     # -------------------------------------------------------------------------
     print("\n--- Runtime persistence test (DNA #2 reality) ---")
     env = dict(os.environ)
+    _test_env_file = tempfile.NamedTemporaryFile("w", delete=False, suffix=".env")
+    _test_env_file.close()
     env["LOOP_INTERVAL_SEC"] = "3600"  # don't fire cron during test
     env["SCP_BASE_URL"] = "http://127.0.0.1:65530"  # unreachable
     env["LLM_BRIDGE_URL"] = "http://127.0.0.1:65531"  # unreachable
     env["LOOP_SCHEDULER_PORT"] = "3041"
     env["LOOP_STATE_PATH"] = "/tmp/test-4-d-019-state.json"
     env["LOOP_LOG_PATH"] = "/tmp/test-4-d-019-runs.jsonl"
+    env["SCP_ENV_FILE"] = _test_env_file.name
+    env["SCP_SCHEDULER_ADMIN_TOKEN_FILE"] = ""
     env["SCP_SCHEDULER_ADMIN_TOKEN"] = "test-only-scheduler-token"
 
     # Clean slate
@@ -236,6 +241,11 @@ def main() -> int:
             os.unlink(p)
         except FileNotFoundError:
             pass
+
+    try:
+        os.unlink(_test_env_file.name)
+    except FileNotFoundError:
+        pass
 
     print("\n✓ Reality test 4-d-019 PASSED (6/6 assertions)")
     return 0

@@ -31,6 +31,7 @@ import os
 import re
 import subprocess
 import time
+import tempfile
 import socket
 import http.client
 
@@ -71,8 +72,15 @@ print("PASS [4/5]: Bun.serve() hostname defaults to 127.0.0.1 (loopback)")
 #   (b) confirming we can connect via 127.0.0.1 (loopback works)
 #   (c) checking socket binding via /proc/<pid>/net/tcp if available
 env = dict(os.environ)
+_test_env_file = tempfile.NamedTemporaryFile("w", delete=False, suffix=".env")
+_test_env_file.close()
+# Isolate the scheduler child from the caller production env-file and token.
+env["SCP_ENV_FILE"] = _test_env_file.name
+env["SCP_SCHEDULER_ADMIN_TOKEN_FILE"] = ""
+env["SCP_SCHEDULER_ADMIN_TOKEN"] = "test-only-scheduler-token"
 env["LOOP_INTERVAL_SEC"] = "3600"
 env["SCP_BASE_URL"] = "http://127.0.0.1:65530"  # bogus — won't fire audit
+env["LLM_BRIDGE_URL"] = "http://127.0.0.1:65531"  # unreachable
 env["LOOP_SCHEDULER_PORT"] = "3038"
 
 proc = subprocess.Popen(
@@ -132,4 +140,8 @@ finally:
         except Exception:
             pass
 
+    try:
+        os.unlink(_test_env_file.name)
+    except FileNotFoundError:
+        pass
 print("\n✓ Reality test 4-d-008 PASSED")
