@@ -15,6 +15,7 @@ import re
 import time
 from pathlib import Path
 from typing import Optional
+from scp.core.learning_run_ledger import ledger_run
 
 logger = logging.getLogger("scp.autofix.evolution")
 
@@ -128,6 +129,7 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
         return result
 
 
+    @ledger_run("evolution")
     def evolve_cycle(self, max_bugs: int = 20) -> dict:
         """Vòng lặp khép kín: WHY → Audit → Fix → Reflect.
 

@@ -52,6 +52,7 @@ from pathlib import Path
 
 # [ROOT-FIX 1] Canonical knowledge DDL — single source of truth (db_manager.py)
 from scp.core.db_manager import _KNOWLEDGE_CANONICAL_DDL
+from scp.core.learning_run_ledger import ledger_run
 
 logger = logging.getLogger("scp.core.fast_learning_engine")
 
@@ -799,6 +800,7 @@ class FastLearningEngine:
     # V104.2.4: FAST LEARNING CYCLE (PARALLEL)
     # ============================================================
 
+    @ledger_run("fast")
     async def fast_learning_cycle(self, count: int = 50) -> dict:
         """
         V104.2 Fast learning cycle:
