@@ -19,6 +19,19 @@ from scp.core.learning_run_ledger import ledger_run
 
 logger = logging.getLogger("scp.autofix.evolution")
 
+def _write_evolution_stage(stage: str, **details) -> None:
+    """Write sanitized child checkpoint for parent timeout diagnosis."""
+    stage_file = os.environ.get("SCP_EVOLUTION_STAGE_FILE", "").strip()
+    if not stage_file:
+        return
+    try:
+        payload = {"stage": stage, **{k: str(v)[:120] for k, v in details.items()}}
+        target = Path(stage_file)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    except (OSError, TypeError, ValueError) as exc:
+        logger.debug("[EVOLUTION_STAGE] checkpoint write failed: %s", type(exc).__name__)
+
 from scp.autofix.classifier import BugReport
 from scp.autofix.evolution import (
     EVOLUTION_TIMEOUT_SECONDS,
@@ -143,6 +156,7 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
         Returns summary dict.
         """
         action_desc = f"evolve_cycle: max_bugs={max_bugs}"
+        _write_evolution_stage("cycle_start", max_bugs=max_bugs)
 
         if not self._should_evolve(action_desc):
             return {"action": "skipped", "reason": "evolution disabled"}
@@ -153,9 +167,11 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
         # Step 2: Audit
         cycle_started = time.monotonic()
         logger.info("[EVOLUTION_STAGE] scan_start max_bugs=%s", max_bugs)
+        _write_evolution_stage("scan_start", max_bugs=max_bugs)
         from scp.autofix.runner import ast_scan_scp
         bugs = ast_scan_scp(max_bugs=max_bugs)
         logger.info("[EVOLUTION_STAGE] scan_complete findings=%s elapsed_ms=%s", len(bugs), int((time.monotonic() - cycle_started) * 1000))
+        _write_evolution_stage("scan_complete", findings=len(bugs))
         logger.info(f"[EVOLUTION] Audit found {len(bugs)} bugs")
 
         # Step 3: Fix
@@ -163,6 +179,7 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
         reflects = []
         for bug_index, bug in enumerate(bugs, 1):
             logger.info("[EVOLUTION_STAGE] finding_start index=%s total=%s file=%s line=%s", bug_index, len(bugs), getattr(bug, "file", ""), getattr(bug, "line", ""))
+            _write_evolution_stage("finding_start", index=bug_index, total=len(bugs))
             # [V9.0-WHY-GATE] WHY gates evolution cycle — PRIMARY CONTROL GATE
             # TẠI SAO: v8.0 WHY = cố vấn. v9.0 WHY = chốt. WHY Gate can skip a
             # bug in the evolve cycle (e.g., relaxation that loosens security)
@@ -194,15 +211,19 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
                 # Use LLM bridge (from v5.1 FIX-3)
                 from scp.autofix.llm_fix import process_bug_with_llm
                 logger.info("[EVOLUTION_STAGE] fix_start index=%s", bug_index)
+                _write_evolution_stage("fix_start", index=bug_index)
                 result = process_bug_with_llm(bug, self.autofix)
                 logger.info("[EVOLUTION_STAGE] fix_complete index=%s action=%s", bug_index, result.get("action") if isinstance(result, dict) else "unknown")
+                _write_evolution_stage("fix_complete", index=bug_index)
                 if result.get("action") == "fixed":
                     fixed += 1
                     # Step 4: Reflect
                     fix_diff = result.get("patched", "")
                     logger.info("[EVOLUTION_STAGE] reflect_start index=%s", bug_index)
+                    _write_evolution_stage("reflect_start", index=bug_index)
                     reflect_result = self.reflect(bug, str(fix_diff))
                     logger.info("[EVOLUTION_STAGE] reflect_complete index=%s", bug_index)
+                    _write_evolution_stage("reflect_complete", index=bug_index)
                     reflects.append({
                         "file": bug.file, "line": bug.line,
                         "self_falsified": reflect_result.self_falsified,

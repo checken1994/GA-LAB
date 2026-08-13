@@ -10,9 +10,10 @@ from __future__ import annotations
 import json
 import logging
 import multiprocessing as mp
+import os
 import queue
-import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from scp.core.learning_run_ledger import record_learning_run
@@ -24,9 +25,26 @@ def _utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _evolution_child(result_queue: Any, max_bugs: int, data_dir: str) -> None:
+def _read_checkpoint(stage_file: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(Path(stage_file).read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def _evolution_child(
+    result_queue: Any,
+    max_bugs: int,
+    data_dir: str,
+    stage_file: str,
+    provider_timeout_seconds: float,
+) -> None:
     """Run evolution in a spawn-safe child process."""
     try:
+        os.environ["SCP_EVOLUTION_STAGE_FILE"] = stage_file
+        os.environ["OLLAMA_TIMEOUT"] = str(max(1, int(provider_timeout_seconds)))
+        os.environ["SCP_LLM_REQUEST_TIMEOUT_SECONDS"] = str(provider_timeout_seconds)
         from scp.autofix.evolution import get_evolution_engine
 
         engine = get_evolution_engine(data_dir=data_dir)
@@ -64,11 +82,26 @@ def run_bounded_evolution(
     if timeout_seconds <= 0 or timeout_seconds != timeout_seconds:
         raise ValueError("timeout_seconds must be a positive finite number")
     started_at = _utc_iso()
+    stage_file = str(Path(data_dir) / "evolution_stage.json")
+    try:
+        configured_provider_timeout = float(
+            os.environ.get("SCP_EVOLUTION_PROVIDER_TIMEOUT_SECONDS", "30")
+        )
+    except ValueError:
+        configured_provider_timeout = 30.0
+    provider_timeout_seconds = min(timeout_seconds, max(1.0, configured_provider_timeout))
     context = mp.get_context("spawn")
+
     result_queue = context.Queue(maxsize=1)
     process = context.Process(
         target=_evolution_child,
-        args=(result_queue, int(max_bugs), str(data_dir)),
+        args=(
+            result_queue,
+            int(max_bugs),
+            str(data_dir),
+            stage_file,
+            provider_timeout_seconds,
+        ),
         name="scp-evolution-child",
     )
     process.start()
@@ -76,24 +109,27 @@ def run_bounded_evolution(
     process.join(timeout=timeout_seconds)
 
     if process.is_alive():
+        checkpoint = _read_checkpoint(stage_file)
         _terminate_child(process)
+        last_stage = str(checkpoint.get("stage", "unknown"))
         error = TimeoutError(
-            f"stage=child_evolve_cycle; child_pid={child_pid}; "
+            f"stage={last_stage}; child_pid={child_pid}; "
             f"timeout_seconds={timeout_seconds:g}"
         )
         record_learning_run(
             mode="evolution",
             started_at=started_at,
             ended_at=_utc_iso(),
-            result=None,
+            result={"stage": last_stage},
             error=error,
         )
         return {
             "action": "timed_out",
             "status": "TIMEOUT",
-            "stage": "child_evolve_cycle",
+            "stage": last_stage,
             "timeout_seconds": timeout_seconds,
             "child_pid": child_pid,
+            "stage_file": stage_file,
         }
 
     try:

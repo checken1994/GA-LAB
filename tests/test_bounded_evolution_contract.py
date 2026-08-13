@@ -14,7 +14,15 @@ def test_hard_timeout_terminates_child_and_is_fail_closed(tmp_path):
     )
     assert result["status"] == "TIMEOUT"
     assert result["action"] == "timed_out"
-    assert result["stage"] == "child_evolve_cycle"
+    assert result["stage"] in {
+        "unknown",
+        "cycle_start",
+        "scan_start",
+        "scan_complete",
+        "finding_start",
+        "fix_start",
+        "reflect_start",
+    }
     assert isinstance(result["child_pid"], int)
 
 
