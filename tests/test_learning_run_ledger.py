@@ -18,6 +18,7 @@ def test_fast_reject_is_recorded(tmp_path, monkeypatch):
     row = json.loads(path.read_text(encoding="utf-8").splitlines()[-1])
     assert row["status"] == "VERIFY_REJECTED"
     assert row["asked"] == 1
+    assert row["answered"] == 1
     assert row["rejected"] == 1
     assert row["stored"] == 0
     assert row["error_class"] is None
