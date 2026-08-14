@@ -6,7 +6,11 @@
 
 SCP hiện đạt trạng thái **release candidate có thể đóng gói và chạy trên đúng PC đã kiểm thử**. Không nên gọi đây là “đã chứng minh production trên mọi PC” hoặc “tự động bắt được mọi cuộc tấn công”. Những tuyên bố đó vượt quá evidence.
 
-Trạng thái vận hành cuối sau khi resume loop là: Task Supervisor `Running`, bốn port `3000/3030/8000/11434` đang listen và các health endpoint kiểm tra cuối đều HTTP `200`. Loop Scheduler đã được resume, `paused=false`; giá trị `last_run` còn hiển thị lỗi cũ và `scp_online=false` từ lần request timeout/startup race trước đó, nên không được đọc nhầm thành health hiện tại. Probe trực tiếp sau đó cho thấy backend, scheduler healthz và LLM Bridge đều `200`.
+Trạng thái vận hành cuối sau khi restart có kiểm soát là: Task Supervisor `Running`, bốn port `3000/3030/8000/11434` đang listen và worker status trả `llm_allowed=false`, `applied=1`, `rejected=1`. Snapshot runtime cuối ghi `fast_learning=IDLE/fresh=True`, `evolution=DISABLED/fresh=True`, `deep_audit=IDLE/fresh=True`, `attack_monitor=IDLE/fresh=True`. Evolution được tắt có chủ ý; `DISABLED` không phải lỗi chết loop.
+
+Một reality test quan trọng đã tìm ra lỗi thật: cycle FastLearning bị hủy bởi giới hạn thời gian nhưng ledger ghi nhầm `TELEMETRY_DEGRADED` thay vì `TIMEOUT`. Nguyên nhân là cờ nội bộ chỉ được bật sau khi task đã bị hủy. Bản vá giữ cờ trong suốt lúc `CancelledError` lan qua decorator, sau đó live test trên PC đã ghi đúng `cycle_completed|STATUS=TIMEOUT|ERROR=CancelledError`, cycle được kết thúc và heartbeat quay về `IDLE/fresh=True`.
+
+Reality test cũng phát hiện supervisor mỗi lần restart tự ghi đè `child-safe.env`, làm mất các dòng Evolution/telemetry/timeout mà ta thêm thủ công. Đã sửa supervisor để tự tạo lại toàn bộ boundary an toàn mỗi lần khởi động; lần restart sau bản vá xác nhận đủ năm tên cờ bắt buộc và không chạm `C:\Users\check\Downloads\.env`.
 
 ## Các thay đổi đã hoàn tất
 
@@ -19,7 +23,7 @@ Trạng thái vận hành cuối sau khi resume loop là: Task Supervisor `Runni
 | Orphan process | Windows Job Object với `KILL_ON_JOB_CLOSE`; external terminate đã dừng child | Supervisor evidence/ledger |
 | Recovery | Recovery watchdog mỗi phút, user-session scope; kill switch được tôn trọng | `a364ae7`, `d6b0b96` |
 | Packaging | Runtime manifest, build script hash binaries; Electron filter loại `data`, `.py`, `.env`, DB/JSONL khỏi bundle | `0039e41`, `e46515d` |
-| Tests | Fixture Windows path được sửa thành portable `tmp_path`; worker/release contract tests pass trên sandbox và PC thật | `86 passed` sandbox; `16 passed` PC thật |
+| Tests | Fixture Windows path được sửa thành portable `tmp_path`; telemetry timeout và supervisor child-safe contract được thêm | `92 passed` sandbox; PC runtime timeout + 4 port check pass |
 
 ## AutoFix: đã tự động đến mức nào?
 
@@ -77,7 +81,7 @@ Vì vậy production operation phải coi hash drift của `v13.db` là expected
 
 ## Regression và release gates
 
-Sandbox regression cuối sau các source patches: **86 pytest passed, 0 failed**. PC thật chạy targeted worker/release tests: **16 passed, 0 failed**. Desktop JavaScript syntax check: `main.cjs` và `preload.cjs` pass. Portable Electron build có worker: pass. PC health checkpoint: bốn service ports listen, các health checks `200`, supervisor `Running`, recovery watchdog `Ready`, loop `paused=false`, `total_runs=46`. Worker queue evidence: `applied=1`, `rejected=1`, `llm_allowed=false`. Hai PID Python có cùng command line là cặp venv launcher/base interpreter của một logical worker, không phải hai job worker độc lập.
+Sandbox regression cuối sau các source patches: **92 pytest passed, 0 failed**. Trong đó có test ledger TIMEOUT khi task bị cancel và test supervisor không làm mất child-safe boundary. PC thật đã chạy live restart, kiểm tra bốn port listen, supervisor `Running`, worker `llm_allowed=false`, Evolution `DISABLED/fresh=True`, cùng live FastLearning timeout ghi đúng `TIMEOUT` rồi quay về `IDLE/fresh=True`. Queue evidence vẫn là `applied=1`, `rejected=1`. Desktop JavaScript syntax check và portable Electron build vẫn giữ evidence trước đó. Hai PID Python có cùng command line là cặp venv launcher/base interpreter của một logical worker, không phải hai job worker độc lập.
 
 ## Blocker còn lại trước khi gọi là Production phổ quát
 
@@ -106,11 +110,15 @@ Source và tests đã đồng bộ lên `GA-LAB`:
 - `e46515d` — exclude live runtime data from desktop packaging.
 - `0039e41` — desktop runtime release contract and portable tests.
 - `d6b0b96` — truthful user-session recovery watchdog scope.
+- `210fe8c` — explicitly treat deliberate Evolution DISABLED state as fresh.
+- `174b8bb` — bounded FastLearning cycle and terminal timeout ledger.
+- `f4e1d4d` — classify bounded cancellation as TIMEOUT, not degraded telemetry.
+- `e1736b0` — preserve child-safe Evolution/telemetry/timeout flags on supervisor restart.
 
-GitHub source HEAD được xác nhận là `8b3d6b927c7cedd430dc7c2745bf213c48102cba` với source/tests working tree sạch trong sandbox clone. Binary worker và portable artifact không commit vào source repo; chỉ lưu hash/evidence.
+GitHub source HEAD được xác nhận là `e1736b0c09ee61b3000501a01da7eec4230e41d5` với source/tests working tree sạch trong sandbox clone. Binary worker và portable artifact không commit vào source repo; chỉ lưu hash/evidence.
 
 ## Kết luận cuối
 
-SCP có thể được gọi là **release candidate đã reality-test trên một PC Windows cụ thể**, hiện đã có deterministic worker ngoài loop và portable artifact chứa worker. Có thể chạy nền trong phiên user với supervisor, Job Object, kill switch, watchdog user-session, closed-loop OFF, bounded queue và AutoFix deterministic-only.
+SCP có thể được gọi là **release candidate đã reality-test trên một PC Windows cụ thể**, hiện đã có deterministic worker ngoài loop, heartbeat/ledger riêng cho các subsystem, bounded FastLearning timeout và portable artifact chứa worker. Có thể chạy nền trong phiên user với supervisor, Job Object, kill switch, watchdog user-session, closed-loop OFF, bounded queue và AutoFix deterministic-only.
 
 SCP **chưa được gọi là production phổ quát hoặc hoàn thiện tuyệt đối** cho đến khi có clean-machine test trên PC thứ hai, pre-logon service boundary, publisher signature, disk/log failure tests, sleep/hibernate/provider-outage evidence và mở rộng semantic coverage của recipes. LLM không nằm trong production loop hiện tại; nếu sau này cần LLM, nó phải là approval/research worker độc lập với timeout/cancel và không được cấp quyền apply trực tiếp. Đây là kết luận phù hợp với DNA #22: **PASS không đồng nghĩa TRUE ở ngoài phạm vi evidence**.
