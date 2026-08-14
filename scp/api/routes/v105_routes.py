@@ -260,7 +260,7 @@ async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
                     "source": "ast_scan_observe_only",
                 },
             }
-        from scp.autofix.runner import run_deep_audit
+        from scp.autofix.runner import run_deep_audit, run_once
         deterministic_only = os.environ.get("SCP_AUTOFIX_DETERMINISTIC_ONLY", "0") == "1"
         # R9-2: run_deep_audit() AST-scans 371 .py. Production child can
         # explicitly disable provider I/O while still applying deterministic
@@ -268,11 +268,31 @@ async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
         # (deepseek-r1:8b via Ollama — 30s+ per fix). Calling inline from
         # `async def` blocks the event loop for 2-10 min — /health, /ask,
         # WebSocket all freeze. Run in a worker thread (non-blocking).
-        results = await asyncio.to_thread(
-            run_deep_audit,
-            max_bugs=request.max_bugs,
-            deterministic_only=deterministic_only,
-        )
+        if deterministic_only:
+            from scp.autofix.runner_phases.ast_scan import ast_scan_scp
+            bounded_max_files = min(
+                max(10, int(os.environ.get("SCP_AUTOFIX_MAX_SCAN_FILES", "50"))),
+                100,
+            )
+            findings = await asyncio.to_thread(
+                ast_scan_scp,
+                max_files=bounded_max_files,
+                max_bugs=request.max_bugs or 5,
+                include_enterprise=False,
+            )
+            results = await asyncio.to_thread(
+                run_once,
+                bugs=findings,
+                max_bugs=request.max_bugs,
+                deterministic_only=True,
+            )
+            results["source"] = "bounded_ast_scan_deterministic_only"
+        else:
+            results = await asyncio.to_thread(
+                run_deep_audit,
+                max_bugs=request.max_bugs,
+                deterministic_only=False,
+            )
         return {
             "audit_complete": True,
             "mode": "apply",
