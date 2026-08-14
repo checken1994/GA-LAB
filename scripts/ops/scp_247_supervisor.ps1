@@ -17,6 +17,7 @@ $LedgerPath = Join-Path $PrivateDir 'supervisor-ledger.jsonl'
 $StatePath = Join-Path $PrivateDir 'supervisor-state.json'
 $KillSwitchPath = Join-Path $PrivateDir 'KILL'
 $SafeChildEnvFile = Join-Path $PrivateDir 'child-safe.env'
+$AdminTokenFile = Join-Path $PrivateDir 'scp-admin-token'
 $MutexName = 'Global\SCP_247_Supervisor'
 $TaskName = 'SCP-247-Supervisor'
 
@@ -126,6 +127,19 @@ $safeEnvText = @(
 $safeEnvTmp = "$SafeChildEnvFile.tmp"
 [IO.File]::WriteAllText($safeEnvTmp, $safeEnvText + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 Move-Item -LiteralPath $safeEnvTmp -Destination $SafeChildEnvFile -Force
+# Create a local SCP admin token once if the private runtime boundary has none.
+# This is an SCP control token, not an OpenRouter/provider key, and is never
+# printed, committed, or written to production .env.
+if (-not (Test-Path -LiteralPath $AdminTokenFile -PathType Leaf)) {
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $bytes = New-Object byte[] 32
+        $rng.GetBytes($bytes)
+        [IO.File]::WriteAllText($AdminTokenFile, [Convert]::ToBase64String($bytes) + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+    } finally {
+        $rng.Dispose()
+    }
+}
 
 $mutex = [Threading.Mutex]::new($false, $MutexName)
     $ownsMutex = $false
@@ -275,23 +289,13 @@ try {
                     Write-Ledger -Event 'START_REJECTED' -Service $Service.Name -Reason 'explicit_auth_env_file_missing'
                     return $null
                 }
-                $authToken = ''
-                $authPassword = ''
-                foreach ($line in Get-Content -LiteralPath $explicitEnvFile -Encoding UTF8) {
-                    $trimmed = ([string]$line).Trim()
-                    if (-not $trimmed -or $trimmed.StartsWith('#') -or -not $trimmed.Contains('=')) { continue }
-                    $pair = $trimmed.Split('=', 2)
-                    $key = $pair[0].Trim()
-                    $value = $pair[1].Trim().Trim('"').Trim("'")
-                    if ($key -eq 'SCP_AUTH_TOKEN_SECRET') { $authToken = $value }
-                    if ($key -eq 'SCP_AUTH_PASSWORD') { $authPassword = $value }
-                }
-                if (-not $authToken -and -not $authPassword) {
-                    Write-Ledger -Event 'START_REJECTED' -Service $Service.Name -Reason 'auth_value_missing_in_explicit_env_file'
+                $adminToken = (Get-Content -LiteralPath $AdminTokenFile -Raw -Encoding UTF8).Trim()
+                if ([string]::IsNullOrWhiteSpace($adminToken)) {
+                    Write-Ledger -Event 'START_REJECTED' -Service $Service.Name -Reason 'private_admin_token_empty'
                     return $null
                 }
-                if ($authToken) { $env:SCP_AUTH_TOKEN_SECRET = $authToken } else { Remove-Item Env:SCP_AUTH_TOKEN_SECRET -ErrorAction SilentlyContinue }
-                if ($authPassword) { $env:SCP_AUTH_PASSWORD = $authPassword } else { Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue }
+                $env:SCP_AUTH_TOKEN_SECRET = $adminToken
+                Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue
                 Remove-Item Env:SCP_AUTH_TOKEN_SECRET_FILE -ErrorAction SilentlyContinue
                 Remove-Item Env:SCP_AUTH_PASSWORD_FILE -ErrorAction SilentlyContinue
                 $env:SCP_ENV_FILE = $SafeChildEnvFile
