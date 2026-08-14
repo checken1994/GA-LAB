@@ -539,14 +539,18 @@ class LLMGateway:
         }.get(task, self.openrouter_default)
 
         # [ROOT-FIX 46] AutoFix: OpenRouter FIRST (nemotron-ultra-550b > R1:8b for code reasoning)
-        if task == "autofix" and openrouter_provider.enabled:
+        provider_mode = os.environ.get("SCP_LLM_PROVIDER_MODE", "auto").strip().lower()
+        if provider_mode not in {"auto", "ollama_only", "openrouter_only"}:
+            logger.warning("[LLM] invalid SCP_LLM_PROVIDER_MODE=%r; using auto", provider_mode)
+            provider_mode = "auto"
+        if provider_mode != "ollama_only" and task == "autofix" and openrouter_provider.enabled:
             self._stats["openrouter_calls"] += 1
             answer, _ = await openrouter_provider.chat(question, context, system_prompt)
             if answer:
                 return answer, f"openrouter:{openrouter_provider.model}"
 
         # Layer 1: Ollama (local, free, task-specific model)
-        if ollama_provider.enabled:
+        if provider_mode != "openrouter_only" and ollama_provider.enabled:
             self._stats["ollama_calls"] += 1
             answer, _ = await ollama_provider.chat(question, context, system_prompt)
             if answer:
@@ -554,7 +558,7 @@ class LLMGateway:
 
         # Layer 2: OpenRouter (cloud fallback — for non-autofix tasks)
         # [OPENROUTER-FREE-FIX] Use task-specific OpenRouter provider (FREE model)
-        if task != "autofix" and openrouter_provider.enabled:
+        if provider_mode != "ollama_only" and task != "autofix" and openrouter_provider.enabled:
             self._stats["openrouter_calls"] += 1
             answer, _ = await openrouter_provider.chat(question, context, system_prompt)
             if answer:
