@@ -77,9 +77,12 @@ class SubsystemTelemetry:
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.heartbeat_db, timeout=5.0)
+        # Telemetry must tolerate a busy runtime DB without killing the
+        # monitored worker. WAL + a bounded 15s wait gives writers room while
+        # the caller-side ticker still retries instead of dying.
+        conn = sqlite3.connect(self.heartbeat_db, timeout=15.0)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA busy_timeout=15000")
         conn.execute("PRAGMA journal_mode=WAL")
         return conn
 

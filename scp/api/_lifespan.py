@@ -465,7 +465,10 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
             remaining = max(0.0, deadline - _time.time())
             if remaining <= 0:
                 return True
-            telemetry.tick(status=status, next_due_at_utc=str(deadline))
+            try:
+                telemetry.tick(status=status, next_due_at_utc=str(deadline))
+            except Exception as exc:
+                logger.warning("[AUTO] telemetry wait tick failed for %s: %s", telemetry.subsystem, exc)
             if stop_event.wait(min(15.0, remaining)):
                 return False
         return False
@@ -480,7 +483,10 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
 
         def _deep_audit_heartbeat_loop():
             while not _deep_audit_stop.is_set():
-                _deep_audit_telemetry.tick(status=_deep_audit_state["status"])
+                try:
+                    _deep_audit_telemetry.tick(status=_deep_audit_state["status"])
+                except Exception as exc:
+                    logger.warning("[AUTO] deep-audit heartbeat tick failed: %s", exc)
                 if _deep_audit_stop.wait(15):
                     return
 
@@ -536,7 +542,10 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
 
         def _attack_heartbeat_loop():
             while not _attack_stop.is_set():
-                _attack_telemetry.tick(status=_attack_state["status"])
+                try:
+                    _attack_telemetry.tick(status=_attack_state["status"])
+                except Exception as exc:
+                    logger.warning("[AUTO] attack-monitor heartbeat tick failed: %s", exc)
                 if _attack_stop.wait(15):
                     return
 
