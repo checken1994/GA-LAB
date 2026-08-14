@@ -49,6 +49,34 @@ def test_evolution_disabled_is_explicit_and_audited(tmp_path: Path, monkeypatch)
     assert engine._telemetry.snapshot()["fresh"] is True
 
 
+def test_async_cycle_timeout_is_terminal_and_ledgered(tmp_path: Path):
+    class Dummy:
+        def __init__(self):
+            self._telemetry = SubsystemTelemetry("timeout_dummy", tmp_path)
+            self._telemetry.start(config={"mode": "test"})
+            self._telemetry_timeout_requested = True
+
+        @telemetry_async_cycle
+        async def cycle(self):
+            await asyncio.sleep(1)
+            return {"asked": 1, "verified": 1, "stored": 1}
+
+    dummy = Dummy()
+    try:
+        asyncio.run(asyncio.wait_for(dummy.cycle(), timeout=0.01))
+    except TimeoutError:
+        pass
+    else:
+        raise AssertionError("expected bounded timeout")
+    snapshot = dummy._telemetry.snapshot()
+    assert snapshot["last_status"] == "TIMEOUT"
+    assert snapshot["cycles_started"] == 1
+    assert snapshot["cycles_completed"] == 1
+    rows = [json.loads(line) for line in (tmp_path / "timeout_dummy_runs.jsonl").read_text().splitlines()]
+    assert rows[-1]["event_type"] == "cycle_completed"
+    assert rows[-1]["status"] == "TIMEOUT"
+
+
 def test_async_cycle_wrapper_writes_start_and_completion(tmp_path: Path):
     class Dummy:
         def __init__(self):

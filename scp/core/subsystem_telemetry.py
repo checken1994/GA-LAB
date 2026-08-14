@@ -314,6 +314,7 @@ def telemetry_async_cycle(func):
         if telemetry is None:
             return await func(self, *args, **kwargs)
         telemetry.cycle_started(run_id, trigger=kwargs.get("trigger", "interval"))
+        self._active_telemetry_run_id = run_id
         ticker = asyncio.create_task(_async_heartbeat_ticker(telemetry))
         try:
             result = await func(self, *args, **kwargs)
@@ -331,10 +332,15 @@ def telemetry_async_cycle(func):
                 provider_calls=(result or {}).get("provider_calls", 0) if isinstance(result, dict) else 0,
             )
             return result
+        except asyncio.CancelledError as exc:
+            status = "TIMEOUT" if getattr(self, "_telemetry_timeout_requested", False) else "TELEMETRY_DEGRADED"
+            telemetry.cycle_failed(run_id, exc, status=status)
+            raise
         except BaseException as exc:
             telemetry.cycle_failed(run_id, exc)
             raise
         finally:
+            self._active_telemetry_run_id = None
             ticker.cancel()
             try:
                 await ticker

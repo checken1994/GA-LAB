@@ -250,6 +250,8 @@ WIKIPEDIA_CONCURRENCY = int(os.environ.get("SCP_WIKI_CONCURRENCY", "5"))
 LEARN_INTERVAL_FAST = int(os.environ.get("SCP_LEARN_INTERVAL_FAST", "300"))  # 5 min
 LEARN_INTERVAL_BURST = int(os.environ.get("SCP_LEARN_INTERVAL_BURST", "60"))  # 1 min khi nhiều facts mới
 LEARN_INTERVAL_IDLE = int(os.environ.get("SCP_LEARN_INTERVAL_IDLE", "1800"))  # 30 min khi ít facts mới
+# Bounded cycle: a provider/verifier stall must end as TIMEOUT, not RUNNING forever.
+LEARN_CYCLE_TIMEOUT_SECONDS = int(os.environ.get("SCP_FAST_LEARNING_CYCLE_TIMEOUT_SECONDS", "300"))
 SKIP_KNOWN_QUESTIONS = os.environ.get("SCP_SKIP_KNOWN", "1") == "1"
 COMPOUNDING_ENABLED = os.environ.get("SCP_COMPOUNDING", "1") == "1"
 
@@ -1374,9 +1376,20 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                 try:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-                    # V104.2: chạy 50 câu/cycle (vs 10 ở V104.1)
-                    results = loop.run_until_complete(engine.fast_learning_cycle(count=50))
-                    loop.close()
+                    # V104.2: chạy 50 câu/cycle (vs 10 ở V104.1).
+                    # wait_for is required: provider/verifier stalls must become a
+                    # terminal TIMEOUT ledger row and release the worker.
+                    engine._telemetry_timeout_requested = False
+                    try:
+                        results = loop.run_until_complete(
+                            asyncio.wait_for(
+                                engine.fast_learning_cycle(count=50),
+                                timeout=LEARN_CYCLE_TIMEOUT_SECONDS,
+                            )
+                        )
+                        engine._telemetry_timeout_requested = False
+                    finally:
+                        loop.close()
 
                     # [R17-ROOT-FIX-10] Circuit breaker — if 429 rate high, back off
                     asked = results.get("asked", 0)
@@ -1399,6 +1412,16 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                     sleep_s = engine.get_adaptive_interval()
                     logger.info(f"V104.2 adaptive sleep: {sleep_s}s (mode={results['adaptive_mode']})")
                     heartbeat_sleep(engine._telemetry, sleep_s, status="IDLE")
+                except asyncio.TimeoutError as e:
+                    logger.error(
+                        "V104.2 FastLearning cycle TIMEOUT after %ss: %s",
+                        LEARN_CYCLE_TIMEOUT_SECONDS,
+                        e,
+                    )
+                    engine._telemetry_timeout_requested = False
+                    # The telemetry decorator already finalized the active run
+                    # as TIMEOUT when wait_for cancelled the cycle.
+                    heartbeat_sleep(engine._telemetry, 60, status="TIMEOUT")
                 except Exception as e:
                     logger.error(f"V104.2 fast learning loop error: {e}")
                     if engine._telemetry:
