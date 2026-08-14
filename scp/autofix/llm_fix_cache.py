@@ -356,7 +356,9 @@ def get_llm_fix_cache(
     """
     global _cache_singleton
     if _cache_singleton is None:
-        cache_file = os.environ.get("SCP_LLM_FIX_CACHE_FILE", cache_file)
+        _cache_override = os.environ.get("SCP_LLM_FIX_CACHE_FILE", "").strip()
+        if _cache_override:
+            cache_file = _cache_override
         ttl_env = os.environ.get("SCP_LLM_FIX_CACHE_TTL")
         if ttl_env:
             try:

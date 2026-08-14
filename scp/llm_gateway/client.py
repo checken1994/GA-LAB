@@ -282,7 +282,7 @@ class OpenRouterProvider:
         self.task = task
         # PRIMARY: PAID model (user's OPENROUTER_MODEL = deepseek-v4-flash by default)
         # This is used FIRST for ALL tasks. FREE models are fallback only.
-        self.model = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-20260731")
+        self.model = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-0731")
         # FREE fallback for this task (used if PAID fails with 429/402/quota)
         self.free_fallback = os.environ.get(
             f"OPENROUTER_MODEL_{task.upper()}",

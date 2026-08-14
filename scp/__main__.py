@@ -89,6 +89,10 @@ _load_env_at_startup()
 from scp.security.production_guard import enforce_production_safety
 enforce_production_safety()
 def main() -> None:
+    if any(arg in {"-h", "--help"} for arg in sys.argv[1:]):
+        print("usage: python -m scp [PORT]")
+        print("Starts the SCP API on loopback; PORT defaults to SCP_PORT or 8000.")
+        return
     port = (
         int(sys.argv[1])
         if len(sys.argv) > 1
