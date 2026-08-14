@@ -117,6 +117,7 @@ def record_learning_run(
     ended_at: str,
     result: Any = None,
     error: BaseException | None = None,
+    ledger_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Append one sanitized run record and return it.
 
@@ -139,7 +140,7 @@ def record_learning_run(
         "error_summary": str(error)[:300] if error else None,
     }
     try:
-        path = _ledger_path()
+        path = Path(ledger_path) if ledger_path is not None else _ledger_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")

@@ -43,6 +43,10 @@ def _evolution_child(
     """Run evolution in a spawn-safe child process."""
     try:
         os.environ["SCP_EVOLUTION_STAGE_FILE"] = stage_file
+        # [R38] Child evolution must write its ledger under the requested
+        # data_dir; tests and isolated runs must not contaminate production data.
+        ledger_path = (Path(data_dir) / "learning_runs.jsonl").resolve()
+        os.environ["SCP_LEARNING_RUN_LEDGER_PATH"] = str(ledger_path)
         os.environ["OLLAMA_TIMEOUT"] = str(max(1, int(provider_timeout_seconds)))
         os.environ["SCP_LLM_REQUEST_TIMEOUT_SECONDS"] = str(provider_timeout_seconds)
         from scp.autofix.evolution import get_evolution_engine
@@ -122,6 +126,7 @@ def run_bounded_evolution(
             ended_at=_utc_iso(),
             result={"stage": last_stage},
             error=error,
+            ledger_path=str((Path(data_dir) / "learning_runs.jsonl").resolve()),
         )
         return {
             "action": "timed_out",

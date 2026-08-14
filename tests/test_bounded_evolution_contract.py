@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from scp.core.bounded_evolution import run_bounded_evolution
@@ -23,6 +24,11 @@ def test_hard_timeout_terminates_child_and_is_fail_closed(tmp_path):
         "fix_start",
         "reflect_start",
     }
+    # R38: the bounded wrapper must honor data_dir for its ledger write.
+    ledger = tmp_path / "learning_runs.jsonl"
+    assert ledger.exists()
+    row = json.loads(ledger.read_text(encoding="utf-8").splitlines()[-1])
+    assert row["status"] == "TIMEOUT"
     assert isinstance(result["child_pid"], int)
 
 
@@ -42,6 +48,8 @@ def test_evolution_zero_fix_is_not_success():
         {"action": "evolved", "bugs_found": 0, "bugs_fixed": 0},
         None,
     ) == "NO_NEW_FACTS"
+
+
 
 
 def test_runner_exposes_true_scan_only_and_timeout_flags():
