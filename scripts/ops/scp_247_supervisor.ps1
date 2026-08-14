@@ -234,13 +234,25 @@ try {
         $oldScpBaseUrl = $env:SCP_BASE_URL
         $oldLlmBridgeUrl = $env:LLM_BRIDGE_URL
         $oldClosedLoop = $env:SCP_ENABLE_CLOSED_LOOP
+        $oldScpEnvFile = $env:SCP_ENV_FILE
         $env:SCP_ENABLE_CLOSED_LOOP = '0'
-        if ($Service.Name -eq 'loop-scheduler') {
-            $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
-            $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
-            $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
-        }
         try {
+            if ($Service.Name -eq 'loop-scheduler') {
+                $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
+                $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
+                $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
+                # Bun does not implicitly load .env. Pass the explicit production
+                # env boundary read-only; never edit or print its contents.
+                $explicitEnvFile = $env:SCP_ENV_FILE
+                if (-not $explicitEnvFile) {
+                    $explicitEnvFile = Join-Path (Split-Path $Root -Parent) '.env'
+                }
+                if (-not (Test-Path -LiteralPath $explicitEnvFile -PathType Leaf)) {
+                    Write-Ledger -Event 'START_REJECTED' -Service $Service.Name -Reason 'explicit_auth_env_file_missing'
+                    return $null
+                }
+                $env:SCP_ENV_FILE = (Resolve-Path -LiteralPath $explicitEnvFile).Path
+            }
             if ($DryRun) {
                 Write-Ledger -Event 'DRYRUN_START' -Service $Service.Name -Reason 'start_would_be_requested'
                 return [pscustomobject]@{ Id = 0; Name = $Service.Name; StartedAt = [DateTime]::UtcNow }
@@ -259,6 +271,7 @@ try {
             $env:SCP_BASE_URL = $oldScpBaseUrl
             $env:LLM_BRIDGE_URL = $oldLlmBridgeUrl
             $env:SCP_ENABLE_CLOSED_LOOP = $oldClosedLoop
+            $env:SCP_ENV_FILE = $oldScpEnvFile
         }
     }
 

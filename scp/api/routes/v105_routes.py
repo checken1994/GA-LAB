@@ -19,8 +19,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
 from scp.api._shared import verify_admin
@@ -28,6 +31,13 @@ from scp.api._shared import verify_admin
 logger = logging.getLogger("scp.api.v105")
 
 router = APIRouter(tags=["v105"])
+
+
+class AutoFixAuditRequest(BaseModel):
+    """Bounded audit request; observe mode never writes source files."""
+
+    mode: Literal["apply", "observe"] = "apply"
+    max_bugs: int = 0
 
 
 @router.get("/v105/autofix/permissions", dependencies=[Depends(verify_admin)])
@@ -184,7 +194,7 @@ async def v105_autofix_stats():
 
 
 @router.post("/v105/autofix/run-audit", dependencies=[Depends(verify_admin)])
-async def v105_run_deep_audit():
+async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
     """[EXEC-1 A5] Trigger a deep audit cycle. SCP scans itself for bugs and
     auto-fixes (Tier 1/2) or requests permission (Tier 3).
 
@@ -203,13 +213,53 @@ async def v105_run_deep_audit():
     within 1h) so safe to call repeatedly.
     """
     try:
+        request = payload or AutoFixAuditRequest(
+            mode=os.environ.get("SCP_AUTOFIX_MODE", "apply").strip().lower() or "apply",
+            max_bugs=int(os.environ.get("SCP_MAX_AUDIT_BUGS", "0") or 0),
+        )
+        if request.max_bugs < 0 or request.max_bugs > 200:
+            raise HTTPException(422, "max_bugs must be between 0 and 200")
+        if request.mode == "observe":
+            # Observe-only path: scanner evidence is collected, but no
+            # AutoFixEngine.process_bug() call is made and no source is written.
+            from scp.autofix.runner import ast_scan_scp
+            findings = await asyncio.to_thread(
+                ast_scan_scp,
+                max_files=int(os.environ.get("SCP_MAX_STARTUP_FILES", "100")),
+            )
+            if request.max_bugs:
+                findings = findings[: request.max_bugs]
+            details = [
+                {
+                    "file": getattr(bug, "file", ""),
+                    "line": getattr(bug, "line", 0),
+                    "bug_type": getattr(bug, "bug_type", ""),
+                    "tier": int(getattr(getattr(bug, "tier", 0), "value", getattr(bug, "tier", 0)) or 0),
+                }
+                for bug in findings
+            ]
+            return {
+                "audit_complete": True,
+                "mode": "observe",
+                "results": {
+                    "processed": 0,
+                    "fixed": 0,
+                    "permission_requested": 0,
+                    "skipped": len(details),
+                    "findings_count": len(details),
+                    "details": details,
+                    "source": "ast_scan_observe_only",
+                },
+            }
         from scp.autofix.runner import run_deep_audit
         # R9-2: run_deep_audit() AST-scans 371 .py + may invoke LLM fixes
         # (deepseek-r1:8b via Ollama — 30s+ per fix). Calling inline from
         # `async def` blocks the event loop for 2-10 min — /health, /ask,
         # WebSocket all freeze. Run in a worker thread (non-blocking).
-        results = await asyncio.to_thread(run_deep_audit)
-        return {"audit_complete": True, "results": results}
+        results = await asyncio.to_thread(run_deep_audit, max_bugs=request.max_bugs)
+        return {"audit_complete": True, "mode": "apply", "results": results}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"Error: {e}") from e
 
