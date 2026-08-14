@@ -139,9 +139,13 @@ try {
         $stderr = Join-Path $LogDir "$($Service.Name).err.log"
         $oldLoopLog = $env:LOOP_LOG_PATH
         $oldScpBaseUrl = $env:SCP_BASE_URL
+        $oldLlmBridgeUrl = $env:LLM_BRIDGE_URL
+        $oldClosedLoop = $env:SCP_ENABLE_CLOSED_LOOP
+        $env:SCP_ENABLE_CLOSED_LOOP = '0'
         if ($Service.Name -eq 'loop-scheduler') {
             $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
             $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
+            $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
         }
         try {
             if ($DryRun) {
@@ -154,6 +158,8 @@ try {
         } finally {
             $env:LOOP_LOG_PATH = $oldLoopLog
             $env:SCP_BASE_URL = $oldScpBaseUrl
+            $env:LLM_BRIDGE_URL = $oldLlmBridgeUrl
+            $env:SCP_ENABLE_CLOSED_LOOP = $oldClosedLoop
         }
     }
 
