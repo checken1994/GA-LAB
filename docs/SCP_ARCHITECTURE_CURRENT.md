@@ -1,7 +1,7 @@
 # SCP DNA — Kiến trúc hệ thống hiện tại
 
 **Repository được đối chiếu:** [`checken1994/GA-LAB`](https://github.com/checken1994/GA-LAB)  
-**HEAD:** `17f340283b7e8f314777f30b6a1fddfd1145e5ec` (`R39`)  
+**HEAD:** `2137cf3abf26611f737b4d3a8e5fb51fc93346f3` (`R41`)
 **Ngày đối chiếu:** 14/08/2026 (GMT+7)
 
 ## 1. Mục tiêu kiến trúc
@@ -49,7 +49,7 @@ flowchart LR
 | LLM bridge | `mini-services/llm-bridge/` hoặc packaged `scp-llm-bridge.exe` | Nhận `/api/chat`, `/api/generate`, `/api/tags`; chuyển request OpenAI-compatible tới OpenRouter/Groq | Loopback bind, explicit env file, rate-limit queue, cache, timeout, recursion guard |
 | Scheduler | `mini-services/loop-scheduler/` hoặc packaged scheduler | Gọi bounded audit/evolution theo chu kỳ và expose scheduler UI | Base URL trỏ backend `127.0.0.1:8000`; cần admin auth contract |
 | Durable state | `data/`, SQLite, JSONL | Learning lessons, evolved patterns, audit, reflect, run ledger, rollback/evidence | Test child ledger tách theo `data_dir`; runtime data không commit |
-| Distribution | `desktop/release/`, `desktop/runtime/` | NSIS/portable installer và packaged backend/sidecars | Artifact phải hash-pin; signing và second-PC install là release gates riêng |
+| Distribution | `desktop/release/`, `desktop/runtime/` | NSIS/portable installer và packaged backend/sidecars | Artifact phải hash-pin; signing và second-PC install là release gates riêng | Source runtime `scp/runtime/` được version-control; packaged runtime vẫn là artifact riêng |
 
 ## 4. Process topology khi chạy desktop packaged
 
@@ -107,7 +107,7 @@ R39 đã bổ sung `verified` và `stored` vào observability. R38 tách ledger 
 
 | Evidence | Kết quả |
 |---|---:|
-| GitHub HEAD | R39 `17f3402` |
+| GitHub HEAD | R41 `2137cf3` |
 | Pytest trên PC | 55 passed, 0 failed |
 | Portable reality suite | 73/73 passed, 0 timeout/error |
 | Safe flags runtime probe | `0,0,0,0,0`; health `200`; auth `401/401/200` |

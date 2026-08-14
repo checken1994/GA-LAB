@@ -69,6 +69,15 @@ SCP giữ các nguyên tắc sau qua từng round:
 
 Lịch sử này không biến SCP thành hệ thống đã chứng minh mọi khả năng. Các vùng còn cần evidence độc lập gồm code signing, cài đặt trên một PC Windows thứ hai, adversarial corpus mở rộng, provider poisoning, prompt injection ngoài corpus, supply-chain tampering và long-running concurrency stress. Cấu hình `.env` thật và data runtime vẫn là tài sản local/ignored, không được đưa lên GitHub.
 
+## 7. R40–R41: Documentation và reproducible runtime release
+
+| Commit | Ngày | Ý nghĩa |
+|---|---|---|
+| `bc27a6a` (R40) | 14/08 | Cập nhật README, lịch sử xây dựng, kiến trúc hiện tại và release state R39 lên GitHub |
+| `2137cf3` (R41) | 14/08 | Publish 55 runtime source/document files trong `scp/runtime/`; giữ pycache, state, secrets và packaged output ngoài Git |
+
+R41 sửa một lỗi packaging quan trọng: rule tổng quát `**/runtime/` trước đây đã ignore nhầm source runtime của SCP cùng với generated runtime. Release policy mới version-control `scp/runtime/` nhưng tiếp tục ignore `__pycache__`, `.pyc`, `data/`, ledgers, logs và private artifacts. Người dùng khác vì vậy có thể checkout đầy đủ source runtime, cài dependency và tạo runtime state mới trên máy của họ.
+
 ## References
 
 [1]: [GitHub commit history](https://github.com/checken1994/GA-LAB/commits/main)  
