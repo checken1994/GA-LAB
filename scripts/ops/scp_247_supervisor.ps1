@@ -140,6 +140,12 @@ if (-not (Test-Path -LiteralPath $AdminTokenFile -PathType Leaf)) {
         $rng.Dispose()
     }
 }
+# Include only the private token-file reference in the explicit child env.
+# Bun resolves *_FILE during its explicit env loader; Python resolves it via
+# auth_config. The token value itself is never copied into this env file.
+$childEnvText = $safeEnvText + [Environment]::NewLine + "SCP_AUTH_TOKEN_SECRET_FILE=$AdminTokenFile" + [Environment]::NewLine
+[IO.File]::WriteAllText($safeEnvTmp, $childEnvText, [Text.UTF8Encoding]::new($false))
+Move-Item -LiteralPath $safeEnvTmp -Destination $SafeChildEnvFile -Force
 
 $mutex = [Threading.Mutex]::new($false, $MutexName)
     $ownsMutex = $false
@@ -296,7 +302,7 @@ try {
                 }
                 $env:SCP_AUTH_TOKEN_SECRET = $adminToken
                 Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue
-                Remove-Item Env:SCP_AUTH_TOKEN_SECRET_FILE -ErrorAction SilentlyContinue
+                $env:SCP_AUTH_TOKEN_SECRET_FILE = $AdminTokenFile
                 Remove-Item Env:SCP_AUTH_PASSWORD_FILE -ErrorAction SilentlyContinue
                 $env:SCP_ENV_FILE = $SafeChildEnvFile
             }
