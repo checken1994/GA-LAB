@@ -19,10 +19,103 @@ $KillSwitchPath = Join-Path $PrivateDir 'KILL'
 $MutexName = 'Global\SCP_247_Supervisor'
 $TaskName = 'SCP-247-Supervisor'
 
+# Windows Job Object is the containment boundary. If Task Scheduler, pwsh,
+# or this supervisor is terminated externally, closing the process handle
+# kills every child service and prevents orphan runtime writers.
+Add-Type -TypeDefinition @'
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+public static class ScpJobObjectNative
+{
+    private const uint JobObjectExtendedLimitInformation = 9;
+    private const uint JobObjectLimitKillOnJobClose = 0x2000;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BasicLimitInformation
+    {
+        public long PerProcessUserTimeLimit;
+        public long PerJobUserTimeLimit;
+        public uint LimitFlags;
+        public UIntPtr MinimumWorkingSetSize;
+        public UIntPtr MaximumWorkingSetSize;
+        public uint ActiveProcessLimit;
+        public UIntPtr Affinity;
+        public uint PriorityClass;
+        public uint SchedulingClass;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct IoCounters
+    {
+        public ulong ReadOperationCount;
+        public ulong WriteOperationCount;
+        public ulong OtherOperationCount;
+        public ulong ReadTransferCount;
+        public ulong WriteTransferCount;
+        public ulong OtherTransferCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ExtendedLimitInformation
+    {
+        public BasicLimitInformation BasicLimitInformation;
+        public IoCounters IoInfo;
+        public UIntPtr ProcessMemoryLimit;
+        public UIntPtr JobMemoryLimit;
+        public UIntPtr PeakProcessMemoryUsed;
+        public UIntPtr PeakJobMemoryUsed;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateJobObject(IntPtr attributes, string name);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetInformationJobObject(IntPtr job, uint infoClass, ref ExtendedLimitInformation info, uint length);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    public static IntPtr CreateKillOnCloseJob()
+    {
+        IntPtr job = CreateJobObject(IntPtr.Zero, null);
+        if (job == IntPtr.Zero) throw new InvalidOperationException("CreateJobObject failed: " + Marshal.GetLastWin32Error());
+        var info = new ExtendedLimitInformation();
+        info.BasicLimitInformation.LimitFlags = JobObjectLimitKillOnJobClose;
+        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, ref info, (uint)Marshal.SizeOf(typeof(ExtendedLimitInformation))))
+        {
+            int error = Marshal.GetLastWin32Error();
+            CloseHandle(job);
+            throw new InvalidOperationException("SetInformationJobObject failed: " + error);
+        }
+        return job;
+    }
+
+    public static void Assign(IntPtr job, int processId)
+    {
+        using (var process = Process.GetProcessById(processId))
+        {
+            if (!AssignProcessToJobObject(job, process.Handle))
+                throw new InvalidOperationException("AssignProcessToJobObject failed: " + Marshal.GetLastWin32Error());
+        }
+    }
+
+    public static void Close(IntPtr job)
+    {
+        if (job != IntPtr.Zero) CloseHandle(job);
+    }
+}
+'@
+
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 $mutex = [Threading.Mutex]::new($false, $MutexName)
-$ownsMutex = $false
+    $ownsMutex = $false
+$jobHandle = [IntPtr]::Zero
 try {
     $ownsMutex = $mutex.WaitOne(0)
     if (-not $ownsMutex) {
@@ -153,7 +246,13 @@ try {
                 return [pscustomobject]@{ Id = 0; Name = $Service.Name; StartedAt = [DateTime]::UtcNow }
             }
             $process = Start-Process -FilePath $Service.File -ArgumentList $Service.Args -WorkingDirectory $Service.Dir -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
-            Write-Ledger -Event 'START' -Service $Service.Name -Reason 'supervisor_start' -Extra @{ child_pid = $process.Id; port = $Service.Port }
+            try {
+                Add-ScpProcessToJob -ChildProcessId $process.Id
+            } catch {
+                & taskkill.exe /PID $process.Id /T /F *> $null
+                throw
+            }
+            Write-Ledger -Event 'START' -Service $Service.Name -Reason 'supervisor_start' -Extra @{ child_pid = $process.Id; port = $Service.Port; contained_by_job = (-not $DryRun) }
             return [pscustomobject]@{ Id = $process.Id; Name = $Service.Name; StartedAt = [DateTime]::UtcNow }
         } finally {
             $env:LOOP_LOG_PATH = $oldLoopLog
@@ -161,6 +260,13 @@ try {
             $env:LLM_BRIDGE_URL = $oldLlmBridgeUrl
             $env:SCP_ENABLE_CLOSED_LOOP = $oldClosedLoop
         }
+    }
+
+    function Add-ScpProcessToJob {
+        param([int]$ChildProcessId)
+        if ($DryRun) { return }
+        if ($jobHandle -eq [IntPtr]::Zero) { throw 'Job Object is not initialized' }
+        [ScpJobObjectNative]::Assign($jobHandle, $ChildProcessId)
     }
 
     function Stop-ScpService {
@@ -171,6 +277,10 @@ try {
     }
 
     Assert-Guardrails
+    if (-not $DryRun) {
+        $jobHandle = [ScpJobObjectNative]::CreateKillOnCloseJob()
+        Write-Ledger -Event 'JOB_OBJECT_CREATED' -Reason 'kill_on_job_close_child_containment'
+    }
     if (Test-Path $KillSwitchPath) {
         Write-Ledger -Event 'KILL_SWITCH_PRESENT' -Reason 'startup_abort'
         exit 20
@@ -224,6 +334,10 @@ try {
     Write-Ledger -Event 'SUPERVISOR_ERROR' -Reason $_.Exception.GetType().Name
     exit 1
 } finally {
+    if ($jobHandle -ne [IntPtr]::Zero) {
+        [ScpJobObjectNative]::Close($jobHandle)
+        $jobHandle = [IntPtr]::Zero
+    }
     if ($ownsMutex) { $mutex.ReleaseMutex() | Out-Null }
     $mutex.Dispose()
 }
