@@ -238,6 +238,11 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
             "action": "evolve_cycle",
             "bugs_found": len(bugs),
             "bugs_fixed": fixed,
+            # [R39] Make the durable learning contract explicit. `verified`
+            # counts fixes that passed the AutoFix verification path; `stored`
+            # counts reflect records durably appended by `_write_reflect`.
+            "verified": fixed,
+            "stored": len(reflects),
             "reflects": reflects,
         })
 
@@ -245,6 +250,8 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
             "action": "evolved",
             "bugs_found": len(bugs),
             "bugs_fixed": fixed,
+            "verified": fixed,
+            "stored": len(reflects),
             "reflects": reflects,
         }
 
