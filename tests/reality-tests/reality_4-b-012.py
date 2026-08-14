@@ -124,4 +124,4 @@ assert written["tier"] == 2
 print(f"PASS [7/7]: valid entry written with all 4 fields + extras")
 os.unlink(tmplog.name)
 
-print("\n✓ Reality test 4-b-012 PASSED")
+print("\nReality test 4-b-012 PASSED")

@@ -104,4 +104,4 @@ try:
 finally:
     shutil.rmtree(tmpdir, ignore_errors=True)
 
-print("\n✓ Reality test 4-b-013 PASSED")
+print("\nReality test 4-b-013 PASSED")
