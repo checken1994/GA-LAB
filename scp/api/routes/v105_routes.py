@@ -222,10 +222,19 @@ async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
         if request.mode == "observe":
             # Observe-only path: scanner evidence is collected, but no
             # AutoFixEngine.process_bug() call is made and no source is written.
-            from scp.autofix.runner import ast_scan_scp
+            from scp.autofix.runner_phases.ast_scan import ast_scan_scp
+            # Observe mode is evidence collection, not a full enterprise
+            # security scan. Keep it bounded and non-blocking; apply mode is
+            # still available separately with the normal runner contract.
+            observe_max_files = min(
+                max(10, int(os.environ.get("SCP_OBSERVE_MAX_FILES", "50"))),
+                100,
+            )
             findings = await asyncio.to_thread(
                 ast_scan_scp,
-                max_files=int(os.environ.get("SCP_MAX_STARTUP_FILES", "100")),
+                max_files=observe_max_files,
+                max_bugs=request.max_bugs or 20,
+                include_enterprise=False,
             )
             if request.max_bugs:
                 findings = findings[: request.max_bugs]
