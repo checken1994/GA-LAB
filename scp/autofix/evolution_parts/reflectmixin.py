@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Optional
 from scp.core.learning_run_ledger import ledger_run
+from scp.core.subsystem_telemetry import telemetry_sync_cycle
 
 logger = logging.getLogger("scp.autofix.evolution")
 
@@ -143,6 +144,7 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
 
 
     @ledger_run("evolution")
+    @telemetry_sync_cycle
     def evolve_cycle(self, max_bugs: int = 20) -> dict:
         """Vòng lặp khép kín: WHY → Audit → Fix → Reflect.
 
@@ -494,11 +496,10 @@ The function should be a module-level function (not a class method).
           5. WHY layer 2 (falsification) — "Tại sao đúng? Bác bỏ được không?"
           6. Constitution HARD LOCK check
         """
-        # Guard 1: env var — [RC-2 FIX Task 6-A] default flipped 0→1.
-        # Evolution is DNA #8 (learning + accumulation); defaulting OFF silently
-        # disabled the whole self-evolution subsystem. Operators who want to
-        # disable can set SCP_EVOLUTION_ENABLED=0 explicitly.
-        if os.environ.get("SCP_EVOLUTION_ENABLED", "1") != "1":
+        # Guard 1: explicit env contract. Missing means OFF, never implicit AUTO.
+        # Production child-safe.env sets SCP_EVOLUTION_ENABLED=0. Staging must
+        # set it to 1 explicitly and still keep AUTO promotion disabled.
+        if os.environ.get("SCP_EVOLUTION_ENABLED", "0") != "1":
             return False
 
         # Guard 2: timeout

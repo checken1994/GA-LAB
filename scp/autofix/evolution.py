@@ -50,6 +50,7 @@ from pathlib import Path
 
 from scp.autofix.classifier import BugClassifier, BugReport
 from scp.autofix.engine import get_autofix_engine
+from scp.core.subsystem_telemetry import SubsystemTelemetry
 
 logger = logging.getLogger("scp.autofix.evolution")
 
@@ -184,6 +185,17 @@ class EvolutionEngine(EvolutionEngineBuildMixin, EvolutionEngineReflectMixin, Ev
         self.autofix = get_autofix_engine(data_dir=data_dir)
         self._evolution_timestamps: list[float] = []
         self._evolution_enabled_at: float = 0.0
+        self._telemetry = SubsystemTelemetry("evolution", self.data_dir)
+        _enabled = os.environ.get("SCP_EVOLUTION_ENABLED", "0") == "1"
+        self._telemetry.start(
+            mode="enabled" if _enabled else "disabled",
+            config={
+                "evolution_enabled": _enabled,
+                "evolution_auto": os.environ.get("SCP_EVOLUTION_AUTO", "0") == "1",
+                "why_llm_enabled": os.environ.get("SCP_WHY_LLM_ENABLED", "0") == "1",
+            },
+        )
+        self._telemetry.tick(status="IDLE" if _enabled else "DISABLED")
         self._modules_built: int = 0
         self._reflects_done: int = 0
         self._evolves_completed: int = 0
@@ -375,7 +387,7 @@ class EvolutionEngine(EvolutionEngineBuildMixin, EvolutionEngineReflectMixin, Ev
         if self._evolution_enabled_at > 0:
             expires_in = max(0, int(EVOLUTION_TIMEOUT_SECONDS - (now - self._evolution_enabled_at)))
         return EvolutionStats(
-            enabled=os.environ.get("SCP_EVOLUTION_ENABLED", "1") == "1",  # RC-2 FIX: default ON
+            enabled=os.environ.get("SCP_EVOLUTION_ENABLED", "0") == "1",
             used_this_hour=len(self._evolution_timestamps),
             remaining=max(0, MAX_EVOLUTION_ACTIONS_PER_HOUR - len(self._evolution_timestamps)),
             max_per_hour=MAX_EVOLUTION_ACTIONS_PER_HOUR,

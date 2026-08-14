@@ -27,6 +27,7 @@ from pydantic import BaseModel
 
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
 from scp.api._shared import verify_admin
+from scp.core.subsystem_telemetry import SubsystemTelemetry
 
 logger = logging.getLogger("scp.api.v105")
 
@@ -360,6 +361,19 @@ async def deterministic_worker_status():
         return DeterministicWorker().status()
     except Exception as exc:
         raise HTTPException(500, f"Worker status error: {exc}") from exc
+
+
+@router.get("/v105/runtime/subsystems", dependencies=[Depends(verify_admin)])
+async def runtime_subsystem_status():
+    """Return heartbeat snapshots for long-lived learning/evolution subsystems."""
+    try:
+        data_dir = os.environ.get("SCP_DATA_DIR", "data")
+        return {
+            name: SubsystemTelemetry(name, data_dir).snapshot()
+            for name in ("fast_learning", "evolution", "deep_audit", "attack_monitor")
+        }
+    except Exception as exc:
+        raise HTTPException(500, f"Subsystem status error: {exc}") from exc
 
 
 @router.get("/v105/autofix/worker/jobs/{job_id}", dependencies=[Depends(verify_admin)])

@@ -53,6 +53,7 @@ from pathlib import Path
 # [ROOT-FIX 1] Canonical knowledge DDL — single source of truth (db_manager.py)
 from scp.core.db_manager import _KNOWLEDGE_CANONICAL_DDL
 from scp.core.learning_run_ledger import ledger_run
+from scp.core.subsystem_telemetry import SubsystemTelemetry, telemetry_async_cycle
 
 logger = logging.getLogger("scp.core.fast_learning_engine")
 
@@ -283,9 +284,16 @@ class FastLearningEngine:
     instances of THIS class.
     """
 
-    def __init__(self, scp_db_path: str = "data/v13.db", data_dir: str = "data"):
+    def __init__(self, scp_db_path: str = "data/v13.db", data_dir: str = "data", telemetry_subsystem: str | None = None):
         self.scp_db_path = scp_db_path
         self.data_dir = Path(data_dir)
+        self._telemetry = None
+        if telemetry_subsystem:
+            self._telemetry = SubsystemTelemetry(telemetry_subsystem, self.data_dir)
+            self._telemetry.start(
+                mode="background",
+                config={"db_path": str(self.scp_db_path), "count": 50, "llm": "ollama", "verify": "wikipedia"},
+            )
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._stats = {
             # V104.2 fast-cycle stats
@@ -823,6 +831,7 @@ class FastLearningEngine:
     # ============================================================
 
     @ledger_run("fast")
+    @telemetry_async_cycle
     async def fast_learning_cycle(self, count: int = 50) -> dict:
         """
         V104.2 Fast learning cycle:
@@ -837,6 +846,7 @@ class FastLearningEngine:
         results = {
             "asked": 0, "skipped_known": 0,
             "verified": 0, "stored": 0,
+            "provider_failed": 0, "provider_calls": 0,
             "compounding_l2": 0,
             "matrix_coverage": {"by_country": {}, "by_domain": {}},
             "parallel_concurrency": PARALLEL_OLLAMA_CONCURRENCY,
@@ -916,6 +926,7 @@ class FastLearningEngine:
 
         # V104.2.3: PARALLEL Ollama calls
         results["asked"] = len(question_batch)
+        results["provider_calls"] = len(question_batch)
         self._stats["ollama_questions_asked"] += len(question_batch)
 
         # Track coverage
@@ -947,6 +958,7 @@ class FastLearningEngine:
         verify_items = []
         for item, answer in zip(question_batch, ollama_answers):
             if isinstance(answer, Exception) or not answer or len(answer) < 3:
+                results["provider_failed"] += 1
                 continue
             verify_tasks.append(self._check_wikipedia_parallel(item["question"], answer))
             verify_items.append((item, answer))
@@ -1348,7 +1360,11 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
             # AFTER: 30s delay lets /health return 200 + /ask accept requests
             #   before FastLearning starts its batch. DNA #7 (Autofix safe).
             time.sleep(30)
-            engine = FastLearningEngine(scp_db_path=scp_db_path, data_dir=data_dir)
+            engine = FastLearningEngine(
+                scp_db_path=scp_db_path,
+                data_dir=data_dir,
+                telemetry_subsystem="fast_learning",
+            )
             logger.info(f"V104.2 FastLearningEngine started "
                         f"(concurrency={PARALLEL_OLLAMA_CONCURRENCY}, "
                         f"interval={LEARN_INTERVAL_FAST}s adaptive)")
@@ -1378,12 +1394,22 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                     else:
                         _consecutive_429 = 0  # reset on success
 
-                    # Adaptive sleep
+                    # Adaptive sleep, with heartbeat ticks so an idle worker is
+                    # not mistaken for a dead worker during 60/300/1800s waits.
                     sleep_s = engine.get_adaptive_interval()
                     logger.info(f"V104.2 adaptive sleep: {sleep_s}s (mode={results['adaptive_mode']})")
-                    time.sleep(sleep_s)
+                    deadline = time.time() + sleep_s
+                    while time.time() < deadline:
+                        remaining = max(0.0, deadline - time.time())
+                        if engine._telemetry:
+                            engine._telemetry.tick(status="IDLE", next_due_at_utc=str(deadline))
+                        time.sleep(min(15.0, remaining))
                 except Exception as e:
                     logger.error(f"V104.2 fast learning loop error: {e}")
+                    if engine._telemetry:
+                        engine._telemetry.cycle_failed(
+                            f"fast-learning-loop-{time.time_ns()}", e, status="TELEMETRY_DEGRADED"
+                        )
                     time.sleep(60)  # Fallback 1 min on error
 
         thread = threading.Thread(target=learning_loop, daemon=True, name="scp-v104-fast-learning")

@@ -395,100 +395,72 @@ async def lifespan(app: FastAPI):
             logger.error(f"[4-a-001] Background scheduler failed: {e}", exc_info=True)
     _scheduler_bootstrap_task = asyncio.create_task(_start_background_scheduler())
 
-    yield
-
-    # [AUTO-WIRE] Start deep audit scheduler — tự động chạy mỗi 24h
+    # [RUNTIME-FIX-HEARTBEAT] These loops belong to startup, not shutdown.
+    # Code after the lifespan yield is cleanup-only. Keep explicit handles so
+    # health/cleanup can distinguish never-started from stopped.
+    _audit_thread = None
+    _attack_thread = None
+    app.state.deep_audit_started = False
+    app.state.attack_monitor_started = False
     try:
         import threading as _threading
         import time as _time
-
         from scp.autofix.runner import run_deep_audit
 
         def _deep_audit_loop():
-            """Chạy deep audit mỗi 24h (86400 giây)."""
-            # Delay 60s sau startup để server ổn định
             _time.sleep(60)
             while True:
                 try:
                     logger.info("[AUTO] Deep audit cycle starting...")
-                    results = run_deep_audit(max_bugs=int(os.environ.get("SCP_MAX_AUDIT_BUGS", "100")))  # [ROOT-FIX 47] was 20 (hardcoded)
-                    logger.info(f"[AUTO] Deep audit: {results.get('processed', 0)} bugs processed, "
-                                f"{results.get('fixed', 0)} auto-fixed")
-                except Exception as e:
-                    logger.warning(f"[AUTO] Deep audit failed: {e}")
-                _time.sleep(86400)  # 24 giờ
+                    results = run_deep_audit(max_bugs=int(os.environ.get("SCP_MAX_AUDIT_BUGS", "100")))
+                    logger.info(
+                        "[AUTO] Deep audit: %s bugs processed, %s auto-fixed",
+                        results.get("processed", 0), results.get("fixed", 0),
+                    )
+                except Exception as exc:
+                    logger.warning("[AUTO] Deep audit failed: %s", exc)
+                _time.sleep(86400)
 
-        _audit_thread = _threading.Thread(target=_deep_audit_loop, daemon=True,
-                                          name="scp-deep-audit-scheduler")
+        _audit_thread = _threading.Thread(
+            target=_deep_audit_loop, daemon=True, name="scp-deep-audit-scheduler"
+        )
         _audit_thread.start()
-        logger.info("[AUTO] Deep audit scheduler started (24h interval)")
-    except Exception as e:
-        logger.warning(f"[AUTO] Deep audit scheduler failed: {e}")
+        app.state.deep_audit_started = True
+        logger.info("[AUTO] Deep audit scheduler started before lifespan yield (24h interval)")
+    except Exception as exc:
+        logger.warning("[AUTO] Deep audit scheduler failed to start: %s", exc)
 
-    # [AUTO-WIRE] Start attack mode auto-detection — tự bật khi bị tấn công
     try:
         from scp.autofix.engine import get_autofix_engine
 
         def _attack_mode_monitor():
-            """Tự động bật attack mode khi threat level cao.
-
-            Logic:
-            - Đếm KILL events trong 10 phút gần nhất
-            - Nếu > 20 KILLs trong 10 phút → attack mode ON
-            - Nếu < 5 KILLs trong 10 phút → attack mode OFF
-            """
-            _time.sleep(120)  # Delay 2 phút sau startup
+            _time.sleep(120)
             while True:
                 try:
                     eng = get_autofix_engine()
-                    # [SCP-DNA-FIX R8-1] TẠI SAO: Trước đây query SQLite
-                    # `SELECT COUNT(*) FROM notifications WHERE timestamp > ?`
-                    # nhưng KHÔNG BAO GIỜ có `CREATE TABLE notifications` trong
-                    # codebase (grep 0 matches). Notifications được lưu in-memory
-                    # tại `judge.notifications._recent` (runtime/notifications.py:95)
-                    # + JSONL file. Query raise sqlite3.OperationalError bị swallow
-                    # bởi `except Exception: logger.debug(...)` → kill_count luôn 0
-                    # → attack mode KHÔNG BAO GIỜ auto-trig. PASS ≠ TRUE (DNA #22).
-                    # Fix: đếm trực tiếp từ in-memory `UserNotificationSystem._recent`,
-                    # lọc theo event_type=governance_kill trong 10 phút gần nhất.
-                    _notif = getattr(_judge, "notifications", None)
-                    _cutoff = _time.time() - 600  # 10 phút gần nhất
-                    if _notif is not None:
-                        # [SCP-DNA-FIX R9-7 / SA-R9-2] R8-1's fix inlined
-                        # `sum(1 for _n in _notif._recent ...)` WITHOUT a
-                        # lock. notify() (judge worker thread) appends to
-                        # _recent concurrently → CPython list iterator
-                        # raises RuntimeError: list changed size during
-                        # iteration → swallowed by outer
-                        # `except Exception: logger.debug(...)` → attack
-                        # mode monitor silently dies (the exact failure R8-1
-                        # was supposed to fix). Fix: call the new thread-safe
-                        # count_recent_by_type() method (locks internally +
-                        # fail-open returns 0 on error → attack mode stays
-                        # in its current state, never falsely enables).
-                        kill_count = _notif.count_recent_by_type(
-                            "governance_kill", _cutoff
-                        )
-                    else:
-                        # Fail-open: nếu judge.notifications chưa init → 0
-                        kill_count = 0
-
+                    notif = getattr(_judge, "notifications", None)
+                    cutoff = _time.time() - 600
+                    kill_count = notif.count_recent_by_type("governance_kill", cutoff) if notif is not None else 0
                     if kill_count > 20 and not eng.in_attack_mode:
                         eng.set_attack_mode(True)
-                        logger.warning(f"[AUTO] Attack mode ENABLED — {kill_count} KILLs in 10min")
+                        logger.warning("[AUTO] Attack mode ENABLED — %s KILLs in 10min", kill_count)
                     elif kill_count < 5 and eng.in_attack_mode:
                         eng.set_attack_mode(False)
-                        logger.info(f"[AUTO] Attack mode DISABLED — {kill_count} KILLs in 10min (normal)")
-                except Exception as e:
-                    logger.debug(f"[AUTO] Attack mode monitor: {e}")
-                _time.sleep(300)  # Check mỗi 5 phút
+                        logger.info("[AUTO] Attack mode DISABLED — %s KILLs in 10min", kill_count)
+                except Exception as exc:
+                    logger.warning("[AUTO] Attack mode monitor: %s", exc)
+                _time.sleep(300)
 
-        _attack_thread = _threading.Thread(target=_attack_mode_monitor, daemon=True,
-                                           name="scp-attack-mode-monitor")
+        _attack_thread = _threading.Thread(
+            target=_attack_mode_monitor, daemon=True, name="scp-attack-mode-monitor"
+        )
         _attack_thread.start()
-        logger.info("[AUTO] Attack mode auto-monitor started (5min interval)")
-    except Exception as e:
-        logger.warning(f"[AUTO] Attack mode monitor failed: {e}")
+        app.state.attack_monitor_started = True
+        logger.info("[AUTO] Attack mode monitor started before lifespan yield (5min interval)")
+    except Exception as exc:
+        logger.warning("[AUTO] Attack mode monitor failed to start: %s", exc)
+
+    yield
 
     # ============================================================
     # [OPT-14 / Gà §8] External trust root verification — at startup,
