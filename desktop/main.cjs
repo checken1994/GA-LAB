@@ -402,7 +402,25 @@ async function boot() {
 }
 
 app.whenReady().then(() => {
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  const isLocalDashboard = (webContents, requestingOrigin = '') => {
+    const raw = requestingOrigin || (webContents && webContents.getURL ? webContents.getURL() : '');
+    try {
+      const url = new URL(raw);
+      return (url.hostname === '127.0.0.1' || url.hostname === 'localhost') && url.port === '3000';
+    } catch (_) {
+      return false;
+    }
+  };
+  // The previous callback(false) silently blocked camera and microphone for
+  // every renderer, so the dashboard buttons could never work in Desktop.
+  // Allow only media permission for the local SCP dashboard; keep all other
+  // permissions denied by default.
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(permission === 'media' && isLocalDashboard(webContents));
+  });
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    return permission === 'media' && isLocalDashboard(webContents, requestingOrigin);
+  });
   installDesktopCsp();
   ipcMain.handle('notify-critical', (_event, payload = {}) => {
     const title = String(payload.title || 'SCP · Cảnh báo nghiêm trọng');
