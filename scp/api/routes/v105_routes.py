@@ -261,12 +261,24 @@ async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
                 },
             }
         from scp.autofix.runner import run_deep_audit
-        # R9-2: run_deep_audit() AST-scans 371 .py + may invoke LLM fixes
+        deterministic_only = os.environ.get("SCP_AUTOFIX_DETERMINISTIC_ONLY", "0") == "1"
+        # R9-2: run_deep_audit() AST-scans 371 .py. Production child can
+        # explicitly disable provider I/O while still applying deterministic
+        # safe fixes and recording unresolved findings as skipped.
         # (deepseek-r1:8b via Ollama — 30s+ per fix). Calling inline from
         # `async def` blocks the event loop for 2-10 min — /health, /ask,
         # WebSocket all freeze. Run in a worker thread (non-blocking).
-        results = await asyncio.to_thread(run_deep_audit, max_bugs=request.max_bugs)
-        return {"audit_complete": True, "mode": "apply", "results": results}
+        results = await asyncio.to_thread(
+            run_deep_audit,
+            max_bugs=request.max_bugs,
+            deterministic_only=deterministic_only,
+        )
+        return {
+            "audit_complete": True,
+            "mode": "apply",
+            "deterministic_only": deterministic_only,
+            "results": results,
+        }
     except HTTPException:
         raise
     except Exception as e:

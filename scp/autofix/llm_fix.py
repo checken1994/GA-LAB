@@ -606,7 +606,7 @@ def generate_fix_for_bug(bug) -> str | None:
         return llm_response
 
 
-def process_bug_with_llm(bug, autofix_engine) -> dict:
+def process_bug_with_llm(bug, autofix_engine, allow_llm: bool = True) -> dict:
     """Process a bug: try pattern fix first, then LLM-generated fix.
 
     [V5.5-FIX] TẠI SAO: was always call LLM — 50 BareExceptPass bugs × 1 LLM call
@@ -621,6 +621,8 @@ def process_bug_with_llm(bug, autofix_engine) -> dict:
     Args:
         bug: BugReport
         autofix_engine: AutoFixEngine instance
+        allow_llm: When False, only predefined/pattern/deterministic fixes are
+            allowed; unresolved bugs are returned as skipped without provider I/O.
 
     Returns:
         Result dict from engine.process_bug(), with 'fix_source' flag.
@@ -671,6 +673,14 @@ def process_bug_with_llm(bug, autofix_engine) -> dict:
         result["fix_source"] = "deterministic_no_llm"
         result["llm_generated"] = False
         return result
+
+    if not allow_llm:
+        return {
+            "action": "skipped",
+            "reason": "llm_disabled_deterministic_only",
+            "fix_source": "deterministic_only",
+            "llm_generated": False,
+        }
 
     # [V8.0-AUTOFIX] Try 5 new pattern fixers from EvolutionEngine
     # (opt-in via SCP_EVOLUTION_ENABLED=1)

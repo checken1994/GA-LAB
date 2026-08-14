@@ -124,7 +124,8 @@ $safeEnvText = @(
     'SCP_TIER3_ALLOW_BAREEXCEPTPASS=0',
     'SCP_ENABLE_CLOSED_LOOP=0',
     'SCP_AUTOFIX_MODE=apply',
-    'SCP_MAX_AUDIT_BUGS=5'
+    'SCP_MAX_AUDIT_BUGS=5',
+    'SCP_AUTOFIX_DETERMINISTIC_ONLY=1'
 ) -join [Environment]::NewLine
 $safeEnvTmp = "$SafeChildEnvFile.tmp"
 [IO.File]::WriteAllText($safeEnvTmp, $safeEnvText + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))

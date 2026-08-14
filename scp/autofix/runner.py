@@ -201,6 +201,7 @@ def run_once(
     deep_audit_log: str | Path | None = None,
     parallel_workers: int = 0,
     parallel_min_files: int = 2,
+    deterministic_only: bool = False,
 ) -> dict:
     """Run one auto-fix pass over the given bugs.
 
@@ -222,6 +223,8 @@ def run_once(
         parallel_min_files: [IMP-11] Only use parallel mode if ≥N distinct
               files have bugs (default 2 — avoids thread overhead for
               single-file runs).
+        deterministic_only: Apply only predefined/pattern/deterministic fixes;
+              unresolved findings are recorded as skipped without LLM/provider I/O.
 
     Returns:
         Summary dict:
@@ -371,7 +374,7 @@ def run_once(
             return run_once_parallel(
                 bugs=bugs,
                 engine=engine,
-                process_bug_fn=process_bug_with_llm,
+                process_bug_fn=(lambda bug, eng: process_bug_with_llm(bug, eng, allow_llm=not deterministic_only)),
                 max_workers=parallel_workers,
                 write_log=write_log,
                 log_path=log_path,
@@ -389,7 +392,7 @@ def run_once(
 
     for bug in bugs:
         try:
-            result = process_bug_with_llm(bug, engine)
+            result = process_bug_with_llm(bug, engine, allow_llm=not deterministic_only)
         except Exception as e:
             logger.error(f"[runner] process_bug_with_llm failed for {bug.file}:{bug.line}: {e}")
             result = {"action": "skipped", "tier": 0, "reason": f"runner error: {e}"}
@@ -478,14 +481,14 @@ def run_once(
     return summary
 
 
-def run_deep_audit(max_bugs: int = 0) -> dict:
+def run_deep_audit(max_bugs: int = 0, deterministic_only: bool = False) -> dict:
     """[EXEC-1 A4] Convenience wrapper: AST-scan scp/ and feed findings
     into AutoFixEngine.process_bug().
 
     Equivalent to run_once(ast_scan=True). Used by the
     /v105/autofix/run-audit API endpoint.
     """
-    return run_once(ast_scan=True, max_bugs=max_bugs)
+    return run_once(ast_scan=True, max_bugs=max_bugs, deterministic_only=deterministic_only)
 
 
 def pre_startup_audit(max_bugs: int | None = None) -> dict:
