@@ -475,13 +475,27 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
         _deep_audit_telemetry = SubsystemTelemetry("deep_audit", os.environ.get("SCP_DATA_DIR", "data"))
         _deep_audit_telemetry.start(mode="background", config={"interval_seconds": 86400})
         _deep_audit_stop = threading.Event()
+        _deep_audit_state = {"status": "STARTING"}
         _background_task_holder["deep_audit_stop"] = _deep_audit_stop
+
+        def _deep_audit_heartbeat_loop():
+            while not _deep_audit_stop.is_set():
+                _deep_audit_telemetry.tick(status=_deep_audit_state["status"])
+                if _deep_audit_stop.wait(15):
+                    return
+
+        threading.Thread(
+            target=_deep_audit_heartbeat_loop,
+            daemon=True,
+            name="scp-deep-audit-heartbeat",
+        ).start()
 
         def _deep_audit_loop():
             if not _wait_with_heartbeat(_deep_audit_stop, _deep_audit_telemetry, 60, "IDLE"):
                 return
             while not _deep_audit_stop.is_set():
                 run_id = f"deep_audit-{_time.time_ns()}"
+                _deep_audit_state["status"] = "RUNNING"
                 _deep_audit_telemetry.cycle_started(run_id, trigger="interval")
                 try:
                     logger.info("[AUTO] Deep audit cycle starting...")
@@ -501,6 +515,7 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                 except Exception as e:
                     _deep_audit_telemetry.cycle_failed(run_id, e, status="PROVIDER_FAILED")
                     logger.warning(f"[AUTO] Deep audit failed: {e}")
+                _deep_audit_state["status"] = "IDLE"
                 if not _wait_with_heartbeat(_deep_audit_stop, _deep_audit_telemetry, 86400, "IDLE"):
                     return
 
@@ -516,13 +531,27 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
         _attack_telemetry = SubsystemTelemetry("attack_monitor", os.environ.get("SCP_DATA_DIR", "data"))
         _attack_telemetry.start(mode="background", config={"interval_seconds": 300})
         _attack_stop = threading.Event()
+        _attack_state = {"status": "STARTING"}
         _background_task_holder["attack_monitor_stop"] = _attack_stop
+
+        def _attack_heartbeat_loop():
+            while not _attack_stop.is_set():
+                _attack_telemetry.tick(status=_attack_state["status"])
+                if _attack_stop.wait(15):
+                    return
+
+        threading.Thread(
+            target=_attack_heartbeat_loop,
+            daemon=True,
+            name="scp-attack-monitor-heartbeat",
+        ).start()
 
         def _attack_mode_monitor():
             if not _wait_with_heartbeat(_attack_stop, _attack_telemetry, 120, "IDLE"):
                 return
             while not _attack_stop.is_set():
                 run_id = f"attack_monitor-{_time.time_ns()}"
+                _attack_state["status"] = "RUNNING"
                 _attack_telemetry.cycle_started(run_id, trigger="interval")
                 try:
                     from scp.autofix.engine import get_autofix_engine
@@ -545,6 +574,7 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                 except Exception as e:
                     _attack_telemetry.cycle_failed(run_id, e, status="PROVIDER_FAILED")
                     logger.debug(f"[AUTO] Attack mode monitor: {e}")
+                _attack_state["status"] = "IDLE"
                 if not _wait_with_heartbeat(_attack_stop, _attack_telemetry, 300, "IDLE"):
                     return
 
