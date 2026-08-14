@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import pytest
 from scp.security.production_guard import enforce_production_safety
 from scp.security.secret_loader import read_secret
@@ -55,15 +56,28 @@ def test_electron_csp_contract():
 
 def test_packaged_backend_contract():
     main = (ROOT / "desktop" / "main.cjs").read_text(encoding="utf-8")
+    manifest_path = ROOT / "desktop" / "runtime-manifest.json"
+    build_script = ROOT / "desktop" / "build_runtime.ps1"
+    assert "scp-backend.exe" in main
+    assert manifest_path.exists()
+    assert build_script.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["artifact_policy"] == "generated-or-attached-release-asset"
+    assert set(manifest["required_artifacts"]) == {
+        "scp-backend.exe",
+        "scp-llm-bridge.exe",
+        "scp-loop-scheduler.exe",
+    }
     runtime = ROOT / "desktop" / "runtime"
     onefile = runtime / "scp-backend.exe"
     onedir = runtime / "scp-backend" / "scp-backend.exe"
-    assert "scp-backend.exe" in main
-    assert onefile.exists() or onedir.exists()
-    if onedir.exists():
-        assert not list((runtime / "scp-backend" / "_internal" / "scp").rglob("*.py"))
-    else:
-        assert not list(runtime.rglob("*.py"))
+    # Source repos intentionally do not track the 245 MB Windows binary.
+    # If a release bundle has staged it, enforce the no-source/no-live-data rule.
+    if onefile.exists() or onedir.exists():
+        if onedir.exists():
+            assert not list((runtime / "scp-backend" / "_internal" / "scp").rglob("*.py"))
+        else:
+            assert not list(runtime.rglob("*.py"))
 def test_bounded_startup_gate_contract():
     api = (ROOT / "scp" / "api_server.py").read_text(encoding="utf-8")
     for marker in ("SCP_STARTUP_SCAN_TIMEOUT_SEC", "asyncio.to_thread", "_startup_gate_task", "SCP_JUDGE_START_DELAY_SEC"):

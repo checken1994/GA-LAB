@@ -31,13 +31,22 @@ def test_why_provider_auto_keeps_openrouter_compatibility(monkeypatch):
     assert seen == {"prompt": "compat prompt", "max_tokens": 200}
 
 
-def test_bare_except_deterministic_fix_accepts_trailing_noqa_comment():
+def test_bare_except_deterministic_fix_accepts_trailing_noqa_comment(tmp_path):
     from scp.autofix.llm_fix import _generate_bare_except_fix
+
+    fixture = tmp_path / "type_flow_verifier.py"
+    fixture.write_text(
+        "try:\n"
+        "    work()\n"
+        "except Exception:\n"
+        "    pass  # noqa: BLE001\n",
+        encoding="utf-8",
+    )
 
     class Bug:
         bug_type = "BareExceptPass"
-        file = r"C:\Users\check\Downloads\scp\scp\autofix\type_flow_verifier.py"
-        line = 717
+        file = str(fixture)
+        line = 3
 
     patch = _generate_bare_except_fix(Bug())
     assert patch is not None

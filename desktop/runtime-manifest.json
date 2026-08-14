@@ -1,0 +1,25 @@
+{
+  "schema": "scp.desktop.runtime-manifest.v1",
+  "platform": "windows-x64",
+  "runtime_dir": "desktop/runtime",
+  "required_artifacts": [
+    "scp-backend.exe",
+    "scp-llm-bridge.exe",
+    "scp-loop-scheduler.exe"
+  ],
+  "artifact_policy": "generated-or-attached-release-asset",
+  "source_policy": "binary artifacts are not committed to GitHub; build script verifies and stages them",
+  "build_script": "desktop/build_runtime.ps1",
+  "security": {
+    "source_python_must_not_be_packaged": true,
+    "production_env_is_not_copied": true,
+    "runtime_data_is_not_packaged": true,
+    "sha256_manifest_required": true
+  },
+  "clean_machine_contract": {
+    "requires_python_source": false,
+    "requires_node_or_bun_source": false,
+    "requires_ollama_for_local_llm": true,
+    "requires_provider_key": false
+  }
+}
