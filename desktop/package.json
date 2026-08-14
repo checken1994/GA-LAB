@@ -32,7 +32,17 @@
     "extraResources": [
       {
         "from": "runtime",
-        "to": "runtime"
+        "to": "runtime",
+        "filter": [
+          "**/*",
+          "!data",
+          "!data/**/*",
+          "!**/*.env",
+          "!**/*.py",
+          "!**/*.sqlite",
+          "!**/*.db",
+          "!**/*.jsonl"
+        ]
       }
     ],
     "win": {

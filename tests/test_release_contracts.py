@@ -58,7 +58,11 @@ def test_packaged_backend_contract():
     main = (ROOT / "desktop" / "main.cjs").read_text(encoding="utf-8")
     manifest_path = ROOT / "desktop" / "runtime-manifest.json"
     build_script = ROOT / "desktop" / "build_runtime.ps1"
+    desktop_package = json.loads((ROOT / "desktop" / "package.json").read_text(encoding="utf-8"))
+    runtime_filter = desktop_package["build"]["extraResources"][0]["filter"]
     assert "scp-backend.exe" in main
+    assert "!data/**/*" in runtime_filter
+    assert "!**/*.py" in runtime_filter
     assert manifest_path.exists()
     assert build_script.exists()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
