@@ -228,9 +228,29 @@ class RollbackTokenRegistry:
                     f"{file_path}). Operator explicitly accepted risk."
                 )
 
-            # Restore before_content (only reachable if hash matched OR
-            # force=True explicitly overrode the mismatch check above).
-            target.write_text(entry["before_content"], encoding="utf-8")
+            # Restore before_content atomically. A direct write_text() can
+            # leave a truncated source file if the process/disk fails midway.
+            # The worker and rollback API share this durability contract.
+            tmp_name = None
+            try:
+                fd, tmp_name = tempfile.mkstemp(
+                    prefix=f".{target.name}.rollback-",
+                    suffix=".tmp",
+                    dir=str(target.parent),
+                    text=True,
+                )
+                with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+                    handle.write(entry["before_content"])
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(tmp_name, target)
+                tmp_name = None
+            finally:
+                if tmp_name:
+                    try:
+                        Path(tmp_name).unlink(missing_ok=True)
+                    except OSError:
+                        pass
             logger.info(
                 f"[IMP-6] rolled back fix {token} — restored {file_path} "
                 f"to before_hash={entry['before_hash']}"

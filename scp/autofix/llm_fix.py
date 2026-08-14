@@ -674,6 +674,54 @@ def process_bug_with_llm(bug, autofix_engine, allow_llm: bool = True) -> dict:
         result["llm_generated"] = False
         return result
 
+    # [AST-DETERMINISTIC-WORKER-CATALOG] Use the same conservative AST
+    # recipes in the request-loop path. This is still pure candidate generation:
+    # no provider/network and no file write happens here; AutoFixEngine owns the
+    # policy/apply/verify contract.
+    try:
+        from scp.autofix.deterministic_patches import (
+            build_candidate as _build_det_candidate,
+            candidate_search_replace as _candidate_search_replace,
+        )
+        _det_candidate = _build_det_candidate(bug)
+        if _det_candidate is not None:
+            _risk_order = {"low": 0, "medium": 1, "high": 2}
+            _max_risk = os.environ.get("SCP_AUTOFIX_DETERMINISTIC_MAX_RISK", "low").strip().lower()
+            if _max_risk not in _risk_order:
+                _max_risk = "low"
+            if _risk_order.get(_det_candidate.risk, 99) > _risk_order[_max_risk]:
+                return {
+                    "action": "candidate",
+                    "reason": (
+                        f"deterministic candidate risk={_det_candidate.risk} exceeds "
+                        f"configured max={_max_risk}; no file write"
+                    ),
+                    "fix_source": f"ast_{_det_candidate.patch_id}",
+                    "llm_generated": False,
+                    "deterministic_patch_risk": _det_candidate.risk,
+                }
+            logger.info(
+                "[llm_fix] AST deterministic candidate (no LLM): %s for %s:%s",
+                _det_candidate.patch_id,
+                bug.file,
+                bug.line,
+            )
+            from scp.autofix.classifier import BugReport
+            _det_bug = BugReport(
+                file=bug.file, line=bug.line, bug_type=bug.bug_type,
+                description=bug.description,
+                suggested_fix=_candidate_search_replace(_det_candidate),
+                tier=bug.tier, is_restraint=bug.is_restraint,
+                is_reversible=bug.is_reversible, affects_logic=bug.affects_logic,
+            )
+            result = autofix_engine.process_bug(_det_bug)
+            result["fix_source"] = f"ast_{_det_candidate.patch_id}"
+            result["llm_generated"] = False
+            result["deterministic_patch_risk"] = _det_candidate.risk
+            return result
+    except Exception as _det_err:
+        logger.debug("[llm_fix] AST deterministic catalog unavailable: %s", _det_err)
+
     if not allow_llm:
         return {
             "action": "skipped",

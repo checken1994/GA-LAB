@@ -126,6 +126,7 @@ function commandFor(label) {
     return {
       bridge: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-llm-bridge.exe'), args: [], env: { SCP_BASE_URL: 'http://127.0.0.1:8000', ZAI_BRIDGE_PORT: String(DESKTOP_BRIDGE_PORT), ZAI_BRIDGE_HOST: '127.0.0.1' } },
       scheduler: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-loop-scheduler.exe'), args: [], env: { SCP_BASE_URL: 'http://127.0.0.1:8000', LLM_BRIDGE_URL: DESKTOP_BRIDGE_URL } },
+      worker: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-autofix-worker.exe'), args: ['--max-jobs', '1', '--watch'], env: { SCP_AUTOFIX_WORKER_ROOT: SCP_ROOT, SCP_AUTOFIX_WORKER_DATA_DIR: path.join(SCP_ROOT, 'data'), SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK: 'low' } },
       scp: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-backend.exe'), args: ['8000'], env: { OLLAMA_HOST: DESKTOP_BRIDGE_URL } },
       dashboard: { cwd: path.join(RUNTIME_ROOT, 'dashboard'), file: process.execPath, args: [path.join(RUNTIME_ROOT, 'dashboard', 'server.js')], env: { HOSTNAME: '127.0.0.1', PORT: '3000', ELECTRON_RUN_AS_NODE: '1', NEXT_TELEMETRY_DISABLED: '1' } },
     }[label];
@@ -150,6 +151,16 @@ function commandFor(label) {
         SCP_MODEL_VERSION: MODEL_VERSION,
         SCP_BASE_URL: 'http://127.0.0.1:8000',
         LLM_BRIDGE_URL: DESKTOP_BRIDGE_URL,
+      },
+    },
+    worker: {
+      cwd: SCP_ROOT,
+      file: path.join(SCP_ROOT, 'scp', 'venv', 'Scripts', 'python.exe'),
+      args: ['-m', 'scp.autofix.deterministic_worker', '--max-jobs', '1', '--watch'],
+      env: {
+        SCP_AUTOFIX_WORKER_ROOT: SCP_ROOT,
+        SCP_AUTOFIX_WORKER_DATA_DIR: path.join(SCP_ROOT, 'data'),
+        SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK: 'low',
       },
     },
     scp: {
@@ -326,7 +337,7 @@ function buildMenu() {
 
 async function boot() {
   createSplash();
-  const required = ['bridge', 'scheduler', 'scp', 'dashboard'];
+  const required = ['bridge', 'scheduler', 'scp', 'worker', 'dashboard'];
   try {
     for (const service of required) startService(service);
   } catch (error) {

@@ -96,6 +96,9 @@ _loadEnvFile();
 
 const LOOP_INTERVAL_SEC = Number(process.env.LOOP_INTERVAL_SEC ?? "300");
 const AUTOFIX_MODE = (process.env.SCP_AUTOFIX_MODE ?? "observe").trim().toLowerCase();
+const AUTOFIX_DETERMINISTIC_ONLY = (process.env.SCP_AUTOFIX_DETERMINISTIC_ONLY ?? "0").trim() === "1";
+const AUTOFIX_WORKER_MODE = (process.env.SCP_AUTOFIX_WORKER_MODE ?? "inline").trim().toLowerCase();
+const DETERMINISTIC_WORKER_LOOP = AUTOFIX_MODE === "apply" && AUTOFIX_DETERMINISTIC_ONLY && AUTOFIX_WORKER_MODE === "deterministic";
 if (AUTOFIX_MODE !== "observe" && AUTOFIX_MODE !== "apply") {
   throw new Error(`[loop-scheduler] invalid SCP_AUTOFIX_MODE=${AUTOFIX_MODE}; refusing start`);
 }
@@ -163,7 +166,7 @@ const SCP_AUTH_TOKEN =
 // observation). An alternative would be fire-and-forget (don't await fetch,
 // set a cooldown), but that loses the audit summary (findings_count,
 // fixes_applied) and SCP's current endpoint is synchronous (no 202 + job ID).
-const SCP_FETCH_TIMEOUT_MS = 600_000;
+const SCP_FETCH_TIMEOUT_MS = DETERMINISTIC_WORKER_LOOP ? 30_000 : 600_000;
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -172,7 +175,7 @@ interface LoopRun {
   scp_online: boolean;        // did SCP /health respond?
   // [Fix 4-d-011 · Task Local-D] Added "bridge_offline" status — surfaces the
   // case where SCP process is alive but LLM bridge (port 11434) is down.
-  status: "ok" | "error" | "scp_offline" | "bridge_offline" | "auth_required" | "skipped";
+  status: "ok" | "queued" | "error" | "scp_offline" | "bridge_offline" | "auth_required" | "skipped";
   findings_count?: number;    // bugs found in this audit cycle
   fixes_applied?: number;     // bugs auto-fixed (Tier 1/2)
   permission_requested?: number; // bugs needing human approval (Tier 3)
@@ -405,14 +408,12 @@ async function triggerAudit(triggeredBy: "cron" | "manual"): Promise<LoopRun> {
     }
     state.scp_online = true;
 
-    // [Fix 4-d-011 · Task Local-D] Step 1.5: pre-flight LLM bridge check.
-    // SCP's run_deep_audit calls the LLM bridge for every bug. If the bridge
-    // is unreachable (or OpenRouter is 429-exhausted), every LLM call fails
-    // → UNKNOWN verdicts → wasted cycle. Skip the audit and log
-    // "bridge_offline" so the dashboard can surface this state (DNA #19).
-    const bridge_online = await checkLlmBridgeLiveness();
+    // Inline LLM audits need a bridge preflight. Deterministic worker mode
+    // deliberately does not: it must remain useful during provider outage and
+    // must not turn a local AST/patch queue into an LLM dependency.
+    const bridge_online = DETERMINISTIC_WORKER_LOOP ? true : await checkLlmBridgeLiveness();
     state.bridge_online = bridge_online;
-    if (!bridge_online) {
+    if (!DETERMINISTIC_WORKER_LOOP && !bridge_online) {
       const run: LoopRun = {
         ts,
         scp_online: true,
@@ -486,7 +487,7 @@ async function triggerAudit(triggeredBy: "cron" | "manual"): Promise<LoopRun> {
       const run: LoopRun = {
         ts,
         scp_online: true,
-        status: "ok",
+        status: (DETERMINISTIC_WORKER_LOOP && typeof body === "object" && body !== null && (body as Record<string, unknown>).mode === "queued") ? "queued" : "ok",
         http_status: res.status,
         duration_ms,
         triggered_by: triggeredBy,

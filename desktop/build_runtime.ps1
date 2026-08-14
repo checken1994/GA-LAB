@@ -11,7 +11,8 @@ $ErrorActionPreference = 'Stop'
 $required = @(
     'scp-backend.exe',
     'scp-llm-bridge.exe',
-    'scp-loop-scheduler.exe'
+    'scp-loop-scheduler.exe',
+    'scp-autofix-worker.exe'
 )
 
 $source = (Resolve-Path $SourceDir).Path

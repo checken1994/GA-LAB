@@ -71,6 +71,7 @@ def test_packaged_backend_contract():
         "scp-backend.exe",
         "scp-llm-bridge.exe",
         "scp-loop-scheduler.exe",
+        "scp-autofix-worker.exe",
     }
     runtime = ROOT / "desktop" / "runtime"
     onefile = runtime / "scp-backend.exe"

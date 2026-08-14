@@ -5,7 +5,8 @@
   "required_artifacts": [
     "scp-backend.exe",
     "scp-llm-bridge.exe",
-    "scp-loop-scheduler.exe"
+    "scp-loop-scheduler.exe",
+    "scp-autofix-worker.exe"
   ],
   "artifact_policy": "generated-or-attached-release-asset",
   "source_policy": "binary artifacts are not committed to GitHub; build script verifies and stages them",

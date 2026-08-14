@@ -237,16 +237,19 @@ try {
         [ordered]@{ Name = 'llm-bridge'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\llm-bridge'); Port = 11434; Url = 'http://127.0.0.1:11434/api/tags' },
         [ordered]@{ Name = 'loop-scheduler'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\loop-scheduler'); Port = 3030; Url = 'http://127.0.0.1:3030/' },
         [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8000'); Dir = $Root; Port = 8000; Url = 'http://127.0.0.1:8000/health' },
+        [ordered]@{ Name = 'autofix-worker'; File = $python; Args = @('-m', 'scp.autofix.deterministic_worker', '--max-jobs', '1', '--watch'); Dir = $Root; Port = 0; Url = '' },
         [ordered]@{ Name = 'dashboard'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'dashboard'); Port = 3000; Url = 'http://127.0.0.1:3000/' }
     )
 
     function Test-PortInUse {
         param([int]$Port)
+        if ($Port -le 0) { return $false }
         return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
     }
 
     function Test-HttpHealthy {
         param([string]$Url)
+        if ([string]::IsNullOrWhiteSpace($Url)) { return $true }
         try {
             $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 4 -SkipHttpErrorCheck
             return ($response.StatusCode -lt 500)
@@ -278,16 +281,28 @@ try {
         $oldAuthPasswordFile = $env:SCP_AUTH_PASSWORD_FILE
         $oldSchedulerAdminToken = $env:SCP_SCHEDULER_ADMIN_TOKEN
         $oldSchedulerAdminTokenFile = $env:SCP_SCHEDULER_ADMIN_TOKEN_FILE
+        $oldAutofixMode = $env:SCP_AUTOFIX_MODE
+        $oldAutofixDeterministicOnly = $env:SCP_AUTOFIX_DETERMINISTIC_ONLY
+        $oldAutofixWorkerMode = $env:SCP_AUTOFIX_WORKER_MODE
+        $oldAutofixWorkerRoot = $env:SCP_AUTOFIX_WORKER_ROOT
+        $oldAutofixWorkerDataDir = $env:SCP_AUTOFIX_WORKER_DATA_DIR
+        $oldAutofixWorkerRisk = $env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK
         $oldDangerous = @{}
         foreach ($flag in @('SCP_DEV_MODE','SCP_SKIP_STARTUP_GATE','SCP_AUTO_APPROVE_TIER3','SCP_TIER3_ALLOW_RELAXATION','SCP_TIER3_ALLOW_BAREEXCEPTPASS')) {
             $oldDangerous[$flag] = [Environment]::GetEnvironmentVariable($flag, 'Process')
         }
         $env:SCP_ENABLE_CLOSED_LOOP = '0'
         try {
-            if ($Service.Name -in @('loop-scheduler','scp-python')) {
+            if ($Service.Name -in @('loop-scheduler','scp-python','autofix-worker')) {
                 $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
                 $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
                 $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
+                $env:SCP_AUTOFIX_MODE = 'apply'
+                $env:SCP_AUTOFIX_DETERMINISTIC_ONLY = '1'
+                $env:SCP_AUTOFIX_WORKER_MODE = 'deterministic'
+                $env:SCP_AUTOFIX_WORKER_ROOT = $Root
+                $env:SCP_AUTOFIX_WORKER_DATA_DIR = Join-Path $Root 'data'
+                $env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK = 'low'
                 # Bun/Python child processes must not receive the entire
                 # production env file: it may contain unrelated/dangerous flags.
                 # Read only auth values into the child environment, never print
@@ -338,6 +353,12 @@ try {
             if ($null -eq $oldAuthPasswordFile) { Remove-Item Env:SCP_AUTH_PASSWORD_FILE -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_PASSWORD_FILE = $oldAuthPasswordFile }
             if ($null -eq $oldSchedulerAdminToken) { Remove-Item Env:SCP_SCHEDULER_ADMIN_TOKEN -ErrorAction SilentlyContinue } else { $env:SCP_SCHEDULER_ADMIN_TOKEN = $oldSchedulerAdminToken }
             if ($null -eq $oldSchedulerAdminTokenFile) { Remove-Item Env:SCP_SCHEDULER_ADMIN_TOKEN_FILE -ErrorAction SilentlyContinue } else { $env:SCP_SCHEDULER_ADMIN_TOKEN_FILE = $oldSchedulerAdminTokenFile }
+            if ($null -eq $oldAutofixMode) { Remove-Item Env:SCP_AUTOFIX_MODE -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_MODE = $oldAutofixMode }
+            if ($null -eq $oldAutofixDeterministicOnly) { Remove-Item Env:SCP_AUTOFIX_DETERMINISTIC_ONLY -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_DETERMINISTIC_ONLY = $oldAutofixDeterministicOnly }
+            if ($null -eq $oldAutofixWorkerMode) { Remove-Item Env:SCP_AUTOFIX_WORKER_MODE -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_WORKER_MODE = $oldAutofixWorkerMode }
+            if ($null -eq $oldAutofixWorkerRoot) { Remove-Item Env:SCP_AUTOFIX_WORKER_ROOT -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_WORKER_ROOT = $oldAutofixWorkerRoot }
+            if ($null -eq $oldAutofixWorkerDataDir) { Remove-Item Env:SCP_AUTOFIX_WORKER_DATA_DIR -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_WORKER_DATA_DIR = $oldAutofixWorkerDataDir }
+            if ($null -eq $oldAutofixWorkerRisk) { Remove-Item Env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK = $oldAutofixWorkerRisk }
             foreach ($flag in $oldDangerous.Keys) {
                 if ($null -eq $oldDangerous[$flag]) { Remove-Item "Env:$flag" -ErrorAction SilentlyContinue } else { Set-Item "Env:$flag" $oldDangerous[$flag] }
             }
@@ -394,7 +415,7 @@ try {
             }
             $healthy = $processAlive -and (Test-HttpHealthy $service.Url)
             if ($healthy) {
-                Write-Ledger -Event 'HEALTHY' -Service $service.Name -Reason 'process_and_http_ok'
+                Write-Ledger -Event 'HEALTHY' -Service $service.Name -Reason $(if ([string]::IsNullOrWhiteSpace($service.Url)) { 'process_ok_no_http_probe' } else { 'process_and_http_ok' })
                 continue
             }
             $now = [DateTime]::UtcNow

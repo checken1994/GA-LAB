@@ -262,6 +262,53 @@ async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
             }
         from scp.autofix.runner import run_deep_audit, run_once
         deterministic_only = os.environ.get("SCP_AUTOFIX_DETERMINISTIC_ONLY", "0") == "1"
+        worker_mode = (
+            os.environ.get("SCP_AUTOFIX_WORKER_MODE", "inline").strip().lower()
+            or "inline"
+        )
+        # Out-of-loop deterministic mode: the request only scans + enqueues.
+        # A separately supervised worker owns apply/verify/rollback. This keeps
+        # the backend response bounded and makes queued/rejected/applied states
+        # observable instead of turning a slow apply into an HTTP timeout.
+        if deterministic_only and worker_mode == "deterministic":
+            from scp.autofix.deterministic_worker import DeterministicWorker
+            from scp.autofix.runner_phases.ast_scan import ast_scan_scp
+            bounded_max_files = min(
+                max(10, int(os.environ.get("SCP_AUTOFIX_MAX_SCAN_FILES", "50"))),
+                100,
+            )
+            findings = await asyncio.to_thread(
+                ast_scan_scp,
+                max_files=bounded_max_files,
+                max_bugs=request.max_bugs or 5,
+                include_enterprise=False,
+            )
+            worker = DeterministicWorker()
+            jobs = []
+            for finding in findings[: request.max_bugs or len(findings)]:
+                try:
+                    jobs.append(worker.enqueue_bug(finding))
+                except Exception as enqueue_error:
+                    logger.error(
+                        "[deterministic-worker] enqueue failed for %s:%s: %s",
+                        getattr(finding, "file", ""), getattr(finding, "line", 0), enqueue_error,
+                    )
+            return {
+                "audit_complete": True,
+                "mode": "queued",
+                "deterministic_only": True,
+                "worker": "deterministic",
+                "results": {
+                    "processed": 0,
+                    "fixed": 0,
+                    "permission_requested": 0,
+                    "skipped": len(findings) - len(jobs),
+                    "findings_count": len(findings),
+                    "jobs_enqueued": len(jobs),
+                    "job_ids": [j.get("job_id") for j in jobs],
+                    "source": "bounded_ast_scan_deterministic_worker_queue",
+                },
+            }
         # R9-2: run_deep_audit() AST-scans 371 .py. Production child can
         # explicitly disable provider I/O while still applying deterministic
         # safe fixes and recording unresolved findings as skipped.
@@ -303,6 +350,31 @@ async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
         raise
     except Exception as e:
         raise HTTPException(500, f"Error: {e}") from e
+
+
+@router.get("/v105/autofix/worker/status", dependencies=[Depends(verify_admin)])
+async def deterministic_worker_status():
+    """Return deterministic worker queue counts without exposing payload secrets."""
+    try:
+        from scp.autofix.deterministic_worker import DeterministicWorker
+        return DeterministicWorker().status()
+    except Exception as exc:
+        raise HTTPException(500, f"Worker status error: {exc}") from exc
+
+
+@router.get("/v105/autofix/worker/jobs/{job_id}", dependencies=[Depends(verify_admin)])
+async def deterministic_worker_job(job_id: str):
+    """Return one deterministic worker job and its transition events."""
+    try:
+        from scp.autofix.deterministic_worker import DeterministicWorker
+        status = DeterministicWorker().status(job_id)
+        if status.get("job") is None:
+            raise HTTPException(404, "Worker job not found")
+        return status
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, f"Worker job status error: {exc}") from exc
 
 
 @router.get("/v105/autofix/monitor", dependencies=[Depends(verify_admin)])
