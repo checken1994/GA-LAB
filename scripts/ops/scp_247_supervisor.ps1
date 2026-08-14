@@ -138,8 +138,10 @@ try {
         $stdout = Join-Path $LogDir "$($Service.Name).out.log"
         $stderr = Join-Path $LogDir "$($Service.Name).err.log"
         $oldLoopLog = $env:LOOP_LOG_PATH
+        $oldScpBaseUrl = $env:SCP_BASE_URL
         if ($Service.Name -eq 'loop-scheduler') {
-            $env:LOOP_LOG_PATH = Join-Path $Root 'data\loop_runs.jsonl'
+            $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
+            $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
         }
         try {
             if ($DryRun) {
@@ -151,6 +153,7 @@ try {
             return [pscustomobject]@{ Id = $process.Id; Name = $Service.Name; StartedAt = [DateTime]::UtcNow }
         } finally {
             $env:LOOP_LOG_PATH = $oldLoopLog
+            $env:SCP_BASE_URL = $oldScpBaseUrl
         }
     }
 
