@@ -93,7 +93,10 @@ def _status(mode: str, result: Any, error: BaseException | None) -> str:
         if bugs_found == 0 and lessons_stored == 0:
             return "NO_NEW_FACTS"
         if bugs_fixed == 0 and lessons_stored == 0:
-            return "PROVIDER_FAILED"
+            provider_failed = _int_or_none(payload.get('provider_failed')) or 0
+            if provider_failed > 0:
+                return "PROVIDER_FAILED"
+            return "VERIFY_REJECTED"
         return "SUCCESS"
     asked = metrics["asked"] or 0
     verified = metrics["verified"] or 0

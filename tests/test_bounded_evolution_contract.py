@@ -31,6 +31,11 @@ def test_evolution_zero_fix_is_not_success():
         "evolution",
         {"action": "evolved", "bugs_found": 1, "bugs_fixed": 0},
         None,
+    ) == "VERIFY_REJECTED"
+    assert _status(
+        "evolution",
+        {"action": "evolved", "bugs_found": 1, "bugs_fixed": 0, "provider_failed": 1},
+        None,
     ) == "PROVIDER_FAILED"
     assert _status(
         "evolution",
