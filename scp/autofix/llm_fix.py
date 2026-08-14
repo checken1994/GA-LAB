@@ -164,7 +164,7 @@ def _generate_bare_except_fix(bug) -> str | None:
         except_line = lines[bug_line_idx].rstrip()
         # Check if this line is `except ...:`
         except_match = _re_module.match(
-            r'^(\s*)(except\s+)(\w+)(\s+as\s+\w+)?\s*:\s*$',
+            r'^(\s*)(except\s+)(\w+)(\s+as\s+\w+)?\s*:\s*(?:#.*)?$',
             except_line
         )
         if not except_match:

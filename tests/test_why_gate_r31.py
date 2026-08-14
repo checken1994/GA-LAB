@@ -31,6 +31,21 @@ def test_why_provider_auto_keeps_openrouter_compatibility(monkeypatch):
     assert seen == {"prompt": "compat prompt", "max_tokens": 200}
 
 
+def test_bare_except_deterministic_fix_accepts_trailing_noqa_comment():
+    from scp.autofix.llm_fix import _generate_bare_except_fix
+
+    class Bug:
+        bug_type = "BareExceptPass"
+        file = r"C:\Users\check\Downloads\scp\scp\autofix\type_flow_verifier.py"
+        line = 717
+
+    patch = _generate_bare_except_fix(Bug())
+    assert patch is not None
+    assert "<<<<<<< SEARCH" in patch
+    assert "except Exception:" in patch
+    assert "logger.debug" in patch
+
+
 def test_deterministic_bare_except_context_skips_weak_llm(monkeypatch, tmp_path):
     gate = why_gate.WhyGate(data_dir=str(tmp_path))
 
