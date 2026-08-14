@@ -6,6 +6,7 @@ metadata so that a live process cannot be mistaken for a completed cycle.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -145,7 +146,9 @@ class SubsystemTelemetry:
             "ts_utc": now,
             **_json_safe(payload),
         }
-        ledger_ok = self._append_ledger(event)
+        # Heartbeats belong in SQLite current-state/events; only lifecycle and
+        # cycle records go to the append-only JSONL run ledger.
+        ledger_ok = True if event_type == "heartbeat" else self._append_ledger(event)
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             current = conn.execute(
@@ -211,10 +214,11 @@ class SubsystemTelemetry:
                 f"INSERT OR REPLACE INTO subsystem_heartbeat ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})",
                 values,
             )
-            conn.execute(
-                "INSERT INTO subsystem_heartbeat_events(subsystem,instance_id,event_type,status,run_id,ts_utc,payload_json) VALUES(?,?,?,?,?,?,?)",
-                (self.subsystem, self.instance_id, event_type, status, run_id, now, json.dumps(_json_safe(payload), ensure_ascii=False, sort_keys=True)),
-            )
+            if event_type != "heartbeat":
+                conn.execute(
+                    "INSERT INTO subsystem_heartbeat_events(subsystem,instance_id,event_type,status,run_id,ts_utc,payload_json) VALUES(?,?,?,?,?,?,?)",
+                    (self.subsystem, self.instance_id, event_type, status, run_id, now, json.dumps(_json_safe(payload), ensure_ascii=False, sort_keys=True)),
+                )
             conn.commit()
         self._seq += 1
         if not ledger_ok:
@@ -290,6 +294,16 @@ def classify_cycle_status(result: Any, error: BaseException | None = None) -> st
     return "SUCCESS"
 
 
+def heartbeat_sleep(telemetry: SubsystemTelemetry | None, seconds: float, *, status: str = "IDLE") -> None:
+    """Sleep without making a healthy idle subsystem look dead."""
+    deadline = time.time() + max(0.0, float(seconds))
+    while time.time() < deadline:
+        remaining = max(0.0, deadline - time.time())
+        if telemetry is not None:
+            telemetry.tick(status=status, next_due_at_utc=str(deadline))
+        time.sleep(min(15.0, remaining))
+
+
 def telemetry_async_cycle(func):
     """Decorate an async subsystem cycle with a separate evidence ledger."""
     @wraps(func)
@@ -299,6 +313,7 @@ def telemetry_async_cycle(func):
         if telemetry is None:
             return await func(self, *args, **kwargs)
         telemetry.cycle_started(run_id, trigger=kwargs.get("trigger", "interval"))
+        ticker = asyncio.create_task(_async_heartbeat_ticker(telemetry))
         try:
             result = await func(self, *args, **kwargs)
             if isinstance(result, dict):
@@ -318,7 +333,19 @@ def telemetry_async_cycle(func):
         except BaseException as exc:
             telemetry.cycle_failed(run_id, exc)
             raise
+        finally:
+            ticker.cancel()
+            try:
+                await ticker
+            except asyncio.CancelledError:
+                pass
     return wrapped
+
+
+async def _async_heartbeat_ticker(telemetry: SubsystemTelemetry) -> None:
+    while True:
+        await asyncio.sleep(15)
+        telemetry.tick(status="RUNNING")
 
 
 def telemetry_sync_cycle(func):
@@ -330,6 +357,12 @@ def telemetry_sync_cycle(func):
         if telemetry is None:
             return func(self, *args, **kwargs)
         telemetry.cycle_started(run_id, trigger=kwargs.get("trigger", "admin"))
+        stop = threading.Event()
+        def _tick_loop():
+            while not stop.wait(15):
+                telemetry.tick(status="RUNNING")
+        ticker = threading.Thread(target=_tick_loop, name=f"{telemetry.subsystem}-heartbeat", daemon=True)
+        ticker.start()
         try:
             result = func(self, *args, **kwargs)
             status = classify_cycle_status(result)
@@ -346,7 +379,10 @@ def telemetry_sync_cycle(func):
         except BaseException as exc:
             telemetry.cycle_failed(run_id, exc, status="PROVIDER_FAILED")
             raise
+        finally:
+            stop.set()
+            ticker.join(timeout=1)
     return wrapped
 
 
-__all__ = ["SubsystemTelemetry", "TERMINAL_STATUSES", "classify_cycle_status", "telemetry_async_cycle", "telemetry_sync_cycle"]
+__all__ = ["SubsystemTelemetry", "TERMINAL_STATUSES", "classify_cycle_status", "heartbeat_sleep", "telemetry_async_cycle", "telemetry_sync_cycle"]

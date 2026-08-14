@@ -406,10 +406,17 @@ async def lifespan(app: FastAPI):
         import threading as _threading
         import time as _time
         from scp.autofix.runner import run_deep_audit
+        from scp.core.subsystem_telemetry import SubsystemTelemetry, heartbeat_sleep
+
+        _audit_telemetry = SubsystemTelemetry("deep_audit", os.environ.get("SCP_DATA_DIR", "data"))
+        _audit_telemetry.start(mode="background", config={"interval_seconds": 86400})
+        _audit_telemetry.tick(status="IDLE")
 
         def _deep_audit_loop():
-            _time.sleep(60)
+            heartbeat_sleep(_audit_telemetry, 60, status="IDLE")
             while True:
+                run_id = f"deep-audit-{_time.time_ns()}"
+                _audit_telemetry.cycle_started(run_id, trigger="interval")
                 try:
                     logger.info("[AUTO] Deep audit cycle starting...")
                     results = run_deep_audit(max_bugs=int(os.environ.get("SCP_MAX_AUDIT_BUGS", "100")))
@@ -417,9 +424,14 @@ async def lifespan(app: FastAPI):
                         "[AUTO] Deep audit: %s bugs processed, %s auto-fixed",
                         results.get("processed", 0), results.get("fixed", 0),
                     )
+                    _audit_telemetry.cycle_completed(
+                        run_id, "SUCCESS", bugs_found=results.get("processed", 0),
+                        bugs_fixed=results.get("fixed", 0), stored=results.get("stored", 0),
+                    )
                 except Exception as exc:
                     logger.warning("[AUTO] Deep audit failed: %s", exc)
-                _time.sleep(86400)
+                    _audit_telemetry.cycle_failed(run_id, exc, status="TELEMETRY_DEGRADED")
+                heartbeat_sleep(_audit_telemetry, 86400, status="IDLE")
 
         _audit_thread = _threading.Thread(
             target=_deep_audit_loop, daemon=True, name="scp-deep-audit-scheduler"
@@ -432,10 +444,17 @@ async def lifespan(app: FastAPI):
 
     try:
         from scp.autofix.engine import get_autofix_engine
+        from scp.core.subsystem_telemetry import SubsystemTelemetry, heartbeat_sleep
+
+        _attack_telemetry = SubsystemTelemetry("attack_monitor", os.environ.get("SCP_DATA_DIR", "data"))
+        _attack_telemetry.start(mode="background", config={"interval_seconds": 300})
+        _attack_telemetry.tick(status="IDLE")
 
         def _attack_mode_monitor():
-            _time.sleep(120)
+            heartbeat_sleep(_attack_telemetry, 120, status="IDLE")
             while True:
+                run_id = f"attack-monitor-{_time.time_ns()}"
+                _attack_telemetry.cycle_started(run_id, trigger="interval")
                 try:
                     eng = get_autofix_engine()
                     notif = getattr(_judge, "notifications", None)
@@ -447,9 +466,11 @@ async def lifespan(app: FastAPI):
                     elif kill_count < 5 and eng.in_attack_mode:
                         eng.set_attack_mode(False)
                         logger.info("[AUTO] Attack mode DISABLED — %s KILLs in 10min", kill_count)
+                    _attack_telemetry.cycle_completed(run_id, "SUCCESS", asked=kill_count, verified=1)
                 except Exception as exc:
                     logger.warning("[AUTO] Attack mode monitor: %s", exc)
-                _time.sleep(300)
+                    _attack_telemetry.cycle_failed(run_id, exc, status="TELEMETRY_DEGRADED")
+                heartbeat_sleep(_attack_telemetry, 300, status="IDLE")
 
         _attack_thread = _threading.Thread(
             target=_attack_mode_monitor, daemon=True, name="scp-attack-mode-monitor"

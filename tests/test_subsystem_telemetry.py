@@ -23,7 +23,7 @@ def test_heartbeat_and_ledger_record_completed_cycle(tmp_path: Path):
     assert snapshot["cycles_started"] == 1
     assert snapshot["cycles_completed"] == 1
     rows = [json.loads(line) for line in (tmp_path / "fast_learning_runs.jsonl").read_text().splitlines()]
-    assert [row["event_type"] for row in rows] == ["started", "heartbeat", "cycle_started", "cycle_completed"]
+    assert [row["event_type"] for row in rows] == ["started", "cycle_started", "cycle_completed"]
     assert rows[-1]["run_id"] == "run-1"
     assert "prompt" not in rows[-1]
 

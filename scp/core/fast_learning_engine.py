@@ -53,7 +53,7 @@ from pathlib import Path
 # [ROOT-FIX 1] Canonical knowledge DDL — single source of truth (db_manager.py)
 from scp.core.db_manager import _KNOWLEDGE_CANONICAL_DDL
 from scp.core.learning_run_ledger import ledger_run
-from scp.core.subsystem_telemetry import SubsystemTelemetry, telemetry_async_cycle
+from scp.core.subsystem_telemetry import SubsystemTelemetry, heartbeat_sleep, telemetry_async_cycle
 
 logger = logging.getLogger("scp.core.fast_learning_engine")
 
@@ -1388,7 +1388,7 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                                 f"[R17-FIX-10] {_consecutive_429} consecutive cycles with 0 verified "
                                 f"(likely OpenRouter 429) — backing off 10 min"
                             )
-                            time.sleep(600)  # 10 min backoff
+                            heartbeat_sleep(engine._telemetry, 600, status="IDLE")
                             _consecutive_429 = 0  # reset after backoff
                             continue
                     else:
@@ -1398,19 +1398,14 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                     # not mistaken for a dead worker during 60/300/1800s waits.
                     sleep_s = engine.get_adaptive_interval()
                     logger.info(f"V104.2 adaptive sleep: {sleep_s}s (mode={results['adaptive_mode']})")
-                    deadline = time.time() + sleep_s
-                    while time.time() < deadline:
-                        remaining = max(0.0, deadline - time.time())
-                        if engine._telemetry:
-                            engine._telemetry.tick(status="IDLE", next_due_at_utc=str(deadline))
-                        time.sleep(min(15.0, remaining))
+                    heartbeat_sleep(engine._telemetry, sleep_s, status="IDLE")
                 except Exception as e:
                     logger.error(f"V104.2 fast learning loop error: {e}")
                     if engine._telemetry:
                         engine._telemetry.cycle_failed(
                             f"fast-learning-loop-{time.time_ns()}", e, status="TELEMETRY_DEGRADED"
                         )
-                    time.sleep(60)  # Fallback 1 min on error
+                    heartbeat_sleep(engine._telemetry, 60, status="TELEMETRY_DEGRADED")
 
         thread = threading.Thread(target=learning_loop, daemon=True, name="scp-v104-fast-learning")
         thread.start()
