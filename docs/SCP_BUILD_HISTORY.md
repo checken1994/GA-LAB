@@ -83,3 +83,11 @@ R41 sửa một lỗi packaging quan trọng: rule tổng quát `**/runtime/` tr
 [1]: [GitHub commit history](https://github.com/checken1994/GA-LAB/commits/main)  
 [2]: [SCP continuity archive](https://github.com/checken1994/GA-LAB/blob/main/docs/SCP_CAU_CHUYEN_GA_TAI_SAO_CONTINUITY_ARCHIVE.md)  
 [3]: [SCP worklog](https://github.com/checken1994/GA-LAB/blob/main/docs/WORKLOG.md)
+
+## 8. R43: Policy Handoff, Learning Staging và FastLearning fail-closed
+
+R43 đóng missing piece giữa `ExperienceEngine` và runtime policy. `PolicyMaterializer` tạo candidate có schema/hash, promote atomically, backup/rollback và ledger; `ExperienceEngine.run_reflection_cycle()` chỉ mark lesson applied sau khi policy đã promote. `r43_experience_reflector.py` phân biệt policy lessons hợp lệ với các row `VERDICT_*` chỉ là history.
+
+R43 thêm staging DB isolated và bounded provider harness, giữ năm dangerous flags bằng `0`, không ghi production data. FastLearning chuyển các lỗi WHY, SourceWatchlist, verification, KB cross-check và DB write sang fail-closed; stored counters chỉ tăng sau persistence thành công.
+
+Reality evidence trên Windows PC thật: 4/4 fault-injection checks pass; bounded staging provider `asked=1, verified=0, stored=0`; runtime integration materialized/promoted/applied một `SOURCE_RELIABILITY` lesson trong staging và giữ nguyên 44 verdict-history rows unapplied; `55 pytest passed`; `73/73 portable reality passed`.

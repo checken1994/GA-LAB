@@ -5,6 +5,7 @@ Extracted from engine.py for modularity.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -716,11 +717,29 @@ class RealityJudge(JudgeBgMixin, JudgeCoreMixin, JudgeRouteMixin, JudgeUtilMixin
             return self._exp_policies
         self._exp_policies_ts = now
         try:
-            if os.path.exists(self._exp_policies_path):
-                with open(self._exp_policies_path) as f:
-                    self._exp_policies = json.load(f)
+            if not os.path.exists(self._exp_policies_path):
+                # Missing active policy must clear stale cached policy.
+                self._exp_policies = {}
+                return self._exp_policies
+            with open(self._exp_policies_path, encoding="utf-8") as f:
+                candidate = json.load(f)
+            required = {"source_priorities", "domain_tolerances", "kb_priorities", "recurring_errors", "confidence_adjustments", "_meta"}
+            if not isinstance(candidate, dict) or not required.issubset(candidate):
+                raise ValueError("active policy schema invalid")
+            meta = candidate.get("_meta")
+            stored_hash = meta.get("policy_sha256") if isinstance(meta, dict) else None
+            if not isinstance(stored_hash, str) or len(stored_hash) != 64:
+                raise ValueError("active policy hash missing")
+            check = json.loads(json.dumps(candidate, ensure_ascii=False))
+            check["_meta"].pop("policy_sha256", None)
+            canonical = json.dumps(check, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            if hashlib.sha256(canonical).hexdigest() != stored_hash:
+                raise ValueError("active policy hash mismatch")
+            self._exp_policies = candidate
         except Exception as e:
-            logger.debug(f"[V93.6] exp policies load error: {e}")
+            # Invalid/corrupt policy must not leave a stale policy active.
+            self._exp_policies = {}
+            logger.error(f"[V93.6] exp policies load blocked; using empty policy: {e}")
         return self._exp_policies
 
     # ============================================================

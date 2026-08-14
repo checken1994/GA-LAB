@@ -644,25 +644,25 @@ class FastLearningEngine:
                 # → store at reduced confidence (≤ 0.5)
                 return True, "no prior KB entry (unverified — no cross-check possible)", -0.3
             except Exception as _kb_err:
-                logger.debug(f"[V9.1-UPGRADE] KB cross-check failed (fail-open): {_kb_err}")
-                # Fail-open: can't cross-check → unverified but don't block
-                # [G3-MERGE #8c] TẠI SAO: was -0.2 (asymmetric penalty — KB
-                # cross-check ERROR was treated as if the fact itself were
-                # suspicious, which suppressed KB accumulation whenever the
-                # cross-check infra hiccupped). Doc DNA #8 says: cross-check
-                # failure is NEUTRAL (0.0) — fail-open, no penalty, no reward.
-                # Confirmed by Task 2-B P1-04: fix #8c was NEVER applied (both
-                # engines still returned -0.2). Applying now as part of G3 merge.
-                return True, "KB cross-check error (fail-open, unverified)", 0.0
+                self._audit_v91("fast_learning_kb_crosscheck_error", {
+                    "entity": entity[:100], "source": source,
+                    "error": type(_kb_err).__name__,
+                })
+                logger.error(f"[V9.1-UPGRADE] KB cross-check failed; fact rejected: {_kb_err}")
+                return False, "KB cross-check infrastructure error", -1.0
 
         except Exception as _verify_err:
-            logger.debug(f"[V9.1-UPGRADE] _verify_learned_fact error (fail-open): {_verify_err}")
-            return True, f"verify error (fail-open): {_verify_err}", 0.0
+            self._audit_v91("fast_learning_verify_error", {
+                "entity": entity[:100], "source": source,
+                "error": type(_verify_err).__name__,
+            })
+            logger.error(f"[V9.1-UPGRADE] Verification failed; fact rejected: {_verify_err}")
+            return False, "verification infrastructure error", -1.0
 
     # [V9.1-UPGRADE] Audit log helper for V9.1 self-verify layer.
     # TẠI SAO: same pattern as why_gate_audit.jsonl — every verify decision logged
     # for forensic review. Fail-open: log failure must not break learning.
-    def _audit_v91(self, event: str, payload: dict) -> None:
+    def _audit_v91(self, event: str, payload: dict) -> bool:
         try:
             import json as _json
             _entry = {
@@ -674,10 +674,12 @@ class FastLearningEngine:
             _audit_path = self.data_dir / "v91_upgrade_audit.jsonl"
             with open(_audit_path, "a", encoding="utf-8") as f:
                 f.write(_json.dumps(_entry, ensure_ascii=False) + "\n")
+            return True
         except Exception as _audit_err:
-            logger.debug(f"[V9.1-UPGRADE] audit log error (fail-open): {_audit_err}")
+            logger.error(f"[V9.1-UPGRADE] audit log error: {_audit_err}")
+            return False
 
-    def _store_kb(self, entity: str, attribute: str, value: str, source: str, confidence: float) -> None:
+    def _store_kb(self, entity: str, attribute: str, value: str, source: str, confidence: float) -> bool:
         """Store fact into KB.
 
         [V104.24 #5 + V104.29 #4 FIX] Use db_exec from db_manager (was: separate
@@ -701,7 +703,11 @@ class FastLearningEngine:
                 logger.info(f"[V9.0-WHY-GATE] FastLearning KB store blocked by WHY for {entity[:30]}")
                 return  # don't store — WHY rejected
         except Exception as _why_err:
-            logger.debug(f"[V9.0-WHY-GATE] WHY Gate error (non-blocking): {_why_err}")
+            self._audit_v91("fast_learning_why_error", {
+                "source": source, "error": type(_why_err).__name__,
+            })
+            logger.error(f"[V9.0-WHY-GATE] WHY Gate error; KB write blocked: {_why_err}")
+            return False
 
         try:
             # [V104.46 #CF] [P2-18 FIX] Check SourceWatchlist before writing to KB.
@@ -719,7 +725,11 @@ class FastLearningEngine:
                     logger.warning(f"[V104.46 #CF] FastLearning KB write blocked by watchlist: source={source}")
                     return  # skip — don't write blocked sources to KB
             except Exception as _wl_err:
-                logger.debug(f"[V104.46 #CF] Watchlist check error (fail-open): {_wl_err}")
+                self._audit_v91("fast_learning_watchlist_error", {
+                    "source": source, "error": type(_wl_err).__name__,
+                })
+                logger.error(f"[V104.46 #CF] Watchlist check error; KB write blocked: {_wl_err}")
+                return False
 
             # [V9.1-UPGRADE] LearningVerification layer — self-verify trước khi store.
             # TẠI SAO: WHY gate (v9.0) hỏi "có nên store không?" (action layer).
@@ -750,13 +760,19 @@ class FastLearningEngine:
                             f"unverified (conf={confidence:.2f}): entity={entity[:30]}, "
                             f"reason={_verify_reason}"
                         )
-                self._audit_v91("fast_learning_verify_ok", {
+                if not self._audit_v91("fast_learning_verify_ok", {
                     "entity": entity[:100], "source": source,
                     "conf_adj": _conf_adj, "final_conf": confidence,
                     "reason": _verify_reason,
-                })
+                }):
+                    return False
             except Exception as _verify_call_err:
-                logger.debug(f"[V9.1-UPGRADE] _verify_learned_fact call error (fail-open): {_verify_call_err}")
+                self._audit_v91("fast_learning_verify_error", {
+                    "entity": entity[:100], "source": source,
+                    "error": type(_verify_call_err).__name__,
+                })
+                logger.error(f"[V9.1-UPGRADE] Verification error; KB write blocked: {_verify_call_err}")
+                return False
 
             # [V104.24 #5] [AUDIT-2 FIX] Use db_exec with db_path=self.scp_db_path.
             # TẠI SAO: the previous "fix" (P2-18) used bare sqlite3.connect to
@@ -794,7 +810,13 @@ class FastLearningEngine:
             """, (entity_lower, attribute, value[:500], confidence, source,
                   _now, _now), db_path=self.scp_db_path)
         except Exception as e:
-            logger.debug(f"KB store failed: {e}")
+            self._audit_v91("fast_learning_kb_write_fail", {
+                "entity": entity[:100], "source": source,
+                "error": type(e).__name__,
+            })
+            logger.error(f"KB store failed; fact not persisted: {e}")
+            return False
+        return True
 
     # ============================================================
     # V104.2.4: FAST LEARNING CYCLE (PARALLEL)
@@ -938,15 +960,16 @@ class FastLearningEngine:
             if wiki.get("verified"):
                 self._stats["ollama_answers_verified"] += 1
                 results["verified"] += 1
-                self._store_kb(
+                stored_ok = self._store_kb(
                     entity=item["question"][:200],
                     attribute="verified_answer",
                     value=answer[:500],
                     source=f"ollama+wiki:{OLLAMA_MODEL}",
                     confidence=wiki["confidence"],
                 )
-                self._stats["ollama_kb_facts_stored"] += 1
-                results["stored"] += 1
+                if stored_ok:
+                    self._stats["ollama_kb_facts_stored"] += 1
+                    results["stored"] += 1
 
         # V104.2.4: Adaptive interval
         cycle_time_ms = int((time.time() - cycle_start) * 1000)
@@ -1093,16 +1116,17 @@ class FastLearningEngine:
                 results["verified"] += 1
 
                 # 4. Lưu vào KB
-                self._store_kb(
+                stored_ok = self._store_kb(
                     entity=question[:200],
                     attribute="verified_answer",
                     value=ollama_answer[:500],
                     source=f"ollama+wiki:{OLLAMA_MODEL}",
                     confidence=wiki_answer["confidence"],
                 )
-                self._stats["ollama_kb_facts_stored"] += 1
-                results["stored"] += 1
-                self._stats["by_domain"][domain] = self._stats["by_domain"].get(domain, 0) + 1
+                if stored_ok:
+                    self._stats["ollama_kb_facts_stored"] += 1
+                    results["stored"] += 1
+                    self._stats["by_domain"][domain] = self._stats["by_domain"].get(domain, 0) + 1
                 logger.info(f"Ollama Learning: VERIFIED '{question[:50]}' → '{ollama_answer[:50]}'")
             else:
                 logger.debug(f"Ollama Learning: NOT VERIFIED '{question[:50]}' → '{ollama_answer[:50]}'")
@@ -1174,15 +1198,16 @@ class FastLearningEngine:
                         results["facts_verified"] += 1
 
                         # Lưu vào KB
-                        self._store_kb(
+                        stored_ok = self._store_kb(
                             entity=sentence[:200],
                             attribute="local_fact",
                             value="verified_true",
                             source=f"local+ollama:{filepath.name}",
                             confidence=0.7,
                         )
-                        self._stats["local_kb_facts_stored"] += 1
-                        results["stored"] += 1
+                        if stored_ok:
+                            self._stats["local_kb_facts_stored"] += 1
+                            results["stored"] += 1
             except Exception as e:
                 logger.debug(f"Local file {filepath.name} failed: {e}")
 
@@ -1222,15 +1247,16 @@ class FastLearningEngine:
                         self._stats["news_questions_generated"] += 1
                         results["questions"] += 1
 
-                        self._store_kb(
+                        stored_ok = self._store_kb(
                             entity=headline[:200],
                             attribute="news_fact",
                             value="verified_true",
                             source=f"news+ollama:{rss_url}",
                             confidence=0.6,
                         )
-                        self._stats["news_facts_stored"] += 1
-                        results["stored"] += 1
+                        if stored_ok:
+                            self._stats["news_facts_stored"] += 1
+                            results["stored"] += 1
             except Exception as e:
                 logger.debug(f"News {rss_url} failed: {e}")
 

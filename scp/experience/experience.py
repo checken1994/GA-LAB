@@ -697,8 +697,44 @@ class ExperienceEngine:
         # [V104.35 #73] TẠI SAO: mark_applied defined but never called → lessons
         # re-read every cycle → wasted DB I/O. Fix: mark them applied now.
         lesson_ids = policies.get("_lesson_ids", [])
+        policy_handoff = {
+            "status": "NO_UNAPPLIED_LESSONS",
+            "eligible_lesson_count": 0,
+            "applied_count": 0,
+        }
         if lesson_ids:
-            self.mark_applied(lesson_ids)
+            try:
+                from scp.core.db_manager import DB_PATH, DATA_DIR
+                from scp.core.policy_materializer import PolicyMaterializer
+                materializer = PolicyMaterializer(db_path=DB_PATH, data_dir=DATA_DIR)
+                candidate = materializer.materialize_candidate()
+                meta = candidate.get("_meta", {})
+                eligible_ids = [int(x) for x in meta.get("eligible_lesson_ids", [])]
+                if eligible_ids:
+                    promoted = materializer.promote()
+                    applied_count = materializer.mark_applied(eligible_ids)
+                    materializer.record_applied(eligible_ids, applied_count)
+                    policy_handoff = {
+                        "status": "APPLIED",
+                        "eligible_lesson_count": len(eligible_ids),
+                        "applied_count": applied_count,
+                        "policy_sha256": promoted.get("policy_sha256"),
+                    }
+                else:
+                    policy_handoff = {
+                        "status": "NO_ELIGIBLE_POLICY_LESSONS",
+                        "eligible_lesson_count": 0,
+                        "applied_count": 0,
+                        "lessons_seen": meta.get("lesson_count_seen", 0),
+                    }
+            except Exception as e:
+                logger.error(f"Policy handoff failed; lessons remain unapplied: {e}")
+                policy_handoff = {
+                    "status": "HANDOFF_FAILED",
+                    "eligible_lesson_count": 0,
+                    "applied_count": 0,
+                    "error": type(e).__name__,
+                }
         print("\n  ??  STEP 3: ACTIVE POLICIES")
         print(f"     Source priorities: {len(policies['source_priorities'])} sources")
         for src, info in policies["source_priorities"].items():
@@ -724,6 +760,7 @@ class ExperienceEngine:
                 "confidence_adjustments": len(policies["confidence_adjustments"]),
             },
             "policies": policies,
+            "policy_handoff": policy_handoff,
         }
 
         print("\n  [STATS] SUMMARY")

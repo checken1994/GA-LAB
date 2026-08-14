@@ -6,7 +6,7 @@ Repository này chứa source code SCP, desktop Control Center, dashboard, sidec
 
 ## Trạng thái hiện tại
 
-- **HEAD:** R41 — `2137cf3abf26611f737b4d3a8e5fb51fc93346f3`
+- **HEAD:** R43 — Policy Handoff + FastLearning fail-closed + isolated Learning Staging
 - **Backend:** Python/FastAPI, mặc định loopback `127.0.0.1:8000`; runtime source `scp/runtime/` đã được version-control (55 files)
 - **Desktop:** Electron 43.4.0, electron-builder 26.15.3, app version 1.6.0
 - **Dashboard:** Next.js service, mặc định `127.0.0.1:3000`
@@ -85,6 +85,7 @@ The portable runner writes runtime output to `data/reality-tests-results.json`. 
 - [Lịch sử xây dựng SCP](docs/SCP_BUILD_HISTORY.md)
 - [Kiến trúc hệ thống hiện tại](docs/SCP_ARCHITECTURE_CURRENT.md)
 - [Runtime reproducibility R41](docs/SCP_RUNTIME_REPRODUCE_R41.md)
+- [Learning Handoff và Staging R43](docs/SCP_LEARNING_HANDOFF_R43.md)
 - [Continuity archive](docs/SCP_CAU_CHUYEN_GA_TAI_SAO_CONTINUITY_ARCHIVE.md)
 - [Public release guide](docs/PUBLIC_RELEASE_GUIDE.md)
 - [Worklog](docs/WORKLOG.md)
