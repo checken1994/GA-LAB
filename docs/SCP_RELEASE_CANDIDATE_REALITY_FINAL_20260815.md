@@ -19,28 +19,28 @@ Trạng thái vận hành cuối sau khi resume loop là: Task Supervisor `Runni
 | Orphan process | Windows Job Object với `KILL_ON_JOB_CLOSE`; external terminate đã dừng child | Supervisor evidence/ledger |
 | Recovery | Recovery watchdog mỗi phút, user-session scope; kill switch được tôn trọng | `a364ae7`, `d6b0b96` |
 | Packaging | Runtime manifest, build script hash binaries; Electron filter loại `data`, `.py`, `.env`, DB/JSONL khỏi bundle | `0039e41`, `e46515d` |
-| Tests | Fixture Windows path được sửa thành portable `tmp_path`; toàn bộ sandbox pytest pass | `81 passed` |
+| Tests | Fixture Windows path được sửa thành portable `tmp_path`; worker/release contract tests pass trên sandbox và PC thật | `86 passed` sandbox; `16 passed` PC thật |
 
 ## AutoFix: đã tự động đến mức nào?
 
-AutoFix **đã được nối end-to-end**, nhưng không phải mọi bug đều tự sửa. Luồng hiện tại có ba lớp. Findings có search/replace patch có sẵn, BareExceptPass và các deterministic patterns được phép đi qua engine với backup/verify/rollback contract. Findings phức tạp không có deterministic patch bị ghi nhận là `skipped` khi production loop đặt `SCP_AUTOFIX_DETERMINISTIC_ONLY=1`; chúng không gọi LLM và không tự sửa.
+AutoFix hiện có **deterministic worker ngoài HTTP loop**. Loop Scheduler chỉ bounded-scan và enqueue; worker được supervisor quản lý, dùng SQLite queue/lease, source-hash baseline, AST recipe, policy gate, atomic apply, AST/postcondition verify, rollback token và forensic audit. Worker có `SCP_AUTOFIX_WORKER_ALLOW_LLM=0` hard-coded trong config và không có provider path. Finding không match recipe, stale hash, policy/audit failure hoặc risk vượt `low` trở thành `candidate`/`rejected`, không tự sửa.
 
-Reality test apply trên PC thật với `max_bugs=1` trả:
+Các recipe deterministic hiện có là `bare_except_pass_ast_v1` (low), `open_encoding_ast_v1` (low) và `sql_parameterize_ast_v1` (medium nhưng mặc định chỉ candidate). Worker chạy `--watch`, polling 30 giây, tối đa 1 job/cycle, lease 180 giây và tối đa 2 retry. Đây là cách xử lý finding phức tạp hơn mà không đưa LLM vào loop: mở rộng recipe AST/data-flow hẹp, không mở rộng quyền apply.
+
+Reality test queue/apply trên PC thật trả:
 
 | Trường | Giá trị |
 |---|---:|
-| HTTP | `200` |
-| `mode` | `apply` |
-| `deterministic_only` | `true` |
-| `audit_complete` | `true` |
-| `processed` | `1` |
-| `fixed` | `0` |
-| `permission_requested` | `0` |
-| `skipped` | `1` |
-| `source` | `bounded_ast_scan_deterministic_only` |
-| Thời lượng | `16 giây` |
+| HTTP enqueue | `200` |
+| `mode` | `queued` |
+| `worker` | `deterministic` |
+| `jobs_enqueued` | `1` |
+| Sau polling | `applied=1`, `rejected=1` trong queue ledger |
+| `llm_allowed` | `false` |
+| Worker binary one-shot | exit `0`, queue rỗng, `failed=0` |
+| PC targeted tests | `16 passed` |
 
-Đây là kết quả **an toàn và đúng nghĩa**: hệ thống đã phát hiện một finding nhưng không có patch deterministic được chứng minh là an toàn nên không tự sửa. `fixed=0` không phải lỗi; đó là hành vi fail-closed. Các lần thử trước khi có bounded route đã timeout vì scanner/LLM audit đồng bộ quá nặng; request bị dừng và loop được pause trước khi restart sạch. Không nên lấy các lần timeout đó làm bằng chứng AutoFix hiện tại đã pass.
+Đây là kết quả **đúng nghĩa**: HTTP 200 chỉ chứng minh enqueue; aggregate queue sau polling chứng minh worker đã claim/apply một job và reject một job không có recipe phù hợp. `llm_allowed=false` được trả trực tiếp từ worker status. Job state được phân biệt bằng ledger, không còn nhầm `HTTP 200` với `fixed=1`. Các lần thử trước khi có bounded route đã timeout vì scanner/LLM audit đồng bộ quá nặng; hiện tại deterministic worker không phụ thuộc bridge/provider.
 
 ## Job Object và watchdog 24/7
 
@@ -52,16 +52,17 @@ Do đó, watchdog hiện **đủ để tự hồi phục trong phiên user đang
 
 ## Packaging evidence
 
-Electron portable build từ ba binaries được rebuild trên PC theo source hiện tại đã thành công.
+Electron portable build từ bốn runtime binaries, gồm deterministic worker, đã thành công trên PC thật theo source HEAD mới.
 
 | Artifact | Kết quả |
 |---|---:|
 | Portable artifact | `SCP-DNA-Control-Center-1.6.0-portable.exe` |
-| Size | `382,992,731` bytes |
-| SHA-256 | `3664B0DE4A493793CF7D3074D65AFDACB954EF828E1F3D9DAB4924E0D9941E80` |
+| Size | `625,549,371` bytes |
+| SHA-256 | `212A7C4D89A46CC9443704983D4ED7EAE02642EBBD524F5895AA642AB2D65B54` |
 | Embedded `scp-backend.exe` | Có |
 | Embedded `scp-llm-bridge.exe` | Có |
 | Embedded `scp-loop-scheduler.exe` | Có |
+| Embedded `scp-autofix-worker.exe` | Có; SHA-256 `EB41302169785AB08B2547C4E28D3BA4DC0C8CBC7CF3A607F8715F264B11FBED` |
 | Embedded live `data/` | Không |
 | Embedded Python source | Không |
 | Embedded `.env` | Không |
@@ -76,7 +77,7 @@ Vì vậy production operation phải coi hash drift của `v13.db` là expected
 
 ## Regression và release gates
 
-Sandbox regression cuối sau các source patches: **81 pytest passed, 0 failed**. Desktop JavaScript syntax check: `main.cjs` và `preload.cjs` pass. Portable Electron build: pass. PC health checkpoint: bốn service ports listen và bốn HTTP checks `200`. AutoFix bounded deterministic apply: pass contract, complete trong 16 giây, không gọi LLM cho finding chưa có patch safe.
+Sandbox regression cuối sau các source patches: **86 pytest passed, 0 failed**. PC thật chạy targeted worker/release tests: **16 passed, 0 failed**. Desktop JavaScript syntax check: `main.cjs` và `preload.cjs` pass. Portable Electron build có worker: pass. PC health checkpoint: bốn service ports listen, các health checks `200`, supervisor `Running`, recovery watchdog `Ready`, loop `paused=false`, `total_runs=46`. Worker queue evidence: `applied=1`, `rejected=1`, `llm_allowed=false`. Hai PID Python có cùng command line là cặp venv launcher/base interpreter của một logical worker, không phải hai job worker độc lập.
 
 ## Blocker còn lại trước khi gọi là Production phổ quát
 
@@ -87,7 +88,7 @@ Sandbox regression cuối sau các source patches: **81 pytest passed, 0 failed*
 | P1 trust | Portable artifact chưa có Authenticode publisher signature | Windows trust UX và provenance chưa hoàn chỉnh |
 | P1 operations | Chưa chứng minh disk-full/log rotation/ledger write failure | Có thể mất audit evidence nếu storage cạn |
 | P1 runtime | Live `v13.db` vẫn writable telemetry | Cần tách telemetry khỏi policy state nếu muốn immutable policy boundary |
-| P1 AutoFix | Deterministic-only không tự xử lý bug phức tạp | Cần approval queue/LLM worker riêng có timeout, job ID, cancel và rollback |
+| P1 AutoFix | Worker deterministic đã có queue/job ID/lease/rollback nhưng semantic coverage còn hẹp | Mở rộng từng recipe AST/data-flow với fixture, postcondition và fault injection; không nâng `auto_apply_risk` nếu chưa có evidence |
 | P2 resilience | Sleep/hibernate/provider outage dài chưa test đầy đủ | Chưa có evidence cho mọi interruption mode |
 | P2 security | Không có bằng chứng SCP bắt được “tất cả” AI/con người attacks | Chỉ có coverage theo detectors/fixtures đã tồn tại |
 
@@ -99,16 +100,17 @@ Nếu release candidate có lỗi, trước hết tạo kill switch tại `.priv
 
 Source và tests đã đồng bộ lên `GA-LAB`:
 
+- `8b3d6b9` — supervised deterministic AutoFix worker, AST recipes, queue status và packaged worker contract.
 - `97967cd` — bounded deterministic AutoFix scan workload.
 - `af34422` — production AutoFix deterministic-only boundary.
 - `e46515d` — exclude live runtime data from desktop packaging.
 - `0039e41` — desktop runtime release contract and portable tests.
 - `d6b0b96` — truthful user-session recovery watchdog scope.
 
-GitHub source HEAD được xác nhận là `97967cdac231cff239fdd5bbbf6ea5b6aa67be22` với working tree sạch trong sandbox clone.
+GitHub source HEAD được xác nhận là `8b3d6b927c7cedd430dc7c2745bf213c48102cba` với source/tests working tree sạch trong sandbox clone. Binary worker và portable artifact không commit vào source repo; chỉ lưu hash/evidence.
 
 ## Kết luận cuối
 
-SCP có thể được gọi là **release candidate đã reality-test trên một PC Windows cụ thể**. Có thể chạy nền trong phiên user với supervisor, Job Object, kill switch, watchdog user-session, closed-loop OFF và AutoFix deterministic-only bounded.
+SCP có thể được gọi là **release candidate đã reality-test trên một PC Windows cụ thể**, hiện đã có deterministic worker ngoài loop và portable artifact chứa worker. Có thể chạy nền trong phiên user với supervisor, Job Object, kill switch, watchdog user-session, closed-loop OFF, bounded queue và AutoFix deterministic-only.
 
-SCP **chưa được gọi là production phổ quát hoặc hoàn thiện tuyệt đối** cho đến khi có clean-machine test trên PC thứ hai, pre-logon service boundary, publisher signature, disk/log failure tests và LLM AutoFix worker có job lifecycle riêng. Đây là kết luận phù hợp với DNA #22: **PASS không đồng nghĩa TRUE ở ngoài phạm vi evidence**.
+SCP **chưa được gọi là production phổ quát hoặc hoàn thiện tuyệt đối** cho đến khi có clean-machine test trên PC thứ hai, pre-logon service boundary, publisher signature, disk/log failure tests, sleep/hibernate/provider-outage evidence và mở rộng semantic coverage của recipes. LLM không nằm trong production loop hiện tại; nếu sau này cần LLM, nó phải là approval/research worker độc lập với timeout/cancel và không được cấp quyền apply trực tiếp. Đây là kết luận phù hợp với DNA #22: **PASS không đồng nghĩa TRUE ở ngoài phạm vi evidence**.
