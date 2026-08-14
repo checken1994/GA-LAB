@@ -125,7 +125,15 @@ $safeEnvText = @(
     'SCP_ENABLE_CLOSED_LOOP=0',
     'SCP_AUTOFIX_MODE=apply',
     'SCP_MAX_AUDIT_BUGS=5',
-    'SCP_AUTOFIX_DETERMINISTIC_ONLY=1'
+    'SCP_AUTOFIX_DETERMINISTIC_ONLY=1',
+    # Explicit terminal/disabled boundaries for subsystems that must never
+    # silently enable themselves in a child process.
+    'SCP_EVOLUTION_AUTO=0',
+    'SCP_EVOLUTION_ENABLED=0',
+    'SCP_WHY_LLM_ENABLED=0',
+    'SCP_SUBSYSTEM_TELEMETRY_ENABLED=1',
+    # Provider/verifier stalls must become a terminal TIMEOUT ledger row.
+    'SCP_FAST_LEARNING_CYCLE_TIMEOUT_SECONDS=300'
 ) -join [Environment]::NewLine
 $safeEnvTmp = "$SafeChildEnvFile.tmp"
 [IO.File]::WriteAllText($safeEnvTmp, $safeEnvText + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
