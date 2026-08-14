@@ -114,6 +114,11 @@ def _run_scanner(scanner_obj: Any) -> list[Any]:
         if hasattr(scanner_obj, "scan"):
             return scanner_obj.scan()
         if callable(scanner_obj):
+            # [R37] ast_scan_scp is used here for surgical completeness only.
+            # Its default enterprise pass invokes mypy/ruff/etc. over all of
+            # scp/, which duplicates the primary scan and can block evolution.
+            if getattr(scanner_obj, "__name__", "") == "ast_scan_scp":
+                return scanner_obj(include_enterprise=False)
             return scanner_obj()
     except Exception as e:  # noqa: BLE001
         logger.debug(f"[IMP-3] scanner.run error: {e}")

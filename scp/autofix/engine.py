@@ -340,7 +340,7 @@ class AutoFixEngine:
                 from scp.autofix.runner import ast_scan_scp
                 # ast_scan_scp scans the whole scp/ package. For surgical verify,
                 # we filter results to just this file.
-                _all_bugs = ast_scan_scp()
+                _all_bugs = ast_scan_scp(include_enterprise=False)
                 _remaining_for_this_file = [
                     b for b in _all_bugs
                     if str(getattr(b, "file", "")) == str(filepath)
@@ -370,7 +370,7 @@ class AutoFixEngine:
             # bug signatures pre/post — nếu có bug mới ở line gần fix → flag.
             try:
                 from scp.autofix.runner import ast_scan_scp
-                _all_bugs_post = ast_scan_scp()
+                _all_bugs_post = ast_scan_scp(include_enterprise=False)
                 _new_bugs = []
                 _orig_lines = {getattr(b, "line", None) for b in original_bugs}
                 # [FALSE-POS-FIX] F841: removed `_orig_types` — dead code.
@@ -451,6 +451,10 @@ class AutoFixEngine:
             # Fix: chạy pytest pre-patch (baseline) + post-patch, so sánh pass/fail count.
             # Chỉ FAIL nếu post-patch có MORE failures hoặc FEWER passes.
             try:
+                # [R35] A verifier-spawned pytest must not recursively spawn
+                # another verifier pytest through evolution/autofix tests.
+                _pytest_child_env = os.environ.copy()
+                _pytest_child_env["SCP_AUTOFIX_RUN_PYTEST"] = "0"
                 if os.environ.get("SCP_AUTOFIX_RUN_PYTEST", "0") == "1":
                     import subprocess as _sp
                     import sys as _sys
@@ -469,6 +473,7 @@ class AutoFixEngine:
                             cwd=str(_root), capture_output=True, text=True, timeout=90,
                             encoding="utf-8", errors="replace",
                             check=False,
+                            env=_pytest_child_env,
                         )
                         if _proc.returncode != 0:
                             import re as _re
@@ -492,6 +497,7 @@ class AutoFixEngine:
                                         [_sys.executable, "-m", "pytest", "-q", "--timeout=60", str(filepath)],
                                         cwd=str(_root), capture_output=True, text=True, timeout=90,
                                         encoding="utf-8", errors="replace", check=False,
+                                        env=_pytest_child_env,
                                     )
                                     _base_summary = (_base_proc.stdout or "").strip().splitlines()
                                     _base_last = _base_summary[-1] if _base_summary else ""
