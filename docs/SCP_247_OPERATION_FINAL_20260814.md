@@ -1,72 +1,110 @@
-# SCP 24/7 Operation — Final Reality Report
+# SCP 24/7 — Báo cáo Reality Test Failure Paths
 
-**Date:** 2026-08-14  
-**Target:** `C:\Users\check\Downloads\scp`  
-**Mode:** fail-closed, policy learning disabled  
-**Status:** running canary successfully under a user-level Windows Task Scheduler task
+**Ngày:** 2026-08-14  
+**PC thật:** `C:\Users\check\Downloads\scp`  
+**Supervisor:** `SCP-247-Supervisor`  
+**Kết luận hiện tại:** **Canary 24/7 đang chạy và đã chứng minh được recovery/circuit-breaker trong một phạm vi hẹp; chưa có cơ sở để tuyên bố mọi điều kiện 24/7 đều đã được chứng minh.**
 
-## Executive conclusion
+## 1. Vì sao cần kiểm thử gián đoạn?
 
-SCP is now running through a dedicated supervisor rather than the old manual four-window launcher. The supervisor starts the LLM Bridge, Loop Scheduler, SCP Python backend and dashboard as separate child processes, checks process/HTTP health every 15 seconds, records events in a private append-only JSONL ledger, applies a bounded restart budget, opens a circuit after repeated failures, and stops on an operator kill-switch file.
+Trước thử nghiệm, không có lỗi đang quan sát được: cả bốn service đều healthy và trả HTTP 200. Kiểm thử outage không nhằm chứng minh rằng hệ thống đang hỏng; nó kiểm tra một đường hành vi chỉ xuất hiện khi có lỗi. Nếu không làm gián đoạn có kiểm soát, không thể biết supervisor có restart đúng, có dừng ở restart budget, có mở circuit hay có vô tình bật learning/policy promotion khi provider mất kết nối.
 
-This is a **reality-tested 24/7 canary**, not a claim that every possible reboot, sleep, provider outage or Windows policy is proven. The PC must remain powered on and the user must log in because the installed trigger is `AtLogOn` with the user's interactive account. The design deliberately does not run as `SYSTEM` or as a Windows service because that would change environment/permissions and could silently bypass the user's existing production configuration.
+Đây là một thử nghiệm nhỏ và có rollback: chỉ dừng process LLM Bridge bằng PID hiện đang listen trên loopback; không sửa `.env`, không thay đổi firewall, không rotate provider key, không promote policy, không dừng Ollama, Python system hay phần mềm ngoài phạm vi SCP. Sau test, operator kill switch được dùng để đưa supervisor về trạng thái sạch rồi khởi động lại.
 
-## Phase 1 baseline
+## 2. Baseline trước thử nghiệm
 
-Before installation, no SCP scheduled task was found, no matching SCP/Python/Bun/Node/Electron process was running, and ports 3000, 3030, 8000, 11434, 18021 and 18022 were closed. The five dangerous flags were all OFF. The existing `start-scp.bat` used manual `cmd /k` windows and did not provide a watchdog, bounded recovery, kill switch or append-only supervisor ledger.
+Trước outage test, Task Scheduler ở trạng thái `Running`, kill switch không tồn tại, bốn port 3000/3030/8000/11434 đều listen, bốn endpoint health trả 200, năm dangerous flags và `SCP_ENABLE_CLOSED_LOOP` đều OFF. SHA-256 của `.env` và `data\kb_evolve.sqlite` được ghi vào baseline; `v13.db` được đọc qua FileShare để không dừng SCP.
 
-## Wiring failures found and fixed by reality testing
+Một lỗi quy trình cần ghi rõ: baseline ban đầu có **hash nhưng chưa có byte-for-byte SQLite snapshot trước test**. Vì vậy không thể tuyên bố có rollback hoàn chỉnh về đúng byte trạng thái trước outage. Sau test đã tạo snapshot nhất quán bằng SQLite backup API cho cả `v13.db` và `kb_evolve.sqlite`; snapshot này là rollback artifact của trạng thái sau test, không phải snapshot pre-test.
 
-The first real canary exposed a genuine integration error: Loop Scheduler refused to start because `SCP_BASE_URL` was required but not passed by the old launcher. After that fix, a second canary exposed a second missing contract: `LLM_BRIDGE_URL` was also required. The supervisor now passes both explicit internal URLs:
+## 3. Lỗi thực tế trong chính test harness
 
-| Variable | Runtime value |
+Reality test đã bắt được hai lỗi của script kiểm thử trước khi dùng kết quả làm evidence. Lỗi thứ nhất là dùng biến `$pid`, đụng biến tự động chỉ-đọc `$PID` của PowerShell. Lỗi thứ hai là đọc `.Count` trên một single object khi chỉ chạy một cycle. Cả hai lỗi đã được sửa, commit, tải lại từ GitHub và chạy lại; lần chạy một cycle cuối cùng trả `TEST_EXIT=0`, LLM Bridge hồi phục sau 14 giây, port 11434 và HTTP endpoint trở lại 200.
+
+Điều này có ý nghĩa: **PASS của service không tự động làm cho harness đúng**. Harness cũng phải được reality-tested trước khi tin vào verdict của nó.
+
+## 4. Bounded outage một cycle
+
+| Tiêu chí | Evidence |
 |---|---|
-| `SCP_BASE_URL` | `http://127.0.0.1:8000` |
-| `LLM_BRIDGE_URL` | `http://127.0.0.1:11434` |
-| `LOOP_LOG_PATH` | `<root>\data\loop_runs.jsonl` |
-| `SCP_ENABLE_CLOSED_LOOP` | forced to `0` for child processes |
+| Đối tượng | Chỉ LLM Bridge, port 11434 |
+| Process bị dừng | PID thực tế tại thời điểm test |
+| Production `.env` | `env_touched=false` |
+| Policy | `policy_touched=false` |
+| Kill switch | Không có trước và sau |
+| Recovery | `recovered=true` |
+| Thời gian recovery | 14 giây trong lần chạy cuối |
+| Sau test | Port 11434 listen, HTTP `/api/tags` = 200 |
 
-No provider secret was printed or changed. The production `.env` was not edited.
+Supervisor ghi `STOP`, `START`, `RESTART` và sau đó ghi `HEALTHY`. Đây là bằng chứng trực tiếp rằng một provider-sidecar outage ngắn được phát hiện và phục hồi trong watchdog loop.
 
-## Reality evidence
+## 5. Circuit-breaker test
 
-The staging supervisor passed PowerShell parser validation with zero errors and DryRun completed with exit code 0. The real canary then reached all four listeners and all four HTTP probes returned 200:
+Circuit test được yêu cầu chạy 6 cycle, nhưng harness dừng sớm ở cycle thứ 4 khi recovery không còn được phép. Kết quả thực tế là:
 
-| Service | Port | HTTP result |
-|---|---:|---:|
-| LLM Bridge | 11434 | 200 |
-| Loop Scheduler | 3030 | 200 |
-| SCP Python | 8000 | 200 |
-| Dashboard | 3000 | 200 |
+| Chỉ số | Kết quả |
+|---|---:|
+| Cycle hồi phục thành công trước circuit | 3 |
+| Cycle bị giữ down do circuit | 1 |
+| `RESTART` mới trong test | 3 |
+| `CIRCUIT_OPEN` mới | 3 |
+| Trạng thái trước recovery thủ công | Port 11434 đóng |
+| Recovery sau operator kill switch + start task | Cả 4 port trở lại trong 10 giây |
 
-A 60-second stability window recorded all four ports as listening at 15-second intervals. The new ledger events recorded four `HEALTHY` events per service during that window, with no restart in that window.
+Không nên đọc “3 `CIRCUIT_OPEN`” thành “budget chỉ là 3”. Hai restart trước đó từ các single-cycle test vẫn nằm trong cùng restart window 900 giây. Vì vậy circuit mở sau khi restart history tích lũy đến ngưỡng supervisor cho phép. Đây là kết quả đúng của bounded restart: hệ thống không tiếp tục restart vô hạn khi LLM Bridge liên tục chết.
 
-## Recovery and kill-switch evidence
+Sau khi recovery, theo dõi thêm 45 giây ghi `HEALTHY` cho cả bốn service và **không có `CIRCUIT_OPEN` mới** trong cửa sổ hậu phục hồi. Task ở `Running`, kill switch `False`, bốn port đều listen và bốn HTTP endpoint đều 200.
 
-The operator kill switch was created at `.private-secrets\release-audit\scp-247\KILL`. Within the bounded supervisor interval, the task entered `Ready` and all four ports became closed. After removing the kill switch and starting the task again, all four ports returned within 10 seconds. The final checkpoint kept all four HTTP endpoints at status 200.
+## 6. Phát hiện quan trọng về runtime DB
 
-The supervisor ledger includes `KILL_SWITCH`, `SUPERVISOR_STOPPED`, `SUPERVISOR_STARTED`, `START`, `STOP`, `RESTART`, `HEALTHY`, `CIRCUIT_OPEN` and `GUARDRAIL` events. Old `CIRCUIT_OPEN` and restart counts remain in the ledger as historical evidence from the first two failed canaries; they were not deleted or rewritten. The current post-fix window recorded healthy events for all four services.
+Post-check không được phép nói rằng toàn bộ production data “không bị sửa”. SHA-256 của `.env` và `data\kb_evolve.sqlite` vẫn khớp baseline. Tuy nhiên, SHA-256 của `data\v13.db` **không khớp baseline** sau khoảng thời gian kiểm thử. Read-only SQLite audit cho thấy:
 
-## Guardrails and policy boundary
+| Kiểm tra | Kết quả |
+|---|---|
+| `PRAGMA integrity_check` | `ok` |
+| `question_events` | Tăng so với baseline lịch sử đã ghi nhận |
+| `question_log` | Tăng so với baseline lịch sử đã ghi nhận |
+| `experiences` | Vẫn 44 |
+| `knowledge` | Vẫn 1 |
+| `knowledge_versions` | Vẫn 814 |
+| `active_policies.json` | Không tồn tại |
+| `policy_handoff_ledger.jsonl` | Không tồn tại |
 
-The installer did not modify `.env`, learning DBs, experiences, active policy or policy handoff ledger. The final checkpoint showed `SCP_ENABLE_CLOSED_LOOP=OFF`. `data\active_policies.json` and `data\policy_handoff_ledger.jsonl` were not created by this operation. The supervisor also forces `SCP_ENABLE_CLOSED_LOOP=0` in each child process, so the 24/7 process is for availability/observation and not automatic policy learning.
+Sau khi recovery hoàn tất, phép đo read-only T0/T30 trong 30 giây cho thấy các bảng telemetry chính không tăng thêm và integrity vẫn `ok`. Tuy vậy, evidence hiện có **không đủ để quy kết toàn bộ DB drift chỉ cho outage test**; drift có thể bao gồm runtime audit/loop activity trong cùng khoảng thời gian. Kết luận an toàn là: outage test không tạo bằng chứng policy promotion, nhưng nó đã chạy trong một hệ thống có runtime DB writable và DB hash đã thay đổi.
 
-## Installation and rollback
+Đây là missing piece thật sự cần sửa trong quy trình: trước mọi fault injection trên PC thật phải tạo SQLite snapshot nhất quán trước test, sau đó so sánh theo bảng và provenance; chỉ hash file là chưa đủ.
 
-The task name is `SCP-247-Supervisor`. It uses PowerShell 7 `pwsh.exe`, runs under the interactive user `check`, triggers at logon, and has `StartWhenAvailable`, battery-operation and unlimited execution-time settings. Before each wiring change, the previous supervisor script or scheduled-task XML was copied into `.private-secrets\release-audit\scp-247\` with a timestamped backup directory.
+## 7. Trạng thái sau khi khôi phục
 
-Rollback is:
+| Hạng mục | Trạng thái thực tế |
+|---|---|
+| Supervisor task | `Running` |
+| LLM Bridge | Port 11434, HTTP 200 |
+| Loop Scheduler | Port 3030, HTTP 200 |
+| SCP Python | Port 8000, HTTP 200 |
+| Dashboard | Port 3000, HTTP 200 |
+| Kill switch | Không tồn tại |
+| `SCP_ENABLE_CLOSED_LOOP` | OFF |
+| Năm dangerous flags | OFF |
+| `.env` hash | Khớp baseline |
+| `kb_evolve.sqlite` hash | Khớp baseline |
+| SQLite integrity | `ok` |
+| Policy promotion | Không có evidence xảy ra |
 
-1. Create the `KILL` file or run `scp_247_control.ps1 -Action kill`.
-2. Confirm all four ports are closed.
-3. Restore the timestamped `task-before.xml` if the task definition must be reverted.
-4. Restore the timestamped `supervisor-before.ps1` if the supervisor code must be reverted.
-5. Delete or disable the `SCP-247-Supervisor` task only after the rollback state is recorded.
+## 8. Những gì đã được chứng minh và chưa được chứng minh
 
-## Remaining limits — DNA #22 and #25
+Đã chứng minh được rằng supervisor có thể phát hiện LLM Bridge chết, restart trong bounded window, mở circuit khi restart budget tích lũy, ghi ledger, dừng bằng kill switch và khôi phục lại 4 service. Đã chứng minh closed loop vẫn OFF và không có active policy artifact mới trong test.
 
-This evidence proves the bounded canary and recovery path under the observed PC state. It does not yet prove clean-start behavior after a cold boot before user logon, Windows sleep/hibernate behavior, a second PC, prolonged provider outage, disk-full log rotation, or automatic circuit recovery after budget exhaustion. It also does not prove the SCP detection system can catch all AI or human attacks. The remaining next action is to run a controlled cold-boot/logon test and a bounded provider-outage simulation, then add log rotation and explicit circuit-reset evidence before calling the service production-grade.
+Chưa chứng minh cold boot trước logon, sleep/hibernate, provider outage dài hơn restart window, disk-full khi ghi ledger, quyền user bị thay đổi, network stack bị reset, hoặc hành vi trên PC thứ hai. Chưa chứng minh SCP có thể bắt “tất cả” tấn công AI/con người. Chưa có pre-test SQLite snapshot cho lần fault injection vừa rồi, nên không được tuyên bố rollback dữ liệu hoàn chỉnh về trạng thái trước test.
 
-## Versioned source
+## 9. Commit và audit artifacts
 
-The 24/7 supervisor and controls are versioned in GitHub at commit [`e8ef171`](https://github.com/checken1994/GA-LAB/commit/e8ef171932c11595478d4def7d0584d7e74347cf). The installer PowerShell 7 wiring fix is at [`7503206`](https://github.com/checken1994/GA-LAB/commit/75032063533f984de9c9b674de608e7449eddbe0).
+Supervisor wiring fix đã có ở [`e8ef171`](https://github.com/checken1994/GA-LAB/commit/e8ef171932c11595478d4def7d0584d7e74347cf). Bounded outage harness và các lần sửa do reality test phát hiện nằm trong các commit [`6728199`](https://github.com/checken1994/GA-LAB/commit/6728199), [`0deb91e`](https://github.com/checken1994/GA-LAB/commit/0deb91e), [`c0da04c`](https://github.com/checken1994/GA-LAB/commit/c0da04c2b533a60fdcb1a02cabc0f1e3f63f5381). Read-only DB audit và consistent snapshot utilities nằm ở [`65628ae`](https://github.com/checken1994/GA-LAB/commit/65628ae7fafff4a5d835dc9e1f36f4d7bdebda1a) và [`c0b7ea5`](https://github.com/checken1994/GA-LAB/commit/c0b7ea53670155444144280071b987c5e3517206).
+
+Các evidence runtime vẫn nằm trong `.private-secrets\release-audit\scp-247\experiments` trên PC; không đưa `.env`, DB runtime hoặc provider secret lên GitHub.
+
+## Kết luận SCP DNA
+
+> **PASS ở đây có nghĩa là không tìm thấy lỗi trong phạm vi thử nghiệm và evidence hiện tại; không có nghĩa là mọi failure mode đã được chứng minh là an toàn.**
+
+Trạng thái đúng sau lần chạy này là **24/7 canary đã được harden và reality-tested thêm**, không phải “đã hoàn thiện tuyệt đối”. Missing piece ưu tiên cao nhất không còn là provider wiring; đó là **isolation và snapshot contract cho runtime DB trước fault injection**, tiếp theo là cold-boot/logon và sleep/hibernate test có rollback rõ ràng.
