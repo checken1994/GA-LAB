@@ -235,23 +235,48 @@ try {
         $oldLlmBridgeUrl = $env:LLM_BRIDGE_URL
         $oldClosedLoop = $env:SCP_ENABLE_CLOSED_LOOP
         $oldScpEnvFile = $env:SCP_ENV_FILE
+        $oldAuthToken = $env:SCP_AUTH_TOKEN_SECRET
+        $oldAuthPassword = $env:SCP_AUTH_PASSWORD
+        $oldDangerous = @{}
+        foreach ($flag in @('SCP_DEV_MODE','SCP_SKIP_STARTUP_GATE','SCP_AUTO_APPROVE_TIER3','SCP_TIER3_ALLOW_RELAXATION','SCP_TIER3_ALLOW_BAREEXCEPTPASS')) {
+            $oldDangerous[$flag] = [Environment]::GetEnvironmentVariable($flag, 'Process')
+        }
         $env:SCP_ENABLE_CLOSED_LOOP = '0'
         try {
             if ($Service.Name -eq 'loop-scheduler') {
                 $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
                 $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
                 $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
-                # Bun does not implicitly load .env. Pass the explicit production
-                # env boundary read-only; never edit or print its contents.
-                $explicitEnvFile = $env:SCP_ENV_FILE
-                if (-not $explicitEnvFile) {
-                    $explicitEnvFile = Join-Path (Split-Path $Root -Parent) '.env'
+                # Bun does not implicitly load .env. Do NOT pass the entire
+                # production env file: it may contain unrelated/dangerous flags.
+                # Read only auth values into the child environment, never print
+                # or write them, and force all mutation/learning flags OFF.
+                foreach ($flag in @('SCP_DEV_MODE','SCP_SKIP_STARTUP_GATE','SCP_AUTO_APPROVE_TIER3','SCP_TIER3_ALLOW_RELAXATION','SCP_TIER3_ALLOW_BAREEXCEPTPASS','SCP_ENABLE_CLOSED_LOOP')) {
+                    Set-Item -Path "Env:$flag" -Value '0'
                 }
+                $explicitEnvFile = Join-Path (Split-Path $Root -Parent) '.env'
                 if (-not (Test-Path -LiteralPath $explicitEnvFile -PathType Leaf)) {
                     Write-Ledger -Event 'START_REJECTED' -Service $Service.Name -Reason 'explicit_auth_env_file_missing'
                     return $null
                 }
-                $env:SCP_ENV_FILE = (Resolve-Path -LiteralPath $explicitEnvFile).Path
+                $authToken = ''
+                $authPassword = ''
+                foreach ($line in Get-Content -LiteralPath $explicitEnvFile -Encoding UTF8) {
+                    $trimmed = ([string]$line).Trim()
+                    if (-not $trimmed -or $trimmed.StartsWith('#') -or -not $trimmed.Contains('=')) { continue }
+                    $pair = $trimmed.Split('=', 2)
+                    $key = $pair[0].Trim()
+                    $value = $pair[1].Trim().Trim('"').Trim("'")
+                    if ($key -eq 'SCP_AUTH_TOKEN_SECRET') { $authToken = $value }
+                    if ($key -eq 'SCP_AUTH_PASSWORD') { $authPassword = $value }
+                }
+                if (-not $authToken -and -not $authPassword) {
+                    Write-Ledger -Event 'START_REJECTED' -Service $Service.Name -Reason 'auth_value_missing_in_explicit_env_file'
+                    return $null
+                }
+                if ($authToken) { $env:SCP_AUTH_TOKEN_SECRET = $authToken } else { Remove-Item Env:SCP_AUTH_TOKEN_SECRET -ErrorAction SilentlyContinue }
+                if ($authPassword) { $env:SCP_AUTH_PASSWORD = $authPassword } else { Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue }
+                Remove-Item Env:SCP_ENV_FILE -ErrorAction SilentlyContinue
             }
             if ($DryRun) {
                 Write-Ledger -Event 'DRYRUN_START' -Service $Service.Name -Reason 'start_would_be_requested'
@@ -271,7 +296,12 @@ try {
             $env:SCP_BASE_URL = $oldScpBaseUrl
             $env:LLM_BRIDGE_URL = $oldLlmBridgeUrl
             $env:SCP_ENABLE_CLOSED_LOOP = $oldClosedLoop
-            $env:SCP_ENV_FILE = $oldScpEnvFile
+            if ($null -eq $oldScpEnvFile) { Remove-Item Env:SCP_ENV_FILE -ErrorAction SilentlyContinue } else { $env:SCP_ENV_FILE = $oldScpEnvFile }
+            if ($null -eq $oldAuthToken) { Remove-Item Env:SCP_AUTH_TOKEN_SECRET -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_TOKEN_SECRET = $oldAuthToken }
+            if ($null -eq $oldAuthPassword) { Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_PASSWORD = $oldAuthPassword }
+            foreach ($flag in $oldDangerous.Keys) {
+                if ($null -eq $oldDangerous[$flag]) { Remove-Item "Env:$flag" -ErrorAction SilentlyContinue } else { Set-Item "Env:$flag" $oldDangerous[$flag] }
+            }
         }
     }
 
