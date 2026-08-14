@@ -16,7 +16,9 @@ $Manifest = Join-Path $PrivateDir 'install-manifest.json'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 if (-not (Test-Path $Supervisor)) { throw "Supervisor missing: $Supervisor" }
 
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Supervisor`""
+$pwsh = (Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue).Source
+if (-not $pwsh) { throw 'PowerShell 7 (pwsh.exe) is required for SCP-247 supervisor' }
+$action = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Supervisor`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
@@ -28,6 +30,7 @@ $record = [ordered]@{
     user = $env:USERNAME
     trigger = 'AtLogOn'
     supervisor = $Supervisor
+    pwsh = $pwsh
     policy_learning = 'not_enabled_by_installer'
     production_env_modified = $false
     dry_run = [bool]$DryRun
