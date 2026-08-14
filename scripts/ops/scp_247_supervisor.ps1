@@ -16,6 +16,7 @@ $LogDir = Join-Path $PrivateDir 'logs'
 $LedgerPath = Join-Path $PrivateDir 'supervisor-ledger.jsonl'
 $StatePath = Join-Path $PrivateDir 'supervisor-state.json'
 $KillSwitchPath = Join-Path $PrivateDir 'KILL'
+$SafeChildEnvFile = Join-Path $PrivateDir 'child-safe.env'
 $MutexName = 'Global\SCP_247_Supervisor'
 $TaskName = 'SCP-247-Supervisor'
 
@@ -112,6 +113,19 @@ public static class ScpJobObjectNative
 '@
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+# Explicit child env boundary: only safe OFF flags. Auth values are injected
+# directly into the child process environment and never written here.
+$safeEnvText = @(
+    'SCP_DEV_MODE=0',
+    'SCP_SKIP_STARTUP_GATE=0',
+    'SCP_AUTO_APPROVE_TIER3=0',
+    'SCP_TIER3_ALLOW_RELAXATION=0',
+    'SCP_TIER3_ALLOW_BAREEXCEPTPASS=0',
+    'SCP_ENABLE_CLOSED_LOOP=0'
+) -join [Environment]::NewLine
+$safeEnvTmp = "$SafeChildEnvFile.tmp"
+[IO.File]::WriteAllText($safeEnvTmp, $safeEnvText + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+Move-Item -LiteralPath $safeEnvTmp -Destination $SafeChildEnvFile -Force
 
 $mutex = [Threading.Mutex]::new($false, $MutexName)
     $ownsMutex = $false
@@ -276,7 +290,7 @@ try {
                 }
                 if ($authToken) { $env:SCP_AUTH_TOKEN_SECRET = $authToken } else { Remove-Item Env:SCP_AUTH_TOKEN_SECRET -ErrorAction SilentlyContinue }
                 if ($authPassword) { $env:SCP_AUTH_PASSWORD = $authPassword } else { Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue }
-                Remove-Item Env:SCP_ENV_FILE -ErrorAction SilentlyContinue
+                $env:SCP_ENV_FILE = $SafeChildEnvFile
             }
             if ($DryRun) {
                 Write-Ledger -Event 'DRYRUN_START' -Service $Service.Name -Reason 'start_would_be_requested'
