@@ -21,7 +21,7 @@ The real `data/v13.db` currently has 15,733 `question_events`, 13,815 `question_
 
 The 15,733 question events are dominated by a known operational lineage: 15,587 source `threat_simulator` and 14,837 `REPEAT`. This history can teach which attack probes and routes recur, but it cannot prove an external claim. `knowledge_versions` is also not 814 verified facts: every row is `change_type=delete`, source `PolicyApplier`, which is cleanup/policy mutation history.
 
-The separate `data/kb_evolve.sqlite` contains six lessons and four evolved patterns. All six lessons concern `BareExceptPass`; one inspected lesson has a verified fix, occurrence count 1 and success rate 1.0. The four patterns have confidence 0.5, occurrence 0 and false-positive count 0. Therefore only a narrow operational lesson is a candidate; the patterns remain quarantined.
+The separate `data/kb_evolve.sqlite` contains six lessons and four evolved patterns. All six lessons concern `BareExceptPass`; the PC inspection found `fix_verified=1` and `success_rate=1.0` for all six. The four patterns have confidence 0.5, occurrence 0 and false-positive count 0. Therefore the six rows are candidates for one narrow operational bug class, not general learning; the patterns remain quarantined.
 
 `data/learning_runs.jsonl` contains 59 operational runs: 8 `SUCCESS`, 6 `VERIFY_REJECTED`, 3 `NO_NEW_FACTS`, 31 `TIMEOUT`, 10 `PROVIDER_FAILED` and 1 `DB_WRITE_FAILED`. This is useful evidence about provider/timeout/verification/persistence reliability, not content that should become policy.
 
@@ -35,7 +35,7 @@ The existing `reality-tests-results.json` remains quarantined because its 73 res
 
 ## What should happen next
 
-The first useful migration is not “learn everything.” It is a bounded three-lane import. Lane A converts simulator/benchmark telemetry into a versioned adversarial regression corpus. Lane B promotes only the exact verified `BareExceptPass` lesson into a candidate rule and reruns static, fault-injection and reality tests. Lane C re-verifies the one current knowledge row and selected V3 seed facts against independent sources before any KB insertion.
+The first useful migration is not “learn everything.” It is a bounded three-lane import. Lane A converts simulator/benchmark telemetry into a versioned adversarial regression corpus. Lane B evaluates the six verified `BareExceptPass` rows as one candidate rule class and reruns static, fault-injection and reality tests. Lane C re-verifies the one current knowledge row and selected V3 seed facts against independent sources before any KB insertion.
 
 The 210 forecast registry stays in a fourth quarantine lane until its resolution contract exists. It is not the only history, but it is also not a substitute for operational learning. Future policy changes must still pass R43 materialization, backup/rollback, behavior-delta A/B measurement and human review.
 

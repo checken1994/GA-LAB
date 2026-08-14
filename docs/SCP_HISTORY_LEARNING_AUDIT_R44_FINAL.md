@@ -104,7 +104,7 @@ Post-scan hash của `data\v13.db` vẫn là `A0F5BD0F06C91D56A0A1DC7BBF466EA30C
 | Ưu tiên | Việc | Kết quả mong muốn |
 |---|---|---|
 | P0 | Dùng question telemetry để dựng corpus regression immutable, tách `threat_simulator`, benchmark và real-PC probe | SCP bắt lại lỗi cũ trong test, không học simulator thành truth. |
-| P1 | Chuyển lesson BareExceptPass đã verified thành candidate rule rồi chạy lại static/fault/reality gate | Có một operational behavior change đo được, rollback được. |
+| P1 | Chuyển sáu lesson BareExceptPass đã `fix_verified=1`, `success_rate=1.0` thành candidate rule cùng một bug class rồi chạy lại static/fault/reality gate | Có một operational behavior change đo được, rollback được; không suy rộng thành learning tổng quát. |
 | P2 | Re-verify knowledge row hiện tại và chọn một nhóm nhỏ V3 seed facts | Tạo L3 knowledge có source snapshot và contradiction history. |
 | P3 | Làm durable error_history/memory/calibration/predictions schema và producer wiring | ExperienceEngine có input thật để tạo DOMAIN_BIAS, ERROR_FREQUENCY và CONFIDENCE_TUNING. |
 | P4 | Tạo forecast resolution ledger với probability số, deadline, evidence hash, adjudicator và baseline | 210 forecast chuyển từ unresolved corpus thành calibrated evaluation khi đủ mốc. |
@@ -114,7 +114,7 @@ Post-scan hash của `data\v13.db` vẫn là `A0F5BD0F06C91D56A0A1DC7BBF466EA30C
 
 SCP hiện **không phải là hệ thống không có quá khứ**. Nó có quá nhiều history, nhưng history bị trộn giữa telemetry, simulator, verdict, cleanup, design và operational fix. Phần còn thiếu là một **history contract** để biến quá khứ thành các lớp evidence riêng biệt.
 
-Sau R44, SCP đã có thể đọc toàn bộ các lớp đó mà không làm ô nhiễm policy. Nó hiện có một candidate operational lesson hẹp, một regression/telemetry corpus lớn, một seed knowledge rất nhỏ cần re-verify, nhiều design lineage có thể tái sử dụng, và một forecast registry đang chờ resolution. Nó **chưa có** calibrated prediction history, durable error/memory learning, hay bằng chứng rằng policy consumer đã cải thiện behavior.
+Sau R44, SCP đã có thể đọc toàn bộ các lớp đó mà không làm ô nhiễm policy. Nó hiện có sáu candidate operational lessons cùng một bug class `BareExceptPass` với `fix_verified=1` và `success_rate=1.0`, một regression/telemetry corpus lớn, một seed knowledge rất nhỏ cần re-verify, nhiều design lineage có thể tái sử dụng, và một forecast registry đang chờ resolution. Nó **chưa có** calibrated prediction history, durable error/memory learning, hay bằng chứng rằng policy consumer đã cải thiện behavior.
 
 Vì vậy kết luận đúng theo SCP DNA là: **SCP đã bắt đầu học được cách phân loại và giữ đúng provenance của quá khứ; bước tiếp theo là làm cho nó học được behavior regression và operational lesson có đo lường. Chưa được tuyên bố rằng nó đã học được truth tổng quát hoặc tự động bắt mọi tấn công.**
 
