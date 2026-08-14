@@ -20,7 +20,18 @@ $pwsh = (Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue).Source
 if (-not $pwsh) { throw 'PowerShell 7 (pwsh.exe) is required for SCP-247 supervisor' }
 $action = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Supervisor`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
+# Background reliability: restart only after an abnormal non-zero/termination result.
+# The supervisor exits normally for KILL, so an intentional kill switch is not
+# turned into a restart loop. MultipleInstances=IgnoreNew prevents duplicate
+# supervisors when AtLogOn and recovery overlap.
+$settings = New-ScheduledTaskSettingsSet `
+    -StartWhenAvailable `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -ExecutionTimeLimit ([TimeSpan]::Zero) `
+    -RestartCount 3 `
+    -RestartInterval (New-TimeSpan -Minutes 1) `
+    -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'SCP fail-closed 24/7 supervisor; policy learning remains disabled'
 
@@ -29,6 +40,9 @@ $record = [ordered]@{
     task_name = $TaskName
     user = $env:USERNAME
     trigger = 'AtLogOn'
+    restart_count = 3
+    restart_interval_minutes = 1
+    multiple_instances = 'IgnoreNew'
     supervisor = $Supervisor
     pwsh = $pwsh
     policy_learning = 'not_enabled_by_installer'
