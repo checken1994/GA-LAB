@@ -194,8 +194,8 @@ function startService(label) {
   if (!spec || !fs.existsSync(spec.cwd)) {
     throw new Error(`Không tìm thấy thư mục dịch vụ: ${label}`);
   }
-  if (label === 'scp' && !fs.existsSync(spec.file)) {
-    throw new Error('Chưa có packaged backend runtime trong resources\\runtime\\scp-backend.');
+  if (IS_PACKAGED && !fs.existsSync(spec.file)) {
+    throw new Error(`Thiếu packaged runtime cho dịch vụ ${label}: ${spec.file}`);
   }
 
   const child = spawn(spec.file, spec.args, {
@@ -232,15 +232,48 @@ function stopServices() {
   children.clear();
 }
 
-function isPortReady(port, host = '127.0.0.1') {
+function probeHttp(url) {
   return new Promise((resolve) => {
-    const req = http.get({ host, port, path: '/' }, (res) => {
-      res.resume();
-      resolve(res.statusCode >= 200 && res.statusCode < 500);
-    });
-    req.setTimeout(1200, () => { req.destroy(); resolve(false); });
-    req.on('error', () => resolve(false));
+    try {
+      const target = new URL(url);
+      const req = http.get({ hostname: target.hostname, port: Number(target.port), path: target.pathname, timeout: 1200 }, (res) => {
+        res.resume();
+        resolve(res.statusCode >= 200 && res.statusCode < 300);
+      });
+      req.setTimeout(1200, () => { req.destroy(); resolve(false); });
+      req.on('error', () => resolve(false));
+    } catch (_) {
+      resolve(false);
+    }
   });
+}
+
+async function classifyExistingStack() {
+  const checks = await Promise.all([
+    probeHttp('http://127.0.0.1:3000/'),
+    probeHttp('http://127.0.0.1:3030/'),
+    probeHttp('http://127.0.0.1:8000/health'),
+    probeHttp(`http://127.0.0.1:${DESKTOP_BRIDGE_PORT}/api/tags`),
+  ]);
+  const healthy = checks.filter(Boolean).length;
+  if (healthy === checks.length) return 'external-healthy';
+  if (healthy === 0) return 'none';
+  return 'partial';
+}
+
+async function waitForStableStackState(timeoutMs = 45000) {
+  const deadline = Date.now() + timeoutMs;
+  let state = 'partial';
+  while (Date.now() < deadline) {
+    state = await classifyExistingStack();
+    if (state !== 'partial') return state;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  return state;
+}
+
+function isPortReady(port, host = '127.0.0.1') {
+  return probeHttp(`http://${host}:${port}/`);
 }
 
 async function waitForDashboard() {
@@ -339,7 +372,14 @@ async function boot() {
   createSplash();
   const required = ['bridge', 'scheduler', 'scp', 'worker', 'dashboard'];
   try {
-    for (const service of required) startService(service);
+    const existingStack = await waitForStableStackState();
+    if (existingStack === 'external-healthy') {
+      appendLog('desktop', 'Healthy external SCP stack detected; attaching without starting duplicate children.\\n');
+    } else if (existingStack === 'partial') {
+      throw new Error('SCP đang ở trạng thái partial: một hoặc nhiều port đã bị chiếm nhưng stack chưa healthy. Không khởi động duplicate; hãy chờ supervisor recovery hoặc mở log.');
+    } else {
+      for (const service of required) startService(service);
+    }
   } catch (error) {
     splashWindow?.close();
     showError(error.message);
