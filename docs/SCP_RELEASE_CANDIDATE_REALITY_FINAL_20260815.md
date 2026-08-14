@@ -12,6 +12,8 @@ Một reality test quan trọng đã tìm ra lỗi thật: cycle FastLearning b�
 
 Reality test cũng phát hiện supervisor mỗi lần restart tự ghi đè `child-safe.env`, làm mất các dòng Evolution/telemetry/timeout mà ta thêm thủ công. Đã sửa supervisor để tự tạo lại toàn bộ boundary an toàn mỗi lần khởi động; lần restart sau bản vá xác nhận đủ năm tên cờ bắt buộc và không chạm `C:\Users\check\Downloads\.env`.
 
+Một lần kiểm tra khác cho thấy bản `scp/api/_lifespan.py` không phải lifecycle mà FastAPI đang dùng; app thật gắn `lifespan` trong `scp/api_server.py`. Vì vậy patch heartbeat ở file shim không đủ. Đã sửa đúng `api_server.py`, thêm ticker riêng khi deep-audit/attack-monitor đang chạy. Sau restart và chờ 70 giây, PC thật ghi `deep_audit=RUNNING/fresh=True` với tuổi heartbeat khoảng 6 giây, thay vì STALE; `attack_monitor=IDLE/fresh=True` cũng giữ ổn định. Đây là evidence Reality over Model, không dựa vào tên file hay comment.
+
 ## Các thay đổi đã hoàn tất
 
 | Khu vực | Thay đổi | Evidence |
@@ -114,8 +116,13 @@ Source và tests đã đồng bộ lên `GA-LAB`:
 - `174b8bb` — bounded FastLearning cycle and terminal timeout ledger.
 - `f4e1d4d` — classify bounded cancellation as TIMEOUT, not degraded telemetry.
 - `e1736b0` — preserve child-safe Evolution/telemetry/timeout flags on supervisor restart.
+- `8e3770f` — record live timeout and supervisor boundary evidence.
+- `c5f105a` — heartbeat-aware audit lifecycle and cleanup guard.
+- `8beb492` — heartbeat ticker during active audit cycles.
+- `ca01916` — retry heartbeat writes when SQLite is busy.
+- `5c380a1` — apply active-cycle heartbeat ticker to the real `api_server.py` entrypoint.
 
-GitHub source HEAD được xác nhận là `e1736b0c09ee61b3000501a01da7eec4230e41d5` với source/tests working tree sạch trong sandbox clone. Binary worker và portable artifact không commit vào source repo; chỉ lưu hash/evidence.
+GitHub source HEAD được xác nhận là `5c380a1db88ef0295963f1e4902ca28a0cce1f0a` với source/tests working tree sạch trong sandbox clone. Binary worker và portable artifact không commit vào source repo; chỉ lưu hash/evidence.
 
 ## Kết luận cuối
 
