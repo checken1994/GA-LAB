@@ -189,7 +189,7 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
             try:
                 from scp.meta.why_gate import get_why_gate
                 _why = get_why_gate().gate(
-                    action_type="evolution",
+                action_type="autofix",
                     action_desc=f"Evolve cycle: fix bug {bug.file}:{bug.line}",
         context=("deterministic BareExceptPass logging replacement" if getattr(bug, "bug_type", "") == "BareExceptPass" else (str(bug.suggested_fix) if bug.suggested_fix else "")[:200]),
                 )

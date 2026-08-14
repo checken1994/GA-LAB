@@ -47,6 +47,17 @@ from pathlib import Path
 
 logger = logging.getLogger("scp.meta.why_gate")
 
+def _call_why_provider(prompt: str) -> str | None:
+    """Call WHY through the active bounded provider mode."""
+    mode = os.environ.get("SCP_LLM_PROVIDER_MODE", "auto").strip().lower()
+    if mode == "ollama_only":
+        from scp.llm_gateway import chat_sync
+        answer, _provider = chat_sync(prompt, task="why")
+        return answer
+    from scp.autofix.llm_fix import _call_openrouter
+    return _call_openrouter(prompt, max_tokens=200)
+
+
 
 class WhyDecision(IntEnum):
     """WHY Gate decision."""
@@ -212,6 +223,7 @@ class WhyGate:
             return result
 
         # WHY Layer 1: Necessity
+        llm_calls_before = self._stats["llm_calls"]
         necessity_reason, necessity_ok = self._check_necessity(action_type, action_desc, context)
 
         # WHY Layer 2: Falsification
@@ -233,7 +245,7 @@ class WhyGate:
             necessity_reason=necessity_reason,
             falsification_reason=falsification_reason,
             confidence=0.8 if decision == WhyDecision.ALLOW else (0.5 if decision == WhyDecision.UPHOLD else 0.0),
-            llm_used=False,  # Will be set by LLM path if used
+            llm_used=self._stats["llm_calls"] > llm_calls_before,
             action_type=action_type,
             action_desc=action_desc,
             timestamp=now,
@@ -396,7 +408,7 @@ Context: {context[:200]}
 Trả lời 1 câu: Tại sao cần thiết? (hoặc "Không cần thiết" nếu không cần)
 
 WHY:"""
-            response = _call_openrouter(prompt, max_tokens=200)
+            response = _call_why_provider(prompt)
             if response:
                 self._stats["llm_calls"] += 1
                 return response.strip()[:200]
@@ -441,7 +453,7 @@ Trả lời:
 2. SELF_FALSIFIED: yes/no
 
 Output: FALSIFICATION: ... | SELF_FALSIFIED: yes/no"""
-            response = _call_openrouter(prompt, max_tokens=200)
+            response = _call_why_provider(prompt)
             if response:
                 self._stats["llm_calls"] += 1
                 falsified = "self_falsified: yes" in response.lower()
