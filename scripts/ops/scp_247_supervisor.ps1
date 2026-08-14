@@ -273,6 +273,7 @@ try {
         $oldAuthPassword = $env:SCP_AUTH_PASSWORD
         $oldAuthTokenFile = $env:SCP_AUTH_TOKEN_SECRET_FILE
         $oldAuthPasswordFile = $env:SCP_AUTH_PASSWORD_FILE
+        $oldSchedulerAdminToken = $env:SCHEDULER_ADMIN_TOKEN
         $oldDangerous = @{}
         foreach ($flag in @('SCP_DEV_MODE','SCP_SKIP_STARTUP_GATE','SCP_AUTO_APPROVE_TIER3','SCP_TIER3_ALLOW_RELAXATION','SCP_TIER3_ALLOW_BAREEXCEPTPASS')) {
             $oldDangerous[$flag] = [Environment]::GetEnvironmentVariable($flag, 'Process')
@@ -301,6 +302,7 @@ try {
                     return $null
                 }
                 $env:SCP_AUTH_TOKEN_SECRET = $adminToken
+                $env:SCHEDULER_ADMIN_TOKEN = $adminToken
                 Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue
                 $env:SCP_AUTH_TOKEN_SECRET_FILE = $AdminTokenFile
                 Remove-Item Env:SCP_AUTH_PASSWORD_FILE -ErrorAction SilentlyContinue
@@ -329,6 +331,7 @@ try {
             if ($null -eq $oldAuthPassword) { Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_PASSWORD = $oldAuthPassword }
             if ($null -eq $oldAuthTokenFile) { Remove-Item Env:SCP_AUTH_TOKEN_SECRET_FILE -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_TOKEN_SECRET_FILE = $oldAuthTokenFile }
             if ($null -eq $oldAuthPasswordFile) { Remove-Item Env:SCP_AUTH_PASSWORD_FILE -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_PASSWORD_FILE = $oldAuthPasswordFile }
+            if ($null -eq $oldSchedulerAdminToken) { Remove-Item Env:SCHEDULER_ADMIN_TOKEN -ErrorAction SilentlyContinue } else { $env:SCHEDULER_ADMIN_TOKEN = $oldSchedulerAdminToken }
             foreach ($flag in $oldDangerous.Keys) {
                 if ($null -eq $oldDangerous[$flag]) { Remove-Item "Env:$flag" -ErrorAction SilentlyContinue } else { Set-Item "Env:$flag" $oldDangerous[$flag] }
             }
