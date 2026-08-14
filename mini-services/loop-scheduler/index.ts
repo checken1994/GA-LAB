@@ -95,6 +95,11 @@ function _loadEnvFile() {
 _loadEnvFile();
 
 const LOOP_INTERVAL_SEC = Number(process.env.LOOP_INTERVAL_SEC ?? "300");
+const AUTOFIX_MODE = (process.env.SCP_AUTOFIX_MODE ?? "observe").trim().toLowerCase();
+if (AUTOFIX_MODE !== "observe" && AUTOFIX_MODE !== "apply") {
+  throw new Error(`[loop-scheduler] invalid SCP_AUTOFIX_MODE=${AUTOFIX_MODE}; refusing start`);
+}
+const AUTOFIX_MAX_BUGS = Math.max(0, Math.min(20, Number(process.env.SCP_MAX_AUDIT_BUGS ?? "5")));
 const _scpBaseUrl = (process.env.SCP_BASE_URL || "").trim().replace(/\/+$/, "");
 if (!_scpBaseUrl) throw new Error("[loop-scheduler] SCP_BASE_URL is required; refusing implicit backend default");
 const SCP_BASE_URL = _scpBaseUrl;
@@ -434,7 +439,7 @@ async function triggerAudit(triggeredBy: "cron" | "manual"): Promise<LoopRun> {
         method: "POST",
         headers,
         signal: AbortSignal.timeout(SCP_FETCH_TIMEOUT_MS),
-        body: JSON.stringify({}),
+        body: JSON.stringify({ mode: AUTOFIX_MODE, max_bugs: AUTOFIX_MAX_BUGS }),
       });
 
       const duration_ms = Date.now() - start;
@@ -719,7 +724,7 @@ async function main(): Promise<void> {
   }
   console.log(
     `[loop-scheduler] booting — port=${PORT}, interval=${LOOP_INTERVAL_SEC}s, ` +
-    `scp=${SCP_BASE_URL}`,
+    `mode=${AUTOFIX_MODE}, max_bugs=${AUTOFIX_MAX_BUGS}, scp=${SCP_BASE_URL}`,
   );
 
   // Restore prior run count + recent history from log file
