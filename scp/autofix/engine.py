@@ -548,8 +548,8 @@ class AutoFixEngine:
                         _orig_findings = scan_file_enterprise(_backup_path)
                         for f in _orig_findings:
                             _pre_existing_types.add((f.get("line"), f.get("bug_type", "")))
-                except Exception:
-                    pass
+                except Exception as _backup_scan_error:
+                    logger.debug('[AUTOFIX] backup finding scan failed; continuing fail-open', exc_info=True)
                 for f in _enterprise_findings:
                     _f_line = f.get("line")
                     _f_type = f.get("bug_type", "")
@@ -1480,8 +1480,8 @@ class AutoFixEngine:
                         if hasattr(bug, "tier"):
                             try:
                                 bug.tier = _v4_escalated_tier  # type: ignore[assignment]
-                            except Exception:  # noqa: BLE001 — best-effort
-                                pass
+                            except Exception as _tier_assignment_error:  # noqa: BLE001
+                                logger.debug('[AUTOFIX] tier assignment failed; retaining original tier', exc_info=True)
 
                     # [SCP-DNA-FIX R13-4] Wire should_require_dry_run — IMP-9
                     # dry-run for HIGH/CRITICAL blast radius is documented in
@@ -1555,8 +1555,8 @@ class AutoFixEngine:
                                                 except Exception:
                                                     returns = "Any"
                                             return _V4_TF_Sig(args=args, returns=returns)
-                                except Exception:
-                                    pass
+                                except Exception as _signature_scan_error:
+                                    logger.debug('[AUTOFIX] signature scan failed; using empty signature', exc_info=True)
                                 return _V4_TF_Sig(args=[], returns="")
 
                             _v4_orig_sig = _extract_sig(_pre_fix_content or "", _v4_target_func)
@@ -1564,8 +1564,8 @@ class AutoFixEngine:
                             _v4_patched_src = ""
                             try:
                                 _v4_patched_src = filepath.read_text(encoding="utf-8")
-                            except Exception:
-                                pass
+                            except Exception as _patched_source_error:
+                                logger.debug('[AUTOFIX] patched source read failed; using empty source', exc_info=True)
                             _v4_new_sig = _extract_sig(_v4_patched_src, _v4_target_func)
 
                             _v4_tflow_result = _v4_tflow(
@@ -2302,8 +2302,8 @@ class AutoFixEngine:
         try:
             import uuid as _uuid
             _rollback_token = str(_uuid.uuid4())
-        except Exception:
-            pass
+        except Exception as _rollback_token_error:
+            logger.warning('[AUTOFIX] UUID rollback token generation failed; using legacy backup fallback', exc_info=True)
 
         # Backup file to .tier3bak.{rollback_token} (per-token, R8-5)
         try:

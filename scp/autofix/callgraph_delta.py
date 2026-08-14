@@ -234,8 +234,8 @@ class _FileAnalyzer(ast.NodeVisitor):
             self.functions.append(node.name)
             if len(self.functions) > MAX_FUNCTIONS_PER_FILE:
                 self._bounded = True
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _visitor_error:  # noqa: BLE001
+            logger.debug('[CALLGRAPH] bounded AST visitor operation failed; continuing traversal', exc_info=True)
         self.generic_visit(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> Any:  # noqa: N802
@@ -245,8 +245,8 @@ class _FileAnalyzer(ast.NodeVisitor):
             self.functions.append(node.name)
             if len(self.functions) > MAX_FUNCTIONS_PER_FILE:
                 self._bounded = True
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _visitor_error:  # noqa: BLE001
+            logger.debug('[CALLGRAPH] bounded AST visitor operation failed; continuing traversal', exc_info=True)
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> Any:  # noqa: N802
@@ -271,8 +271,8 @@ class _FileAnalyzer(ast.NodeVisitor):
                     col=getattr(node, "col_offset", 0),
                     is_method_call=is_method,
                 ))
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _visitor_error:  # noqa: BLE001
+            logger.debug('[CALLGRAPH] bounded AST visitor operation failed; continuing traversal', exc_info=True)
         self.generic_visit(node)
 
 
