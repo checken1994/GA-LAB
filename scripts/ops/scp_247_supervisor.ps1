@@ -251,6 +251,8 @@ try {
         $oldScpEnvFile = $env:SCP_ENV_FILE
         $oldAuthToken = $env:SCP_AUTH_TOKEN_SECRET
         $oldAuthPassword = $env:SCP_AUTH_PASSWORD
+        $oldAuthTokenFile = $env:SCP_AUTH_TOKEN_SECRET_FILE
+        $oldAuthPasswordFile = $env:SCP_AUTH_PASSWORD_FILE
         $oldDangerous = @{}
         foreach ($flag in @('SCP_DEV_MODE','SCP_SKIP_STARTUP_GATE','SCP_AUTO_APPROVE_TIER3','SCP_TIER3_ALLOW_RELAXATION','SCP_TIER3_ALLOW_BAREEXCEPTPASS')) {
             $oldDangerous[$flag] = [Environment]::GetEnvironmentVariable($flag, 'Process')
@@ -290,6 +292,8 @@ try {
                 }
                 if ($authToken) { $env:SCP_AUTH_TOKEN_SECRET = $authToken } else { Remove-Item Env:SCP_AUTH_TOKEN_SECRET -ErrorAction SilentlyContinue }
                 if ($authPassword) { $env:SCP_AUTH_PASSWORD = $authPassword } else { Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue }
+                Remove-Item Env:SCP_AUTH_TOKEN_SECRET_FILE -ErrorAction SilentlyContinue
+                Remove-Item Env:SCP_AUTH_PASSWORD_FILE -ErrorAction SilentlyContinue
                 $env:SCP_ENV_FILE = $SafeChildEnvFile
             }
             if ($DryRun) {
@@ -313,6 +317,8 @@ try {
             if ($null -eq $oldScpEnvFile) { Remove-Item Env:SCP_ENV_FILE -ErrorAction SilentlyContinue } else { $env:SCP_ENV_FILE = $oldScpEnvFile }
             if ($null -eq $oldAuthToken) { Remove-Item Env:SCP_AUTH_TOKEN_SECRET -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_TOKEN_SECRET = $oldAuthToken }
             if ($null -eq $oldAuthPassword) { Remove-Item Env:SCP_AUTH_PASSWORD -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_PASSWORD = $oldAuthPassword }
+            if ($null -eq $oldAuthTokenFile) { Remove-Item Env:SCP_AUTH_TOKEN_SECRET_FILE -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_TOKEN_SECRET_FILE = $oldAuthTokenFile }
+            if ($null -eq $oldAuthPasswordFile) { Remove-Item Env:SCP_AUTH_PASSWORD_FILE -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_PASSWORD_FILE = $oldAuthPasswordFile }
             foreach ($flag in $oldDangerous.Keys) {
                 if ($null -eq $oldDangerous[$flag]) { Remove-Item "Env:$flag" -ErrorAction SilentlyContinue } else { Set-Item "Env:$flag" $oldDangerous[$flag] }
             }
