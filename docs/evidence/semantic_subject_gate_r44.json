@@ -1,0 +1,36 @@
+{
+  "semantic_contract": {
+    "eligible": true,
+    "subject_id": "semantic-contract-bare-except-pass",
+    "record_count": 4,
+    "lineages": [
+      "pc-reality-test-f580c5b",
+      "python-built-in-exceptions",
+      "python-language-reference",
+      "ruff-e722-documentation"
+    ],
+    "kinds": [
+      "independent_runtime",
+      "official_document"
+    ],
+    "reason": "OK"
+  },
+  "lesson_ids_checked": {
+    "3dbe3cc16e131283": {
+      "eligible": false,
+      "subject_id": "3dbe3cc16e131283",
+      "record_count": 0,
+      "lineages": [],
+      "kinds": [],
+      "reason": "NEED_TWO_INDEPENDENT_LINEAGES_AND_EXTERNAL_RUNTIME"
+    },
+    "c305df8d87d715a9": {
+      "eligible": false,
+      "subject_id": "c305df8d87d715a9",
+      "record_count": 0,
+      "lineages": [],
+      "kinds": [],
+      "reason": "NEED_TWO_INDEPENDENT_LINEAGES_AND_EXTERNAL_RUNTIME"
+    }
+  }
+}
