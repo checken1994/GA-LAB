@@ -301,7 +301,7 @@ try {
         }
         $env:SCP_ENABLE_CLOSED_LOOP = '0'
         try {
-            if ($Service.Name -in @('loop-scheduler','scp-python','autofix-worker')) {
+            if ($Service.Name -in @('loop-scheduler','scp-python','autofix-worker','dashboard')) {
                 $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
                 $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
                 $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
