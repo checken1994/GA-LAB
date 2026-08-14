@@ -429,11 +429,30 @@ async def lifespan(app: FastAPI):
         _audit_telemetry = SubsystemTelemetry("deep_audit", os.environ.get("SCP_DATA_DIR", "data"))
         _audit_telemetry.start(mode="background", config={"interval_seconds": 86400})
         _audit_telemetry.tick(status="IDLE")
+        _audit_stop = _threading.Event()
+        _audit_state = {"status": "STARTING"}
+        app.state.deep_audit_stop = _audit_stop
+
+        def _deep_audit_heartbeat_loop():
+            while not _audit_stop.is_set():
+                try:
+                    _audit_telemetry.tick(status=_audit_state["status"])
+                except Exception as exc:
+                    logger.warning("[AUTO] deep-audit heartbeat tick failed: %s", exc)
+                if _audit_stop.wait(15):
+                    return
+
+        _threading.Thread(
+            target=_deep_audit_heartbeat_loop,
+            daemon=True,
+            name="scp-deep-audit-heartbeat",
+        ).start()
 
         def _deep_audit_loop():
             heartbeat_sleep(_audit_telemetry, 60, status="IDLE")
-            while True:
+            while not _audit_stop.is_set():
                 run_id = f"deep-audit-{_time.time_ns()}"
+                _audit_state["status"] = "RUNNING"
                 _audit_telemetry.cycle_started(run_id, trigger="interval")
                 try:
                     logger.info("[AUTO] Deep audit cycle starting...")
@@ -446,9 +465,13 @@ async def lifespan(app: FastAPI):
                         run_id, "SUCCESS", bugs_found=results.get("processed", 0),
                         bugs_fixed=results.get("fixed", 0), stored=results.get("stored", 0),
                     )
+                except TimeoutError as exc:
+                    logger.warning("[AUTO] Deep audit timeout: %s", exc)
+                    _audit_telemetry.cycle_failed(run_id, exc, status="TIMEOUT")
                 except Exception as exc:
                     logger.warning("[AUTO] Deep audit failed: %s", exc)
-                    _audit_telemetry.cycle_failed(run_id, exc, status="TELEMETRY_DEGRADED")
+                    _audit_telemetry.cycle_failed(run_id, exc, status="PROVIDER_FAILED")
+                _audit_state["status"] = "IDLE"
                 heartbeat_sleep(_audit_telemetry, 86400, status="IDLE")
 
         _audit_thread = _threading.Thread(
@@ -467,11 +490,30 @@ async def lifespan(app: FastAPI):
         _attack_telemetry = SubsystemTelemetry("attack_monitor", os.environ.get("SCP_DATA_DIR", "data"))
         _attack_telemetry.start(mode="background", config={"interval_seconds": 300})
         _attack_telemetry.tick(status="IDLE")
+        _attack_stop = _threading.Event()
+        _attack_state = {"status": "STARTING"}
+        app.state.attack_monitor_stop = _attack_stop
+
+        def _attack_heartbeat_loop():
+            while not _attack_stop.is_set():
+                try:
+                    _attack_telemetry.tick(status=_attack_state["status"])
+                except Exception as exc:
+                    logger.warning("[AUTO] attack-monitor heartbeat tick failed: %s", exc)
+                if _attack_stop.wait(15):
+                    return
+
+        _threading.Thread(
+            target=_attack_heartbeat_loop,
+            daemon=True,
+            name="scp-attack-monitor-heartbeat",
+        ).start()
 
         def _attack_mode_monitor():
             heartbeat_sleep(_attack_telemetry, 120, status="IDLE")
-            while True:
+            while not _attack_stop.is_set():
                 run_id = f"attack-monitor-{_time.time_ns()}"
+                _attack_state["status"] = "RUNNING"
                 _attack_telemetry.cycle_started(run_id, trigger="interval")
                 try:
                     eng = get_autofix_engine()
@@ -485,9 +527,13 @@ async def lifespan(app: FastAPI):
                         eng.set_attack_mode(False)
                         logger.info("[AUTO] Attack mode DISABLED — %s KILLs in 10min", kill_count)
                     _attack_telemetry.cycle_completed(run_id, "SUCCESS", asked=kill_count, verified=1)
+                except TimeoutError as exc:
+                    logger.warning("[AUTO] Attack mode monitor timeout: %s", exc)
+                    _attack_telemetry.cycle_failed(run_id, exc, status="TIMEOUT")
                 except Exception as exc:
                     logger.warning("[AUTO] Attack mode monitor: %s", exc)
-                    _attack_telemetry.cycle_failed(run_id, exc, status="TELEMETRY_DEGRADED")
+                    _attack_telemetry.cycle_failed(run_id, exc, status="PROVIDER_FAILED")
+                _attack_state["status"] = "IDLE"
                 heartbeat_sleep(_attack_telemetry, 300, status="IDLE")
 
         _attack_thread = _threading.Thread(
@@ -533,6 +579,9 @@ async def lifespan(app: FastAPI):
 
     # [R20-ROOT-FIX-REAL] Old yield was HERE (line 464) — moved to line 326 above.
 
+    for _stop_event in (getattr(app.state, "deep_audit_stop", None), getattr(app.state, "attack_monitor_stop", None)):
+        if _stop_event is not None:
+            _stop_event.set()
     for _task in (_scheduler_bootstrap_task, _evolution_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
         if _task is not None and not _task.done():
             _task.cancel()
