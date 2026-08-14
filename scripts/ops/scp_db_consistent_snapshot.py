@@ -83,7 +83,8 @@ def snapshot_one(source: Path, destination: Path) -> dict[str, Any]:
                     copy.execute("PRAGMA integrity_check").fetchone()[0]
                 )
                 counts = table_counts(copy)
-        with destination.open("rb") as handle:
+        with destination.open("r+b") as handle:
+            handle.flush()
             os.fsync(handle.fileno())
     finally:
         after = source_state(source)
