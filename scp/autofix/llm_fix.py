@@ -738,7 +738,7 @@ def process_bug_with_llm(bug, autofix_engine, allow_llm: bool = True) -> dict:
     # New flow: predefined → pattern_bare_except →
     #           fix_type_mismatch → add_null_check → add_lock →
     #           parameterize_sql → add_context_manager → LLM
-    if os.environ.get("SCP_EVOLUTION_ENABLED", "1") == "1":
+    if os.environ.get("SCP_EVOLUTION_ENABLED", "0") == "1":
         try:
             from scp.autofix.evolution import get_evolution_engine
             evo = get_evolution_engine()

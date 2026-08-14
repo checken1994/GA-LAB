@@ -395,6 +395,24 @@ async def lifespan(app: FastAPI):
             logger.error(f"[4-a-001] Background scheduler failed: {e}", exc_info=True)
     _scheduler_bootstrap_task = asyncio.create_task(_start_background_scheduler())
 
+    # Initialize the Evolution singleton for an explicit DISABLED heartbeat.
+    # Constructor-only: no cycle, no provider call, no policy promotion.
+    app.state.evolution_initialized = False
+    async def _start_evolution_runtime():
+        try:
+            await asyncio.sleep(5)
+            from scp.autofix.evolution import get_evolution_engine
+            await asyncio.to_thread(
+                get_evolution_engine, data_dir=os.environ.get("SCP_DATA_DIR", "data")
+            )
+            app.state.evolution_initialized = True
+            logger.info("[EVOLUTION] Runtime initialized; auto promotion remains env-gated")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("[EVOLUTION] Runtime initialization failed: %s", exc)
+    _evolution_bootstrap_task = asyncio.create_task(_start_evolution_runtime())
+
     # [RUNTIME-FIX-HEARTBEAT] These loops belong to startup, not shutdown.
     # Code after the lifespan yield is cleanup-only. Keep explicit handles so
     # health/cleanup can distinguish never-started from stopped.
@@ -515,7 +533,7 @@ async def lifespan(app: FastAPI):
 
     # [R20-ROOT-FIX-REAL] Old yield was HERE (line 464) — moved to line 326 above.
 
-    for _task in (_scheduler_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
+    for _task in (_scheduler_bootstrap_task, _evolution_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
         if _task is not None and not _task.done():
             _task.cancel()
     logger.info("SCP V99 API Server shutting down...")

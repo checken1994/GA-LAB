@@ -1189,7 +1189,7 @@ class AutoFixEngine:
                                 )
                                 # [V5.7-WHY] Reflect on pattern fix too (best-effort)
                                 try:
-                                    if os.environ.get("SCP_EVOLUTION_ENABLED", "1") == "1":
+                                    if os.environ.get("SCP_EVOLUTION_ENABLED", "0") == "1":
                                         _evo.reflect(bug, _xss_result["reason"])
                                 except Exception as _reflect_err:
                                     logger.debug(
@@ -2037,7 +2037,7 @@ class AutoFixEngine:
             # try/except — reflect failure MUST NOT break fix (fix already applied).
             # Reflect is best-effort: if LLM call fails, KB stays as-is, no harm.
             try:
-                if os.environ.get("SCP_EVOLUTION_ENABLED", "1") == "1":
+                if os.environ.get("SCP_EVOLUTION_ENABLED", "0") == "1":
                     from scp.autofix.evolution import get_evolution_engine
                     _evo = get_evolution_engine(data_dir=str(self.data_dir))
                     # fix_diff: pass the suggested_fix that was applied (best proxy
