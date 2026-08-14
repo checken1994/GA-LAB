@@ -1,11 +1,12 @@
-from pathlib import Path
 """Reality test for Fix 4-b-013: rollback refuses on hash mismatch (not overwrites).
 
 Before fix: hash mismatch → warning + overwrite (destroys newer changes).
 After fix: hash mismatch → RuntimeError (refuse) unless force=True.
 """
 
-with open(str(Path(__file__).resolve().parents[2]) + '/scp/autofix/rollback_registry.py') as f:
+from pathlib import Path
+
+with open(str(Path(__file__).resolve().parents[2]) + '/scp/autofix/rollback_registry.py', encoding='utf-8') as f:
     src = f.read()
 
 # TEST 1: must check current hash against recorded after_hash
@@ -30,9 +31,9 @@ print("PASS [4/4]: restore is conditional (after mismatch check)")
 # --- Runtime behavior tests (DNA #2 reality) ---
 print("\n--- Runtime behavior test (DNA #2 reality) ---")
 import os
+import shutil
 import sys
 import tempfile
-import shutil
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scp.autofix.rollback_registry import (
@@ -44,7 +45,7 @@ from scp.autofix.rollback_registry import (
 tmpdir = tempfile.mkdtemp(prefix="reality_4b013_")
 try:
     target = os.path.join(tmpdir, "test_file.py")
-    with open(target, "w") as f:
+    with open(target, "w", encoding="utf-8") as f:
         f.write('print("before")\n')
 
     reg = RollbackTokenRegistry(data_dir=tmpdir)
@@ -52,7 +53,7 @@ try:
     # Register fix A: file goes from 'before' to 'after'
     before_content = 'print("before")\n'
     after_content = 'print("after_fix_A")\n'
-    with open(target, "w") as f:
+    with open(target, "w", encoding="utf-8") as f:
         f.write(after_content)  # apply fix A
     token = reg.register(
         file_path=target, before_content=before_content, after_content=after_content,
@@ -60,7 +61,7 @@ try:
     )
 
     # TEST 5: apply fix B (newer change), then rollback A without force → REFUSE
-    with open(target, "w") as f:
+    with open(target, "w", encoding="utf-8") as f:
         f.write('print("after_fix_B_newer")\n')
 
     result = reg.rollback(token)
@@ -71,7 +72,7 @@ try:
     print("PASS [5/8]: rollback refuses on hash mismatch (returns ok=False + force_required=True)")
 
     # TEST 6: file unchanged after refusal (newer fix B preserved)
-    with open(target) as f:
+    with open(target, encoding="utf-8") as f:
         current = f.read()
     assert current == 'print("after_fix_B_newer")\n', \
         f"FAIL: file was modified despite refusal (got {current!r})"
@@ -86,15 +87,15 @@ try:
         msg = str(e)
         assert "REFUSED" in msg or "refuse" in msg.lower() or "mismatch" in msg.lower(), \
             f"FAIL: RuntimeError message lacks refuse/mismatch context: {msg!r}"
-        print(f"PASS [7/8]: rollback_or_raise raised RuntimeError on mismatch")
-    except Exception as e:
+        print("PASS [7/8]: rollback_or_raise raised RuntimeError on mismatch")
+    except Exception as e:  # noqa: BLE001
         print(f"FAIL [7/8]: wrong exception type {type(e).__name__}: {e}")
         sys.exit(1)
 
     # TEST 8: force=True overrides mismatch (operator explicit acceptance)
     result = reg.rollback(token, force=True)
     assert result.get("ok"), f"FAIL: force=True should succeed: {result}"
-    with open(target) as f:
+    with open(target, encoding="utf-8") as f:
         final = f.read()
     assert final == before_content, \
         f"FAIL: file not restored to pre-fix state (got {final!r})"
