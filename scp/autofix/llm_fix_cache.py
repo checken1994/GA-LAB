@@ -148,8 +148,25 @@ class LLMFixCache:
             return {"entries": {}, "stats": {"hits": 0, "misses": 0, "evictions": 0}}
         try:
             with open(self.cache_file, encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
+                loaded = json.load(f)
+            # Fail-closed shape normalization: legacy/corrupt cache files must
+            # never make invalidation/stats crash with KeyError('entries').
+            if not isinstance(loaded, dict):
+                raise ValueError("cache root must be an object")
+            entries = loaded.get("entries")
+            stats = loaded.get("stats")
+            if not isinstance(entries, dict):
+                logger.warning("[IMP-8] cache shape missing/invalid entries; resetting entries")
+                entries = {}
+            if not isinstance(stats, dict):
+                stats = {}
+            normalized_stats = {
+                "hits": int(stats.get("hits", 0) or 0),
+                "misses": int(stats.get("misses", 0) or 0),
+                "evictions": int(stats.get("evictions", 0) or 0),
+            }
+            return {"entries": entries, "stats": normalized_stats}
+        except (json.JSONDecodeError, OSError, ValueError, TypeError) as e:
             logger.warning(f"[IMP-8] cache load failed, starting fresh: {e}")
             return {"entries": {}, "stats": {"hits": 0, "misses": 0, "evictions": 0}}
 

@@ -1111,11 +1111,17 @@ class AutoFixEngine:
                                 # suggestions for this file are no longer
                                 # served — next autofix will re-query LLM
                                 # with fresh source context.
+                                _xss_cache_invalidated = False
+                                _xss_cache_error = ""
                                 try:
                                     from scp.autofix.llm_fix_cache import invalidate_cache_for_file
                                     invalidate_cache_for_file(str(filepath))
+                                    _xss_cache_invalidated = True
                                 except Exception as _inv_err:
-                                    logger.debug(f"[R13-3] cache invalidate failed (non-fatal): {_inv_err}")
+                                    _xss_cache_error = str(_inv_err)[:200]
+                                    logger.warning(
+                                        f"[R13-3] cache invalidate failed after deterministic fix: {_inv_err}"
+                                    )
                                 # Record for cooldown
                                 bug_key = f"{bug.file}:{bug.line}:{bug.bug_type}"
                                 self._recent_fixes[bug_key] = time.time()
@@ -1125,25 +1131,40 @@ class AutoFixEngine:
                                 # Pre-fix: _write_audit logged only a message.
                                 # Post-fix: AuditLogEntry Pydantic schema
                                 # enforces all 4 fields for every tier.
+                                _xss_rollback_registered = False
                                 try:
-                                    from scp.autofix.audit_log import (
-                                        compute_hashes as _compute_hashes_4b012,
-                                        make_rollback_token_backup as _rb_token_4b012,
-                                    )
+                                    from scp.autofix.audit_log import compute_hashes as _compute_hashes_4b012
                                     _xss_post = filepath.read_text(encoding="utf-8")
                                     _xss_bh, _xss_ah = _compute_hashes_4b012(
                                         _pre_fix_content, _xss_post,
                                     )
-                                    _xss_rtr = "pass"  # ast.parse already verified at line 1082-1087
-                                    _xss_token = _rb_token_4b012(str(filepath))
+                                    _xss_rtr = "pass"  # ast.parse already verified above
+                                    # Register an exact per-fix rollback token. The old
+                                    # fast-path only emitted backup:<path>, which was an
+                                    # audit sentinel and not present in the rollback registry.
+                                    _xss_token = self.register_fix_for_rollback(
+                                        file_path=str(filepath),
+                                        before_content=_pre_fix_content or "",
+                                        after_content=_xss_post,
+                                        patch=_xss_result.get("patch", ""),
+                                        bug_id=f"{bug.file}:{bug.line}",
+                                        bug_type=bug.bug_type,
+                                        tier=int(bug.tier),
+                                        reality_test_result={
+                                            "status": "pass",
+                                            "method": "ast.parse",
+                                            "fix_method": "xss_pattern",
+                                        },
+                                    )
+                                    _xss_rollback_registered = True
                                 except Exception as _xss_hash_err:
-                                    logger.debug(
-                                        f"[4-b-012] XSS audit hash/token compute "
-                                        f"failed (non-fatal — entry gets 'n/a'): {_xss_hash_err}"
+                                    logger.warning(
+                                        f"[4-b-012] XSS hash/rollback registration failed: {_xss_hash_err}"
                                     )
                                     _xss_bh = _xss_ah = "n/a"
                                     _xss_rtr = "skipped"
-                                    _xss_token = "n/a"
+                                    _xss_token = f"backup:{filepath}"
+                                    _xss_rollback_registered = False
                                 # Log to audit trail
                                 if report or attack_mode:
                                     self._write_audit(
@@ -1177,12 +1198,20 @@ class AutoFixEngine:
                                     )
                                 return {
                                     "action": "fixed",
+                                    "status": "fixed",
                                     "tier": int(bug.tier),
                                     "patched": True,
                                     "attack_mode": attack_mode,
                                     "method": "xss_pattern",
                                     "pattern": _xss_result.get("pattern", ""),
                                     "reason": _xss_result.get("reason", ""),
+                                    "before_hash": _xss_bh,
+                                    "after_hash": _xss_ah,
+                                    "rollback_token": _xss_token,
+                                    "rollback_registered": _xss_rollback_registered,
+                                    "reality_test_result": _xss_rtr,
+                                    "cache_invalidated": _xss_cache_invalidated,
+                                    "cache_invalidation_error": _xss_cache_error,
                                 }
                 except Exception as _xss_pattern_err:
                     logger.debug(
