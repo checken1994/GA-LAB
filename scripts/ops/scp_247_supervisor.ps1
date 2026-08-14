@@ -243,11 +243,11 @@ try {
         }
         $env:SCP_ENABLE_CLOSED_LOOP = '0'
         try {
-            if ($Service.Name -eq 'loop-scheduler') {
+            if ($Service.Name -in @('loop-scheduler','scp-python')) {
                 $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
                 $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
                 $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
-                # Bun does not implicitly load .env. Do NOT pass the entire
+                # Bun/Python child processes must not receive the entire
                 # production env file: it may contain unrelated/dangerous flags.
                 # Read only auth values into the child environment, never print
                 # or write them, and force all mutation/learning flags OFF.
