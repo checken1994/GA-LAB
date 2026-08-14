@@ -76,7 +76,7 @@ try {
 
     $snapshotOutput = & $PythonPath $SnapshotScript --root $Root --label "pre-$stamp" 2>&1
     $snapshotExit = $LASTEXITCODE
-    if ($snapshotExit -ne 0) { throw "Pre-test SQLite snapshot failed with exit $snapshotExit: $($snapshotOutput -join ' ')" }
+    if ($snapshotExit -ne 0) { throw "Pre-test SQLite snapshot failed with exit ${snapshotExit}: $($snapshotOutput -join ' ')" }
     $snapshotJson = ($snapshotOutput -join "`n") | ConvertFrom-Json
     if ($snapshotJson.status -ne 'COMPLETE') { throw "Pre-test snapshot status was $($snapshotJson.status)" }
     $record.snapshot_manifest = [string]$snapshotJson.manifest
