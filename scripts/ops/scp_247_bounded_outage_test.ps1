@@ -54,6 +54,6 @@ $out = Join-Path $AuditDir "outage-$stamp.json"
 $record | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $out -Encoding UTF8
 Write-Output "EVIDENCE=$out"
 $record | ConvertTo-Json -Depth 8
-if (($record.cycles_result | Where-Object { -not $_.recovered }).Count -gt 0) { exit 2 }
+if (@($record.cycles_result | Where-Object { -not $_.recovered }).Count -gt 0) { exit 2 }
 if (-not $record.port_11434_after -or $record.http_11434_after -ge 500) { exit 3 }
 exit 0
