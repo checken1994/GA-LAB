@@ -103,11 +103,10 @@ def snapshot_one(source: Path, destination: Path) -> dict[str, Any]:
 
 def atomic_json_write(path: Path, payload: dict[str, Any]) -> None:
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
-    with temporary.open("rb") as handle:
+    with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        handle.write("\n")
+        handle.flush()
         os.fsync(handle.fileno())
     os.replace(temporary, path)
 
