@@ -143,7 +143,7 @@ if (-not (Test-Path -LiteralPath $AdminTokenFile -PathType Leaf)) {
 # Include only the private token-file reference in the explicit child env.
 # Bun resolves *_FILE during its explicit env loader; Python resolves it via
 # auth_config. The token value itself is never copied into this env file.
-$childEnvText = $safeEnvText + [Environment]::NewLine + "SCP_AUTH_TOKEN_SECRET_FILE=$AdminTokenFile" + [Environment]::NewLine
+$childEnvText = $safeEnvText + [Environment]::NewLine + "SCP_AUTH_TOKEN_SECRET_FILE=$AdminTokenFile" + [Environment]::NewLine + "SCHEDULER_ADMIN_TOKEN_FILE=$AdminTokenFile" + [Environment]::NewLine
 [IO.File]::WriteAllText($safeEnvTmp, $childEnvText, [Text.UTF8Encoding]::new($false))
 Move-Item -LiteralPath $safeEnvTmp -Destination $SafeChildEnvFile -Force
 
