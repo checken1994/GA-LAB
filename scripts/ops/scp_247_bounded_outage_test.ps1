@@ -26,9 +26,9 @@ if ($record.kill_switch_before) { throw 'Refusing test: kill switch already pres
 for ($cycle = 1; $cycle -le $Cycles; $cycle++) {
     $listener = Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($null -eq $listener) { throw "Refusing test: LLM Bridge port 11434 is not listening before cycle $cycle" }
-    $pid = [int]$listener.OwningProcess
+    $targetPid = [int]$listener.OwningProcess
     $killed_at = [DateTime]::UtcNow
-    & taskkill.exe /PID $pid /T /F *> $null
+    & taskkill.exe /PID $targetPid /T /F *> $null
     $recovered = $false
     $recovery_seconds = $null
     for ($i = 1; $i -le $ObservationSeconds; $i++) {
@@ -43,7 +43,7 @@ for ($cycle = 1; $cycle -le $Cycles; $cycle++) {
         }
         if ($portUp -and $httpOk) { $recovered = $true; $recovery_seconds = $i; break }
     }
-    $record.cycles_result += [ordered]@{cycle=$cycle; killed_pid=$pid; killed_utc=$killed_at.ToString('o'); recovered=$recovered; recovery_seconds=$recovery_seconds}
+    $record.cycles_result += [ordered]@{cycle=$cycle; killed_pid=$targetPid; killed_utc=$killed_at.ToString('o'); recovered=$recovered; recovery_seconds=$recovery_seconds}
     if (-not $recovered) { break }
 }
 $record.finished_utc = [DateTime]::UtcNow.ToString('o')
