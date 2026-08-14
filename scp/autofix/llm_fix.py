@@ -164,14 +164,14 @@ def _generate_bare_except_fix(bug) -> str | None:
         except_line = lines[bug_line_idx].rstrip()
         # Check if this line is `except ...:`
         except_match = _re_module.match(
-            r'^(\s*)(except\s+)(\w+)(\s+as\s+\w+)?\s*:\s*(?:#.*)?$',
+            r'^(\s*)(except\s+)(\w+)(\s+as\s+\w+)?\s*:(\s*#.*)?$',
             except_line
         )
         if not except_match:
             # Maybe the `pass` is on this line (single-line except: pass)
             # Try: `except Exception as e: pass`
             single_match = _re_module.match(
-                r'^(\s*)(except\s+)(\w+)(\s+as\s+\w+)?\s*:\s*pass\s*$',
+                r'^(\s*)(except\s+)(\w+)(\s+as\s+\w+)?\s*:\s*pass\s*(?:#.*)?$',
                 except_line
             )
             if single_match:
@@ -193,6 +193,7 @@ def _generate_bare_except_fix(bug) -> str | None:
         except_kw = except_match.group(2)
         exc_type = except_match.group(3)
         as_clause = except_match.group(4) or ""
+        except_comment = except_match.group(5) or ""
 
         # Look for `pass` on next line(s)
         pass_line_idx = bug_line_idx + 1
@@ -206,7 +207,7 @@ def _generate_bare_except_fix(bug) -> str | None:
                 pass_indent = _re_module.match(r'^(\s*)', pass_line).group(1)
                 # Preserve original pass line (with comment) in SEARCH
                 old_block = (
-                    f"{indent}{except_kw}{exc_type}{as_clause}:\n"
+                    f"{except_line}\n"
                     f"{pass_line.rstrip()}"
                 )
                 # If no `as e`, add it — BUT use `e` in logger to avoid F841
@@ -218,6 +219,7 @@ def _generate_bare_except_fix(bug) -> str | None:
                     # Extract var name from as_clause (e.g. " as e" → "e")
                     var_name = as_clause.strip().split()[-1] if as_clause.strip() else "e"
                     new_pass = f"logger.debug(f\"[{filepath.name}:{bug.line}] silenced: {{{var_name}}}\")"
+                new_except = f"{new_except}{except_comment}"
                 new_block = (
                     f"{indent}{new_except}\n"
                     f"{pass_indent}{new_pass}"
