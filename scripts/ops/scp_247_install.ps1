@@ -39,12 +39,13 @@ $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interac
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'SCP fail-closed 24/7 supervisor; policy learning remains disabled'
 
 # Independent recovery task. It is a short-lived one-shot action repeated every
-# minute, so a hung watchdog cannot accumulate resident processes. SYSTEM scope
-# covers logoff/reboot gaps that an Interactive AtLogOn supervisor cannot cover.
+# minute, so a hung watchdog cannot accumulate resident processes. It uses the
+# same user session because registering SYSTEM requires an elevated service
+# installation boundary that is not available to this user-level installer.
 $watchdogAction = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$RecoveryWatchdog`""
 $watchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
 $watchdogSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Seconds 30) -MultipleInstances IgnoreNew
-$watchdogPrincipal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+$watchdogPrincipal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 $watchdogTask = New-ScheduledTask -Action $watchdogAction -Trigger $watchdogTrigger -Settings $watchdogSettings -Principal $watchdogPrincipal -Description 'SCP fail-closed recovery watchdog; honors KILL switch'
 
 $record = [ordered]@{
@@ -61,7 +62,9 @@ $record = [ordered]@{
     policy_learning = 'not_enabled_by_installer'
     production_env_modified = $false
     recovery_trigger = 'Once+Every1Minute'
-    recovery_principal = 'SYSTEM'
+    recovery_principal = $env:USERNAME
+    recovery_logon = 'Interactive'
+    recovery_scope = 'active_user_session_only'
     recovery_execution_limit_seconds = 30
     dry_run = [bool]$DryRun
 }
