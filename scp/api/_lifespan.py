@@ -43,6 +43,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from scp.core.subsystem_telemetry import SubsystemTelemetry, heartbeat_sleep
+
 logger = logging.getLogger("scp.api")
 
 
@@ -456,74 +458,100 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
     # The V100 scheduler will start in the background thread after judge is ready.
     # If /ask is called before judge ready → 503 (acceptable, /health still 200).
 
+    def _wait_with_heartbeat(stop_event: threading.Event, telemetry: SubsystemTelemetry, seconds: float, status: str) -> bool:
+        """Wait in bounded ticks so a long-lived subsystem never looks dead."""
+        deadline = _time.time() + max(0.0, float(seconds))
+        while not stop_event.is_set():
+            remaining = max(0.0, deadline - _time.time())
+            if remaining <= 0:
+                return True
+            telemetry.tick(status=status, next_due_at_utc=str(deadline))
+            if stop_event.wait(min(15.0, remaining)):
+                return False
+        return False
+
     # [AUTO-WIRE] Deep audit scheduler (24h)
     try:
+        _deep_audit_telemetry = SubsystemTelemetry("deep_audit", os.environ.get("SCP_DATA_DIR", "data"))
+        _deep_audit_telemetry.start(mode="background", config={"interval_seconds": 86400})
+        _deep_audit_stop = threading.Event()
+        _background_task_holder["deep_audit_stop"] = _deep_audit_stop
+
         def _deep_audit_loop():
-            _time.sleep(60)
-            while True:
+            if not _wait_with_heartbeat(_deep_audit_stop, _deep_audit_telemetry, 60, "IDLE"):
+                return
+            while not _deep_audit_stop.is_set():
+                run_id = f"deep_audit-{_time.time_ns()}"
+                _deep_audit_telemetry.cycle_started(run_id, trigger="interval")
                 try:
                     logger.info("[AUTO] Deep audit cycle starting...")
                     from scp.autofix.runner import run_deep_audit
                     results = run_deep_audit(max_bugs=int(os.environ.get("SCP_MAX_AUDIT_BUGS", "100")))  # [ROOT-FIX 47] was 20
+                    _deep_audit_telemetry.cycle_completed(
+                        run_id,
+                        "SUCCESS" if results.get("error") is None else "PROVIDER_FAILED",
+                        processed=results.get("processed", 0),
+                        fixed=results.get("fixed", 0),
+                    )
                     logger.info(f"[AUTO] Deep audit: {results.get('processed', 0)} bugs processed, "
                                 f"{results.get('fixed', 0)} auto-fixed")
+                except TimeoutError as e:
+                    _deep_audit_telemetry.cycle_failed(run_id, e, status="TIMEOUT")
+                    logger.warning(f"[AUTO] Deep audit timeout: {e}")
                 except Exception as e:
+                    _deep_audit_telemetry.cycle_failed(run_id, e, status="PROVIDER_FAILED")
                     logger.warning(f"[AUTO] Deep audit failed: {e}")
-                _time.sleep(86400)
+                if not _wait_with_heartbeat(_deep_audit_stop, _deep_audit_telemetry, 86400, "IDLE"):
+                    return
 
         _audit_thread = threading.Thread(target=_deep_audit_loop, daemon=True,
                                           name="scp-deep-audit-scheduler")
         _audit_thread.start()
-        logger.info("[AUTO] Deep audit scheduler started (24h interval)")
+        logger.info("[AUTO] Deep audit scheduler started (24h interval, heartbeat enabled)")
     except Exception as e:
         logger.warning(f"[AUTO] Deep audit scheduler failed: {e}")
 
     # [AUTO-WIRE] Attack mode monitor (5min)
     try:
+        _attack_telemetry = SubsystemTelemetry("attack_monitor", os.environ.get("SCP_DATA_DIR", "data"))
+        _attack_telemetry.start(mode="background", config={"interval_seconds": 300})
+        _attack_stop = threading.Event()
+        _background_task_holder["attack_monitor_stop"] = _attack_stop
+
         def _attack_mode_monitor():
-            _time.sleep(120)
-            while True:
+            if not _wait_with_heartbeat(_attack_stop, _attack_telemetry, 120, "IDLE"):
+                return
+            while not _attack_stop.is_set():
+                run_id = f"attack_monitor-{_time.time_ns()}"
+                _attack_telemetry.cycle_started(run_id, trigger="interval")
                 try:
                     from scp.autofix.engine import get_autofix_engine
                     eng = get_autofix_engine()
-                    # [SCP-DNA-FIX R8-1] TẠI SAO: query cũ `SELECT COUNT(*) FROM
-                    # notifications` hit SQLite table không tồn tại (0 CREATE TABLE
-                    # matches trong codebase). Notifications lưu in-memory tại
-                    # `judge.notifications._recent` (runtime/notifications.py:95) +
-                    # JSONL file. sqlite3.OperationalError bị swallow bởi
-                    # `except: logger.debug` → kill_count luôn 0 → attack mode
-                    # KHÔNG BAO GIỜ auto-trig (PASS ≠ TRUE, DNA #22).
-                    # Fix: đếm governance_kill events trong 10 phút gần nhất trực tiếp
-                    # từ in-memory UserNotificationSystem._recent.
+                    # [SCP-DNA-FIX R8-1] Count recent governance kills from the
+                    # thread-safe notification store, not a nonexistent SQLite table.
                     _notif = getattr(_get_judge_lazy(), "notifications", None)
                     _cutoff = _time.time() - 600
-                    if _notif is not None:
-                        # [SCP-DNA-FIX R9-7 / SA-R9-2] Mirror the api_server.py
-                        # fix — R8-1's inlined `sum(1 for _n in _notif._recent ...)`
-                        # races with notify()'s append (worker thread) and is
-                        # swallowed by the outer except → monitor silently dies.
-                        # Use the new thread-safe count method (locks internally
-                        # + fail-open returns 0 → attack mode never falsely
-                        # enables). Same fix as api_server.py:_attack_mode_monitor.
-                        kill_count = _notif.count_recent_by_type(
-                            "governance_kill", _cutoff
-                        )
-                    else:
-                        kill_count = 0
+                    kill_count = _notif.count_recent_by_type("governance_kill", _cutoff) if _notif is not None else 0
                     if kill_count > 20 and not eng.in_attack_mode:
                         eng.set_attack_mode(True)
                         logger.warning(f"[AUTO] Attack mode ENABLED — {kill_count} KILLs in 10min")
                     elif kill_count < 5 and eng.in_attack_mode:
                         eng.set_attack_mode(False)
                         logger.info(f"[AUTO] Attack mode DISABLED — {kill_count} KILLs in 10min (normal)")
+                    _attack_telemetry.cycle_completed(run_id, "SUCCESS", rejected=kill_count)
+                except TimeoutError as e:
+                    _attack_telemetry.cycle_failed(run_id, e, status="TIMEOUT")
+                    logger.debug(f"[AUTO] Attack mode monitor timeout: {e}")
                 except Exception as e:
+                    _attack_telemetry.cycle_failed(run_id, e, status="PROVIDER_FAILED")
                     logger.debug(f"[AUTO] Attack mode monitor: {e}")
-                _time.sleep(300)
+                if not _wait_with_heartbeat(_attack_stop, _attack_telemetry, 300, "IDLE"):
+                    return
 
         _attack_thread = threading.Thread(target=_attack_mode_monitor, daemon=True,
                                            name="scp-attack-mode-monitor")
         _attack_thread.start()
-        logger.info("[AUTO] Attack mode auto-monitor started (5min interval)")
+        logger.info("[AUTO] Attack mode auto-monitor started (5min interval, heartbeat enabled)")
     except Exception as e:
         logger.warning(f"[AUTO] Attack mode monitor failed: {e}")
 
@@ -661,6 +689,10 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
     # [SCP-DNA-FIX R6-7] Cancel V100 knowledge-crawler scheduler on shutdown.
     if _background_task_holder.get("v100_jobs"):
         _background_task_holder["v100_jobs"].cancel()
+    for _stop_key in ("deep_audit_stop", "attack_monitor_stop"):
+        _stop_event = _background_task_holder.get(_stop_key)
+        if _stop_event is not None:
+            _stop_event.set()
     # [SCP-DNA-FIX R5-3] Stop the bg services we started, in reverse order.
     for _name, _start_fn, _stop_fn in reversed(_started_bg_services):
         try:
