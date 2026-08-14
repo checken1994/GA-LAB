@@ -31,6 +31,22 @@ def test_why_provider_auto_keeps_openrouter_compatibility(monkeypatch):
     assert seen == {"prompt": "compat prompt", "max_tokens": 200}
 
 
+def test_deterministic_bare_except_context_skips_weak_llm(monkeypatch, tmp_path):
+    gate = why_gate.WhyGate(data_dir=str(tmp_path))
+
+    def should_not_call(_prompt):
+        raise AssertionError("deterministic BareExceptPass path must not call LLM")
+
+    monkeypatch.setattr(why_gate, "_call_why_provider", should_not_call)
+    reason, falsified = gate._check_falsification(
+        "autofix",
+        "Evolve cycle: fix bug C:/scp/type_flow_verifier.py:717",
+        "deterministic BareExceptPass logging replacement",
+    )
+    assert "Local deterministic BareExceptPass" in reason
+    assert falsified is False
+
+
 def test_gate_llm_used_is_true_only_for_calls_during_this_gate(tmp_path: Path, monkeypatch):
     gate = why_gate.WhyGate(data_dir=str(tmp_path))
 

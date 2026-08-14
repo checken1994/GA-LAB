@@ -366,6 +366,25 @@ class WhyGate:
         """
         desc_lower = action_desc.lower()
 
+        # [R32] Deterministic BareExceptPass replacements are locally
+        # validated transformations. Do not let a weak provider hallucinate
+        # a security regression for this exact internal evolution path.
+        context_lower = (context or "").lower()
+        _is_deterministic_bare_except = (
+            action_type == "autofix"
+            and "deterministic bareexceptpass logging replacement" in context_lower
+            and (
+                "evolve cycle: fix bug" in desc_lower
+                or "fix bareexceptpass at" in desc_lower
+            )
+        )
+        if _is_deterministic_bare_except:
+            return (
+                "Local deterministic BareExceptPass logging replacement; "
+                "no security relaxation detected by the bounded rule.",
+                False,
+            )
+
         # [SCP-DNA-FIX R12-22] Whitelist bug descriptions — don't REJECT fixes
         # that are FIXING silent failure (not creating it).
         # Tại sao: "broad except with pass — swallows errors silently" match
