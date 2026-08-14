@@ -1379,7 +1379,10 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                     # V104.2: chạy 50 câu/cycle (vs 10 ở V104.1).
                     # wait_for is required: provider/verifier stalls must become a
                     # terminal TIMEOUT ledger row and release the worker.
-                    engine._telemetry_timeout_requested = False
+                    # Mark the active task as bounded by wait_for. The flag
+                    # remains set while cancellation propagates through the
+                    # telemetry decorator, so the ledger records TIMEOUT.
+                    engine._telemetry_timeout_requested = True
                     try:
                         results = loop.run_until_complete(
                             asyncio.wait_for(
@@ -1387,8 +1390,8 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                                 timeout=LEARN_CYCLE_TIMEOUT_SECONDS,
                             )
                         )
-                        engine._telemetry_timeout_requested = False
                     finally:
+                        engine._telemetry_timeout_requested = False
                         loop.close()
 
                     # [R17-ROOT-FIX-10] Circuit breaker — if 429 rate high, back off
