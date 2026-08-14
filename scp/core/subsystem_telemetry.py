@@ -261,7 +261,8 @@ class SubsystemTelemetry:
         except (TypeError, ValueError):
             age = float("inf")
         out["age_seconds"] = round(age, 3)
-        out["fresh"] = age <= self.stale_after_seconds
+        # Disabled-by-policy is a deliberate terminal state, not a dead worker.
+        out["fresh"] = age <= self.stale_after_seconds or out.get("last_status") == "DISABLED"
         if not out["fresh"] and out.get("last_status") not in {"DISABLED", "NEVER_STARTED"}:
             out["last_status"] = "STALE"
         return out

@@ -46,6 +46,7 @@ def test_evolution_disabled_is_explicit_and_audited(tmp_path: Path, monkeypatch)
     result = engine.evolve_cycle(max_bugs=1)
     assert result["action"] == "skipped"
     assert engine._telemetry.snapshot()["last_status"] == "DISABLED"
+    assert engine._telemetry.snapshot()["fresh"] is True
 
 
 def test_async_cycle_wrapper_writes_start_and_completion(tmp_path: Path):
