@@ -107,6 +107,7 @@ async def scp_chat(websocket: WebSocket):
                 continue
 
             _conversation_mgr.add_message(session_id, "user", user_message)
+            _conversation_context = _conversation_mgr.get_context_string(session_id)
 
             try:
                 import asyncio
@@ -126,7 +127,12 @@ async def scp_chat(websocket: WebSocket):
                     ai_answer="",
                     cycle_count=0,
                     source="chat",
-                    v98_context={"session_id": session_id, "ip": "websocket"},
+                    v98_context={
+                        "session_id": session_id,
+                        "ip": "websocket",
+                        "conversation_history": _conversation_context,
+                        "current_question": user_message,
+                    },
                 )
 
                 # [FIX-CRIT-27 BUG 7] Determine abstain BEFORE building response.

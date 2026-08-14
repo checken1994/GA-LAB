@@ -55,6 +55,12 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #0a0a0a; color: 
 .input-wrapper button:hover { background: #1d4ed8; }
 .input-wrapper button:disabled { background: #333; cursor: not-allowed; }
 .input-wrapper .domain-select { padding: 10px; background: #1a1a1a; color: #888; border: 1px solid #333; border-radius: 8px; font-size: 12px; }
+.input-wrapper .media-btn { padding: 12px 14px; background: #242424; color: #ddd; border: 1px solid #444; border-radius: 10px; cursor: pointer; font-size: 13px; }
+.input-wrapper .media-btn.active { background: #7f1d1d; border-color: #f85149; }
+#cameraPanel { display: none; max-width: 900px; margin: 10px auto 0; padding: 10px; background: #181818; border: 1px solid #333; border-radius: 10px; }
+#cameraPanel.active { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#cameraPreview { width: 220px; max-height: 165px; background: #000; border-radius: 8px; }
+#mediaStatus { color: #aaa; font-size: 12px; }
 
 /* Loading */
 .typing { display: inline-block; animation: bounce 1.4s infinite; }
@@ -134,6 +140,14 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #0a0a0a; color: 
     </select>
     <input type="text" id="input" placeholder="Nhập câu hỏi..." onkeypress="if(event.key==='Enter')send()">
     <button id="sendBtn" onclick="send()">Gửi</button>
+    <button id="micBtn" class="media-btn" onclick="toggleMic()" title="Bấm để nói, bấm lại để dừng">🎙 Mic</button>
+    <button id="cameraBtn" class="media-btn" onclick="openCamera()" title="Chỉ bật webcam sau khi bấm">📷 Camera</button>
+  </div>
+  <div id="cameraPanel">
+    <video id="cameraPreview" autoplay muted playsinline></video>
+    <button class="media-btn" onclick="captureImage()">Chụp ảnh</button>
+    <button class="media-btn" onclick="closeCamera()">Tắt camera</button>
+    <span id="mediaStatus">Camera chỉ hoạt động sau khi bạn bấm nút.</span>
   </div>
 </div>
 
@@ -207,6 +221,22 @@ const TOKEN = (() => {
 })();
 
 let isSending = false;
+let pendingImageData = null;
+const SESSION_ID = (() => {
+  const key = 'scp-chat-session-id';
+  try {
+    const old = sessionStorage.getItem(key);
+    if (old) return old;
+    const fresh = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random());
+    sessionStorage.setItem(key, fresh);
+    return fresh;
+  } catch (_) {
+    return String(Date.now());
+  }
+})();
+let conversationHistory = [];
+let cameraStream = null;
+let speechRecognition = null;
 
 function addMsg(text, type, meta) {
   const chat = document.getElementById('chat');
@@ -258,6 +288,8 @@ async function send() {
   const domain = document.getElementById('domain').value;
 
   addMsg(question, 'user');
+  conversationHistory.push({ role: 'user', content: question });
+  conversationHistory = conversationHistory.slice(-8);
   input.value = '';
   isSending = true;
 
@@ -281,12 +313,23 @@ async function send() {
         'Authorization': 'Bearer ' + TOKEN,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ question: question, domain: domain, ai_answer: '' })
+      body: JSON.stringify({
+        question: question,
+        domain: domain,
+        ai_answer: '',
+        session_id: SESSION_ID,
+        conversation_history: conversationHistory.slice(-8),
+        image_data: pendingImageData
+      })
     });
 
     const data = await res.json();
     document.getElementById('typing')?.remove();
     addMsg(data.final_answer || '[No answer]', 'scp', data);
+    conversationHistory.push({ role: 'assistant', content: data.final_answer || '' });
+    conversationHistory = conversationHistory.slice(-8);
+    pendingImageData = null;
+    closeCamera();
 
   } catch(e) {
     document.getElementById('typing')?.remove();
@@ -297,6 +340,68 @@ async function send() {
   btn.disabled = false;
   btn.textContent = 'Gửi';
   input.focus();
+}
+
+function toggleMic() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById('micBtn');
+  if (!SpeechRecognition) {
+    document.getElementById('mediaStatus').textContent = 'Trình duyệt này không hỗ trợ nhận giọng nói.';
+    return;
+  }
+  if (speechRecognition) {
+    speechRecognition.stop();
+    speechRecognition = null;
+    btn.classList.remove('active');
+    btn.textContent = '🎙 Mic';
+    return;
+  }
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.lang = 'vi-VN';
+  speechRecognition.interimResults = false;
+  speechRecognition.continuous = false;
+  speechRecognition.onstart = () => { btn.classList.add('active'); btn.textContent = '⏹ Dừng mic'; document.getElementById('mediaStatus').textContent = 'Đang nghe một câu. Bấm lại để dừng.'; };
+  speechRecognition.onresult = (event) => { document.getElementById('input').value = event.results[0][0].transcript; };
+  speechRecognition.onerror = (event) => { document.getElementById('mediaStatus').textContent = 'Mic lỗi: ' + event.error; };
+  speechRecognition.onend = () => { speechRecognition = null; btn.classList.remove('active'); btn.textContent = '🎙 Mic'; };
+  speechRecognition.start();
+}
+
+async function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    document.getElementById('mediaStatus').textContent = 'Trình duyệt không hỗ trợ webcam.';
+    return;
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    document.getElementById('cameraPreview').srcObject = cameraStream;
+    document.getElementById('cameraPanel').classList.add('active');
+    document.getElementById('cameraBtn').classList.add('active');
+    document.getElementById('mediaStatus').textContent = 'Webcam đang bật. Chỉ chụp khi bạn bấm Chụp ảnh.';
+  } catch (error) {
+    document.getElementById('mediaStatus').textContent = 'Không mở được webcam: ' + error.name;
+  }
+}
+
+function closeCamera() {
+  if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+  cameraStream = null;
+  const preview = document.getElementById('cameraPreview');
+  if (preview) preview.srcObject = null;
+  document.getElementById('cameraPanel')?.classList.remove('active');
+  document.getElementById('cameraBtn')?.classList.remove('active');
+}
+
+function captureImage() {
+  if (!cameraStream) return;
+  const video = document.getElementById('cameraPreview');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  pendingImageData = canvas.toDataURL('image/jpeg', 0.82);
+  document.getElementById('mediaStatus').textContent = 'Đã chụp ảnh. Ảnh sẽ gửi cùng câu hỏi tiếp theo.';
+  closeCamera();
 }
 
 // Stats

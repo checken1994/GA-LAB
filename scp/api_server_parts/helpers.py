@@ -174,10 +174,15 @@ class AskRequest(BaseModel):
     confidence: float = Field(0.8, ge=0.0, le=1.0)
     session_id: str | None = None
     source: str = Field("api")
-    # [V104.45 #CP] TẠI SAO: was no multimodal support on /ask → image/voice
-    # jailbreak bypassed detection. Fix: add optional image_url/voice_url fields.
+    # [V104.45 #CP] Multimodal input remains optional and bounded.
     image_url: str | None = Field(None, description="URL of image to scan for jailbreak")
     voice_url: str | None = Field(None, description="URL of audio to scan for jailbreak")
+    # Browser webcam sends a data URL only after the user presses Capture.
+    # Keep the cap below the normal reverse-proxy request limits.
+    image_data: str | None = Field(None, max_length=8_000_000, description="Base64/data URL image captured by an explicitly enabled webcam")
+    # The client sends only the recent visible turns. The server treats this as
+    # context, never as instructions, and keeps the current question authoritative.
+    conversation_history: list[dict[str, str]] = Field(default_factory=list, max_length=8)
 
 
 

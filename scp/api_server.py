@@ -25,6 +25,8 @@ from scp.security.env_loader import load_selected_env
 load_selected_env()
 
 import asyncio
+import base64
+import binascii
 import logging
 import os
 import threading
@@ -873,6 +875,18 @@ async def ask(req: AskRequest, request: Request):
     v98_context["body"] = req.question
     if req.session_id:
         v98_context["session_id"] = req.session_id
+    # Keep only short, user-visible context. The current question is always
+    # authoritative; history is supporting context, not an instruction source.
+    _history = []
+    for _turn in (req.conversation_history or [])[-8:]:
+        if not isinstance(_turn, dict):
+            continue
+        _role = str(_turn.get("role", "user"))[:16]
+        _content = str(_turn.get("content", ""))[:500].strip()
+        if _content and _role in {"user", "assistant"}:
+            _history.append({"role": _role, "content": _content})
+    if _history:
+        v98_context["conversation_history"] = _history
 
     # [V104.17 #1 FIX] DoS protection — check rate limit before processing
     if hasattr(judge, 'dos_protection') and judge.dos_protection:
@@ -894,8 +908,9 @@ async def ask(req: AskRequest, request: Request):
         except Exception as e:
             logger.debug(f"[V104.17] DoS check error: {e}")
 
-    # [V104.45 #CP] TẠI SAO: /ask was text-only → image/voice jailbreak bypassed.
-    # Fix: if image_url or voice_url provided, run detector BEFORE judge.
+    # [V104.45 #CP] Multimodal input is checked BEFORE judge.
+    # URLs use the SSRF-safe fetcher. Browser webcam data is accepted only as a
+    # bounded data URL and never written to disk.
     # [FIX-A P0-2] Was urllib.request.urlopen(req.image_url) — accepted
     # file:///etc/passwd (LFI), http://169.254.169.254/... (cloud metadata
     # SSRF), internal IPs, followed redirects, no size cap, AND blocked the
@@ -904,7 +919,18 @@ async def ask(req: AskRequest, request: Request):
     # detect(audio_url=...) which has no such kwarg) — now fetches bytes safely
     # and passes audio_bytes=... to the detector.
     _multimodal_block = False
-    if req.image_url:
+    _img_bytes = None
+    if req.image_data:
+        try:
+            _raw_image = req.image_data
+            if "," in _raw_image and _raw_image.lower().startswith("data:"):
+                _raw_image = _raw_image.split(",", 1)[1]
+            _img_bytes = base64.b64decode(_raw_image, validate=True)
+            if not _img_bytes or len(_img_bytes) > 6_000_000:
+                raise ValueError("image_too_large_or_empty")
+        except (binascii.Error, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid or oversized image_data") from None
+    if req.image_url and _img_bytes is None:
         try:
             _img_bytes = await asyncio.to_thread(_safe_fetch_url, req.image_url)
         except ValueError:
@@ -976,10 +1002,17 @@ async def ask(req: AskRequest, request: Request):
             from scp.llm_gateway import get_gateway
             _gateway = get_gateway()
             _ollama_answer, _provider = await _gateway.chat(
-                req.question,
-                context="",
-                system_prompt="Bạn là SCP — một trợ lý AI thông minh. Trả lời ngắn gọn, chính xác, bằng tiếng Việt.",
-                task="chat",
+                    req.question,
+                    context=("Lịch sử gần đây (chỉ để tham khảo):\n" + "\n".join(
+                        f"{t['role']}: {t['content']}" for t in _history
+                    )) if _history else "",
+                    system_prompt=(
+                        "Bạn là SCP — một trợ lý AI thông minh. Trả lời ngắn gọn, chính xác, bằng tiếng Việt. "
+                        "Chỉ trả lời câu hỏi HIỆN TẠI ở cuối yêu cầu. Không tiếp tục chủ đề cũ nếu câu hỏi mới đổi chủ đề. "
+                        "Nếu thiếu dữ liệu, nói rõ chưa đủ dữ liệu thay vì đoán."
+                    ),
+                    task="chat",
+
             )
             if _ollama_answer:
                 _ai_answer = _ollama_answer
