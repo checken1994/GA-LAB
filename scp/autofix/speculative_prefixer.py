@@ -547,8 +547,8 @@ class SpeculativeCache:
                 key = self._lru.pop(0)
                 self._store.pop(key, None)
                 self._stats["evictions"] += 1
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"[speculative_prefixer.py:550] silenced: {e}")
 
     def _touch(self, key: tuple[str, str]) -> None:
         """Move key to MRU position."""
@@ -556,8 +556,8 @@ class SpeculativeCache:
             if key in self._lru:
                 self._lru.remove(key)
             self._lru.append(key)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"[speculative_prefixer.py:559] silenced: {e}")
 
     def _evict_expired(self) -> int:
         """Remove entries older than ttl_seconds. Returns count evicted."""

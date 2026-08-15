@@ -386,8 +386,8 @@ def run_scanners_parallel(
         if executor is not None:
             try:
                 executor.shutdown(wait=False)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as e:  # noqa: BLE001
+                logger.warning(repr(e))
 
     return dedup_findings(all_findings)
 
