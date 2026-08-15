@@ -1668,3 +1668,12 @@ try:
 except ImportError as e:
     logger.warning(f"[SCP Agent] Agent orchestrator router unavailable: {e}")
     _AGENT_ORCHESTRATOR_AVAILABLE = False
+
+# SCP local WebRTC signaling: relay-only, bounded, no media storage.
+try:
+    from scp.api.routes.call_routes import router as call_router
+    app.include_router(call_router)
+    _CALL_SIGNALING_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"[SCP Call] Call signaling router unavailable: {e}")
+    _CALL_SIGNALING_AVAILABLE = False
