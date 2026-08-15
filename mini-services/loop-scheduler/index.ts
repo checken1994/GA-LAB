@@ -413,18 +413,20 @@ async function triggerAudit(triggeredBy: "cron" | "manual"): Promise<LoopRun> {
     // must not turn a local AST/patch queue into an LLM dependency.
     const bridge_online = DETERMINISTIC_WORKER_LOOP ? true : await checkLlmBridgeLiveness();
     state.bridge_online = bridge_online;
-    if (!DETERMINISTIC_WORKER_LOOP && !bridge_online) {
-      const run: LoopRun = {
-        ts,
-        scp_online: true,
-        status: "bridge_offline",
-        triggered_by: triggeredBy,
-        duration_ms: Date.now() - start,
-        error: `LLM bridge not responding at ${LLM_BRIDGE_TAGS_URL} — audit skipped to avoid UNKNOWN verdicts`,
-      };
-      await appendRunToLog(run);
-      recordRun(run);
-      return run;
+    if (!DETERMINISTIC_WORKER_LOOP) {
+      if (!bridge_online) {
+        const run: LoopRun = {
+          ts,
+          scp_online: true,
+          status: "bridge_offline",
+          triggered_by: triggeredBy,
+          duration_ms: Date.now() - start,
+          error: `LLM bridge not responding at ${LLM_BRIDGE_TAGS_URL} — audit skipped to avoid UNKNOWN verdicts`,
+        };
+        await appendRunToLog(run);
+        recordRun(run);
+        return run;
+      }
     }
 
     // Step 2: trigger the audit

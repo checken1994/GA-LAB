@@ -1,14 +1,14 @@
 """
-[OPT-41] Webhook API Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â allow external systems to send prompts for analysis.
+[OPT-41] Webhook API Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚ÂÄ‚â€Ă‚Â¬Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â allow external systems to send prompts for analysis.
 
 DNA SCP #6 Evidence: External AI systems need to send prompts to SCP.
 DNA SCP #9 No harm: Webhook is read-only (analyze, don't execute).
 
 Endpoints:
-  POST /api/analyze    Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â Analyze prompt, return action (allow/block/log)
-  POST /api/register   Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â Register a new system for protection
-  GET  /api/threats    Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â List recent threats detected
-  GET  /api/alerts     Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â List recent alerts
+  POST /api/analyze    Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚ÂÄ‚â€Ă‚Â¬Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â Analyze prompt, return action (allow/block/log)
+  POST /api/register   Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚ÂÄ‚â€Ă‚Â¬Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â Register a new system for protection
+  GET  /api/threats    Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚ÂÄ‚â€Ă‚Â¬Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â List recent threats detected
+  GET  /api/alerts     Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚ÂÄ‚â€Ă‚Â¬Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â List recent alerts
 
 Usage (external system):
     POST /api/analyze
@@ -87,7 +87,7 @@ async def analyze_prompt(req: AnalyzeRequest, request: Request):
     """Analyze a prompt and return action (allow/block/log).
 
     This is the MAIN endpoint for external systems.
-    External AI Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ POST /api/analyze Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ get action Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ allow/block prompt.
+    External AI Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢ POST /api/analyze Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢ get action Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢ allow/block prompt.
     """
     from scp.api._shared import verify_admin
 
@@ -95,7 +95,7 @@ async def analyze_prompt(req: AnalyzeRequest, request: Request):
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
     if not verify_admin(token):
-        raise HTTPException(status_code=401, detail="Unauthorized Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â set SCP_AUTH_TOKEN_SECRET")
+        raise HTTPException(status_code=401, detail="Unauthorized Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚ÂÄ‚â€Ă‚Â¬Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â set SCP_AUTH_TOKEN_SECRET")
 
     start = time.time()
 
@@ -167,7 +167,7 @@ async def analyze_prompt(req: AnalyzeRequest, request: Request):
 
     except Exception as e:
         logger.error(f"[Webhook] analyze error: {e}")
-        raise HTTPException(status_code=500, detail="Analysis failed Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â see server logs") from e
+        raise HTTPException(status_code=500, detail="Analysis failed Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚ÂÄ‚â€Ă‚Â¬Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â see server logs") from e
 
 
 @router.post("/register")

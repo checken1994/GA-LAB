@@ -1,13 +1,13 @@
 """
-[Task 8-A] Import endpoints — extracted from api_server.py
+[Task 8-A] Import endpoints â€” extracted from api_server.py
 
-TẠI SAO: api_server.py god file. Tách 3 routes /import/* vào module này.
-Backward-compatible — public API paths/methods unchanged.
+Táº I SAO: api_server.py god file. TĂ¡ch 3 routes /import/* vĂ o module nĂ y.
+Backward-compatible â€” public API paths/methods unchanged.
 
 Routes:
-  POST /import/jsonl   — Import questions from JSONL file (1 JSON per line)
-  POST /import/excel   — Import questions from Excel/CSV file
-  POST /import/batch   — Import batch of questions as JSON array
+  POST /import/jsonl   â€” Import questions from JSONL file (1 JSON per line)
+  POST /import/excel   â€” Import questions from Excel/CSV file
+  POST /import/batch   â€” Import batch of questions as JSON array
 """
 from __future__ import annotations
 
@@ -18,10 +18,15 @@ from fastapi import APIRouter, Depends, Request
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
 from scp.api._shared import get_judge, verify_admin
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_IMPORT_ROUTES_LEDGER = RequestRunLedger()
+
 router = APIRouter(tags=["import"])
 
 
 @router.post("/import/jsonl")
+@traced_request(_IMPORT_ROUTES_LEDGER, require_write=False, action="import_jsonl")
 async def import_jsonl(request: Request, _admin: bool = Depends(verify_admin)):
     """Import questions from JSONL file.
 
@@ -78,13 +83,14 @@ async def import_jsonl(request: Request, _admin: bool = Depends(verify_admin)):
 
 
 @router.post("/import/excel")
+@traced_request(_IMPORT_ROUTES_LEDGER, require_write=False, action="import_excel")
 async def import_excel(request: Request, _admin: bool = Depends(verify_admin)):
     """Import questions from Excel file (CSV format).
 
     CSV format:
       question,ai_answer,domain
-      "Tính 2+3?","5","math"
-      "Thủ đô VN?","Hà Nội","geography"
+      "TĂ­nh 2+3?","5","math"
+      "Thá»§ Ä‘Ă´ VN?","HĂ  Ná»™i","geography"
 
     Returns: List of verdicts for each question.
     """
@@ -107,7 +113,7 @@ async def import_excel(request: Request, _admin: bool = Depends(verify_admin)):
             if not question:
                 continue
 
-            # R9-1: see import_jsonl — judge.judge() must run in a worker thread.
+            # R9-1: see import_jsonl â€” judge.judge() must run in a worker thread.
             v = await asyncio.to_thread(
                 judge.judge, question=question, ai_answer=ai_answer, cycle_count=0
             )
@@ -135,6 +141,7 @@ async def import_excel(request: Request, _admin: bool = Depends(verify_admin)):
 
 
 @router.post("/import/batch")
+@traced_request(_IMPORT_ROUTES_LEDGER, require_write=False, action="import_batch")
 async def import_batch(request: Request, _admin: bool = Depends(verify_admin)):
     """Import batch of questions as JSON array.
 
@@ -157,7 +164,7 @@ async def import_batch(request: Request, _admin: bool = Depends(verify_admin)):
             ai_answer = item.get("ai_answer", item.get("answer", ""))
             item.get("domain", "general")
 
-            # R9-1: see import_jsonl — judge.judge() must run in a worker thread.
+            # R9-1: see import_jsonl â€” judge.judge() must run in a worker thread.
             v = await asyncio.to_thread(
                 judge.judge, question=question, ai_answer=ai_answer, cycle_count=0
             )

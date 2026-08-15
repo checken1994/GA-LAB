@@ -1,6 +1,6 @@
-"""SCP V105 — Threat + Harm endpoints (Layer 2+3).
+"""SCP V105 Ă¢â‚¬â€ Threat + Harm endpoints (Layer 2+3).
 
-Live — admin auth required (Fix 4-a-003). Router IS registered in
+Live - admin auth required (Fix 4-a-003). Router IS registered in
 api_server.py (around line 589-611) via `app.include_router(threat_router)`.
 All 4 routes below (`/v105/threats/ai-scan/stats`,
 `/v105/threats/ai-scan/findings`, `/v105/threats/harm/stats`,
@@ -20,14 +20,20 @@ from fastapi import APIRouter, Depends
 from scp.api._shared import verify_admin
 
 logger = logging.getLogger("scp.api.threats")
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_THREAT_ROUTES_LEDGER = RequestRunLedger()
+
 router = APIRouter(prefix="/v105/threats", tags=["threats"])
 
 @router.get("/ai-scan/stats", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
+@traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="ai_threat_stats")
 async def ai_threat_stats():
     from scp.core.ai_threat_scanner import get_threat_stats
     return get_threat_stats()
 
 @router.get("/ai-scan/findings", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
+@traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="ai_threat_findings")
 async def ai_threat_findings(limit: int = 20, source: str = ""):
     db = Path("data/ai_threats.jsonl")
     if not db.exists(): return {"findings": [], "total": 0}
@@ -43,11 +49,13 @@ async def ai_threat_findings(limit: int = 20, source: str = ""):
     return {"findings": findings[:limit], "total": len(findings)}
 
 @router.get("/harm/stats", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
+@traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="harm_stats")
 async def harm_stats():
     from scp.core.harm_detector import get_harm_stats
     return get_harm_stats()
 
 @router.get("/harm/incidents", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
+@traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="harm_incidents")
 async def harm_incidents(limit: int = 20, harm_type: str = ""):
     db = Path("data/ai_harm_incidents.jsonl")
     if not db.exists(): return {"incidents": [], "total": 0}

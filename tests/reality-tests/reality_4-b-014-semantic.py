@@ -47,8 +47,9 @@ def main() -> None:
     for path, line in checks.items():
         handler = _handler_at(path, line)
         assert handler.type is not None, f"{path}:{line} is a bare except unexpectedly"
-        assert len(handler.body) == 1 and isinstance(handler.body[0], ast.Pass)
-        print(f"PASS classification: {path.name}:{line} is typed-except-pass, not bare-except-pass")
+        assert handler.body, f"{path}:{line} has an empty typed exception handler"
+        assert not (len(handler.body) == 1 and isinstance(handler.body[0], ast.Pass)), f"{path}:{line} still uses typed-except-pass"
+        print(f"PASS classification: {path.name}:{line} is typed-exception with explicit handling, not bare-except-pass")
 
     source = "def f():\n    try:\n        return 1\n    except:\n        pass\n"
     from scp.autofix.speculative_prefixer import SpeculativeCache

@@ -14,7 +14,7 @@ import os
 import threading
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
@@ -84,6 +84,7 @@ class RequestRun:
     question_sha256: str | None
     ledger_path: str
     ledger_write_ok: bool
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class RequestRunLedger:
@@ -119,13 +120,24 @@ class RequestRunLedger:
             "source": run.source[:80],
             "domain": run.domain[:80],
             "question_sha256": run.question_sha256,
+            "metadata": run.metadata,
             "status": status,
             **fields,
         }
         return self._append(row)
 
-    def begin(self, request: Any) -> RequestRun:
+    def begin(self, request: Any, **metadata: Any) -> RequestRun:
         req = request if request is not None else object()
+        safe_metadata = {
+            key: str(value)[:80]
+            for key, value in metadata.items()
+            if key in {"action", "risk_class", "policy_version", "decision_source"}
+            and value is not None
+        }
+        safe_metadata.setdefault("action", "request")
+        safe_metadata.setdefault("risk_class", "unknown")
+        safe_metadata.setdefault("policy_version", str(os.environ.get("SCP_POLICY_VERSION", "runtime-v1"))[:80])
+        safe_metadata.setdefault("decision_source", "scp")
         source = str(getattr(req, "source", "api") or "api")[:80]
         domain = str(getattr(req, "domain", "general") or "general")[:80]
         question = next((getattr(req, name, None) for name in ("question", "prompt", "message", "command", "content") if getattr(req, name, None) is not None), None)
@@ -138,6 +150,7 @@ class RequestRunLedger:
             question_sha256=_sha256_text(question),
             ledger_path=str(self.path),
             ledger_write_ok=True,
+            metadata=safe_metadata,
         )
         received_ok = self._event(run, "request_received", "RECEIVED")
         running_ok = self._event(run, "request_started", "RUNNING")
@@ -245,11 +258,11 @@ def require_audit(request: Any, action: str = "high_risk_action") -> RequestRun:
     ledger = getattr(getattr(request, "state", None), "scp_request_ledger", None)
     if run is None or ledger is None or not run.ledger_write_ok:
         raise HTTPException(status_code=503, detail="Audit ledger unavailable; high-risk action blocked")
-    ledger.stage(run, "high_risk_guard", "AUDIT_READY", action=str(action)[:100])
+    ledger.stage(run, "high_risk_guard", "AUDIT_READY", action=str(action)[:100], risk_class="high", decision_source="audit_guard")
     return run
 
 
-def traced_request(ledger: RequestRunLedger, require_write: bool = False, action: str = "request"):
+def traced_request(ledger: RequestRunLedger, require_write: bool = False, action: str = "request", risk_class: str = "unknown", policy_version: str = "runtime-v1", decision_source: str = "scp"):
     """Wrap an async API boundary and guarantee one terminal ledger event."""
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         if not inspect.iscoroutinefunction(func):
@@ -260,7 +273,8 @@ def traced_request(ledger: RequestRunLedger, require_write: bool = False, action
             req = kwargs.get("req")
             if req is None and args:
                 req = args[0]
-            run = ledger.begin(req)
+            effective_risk = risk_class if risk_class != "unknown" else ("high" if require_write else "normal")
+            run = ledger.begin(req, action=action, risk_class=effective_risk, policy_version=policy_version, decision_source=decision_source)
             http_request = kwargs.get("request")
             if http_request is None and len(args) > 1:
                 http_request = args[1]

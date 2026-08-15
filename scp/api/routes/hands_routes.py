@@ -1,4 +1,4 @@
-"""SCP Hands v3.2â€“v3.6 local-only action and planner endpoints."""
+"""SCP Hands v3.2Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Å“v3.6 local-only action and planner endpoints."""
 from __future__ import annotations
 
 import hmac
@@ -11,6 +11,10 @@ from pydantic import BaseModel, Field
 from scp.hands.goal_parser import GoalParser
 from scp.hands.hands_executor import HandsExecutor
 from scp.hands.planner import HandsPlanner
+
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_HANDS_ROUTES_LEDGER = RequestRunLedger()
 
 router = APIRouter(prefix="/v3/hands", tags=["v3.5-hands", "v3.6-planner"])
 _hands = HandsExecutor()
@@ -73,6 +77,7 @@ def _guard(request: Request, token: str | None) -> None:
 
 
 @router.get("/status")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="hands_status")
 async def hands_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     result = _hands.status()
@@ -82,12 +87,14 @@ async def hands_status(request: Request, x_scp_pc_token: str | None = Header(def
 
 
 @router.get("/actions")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="hands_actions")
 async def hands_actions(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return {"version": "3.5", "actions": _hands.registry.list(), "backwardCompatibleRoutes": ["/status", "/actions", "/plan", "/execute", "/rollback"], "plannerVersion": "3.7"}
 
 
 @router.post("/plan")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="hands_plan")
 async def hands_plan(payload: HandsActionRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     try:
@@ -97,30 +104,35 @@ async def hands_plan(payload: HandsActionRequest, request: Request, x_scp_pc_tok
 
 
 @router.post("/execute")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_execute")
 async def hands_execute(payload: HandsActionRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _hands.execute(payload.action, payload.params, payload.capabilityLevel, payload.approved, payload.dryRun)
 
 
 @router.post("/rollback")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_rollback")
 async def hands_rollback(payload: HandsRollbackRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _hands.rollback(payload.checkpointId, payload.capabilityLevel, payload.approved)
 
 
 @router.get("/planner/status")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="planner_status")
 async def planner_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return _planner.status()
 
 
 @router.get("/planner")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="planner_list")
 async def planner_list(request: Request, limit: int = 20, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return {"version": "3.7", "plans": _planner.list_plans(limit)}
 
 
 @router.get("/planner/{plan_id}")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="planner_get")
 async def planner_get(plan_id: str, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     plan = _planner.get_plan(plan_id)
@@ -130,6 +142,7 @@ async def planner_get(plan_id: str, request: Request, x_scp_pc_token: str | None
 
 
 @router.post("/planner")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_create")
 async def planner_create(payload: PlannerCreateRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     try:
@@ -140,24 +153,28 @@ async def planner_create(payload: PlannerCreateRequest, request: Request, x_scp_
 
 
 @router.post("/planner/{plan_id}/run")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_run")
 async def planner_run(plan_id: str, payload: PlannerRunRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _planner.run_plan(plan_id, payload.capabilityLevel, payload.approved, payload.dryRun, payload.stopOnFailure)
 
 
 @router.post("/planner/parse")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="planner_parse")
 async def planner_parse(payload: GoalParseRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _goal_parser.parse(payload.goal, prefer_local=payload.preferLocal)
 
 
 @router.post("/planner/{plan_id}/run-dag")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_run_dag")
 async def planner_run_dag(plan_id: str, payload: PlannerDagRunRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _planner.run_dag(plan_id, payload.capabilityLevel, payload.approved, payload.dryRun, payload.maxParallel, payload.stopOnFailure)
 
 
 @router.post("/planner/{plan_id}/rollback")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_rollback")
 async def planner_rollback(plan_id: str, payload: PlannerRollbackRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _planner.rollback_plan(plan_id, payload.capabilityLevel, payload.approved)

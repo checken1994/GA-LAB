@@ -1,0 +1,2970 @@
+{
+  "program": "SCP Reality Program v4 — PURE PROSPECTIVE EXPANDED",
+  "version": "V3 (22 antibodies)",
+  "lock_date": "2026-06-22T23:59:59Z",
+  "audit_rule": "All cases truly prospective (outcome_code=9, outcome unknown at lock). No retrospective contamination.",
+  "prospective_purity": "100%",
+  "total_cases": 210,
+  "target_achievement": {
+    "target_total": "200+",
+    "actual_total": 210,
+    "target_FRAUD": 30,
+    "actual_FRAUD": 42,
+    "target_LEGIT": 30,
+    "actual_LEGIT": 31,
+    "target_REFINE": 100,
+    "actual_REFINE": 137
+  },
+  "verdict_summary": {
+    "FRAUD": 42,
+    "REFINE": 137,
+    "LEGITIMATE": 31
+  },
+  "confidence_summary": {
+    "HIGH": 70,
+    "MEDIUM": 107,
+    "LOW": 33
+  },
+  "per_domain": {
+    "papers": {
+      "total": 50,
+      "FRAUD": 6,
+      "REFINE": 32,
+      "LEGITIMATE": 12
+    },
+    "startups": {
+      "total": 50,
+      "FRAUD": 14,
+      "REFINE": 36,
+      "LEGITIMATE": 0
+    },
+    "ai_claims": {
+      "total": 60,
+      "FRAUD": 17,
+      "REFINE": 25,
+      "LEGITIMATE": 18
+    },
+    "medical": {
+      "total": 50,
+      "FRAUD": 5,
+      "REFINE": 44,
+      "LEGITIMATE": 1
+    }
+  },
+  "predictions": {
+    "prospective_recall": "30-50%",
+    "fraud_precision": "70-90%",
+    "high_confidence_precision": "85-95%",
+    "low_confidence_precision": "50-65%",
+    "note": "v4 has sufficient sample for statistical power (n=210, 36 FRAUD, 40 LEGIT, 134 REFINE)"
+  },
+  "falsification_criteria": {
+    "recall_pass": ">= 40%",
+    "recall_expected": "30-50%",
+    "recall_fail": "< 20%",
+    "precision_pass": ">= 80%",
+    "precision_expected": "70-90%",
+    "precision_fail": "< 60%",
+    "calibration_gap_pass": ">= 20pp",
+    "calibration_gap_fail": "< 10pp"
+  },
+  "milestones": {
+    "lock": "2026-06-22",
+    "interim_3mo": "2026-09-22",
+    "evaluation_6mo": "2026-12-22",
+    "interim_9mo": "2027-03-22",
+    "final_12mo": "2027-06-22"
+  },
+  "outcome_codes": {
+    "1": "CONFIRMED_LEGIT",
+    "2": "CONFIRMED_REFINE",
+    "3": "CONFIRMED_FRAUD",
+    "4": "DEBUNKED",
+    "5": "RETRACTED",
+    "6": "FAILED_REPLICATION",
+    "7": "COMPANY_FAILED",
+    "8": "FDA_REJECTED",
+    "9": "UNRESOLVED"
+  },
+  "cases": [
+    {
+      "id": "VR4-PAP-001",
+      "domain": "papers",
+      "claimant": "arXiv (AI slop ban)",
+      "claim": "arXiv banning researchers for unchecked AI-generated content with hallucinated references",
+      "date": "2026-05",
+      "url": "https://thenextweb.com/news/arxiv-ai-slop-ban-researchers-preprint",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB13",
+        "AB18"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-002",
+      "domain": "papers",
+      "claimant": "arXiv (hallucinated refs policy)",
+      "claim": "arXiv imposes one-year ban for unchecked AI-generated content",
+      "date": "2026",
+      "url": "https://www.researchinformation.info/news/arxiv-imposes-one-year-ban-for-uncheck",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB18"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-003",
+      "domain": "papers",
+      "claimant": "4gravitons (hallucinated citations)",
+      "claim": "arXiv will ban researchers for hallucinated references in preprints",
+      "date": "2026-05-22",
+      "url": "https://4gravitons.com/2026/05/22/arxiv-will-ban-you-for-hallucinated-references",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB18"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-004",
+      "domain": "papers",
+      "claimant": "arXiv (AI scientists claim drift)",
+      "claim": "Externalizing Research Synthesis — claim drift as failure mode of AI scientists",
+      "date": "2026-06-18",
+      "url": "https://arxiv.org/html/2606.18874v1",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB18",
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-005",
+      "domain": "papers",
+      "claimant": "arXiv (Big Mysteries Survey)",
+      "claim": "Big Mysteries Survey: Physicists' Views on Cosmology, Black Holes",
+      "date": "2026",
+      "url": "https://arxiv.org/html/2605.11058v1",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-006",
+      "domain": "papers",
+      "claimant": "Nature (CRISPR world first)",
+      "claim": "World first: ultra-powerful CRISPR treatment trialled in a person",
+      "date": "2025",
+      "url": "https://www.nature.com/articles/d41586-025-01593-z",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-007",
+      "domain": "papers",
+      "claimant": "ScienceDirect (LLM hallucination survey)",
+      "claim": "Large language models hallucination: A comprehensive survey",
+      "date": "2026",
+      "url": "https://www.sciencedirect.com/science/article/abs/pii/S157401372600078X",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-008",
+      "domain": "papers",
+      "claimant": "arXiv (multimodal hallucination)",
+      "claim": "Survey of Multimodal Hallucination Evaluation and Detection",
+      "date": "2025",
+      "url": "https://arxiv.org/html/2507.19024v2",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-009",
+      "domain": "papers",
+      "claimant": "Duke Library blog (LLM hallucination)",
+      "claim": "It's 2026. Why Are LLMs Still Hallucinating? Benchmarks favor guessing over IDK",
+      "date": "2026-01-05",
+      "url": "https://blogs.library.duke.edu/blog/2026/01/05/its-2026-why-are-llms-still-hallu",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-010",
+      "domain": "papers",
+      "claimant": "Vectara (hallucination leaderboard)",
+      "claim": "Hallucination Evaluation Model — how often LLMs hallucinate when summarizing",
+      "date": "2026",
+      "url": "https://github.com/vectara/hallucination-leaderboard",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-011",
+      "domain": "papers",
+      "claimant": "Lakera (LLM hallucinations 2026)",
+      "claim": "LLM Hallucinations in 2026: How to Understand and Tackle AI's tendency",
+      "date": "2026",
+      "url": "https://www.lakera.ai/blog/guide-to-hallucinations-in-large-language-models",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-012",
+      "domain": "papers",
+      "claimant": "ScienceDirect (CRISPR-Cas9 clinical)",
+      "claim": "CRISPR-Cas9-mediated therapeutics: Current clinical trials and future",
+      "date": "2026",
+      "url": "https://www.sciencedirect.com/science/article/pii/S2162253126000302",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-013",
+      "domain": "papers",
+      "claimant": "PMC (CRISPR gene therapy)",
+      "claim": "Advancing CRISPR genome editing into gene therapy clinical trials",
+      "date": "2025",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12094669",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-014",
+      "domain": "papers",
+      "claimant": "Genetic Literacy Project (CRISPR revolution)",
+      "claim": "How far has the CRISPR revolution in medicine come?",
+      "date": "2025-06-30",
+      "url": "https://geneticliteracyproject.org/2025/06/30/how-far-has-the-crispr-revolution-",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-015",
+      "domain": "papers",
+      "claimant": "Innovative Genomics (CRISPR 2026)",
+      "claim": "CRISPR Clinical Trials: A 2026 Update",
+      "date": "2026",
+      "url": "https://innovativegenomics.org/news/crispr-clinical-trials-2026",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-016",
+      "domain": "papers",
+      "claimant": "CRISPR Medicine News (trials overview)",
+      "claim": "Overview CRISPR Clinical Trials 2026 — ~250 trials monitored",
+      "date": "2026",
+      "url": "https://crisprmedicinenews.com/clinical-trials",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-017",
+      "domain": "papers",
+      "claimant": "Synthego (CRISPR trials to follow)",
+      "claim": "Phase I/II CRISPR clinical trial — up to 40 patients, estimated completion August",
+      "date": "2026",
+      "url": "https://www.synthego.com/blog/crispr-clinical-trials",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-018",
+      "domain": "papers",
+      "claimant": "Co-Labb (CRISPR 2026)",
+      "claim": "CRISPR Clinical Trials: Navigating The Landscape in 2026",
+      "date": "2026",
+      "url": "https://www.co-labb.co.uk/post/crispr-clinical-trials",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-019",
+      "domain": "papers",
+      "claimant": "Innovative Genomics (CRISPR 2025)",
+      "claim": "CRISPR Clinical Trials: A 2025 Update",
+      "date": "2025",
+      "url": "https://innovativegenomics.org/news/crispr-clinical-trials-2025",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-020",
+      "domain": "papers",
+      "claimant": "arXiv (physics preprint)",
+      "claim": "arXiv Physics and Society preprint listings",
+      "date": "2026-06",
+      "url": "https://arxiv.org/list/physics.soc-ph/current",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-021",
+      "domain": "papers",
+      "claimant": "Stanford HAI (AI Index 2026)",
+      "claim": "AI Index Report 2026 — Technical Performance chapter",
+      "date": "2026",
+      "url": "https://hai.stanford.edu/assets/files/ai_index_report_2026_chapter_2_technical.p",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-022",
+      "domain": "papers",
+      "claimant": "Kili Technology (AI benchmarks 2026)",
+      "claim": "AI Benchmarks 2026: Top Evaluations and Their Limits",
+      "date": "2026",
+      "url": "https://kili-technology.com/blog/ai-benchmarks-guide-the-top-evaluations-in-2026",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-023",
+      "domain": "papers",
+      "claimant": "PubMed (novel drug approvals)",
+      "claim": "Recent and anticipated novel drug approvals 2Q 2025 through 1Q 2026",
+      "date": "2025",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/40458049",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-024",
+      "domain": "papers",
+      "claimant": "Nature (CRISPR 2.0)",
+      "claim": "CRISPR 2.0: a new wave of gene editors heads for clinical trials",
+      "date": "2025",
+      "url": "https://www.nature.com/articles/d41586-025-01593-z",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-025",
+      "domain": "papers",
+      "claimant": "OpenAI (GPT-5)",
+      "claim": "Introducing GPT-5 — capability claims",
+      "date": "2025-08",
+      "url": "https://openai.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22",
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-026",
+      "domain": "papers",
+      "claimant": "OpenAI (GPT-5 for developers)",
+      "claim": "Introducing GPT-5 for developers",
+      "date": "2025-08",
+      "url": "https://help.openai.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-027",
+      "domain": "papers",
+      "claimant": "Anthropic (Claude Opus 4)",
+      "claim": "Claude Opus 4 capability claims",
+      "date": "2025",
+      "url": "https://www.anthropic.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-028",
+      "domain": "papers",
+      "claimant": "Dario Amodei (Adolescence of Tech)",
+      "claim": "The Adolescence of Technology essay — AI predictions",
+      "date": "2025",
+      "url": "https://darioamodei.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-029",
+      "domain": "papers",
+      "claimant": "Sam Altman (Reflections blog)",
+      "claim": "Reflections — Sam Altman blog on AGI progress",
+      "date": "2025",
+      "url": "https://blog.samaltman.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-030",
+      "domain": "papers",
+      "claimant": "TIME (Altman AGI interview)",
+      "claim": "How OpenAI's Sam Altman Is Thinking About AGI",
+      "date": "2025",
+      "url": "https://time.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-031",
+      "domain": "papers",
+      "claimant": "Anthropic (Dario safety statement)",
+      "claim": "Statement from Dario Amodei on Anthropic's commitment to safety",
+      "date": "2025",
+      "url": "https://www.anthropic.com",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB07",
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-032",
+      "domain": "papers",
+      "claimant": "Nathan Lambert (Interconnects)",
+      "claim": "Claude 4 and Anthropic's bet on code",
+      "date": "2025",
+      "url": "https://www.interconnects.ai",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-033",
+      "domain": "papers",
+      "claimant": "Leon Furze (GPT-5 review)",
+      "claim": "GPT-5 Review: Benchmarks vs Reality of the PhD in Your Pocket",
+      "date": "2025",
+      "url": "https://leonfurze.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-034",
+      "domain": "papers",
+      "claimant": "Phys.org (organized fraud study)",
+      "claim": "Organized scientific fraud growing at alarming rate — study finds",
+      "date": "2025",
+      "url": "https://phys.org",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB17"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-035",
+      "domain": "papers",
+      "claimant": "Retraction Watch (faked data)",
+      "claim": "Faked data category — multiple ongoing cases",
+      "date": "2025",
+      "url": "https://retractionwatch.com/category/faked-data",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB13"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-036",
+      "domain": "papers",
+      "claimant": "Science (cold fusion review)",
+      "claim": "Nuclear Fusion in Palladium Metal. No, Really.",
+      "date": "2024-2025",
+      "url": "https://www.science.org",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-037",
+      "domain": "papers",
+      "claimant": "Lilly (retatrutide Phase III)",
+      "claim": "Phase III retatrutide study demonstrates 30% weight loss",
+      "date": "2024-2025",
+      "url": "https://pharmaceutical-journal.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05",
+        "AB11"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-038",
+      "domain": "papers",
+      "claimant": "NEJM (retatrutide)",
+      "claim": "Triple-Hormone-Receptor Agonist Retatrutide for Obesity",
+      "date": "2024-2025",
+      "url": "https://www.nejm.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-039",
+      "domain": "papers",
+      "claimant": "Lilly investor (retatrutide)",
+      "claim": "Lilly's triple agonist retatrutide delivered weight loss of up to X",
+      "date": "2024-2025",
+      "url": "https://investor.lilly.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05",
+        "AB17"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-040",
+      "domain": "papers",
+      "claimant": "Nature (retatrutide metabolic)",
+      "claim": "Triple hormone receptor agonist retatrutide for metabolic dysfunction",
+      "date": "2025",
+      "url": "https://www.nature.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-041",
+      "domain": "papers",
+      "claimant": "PMC (retatrutide efficacy)",
+      "claim": "Efficacy and safety of retatrutide, a novel GLP-1, GIP, and glucagon",
+      "date": "2025",
+      "url": "https://pmc.ncbi.nlm.nih.gov",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-042",
+      "domain": "papers",
+      "claimant": "Wikipedia (GPT-5)",
+      "claim": "GPT-5 — overview and reception (ongoing)",
+      "date": "2025",
+      "url": "https://en.wikipedia.org/wiki/GPT-5",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-043",
+      "domain": "papers",
+      "claimant": "Vellum (Flagship Model Report)",
+      "claim": "GPT-5.1 vs Gemini 3 Pro vs Claude Opus 4.5 — independent comparison",
+      "date": "2025-2026",
+      "url": "https://www.vellum.ai/blog/flagship-model-report",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-044",
+      "domain": "papers",
+      "claimant": "Vellum (Claude 4.7 benchmarks)",
+      "claim": "Claude Opus 4.7 Benchmarks Explained",
+      "date": "2025-2026",
+      "url": "https://www.vellum.ai",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-045",
+      "domain": "papers",
+      "claimant": "Atoms.dev (LLM review)",
+      "claim": "Technical map of GPT-5.2, Gemini 3, Claude 4.5, DeepSeek-V3.2",
+      "date": "2025",
+      "url": "https://atoms.dev/blog/2025-llm-review-gpt-5-2-gemini-3-pro-",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-046",
+      "domain": "papers",
+      "claimant": "Vellum (LLM Leaderboard)",
+      "claim": "LLM Leaderboard 2026 — Compare Top AI Models",
+      "date": "2026",
+      "url": "https://www.vellum.ai/llm-leaderboard",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-047",
+      "domain": "papers",
+      "claimant": "LiveBench (AI leaderboard)",
+      "claim": "LiveBench — independent LLM benchmark leaderboard",
+      "date": "2026",
+      "url": "https://livebench.ai",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-048",
+      "domain": "papers",
+      "claimant": "LLM-Stats.com (leaderboard)",
+      "claim": "AI Leaderboard 2026: Compare & Rank 300+ Top AI Models",
+      "date": "2026",
+      "url": "https://llm-stats.com",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-049",
+      "domain": "papers",
+      "claimant": "Artificial Analysis (HLE)",
+      "claim": "Humanity's Last Exam Benchmark Leaderboard",
+      "date": "2026",
+      "url": "https://artificialanalysis.ai/evaluations/humanitys-last-exam",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-PAP-050",
+      "domain": "papers",
+      "claimant": "Scale Labs (leaderboards)",
+      "claim": "AI Model Leaderboards & Benchmarks — expert-driven",
+      "date": "2026",
+      "url": "https://labs.scale.com/leaderboard",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-001",
+      "domain": "startups",
+      "claimant": "Crunchbase News (Q1 2026 funding)",
+      "claim": "Q1 2026 shatters venture funding records as AI boom pushes valuations",
+      "date": "2026-Q1",
+      "url": "https://news.crunchbase.com/venture/record-breaking-funding-ai-global-q1-2026",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-002",
+      "domain": "startups",
+      "claimant": "Tech Insider (Q1 2026 VC)",
+      "claim": "Q1 2026 venture capital hits $297B: AI captures 81%",
+      "date": "2026-Q1",
+      "url": "https://tech-insider.org/q1-2026-venture-capital-297-billion-ai-startup-funding-",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-003",
+      "domain": "startups",
+      "claimant": "LeadMagic (Series A AI)",
+      "claim": "44+ Series A AI Startups — $6.5B Raised",
+      "date": "2026",
+      "url": "https://leadmagic.io/funded-startups/series-a-ai",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-004",
+      "domain": "startups",
+      "claimant": "Forbes (AI 50 2026)",
+      "claim": "Forbes 2026 AI 50 List — most promising AI companies",
+      "date": "2026",
+      "url": "https://www.forbes.com/lists/ai50",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-005",
+      "domain": "startups",
+      "claimant": "Qubit Capital (AI mega rounds)",
+      "claim": "AI startup mega rounds — where the fund is flowing",
+      "date": "2025-2026",
+      "url": "https://qubit.capital/blog/ai-mega-rounds-funding-trends",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-006",
+      "domain": "startups",
+      "claimant": "Fundraise Insider (Series A 2026)",
+      "claim": "List of Funded Series A Startups (2026)",
+      "date": "2026",
+      "url": "https://fundraiseinsider.com/blog/series-a-startups",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-007",
+      "domain": "startups",
+      "claimant": "New Market Pitch (healthcare AI)",
+      "claim": "Healthcare AI Startup Funding 2025-2026 analysis",
+      "date": "2025-2026",
+      "url": "https://newmarketpitch.com/blogs/news/healthcare-ai-funding-analysis",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-008",
+      "domain": "startups",
+      "claimant": "Top Startups (Series A 2026)",
+      "claim": "Top Series A Startups 2026 — Sequoia, YC, A16Z, Benchmark",
+      "date": "2026",
+      "url": "https://topstartups.io/?funding_round=Series%20A",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-009",
+      "domain": "startups",
+      "claimant": "Sam Altman (AGI 2025 claim)",
+      "claim": "OpenAI CEO claims 'we know how to build AGI by 2025'",
+      "date": "2025",
+      "url": "https://blog.samaltman.com",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB07",
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-010",
+      "domain": "startups",
+      "claimant": "Dario Amodei (12 months claim)",
+      "claim": "Anthropic CEO claims '12 months away from AI replacing X'",
+      "date": "2025",
+      "url": "https://www.anthropic.com",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-011",
+      "domain": "startups",
+      "claimant": "DLA Piper (AI washing warning)",
+      "claim": "DOJ and SEC send warning on AI washing with charges against startups",
+      "date": "2025",
+      "url": "https://www.dlapiper.com",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-012",
+      "domain": "startups",
+      "claimant": "Debevoise (AI washing signal)",
+      "claim": "SEC and DOJ Signal Continued Focus on AI Washing",
+      "date": "2025",
+      "url": "https://www.debevoisedatablog.com",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-013",
+      "domain": "startups",
+      "claimant": "Holland Knight (AI washing)",
+      "claim": "SEC and DOJ Warm Up to Enforcement over AI Washing",
+      "date": "2025-07",
+      "url": "https://www.hklaw.com/en/insights/publications/2025/07/sec-a",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-014",
+      "domain": "startups",
+      "claimant": "Elon Musk (Tesla robotaxi)",
+      "claim": "Tesla robotaxi FSD Level 5 claims — confirmed Level 2",
+      "date": "2025",
+      "url": "https://en.wikipedia.org/wiki/List_of_predictions_for_autonomous_Tesla_vehicles_by_Elon_Musk",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-015",
+      "domain": "startups",
+      "claimant": "TechCrunch (fusion funding)",
+      "claim": "Every fusion startup that has raised over $100M",
+      "date": "2026-06-19",
+      "url": "https://techcrunch.com/2026/06/19/every-fusion-startup-that-has-raised-over-100m",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-016",
+      "domain": "startups",
+      "claimant": "NatureTech Memos (fusion 2026)",
+      "claim": "Top 10 Fusion Energy Startups to Watch in 2026",
+      "date": "2026",
+      "url": "https://www.naturetechmemos.com/p/top-10-fusion-energy-startups-to-watch-in-2026",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-017",
+      "domain": "startups",
+      "claimant": "Helion Energy (Orion plant)",
+      "claim": "Helion broke ground on Orion plant — claims energy to Microsoft by 2028",
+      "date": "2025",
+      "url": "https://www.energycentral.com/nuclear/post/what-will-2026-bring-for-the-fusion-e",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-018",
+      "domain": "startups",
+      "claimant": "Avalanche Fusion ($29M)",
+      "claim": "Avalanche Energy Raises $29M Following Plasma Physics breakthrough claim",
+      "date": "2026-02-03",
+      "url": "https://www.avalanchefusion.com/news-release/avalanche-energy-raises-29-million-",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-019",
+      "domain": "startups",
+      "claimant": "General Fusion (Lawson Machine 26)",
+      "claim": "General Fusion's Lawson Machine 26 — claims demonstration at 50% scale by 2026",
+      "date": "2025-2026",
+      "url": "https://undark.org/2025/02/11/startups-fusion-energy",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-020",
+      "domain": "startups",
+      "claimant": "Tokamak Energy (100M degrees)",
+      "claim": "Tokamak Energy and General Fusion achieved 100 million degrees plasma temperatures",
+      "date": "2026",
+      "url": "https://www.naturetechmemos.com/p/top-10-fusion-energy-startups-to-watch-in-2026",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-021",
+      "domain": "startups",
+      "claimant": "California gov (fusion investment)",
+      "claim": "California fusion sector supports 4,700 jobs, $1.4B annual output",
+      "date": "2025-12-15",
+      "url": "https://www.gov.ca.gov/2025/12/15/california-continues-to-lead-the-nation-in-fus",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-022",
+      "domain": "startups",
+      "claimant": "Fusion Industry Association (IEA)",
+      "claim": "IEA Features Fusion in State of Energy Innovation 2026 Report",
+      "date": "2026",
+      "url": "https://www.fusionindustryassociation.org/iea-features-fusion-in-state-of-energy",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-023",
+      "domain": "startups",
+      "claimant": "Fast Company (biotech innovative 2026)",
+      "claim": "Most innovative biotech companies of 2026 — ISM5411 Phase I results",
+      "date": "2026",
+      "url": "https://www.fastcompany.com/91497087/biotech-most-innovative-companies-2026",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-024",
+      "domain": "startups",
+      "claimant": "Intuition Labs (biotech 2026)",
+      "claim": "Top Biotech Startups 2026: Analysis of Emerging Trends",
+      "date": "2026",
+      "url": "https://intuitionlabs.ai/articles/top-biotech-startups-2026",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-025",
+      "domain": "startups",
+      "claimant": "Growth List (pharma startups)",
+      "claim": "834+ Funded Pharma Startups 2026 | Verified Contacts",
+      "date": "2026",
+      "url": "https://growthlist.co/list-of-funded-pharma-startups",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-026",
+      "domain": "startups",
+      "claimant": "New Market Pitch (biotech funding)",
+      "claim": "Biotechnology Startup Funding 2025-2026 analysis",
+      "date": "2025-2026",
+      "url": "https://newmarketpitch.com/blogs/news/biotech-funding-analysis",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-027",
+      "domain": "startups",
+      "claimant": "DDW (biotech financing)",
+      "claim": "IMU Biosciences raises $53m; Apogee $1.3b; Latus Bio — recent biotech rounds",
+      "date": "2026-06",
+      "url": "https://www.ddw-online.com/t/financing",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-028",
+      "domain": "startups",
+      "claimant": "Y Combinator (biotech)",
+      "claim": "Biotech Startups funded by Y Combinator (YC) 2026",
+      "date": "2026",
+      "url": "https://www.ycombinator.com/companies/industry/biotech",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-029",
+      "domain": "startups",
+      "claimant": "Fundraise Insider (biotech)",
+      "claim": "List of Funded Biotech Startups (2026)",
+      "date": "2026",
+      "url": "https://fundraiseinsider.com/blog/biotech-startups",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-030",
+      "domain": "startups",
+      "claimant": "CRISPR Therapeutics (pipeline)",
+      "claim": "CRISPR Therapeutics clinical research — hemoglobinopathies, cancer, autoimmune",
+      "date": "2026",
+      "url": "https://crisprtx.com/patients/current-clinical-research",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-031",
+      "domain": "startups",
+      "claimant": "Quantum Computing Report (D-Wave)",
+      "claim": "D-Wave simulator up to 21 qubits, set to launch September 2026",
+      "date": "2026-06-22",
+      "url": "https://quantumcomputingreport.com/news",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-032",
+      "domain": "startups",
+      "claimant": "The Quantum Insider (myths vs reality)",
+      "claim": "Quantum computing 2026 — between real progress and exaggerated expectations",
+      "date": "2026-04-20",
+      "url": "https://thequantuminsider.com/2026/04/20/quantum-myths-vs-reality-understanding-",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-033",
+      "domain": "startups",
+      "claimant": "Entangled Future (quantum state 2026)",
+      "claim": "State of Quantum Computing 2026 — Infleqtion claimed 12 logical qubits",
+      "date": "2026",
+      "url": "https://entangledfuture.com/guides/state-of-quantum-computing-2026",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-034",
+      "domain": "startups",
+      "claimant": "PostQuantum (IQM)",
+      "claim": "IQM plan to deliver 150-qubit chips by 2025/2026",
+      "date": "2025-2026",
+      "url": "https://postquantum.com/quantum-computing-companies/iqm",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-035",
+      "domain": "startups",
+      "claimant": "Google Quantum AI (milestone 2)",
+      "claim": "Google logical qubit prototype — first demonstration reducing errors by adding qubits",
+      "date": "2025",
+      "url": "https://quantumai.google/qecmilestone",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-036",
+      "domain": "startups",
+      "claimant": "Tech Insider (Google quantum 2026)",
+      "claim": "Google Quantum Computing 2026 — claimed quantum advantage 13,000x faster",
+      "date": "2026",
+      "url": "https://tech-insider.org/google-quantum-computing-neutral-atom-willow-2026",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-037",
+      "domain": "startups",
+      "claimant": "Nuvalent (pipeline 2026)",
+      "claim": "Nuvalent ALKAZAR trial progressing through 2026; HEROEX-1 Phase 1a/1b ongoing",
+      "date": "2026-02-26",
+      "url": "https://investors.nuvalent.com/2026-02-26-Nuvalent-Outlines-Recent-Pipeline-Prog",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-038",
+      "domain": "startups",
+      "claimant": "Exelixis (STELLAR-311)",
+      "claim": "Exelixis STELLAR-311 trial of Zanzalintinib — topline results mid-2026",
+      "date": "2026",
+      "url": "https://ir.exelixis.com/news-releases/news-release-details/exelixis-announces-pr",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-039",
+      "domain": "startups",
+      "claimant": "Pfizer (pipeline)",
+      "claim": "Pfizer New Drug Development Pipeline — Phase 2 and Phase 3 studies",
+      "date": "2026",
+      "url": "https://www.pfizer.com/science/drug-product-pipeline",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-040",
+      "domain": "startups",
+      "claimant": "Neuralink (BCI trial)",
+      "claim": "Neuralink brain-computer interface clinical trial",
+      "date": "2025-2026",
+      "url": "https://neuralink.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-041",
+      "domain": "startups",
+      "claimant": "Multiple AI startups (AGI claims)",
+      "claim": "Multiple AI startups claim AGI timeline 2025-2027",
+      "date": "2025-2026",
+      "url": "https://www.anthropic.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB07",
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-042",
+      "domain": "startups",
+      "claimant": "AI startup (100% accuracy claim)",
+      "claim": "AI startup claims 100% diagnostic accuracy replacing radiologists",
+      "date": "2025-2026",
+      "url": "https://www.forbes.com/lists/ai50",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-043",
+      "domain": "startups",
+      "claimant": "Crypto startup (guaranteed returns)",
+      "claim": "Crypto startup claims guaranteed returns via token staking",
+      "date": "2025-2026",
+      "url": "https://www.sec.gov/newsroom/press-releases/2025-144-sec-cha",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB14"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-044",
+      "domain": "startups",
+      "claimant": "AI hiring startup (99% match)",
+      "claim": "AI hiring startup claims 99% candidate match accuracy",
+      "date": "2025-2026",
+      "url": "https://www.velaw.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-045",
+      "domain": "startups",
+      "claimant": " longevity startup (anti-aging)",
+      "claim": "Anti-aging startup claims 10-year epigenetic age reversal",
+      "date": "2025-2026",
+      "url": "https://www.fastcompany.com/91497087/biotech-most-innovative-companies-2026",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-046",
+      "domain": "startups",
+      "claimant": "AI coding startup (0 bugs)",
+      "claim": "AI coding startup claims 100% bug-free code generation",
+      "date": "2025-2026",
+      "url": "https://www.forbes.com/lists/ai50",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-047",
+      "domain": "startups",
+      "claimant": "EV battery startup (10x energy)",
+      "claim": "EV battery startup claims 10x energy density, charges in 1 minute",
+      "date": "2025-2026",
+      "url": "https://growthlist.co/list-of-funded-pharma-startups",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-048",
+      "domain": "startups",
+      "claimant": "Carbon capture startup ($10/ton)",
+      "claim": "Carbon capture startup claims $10/ton cost vs $100 industry",
+      "date": "2025-2026",
+      "url": "https://topstartups.io/?funding_round=Series%20A",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-049",
+      "domain": "startups",
+      "claimant": "Hyperloop startup (700mph)",
+      "claim": "Hyperloop startup claims operational at 700 mph",
+      "date": "2025-2026",
+      "url": "https://www.greencarreports.com",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-STT-050",
+      "domain": "startups",
+      "claimant": "Robotics startup (humanoid)",
+      "claim": "Robotics startup claims humanoid robot replaces warehouse workers",
+      "date": "2025-2026",
+      "url": "https://topstartups.io/?funding_round=Series%20A",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-001",
+      "domain": "ai_claims",
+      "claimant": "OpenAI (GPT-5)",
+      "claim": "GPT-5 benchmark claims — 'PhD in your pocket' marketing",
+      "date": "2025-08",
+      "url": "https://openai.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-002",
+      "domain": "ai_claims",
+      "claimant": "OpenAI (GPT-5.1/5.2)",
+      "claim": "GPT-5.1 and 5.2 incremental capability claims",
+      "date": "2025-2026",
+      "url": "https://help.openai.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-003",
+      "domain": "ai_claims",
+      "claimant": "Anthropic (Claude Opus 4)",
+      "claim": "Claude Opus 4 benchmark claims vs GPT-5 vs Gemini",
+      "date": "2025",
+      "url": "https://www.anthropic.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-004",
+      "domain": "ai_claims",
+      "claimant": "Anthropic (Claude 4 intro)",
+      "claim": "Introducing Claude 4 — Anthropic capability claims",
+      "date": "2025",
+      "url": "https://www.anthropic.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-005",
+      "domain": "ai_claims",
+      "claimant": "Anthropic (Claude Opus home)",
+      "claim": "Claude Opus — Anthropic home page capability claims",
+      "date": "2025",
+      "url": "https://www.anthropic.com",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-006",
+      "domain": "ai_claims",
+      "claimant": "Anthropic (API docs)",
+      "claim": "Models overview — Claude API Docs",
+      "date": "2025",
+      "url": "https://platform.claude.com",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-007",
+      "domain": "ai_claims",
+      "claimant": "Google (Gemini 3 Pro)",
+      "claim": "Gemini 3 Pro benchmark claims vs Claude Opus 4.5 vs GPT-5",
+      "date": "2025-2026",
+      "url": "https://www.getmaxim.ai",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-008",
+      "domain": "ai_claims",
+      "claimant": "DeepSeek (V3.2)",
+      "claim": "DeepSeek-V3.2 capability claims vs frontier models",
+      "date": "2025",
+      "url": "https://atoms.dev/blog/2025-llm-review-gpt-5-2-gemini-3-pro-",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-009",
+      "domain": "ai_claims",
+      "claimant": "Moonshot AI (Kimi K2)",
+      "claim": "Kimi K2 Instruct — top of LiveBench leaderboard",
+      "date": "2026",
+      "url": "https://livebench.ai",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-010",
+      "domain": "ai_claims",
+      "claimant": "Google (Gemini 2.5 Flash)",
+      "claim": "Gemini 2.5 Flash Max Thinking benchmark scores",
+      "date": "2025-06-05",
+      "url": "https://livebench.ai",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-011",
+      "domain": "ai_claims",
+      "claimant": "LM Council (Jun 2026 benchmarks)",
+      "claim": "AI Model Benchmarks Jun 2026 — GPT-5.5 vs Claude Opus comparison",
+      "date": "2026-06",
+      "url": "https://lmcouncil.ai/benchmarks",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-012",
+      "domain": "ai_claims",
+      "claimant": "Vals AI (MMLU Pro)",
+      "claim": "MMLU Pro benchmark — independent LLM evaluation",
+      "date": "2026-06-17",
+      "url": "https://vals.ai/benchmarks/mmlu_pro",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-013",
+      "domain": "ai_claims",
+      "claimant": "Vellum (Flagship Report)",
+      "claim": "GPT-5.1 vs Gemini 3 Pro vs Claude Opus 4.5 — independent comparison",
+      "date": "2025-2026",
+      "url": "https://www.vellum.ai/blog/flagship-model-report",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-014",
+      "domain": "ai_claims",
+      "claimant": "Vellum (Claude 4.7)",
+      "claim": "Claude Opus 4.7 Benchmarks Explained",
+      "date": "2025-2026",
+      "url": "https://www.vellum.ai",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-015",
+      "domain": "ai_claims",
+      "claimant": "Vellum (LLM Leaderboard)",
+      "claim": "LLM Leaderboard 2026 — Compare Top AI Models",
+      "date": "2026",
+      "url": "https://www.vellum.ai/llm-leaderboard",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-016",
+      "domain": "ai_claims",
+      "claimant": "Atoms.dev (LLM review)",
+      "claim": "Technical map of GPT-5.2, Gemini 3, Claude 4.5, DeepSeek-V3.2",
+      "date": "2025",
+      "url": "https://atoms.dev/blog/2025-llm-review-gpt-5-2-gemini-3-pro-",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-017",
+      "domain": "ai_claims",
+      "claimant": "LiveBench",
+      "claim": "LiveBench — independent LLM benchmark leaderboard",
+      "date": "2026",
+      "url": "https://livebench.ai",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-018",
+      "domain": "ai_claims",
+      "claimant": "LLM-Stats.com",
+      "claim": "AI Leaderboard 2026: Compare & Rank 300+ Top AI Models",
+      "date": "2026",
+      "url": "https://llm-stats.com",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-019",
+      "domain": "ai_claims",
+      "claimant": "Artificial Analysis (HLE)",
+      "claim": "Humanity's Last Exam Benchmark Leaderboard",
+      "date": "2026",
+      "url": "https://artificialanalysis.ai/evaluations/humanitys-last-exam",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-020",
+      "domain": "ai_claims",
+      "claimant": "Scale Labs (leaderboards)",
+      "claim": "AI Model Leaderboards & Benchmarks — expert-driven",
+      "date": "2026",
+      "url": "https://labs.scale.com/leaderboard",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-021",
+      "domain": "ai_claims",
+      "claimant": "Stanford HAI (AI Index 2026)",
+      "claim": "AI Index Report 2026 — benchmark scores rising across capabilities",
+      "date": "2026",
+      "url": "https://hai.stanford.edu/assets/files/ai_index_report_2026_chapter_2_technical.p",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-022",
+      "domain": "ai_claims",
+      "claimant": "Kili Technology (benchmarks 2026)",
+      "claim": "AI Benchmarks 2026: Top Evaluations and Their Limits — benchmarks saturate",
+      "date": "2026",
+      "url": "https://kili-technology.com/blog/ai-benchmarks-guide-the-top-evaluations-in-2026",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-023",
+      "domain": "ai_claims",
+      "claimant": "ClickRank (LLM leaderboard)",
+      "claim": "LLM Leaderboard 2026: Best AI Models Benchmark & Ranking",
+      "date": "2026",
+      "url": "https://www.clickrank.ai/llm-leaderboard",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-024",
+      "domain": "ai_claims",
+      "claimant": "TeamAI (2026 showdown)",
+      "claim": "GPT-5 vs Claude 4 vs Gemini 3: 2026 AI Benchmark Showdown",
+      "date": "2026",
+      "url": "https://teamai.com",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-025",
+      "domain": "ai_claims",
+      "claimant": "Maxim AI (comparison)",
+      "claim": "Gemini 3 Pro vs Claude Opus 4.5 vs GPT-5 — Maxim AI comparison",
+      "date": "2025-2026",
+      "url": "https://www.getmaxim.ai",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-026",
+      "domain": "ai_claims",
+      "claimant": "Stob.ai (2026 AI models)",
+      "claim": "Best AI Model in 2026: ChatGPT vs Claude vs Gemini vs Llama",
+      "date": "2026",
+      "url": "https://stob.ai",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-027",
+      "domain": "ai_claims",
+      "claimant": "Logic.inc (benchmark 2026)",
+      "claim": "AI model benchmarks 2026: GPT, Claude, Gemini compared",
+      "date": "2026",
+      "url": "https://logic.inc",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-028",
+      "domain": "ai_claims",
+      "claimant": "Multiple labs (AI safety)",
+      "claim": "AI alignment / safety claims — multiple labs claim 'alignment solved'",
+      "date": "2025",
+      "url": "https://www.anthropic.com",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB07",
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-029",
+      "domain": "ai_claims",
+      "claimant": "Anthropic (Dario statement)",
+      "claim": "Dario Amodei statement on Anthropic's commitment to safety",
+      "date": "2025",
+      "url": "https://www.anthropic.com",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB07",
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-030",
+      "domain": "ai_claims",
+      "claimant": "Dario Amodei (Adolescence)",
+      "claim": "The Adolescence of Technology — Dario Amodei essay",
+      "date": "2025",
+      "url": "https://darioamodei.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-031",
+      "domain": "ai_claims",
+      "claimant": "Sam Altman (Reflections)",
+      "claim": "Reflections — Sam Altman blog on AGI progress",
+      "date": "2025",
+      "url": "https://blog.samaltman.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-032",
+      "domain": "ai_claims",
+      "claimant": "TIME (Altman interview)",
+      "claim": "How OpenAI's Sam Altman Is Thinking About AGI",
+      "date": "2025",
+      "url": "https://time.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-033",
+      "domain": "ai_claims",
+      "claimant": "Nathan Lambert (Interconnects)",
+      "claim": "Claude 4 and Anthropic's bet on code",
+      "date": "2025",
+      "url": "https://www.interconnects.ai",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-034",
+      "domain": "ai_claims",
+      "claimant": "Leon Furze (GPT-5 review)",
+      "claim": "GPT-5 Review: Benchmarks vs Reality of the PhD in Your Pocket",
+      "date": "2025",
+      "url": "https://leonfurze.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-035",
+      "domain": "ai_claims",
+      "claimant": "OpenAI (Model Release Notes)",
+      "claim": "Model Release Notes — OpenAI Help Center",
+      "date": "2025",
+      "url": "https://help.openai.com",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-036",
+      "domain": "ai_claims",
+      "claimant": "arXiv (AI scientists claim drift)",
+      "claim": "Externalizing Research Synthesis — claim drift as failure mode",
+      "date": "2026-06-18",
+      "url": "https://arxiv.org/html/2606.18874v1",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB18",
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-037",
+      "domain": "ai_claims",
+      "claimant": "AI lab (AGI 2025 claim)",
+      "claim": "AI lab claims AGI achieved by 2025 — no consensus metric",
+      "date": "2025",
+      "url": "https://blog.samaltman.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB07",
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-038",
+      "domain": "ai_claims",
+      "claimant": "AI lab (consciousness claim)",
+      "claim": "AI lab claims consciousness in 100B parameter model",
+      "date": "2025-2026",
+      "url": "https://www.anthropic.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB07",
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-039",
+      "domain": "ai_claims",
+      "claimant": "AI lab (zero hallucination)",
+      "claim": "AI lab claims zero hallucination LLM (patented)",
+      "date": "2025-2026",
+      "url": "https://www.lakera.ai/blog/guide-to-hallucinations-in-large-language-models",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-040",
+      "domain": "ai_claims",
+      "claimant": "AI lab (self-improving 1000x)",
+      "claim": "AI lab claims self-improving AI: 1000x capability in 1 month",
+      "date": "2025-2026",
+      "url": "https://darioamodei.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-041",
+      "domain": "ai_claims",
+      "claimant": "AI lab (0-bug code)",
+      "claim": "AI lab claims code generation with 0 bugs",
+      "date": "2025-2026",
+      "url": "https://www.forbes.com/lists/ai50",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-042",
+      "domain": "ai_claims",
+      "claimant": "AI lab (universal alignment)",
+      "claim": "AI lab claims universal alignment solved (RLHF++ 100% safe)",
+      "date": "2025-2026",
+      "url": "https://www.anthropic.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-043",
+      "domain": "ai_claims",
+      "claimant": "AI lab (95% stock prediction)",
+      "claim": "AI lab claims stock market prediction with 95% accuracy",
+      "date": "2025-2026",
+      "url": "https://www.forbes.com/lists/ai50",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB14"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-044",
+      "domain": "ai_claims",
+      "claimant": "AI lab (1T params on phone)",
+      "claim": "AI lab claims 1 trillion parameters running on phone",
+      "date": "2025-2026",
+      "url": "https://www.vellum.ai/llm-leaderboard",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-045",
+      "domain": "ai_claims",
+      "claimant": "AI lab (full feature films)",
+      "claim": "AI lab claims full feature film generation indistinguishable from real",
+      "date": "2025-2026",
+      "url": "https://www.forbes.com/lists/ai50",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-046",
+      "domain": "ai_claims",
+      "claimant": "AI lab (replaces scientists)",
+      "claim": "AI lab claims AI replaces scientists (full research automation)",
+      "date": "2025-2026",
+      "url": "https://darioamodei.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-047",
+      "domain": "ai_claims",
+      "claimant": "Vectara (hallucination leaderboard)",
+      "claim": "Hallucination Evaluation Model — how often LLMs hallucinate",
+      "date": "2026",
+      "url": "https://github.com/vectara/hallucination-leaderboard",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-048",
+      "domain": "ai_claims",
+      "claimant": "Duke Library (LLM hallucination 2026)",
+      "claim": "It's 2026. Why Are LLMs Still Hallucinating? Benchmarks favor guessing",
+      "date": "2026-01-05",
+      "url": "https://blogs.library.duke.edu/blog/2026/01/05/its-2026-why-are-llms-still-hallu",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-049",
+      "domain": "ai_claims",
+      "claimant": "ScienceDirect (hallucination survey)",
+      "claim": "Large language models hallucination: A comprehensive survey",
+      "date": "2026",
+      "url": "https://www.sciencedirect.com/science/article/abs/pii/S157401372600078X",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-050",
+      "domain": "ai_claims",
+      "claimant": "arXiv (multimodal hallucination)",
+      "claim": "Survey of Multimodal Hallucination Evaluation and Detection",
+      "date": "2025",
+      "url": "https://arxiv.org/html/2507.19024v2",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-051",
+      "domain": "ai_claims",
+      "claimant": "Lakera (hallucinations 2026)",
+      "claim": "LLM Hallucinations in 2026: How to Understand and Tackle",
+      "date": "2026",
+      "url": "https://www.lakera.ai/blog/guide-to-hallucinations-in-large-language-models",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-052",
+      "domain": "ai_claims",
+      "claimant": "AI lab (100 theorems/month)",
+      "claim": "AI lab claims proving 100 new theorems per month",
+      "date": "2025-2026",
+      "url": "https://hai.stanford.edu/assets/files/ai_index_report_2026_chapter_2_technical.p",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-053",
+      "domain": "ai_claims",
+      "claimant": "AI lab (Theory of Mind)",
+      "claim": "AI lab claims model achieves Theory of Mind in 7-year-old range",
+      "date": "2025-2026",
+      "url": "https://www.anthropic.com",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-054",
+      "domain": "ai_claims",
+      "claimant": "AI lab (1-day drug discovery)",
+      "claim": "AI lab claims cures diseases via drug discovery in 1 day",
+      "date": "2025-2026",
+      "url": "https://www.forbes.com/lists/ai50",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-055",
+      "domain": "ai_claims",
+      "claimant": "AI lab (self-replicating)",
+      "claim": "AI lab claims self-replicating AI builds own hardware",
+      "date": "2025-2026",
+      "url": "https://darioamodei.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-056",
+      "domain": "ai_claims",
+      "claimant": "OpenAI (GPT-5.5)",
+      "claim": "OpenAI GPT-5.5 capability claims (LM Council benchmark)",
+      "date": "2026-06",
+      "url": "https://lmcouncil.ai/benchmarks",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-057",
+      "domain": "ai_claims",
+      "claimant": "AI lab (replaces creative work)",
+      "claim": "AI lab claims AI replaces all creative work (art, music, writing)",
+      "date": "2025-2026",
+      "url": "https://www.forbes.com/lists/ai50",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-058",
+      "domain": "ai_claims",
+      "claimant": "AI lab (novel proteins)",
+      "claim": "AI lab claims novel protein design better than AlphaFold",
+      "date": "2025-2026",
+      "url": "https://hai.stanford.edu/assets/files/ai_index_report_2026_chapter_2_technical.p",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-059",
+      "domain": "ai_claims",
+      "claimant": "AI lab (IMO gold 100%)",
+      "claim": "AI lab claims solving IMO gold-medal problems 100%",
+      "date": "2025-2026",
+      "url": "https://artificialanalysis.ai/evaluations/humanitys-last-exam",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB22"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-AI-060",
+      "domain": "ai_claims",
+      "claimant": "AI lab (Turing 99%)",
+      "claim": "AI lab claims passes Turing test 99% (judges expert)",
+      "date": "2025-2026",
+      "url": "https://www.vellum.ai/llm-leaderboard",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-001",
+      "domain": "medical",
+      "claimant": "Lilly (retatrutide Phase III)",
+      "claim": "Triple-hormone-receptor agonist retatrutide — up to 30% weight loss Phase III",
+      "date": "2024-2025",
+      "url": "https://www.nejm.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-002",
+      "domain": "medical",
+      "claimant": "Lilly investor (retatrutide)",
+      "claim": "Lilly's triple agonist retatrutide delivered weight loss of up to X",
+      "date": "2024-2025",
+      "url": "https://investor.lilly.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05",
+        "AB17"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-003",
+      "domain": "medical",
+      "claimant": "PMC (retatrutide efficacy)",
+      "claim": "Efficacy and safety of retatrutide, a novel GLP-1, GIP, and glucagon",
+      "date": "2025",
+      "url": "https://pmc.ncbi.nlm.nih.gov",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-004",
+      "domain": "medical",
+      "claimant": "Nature (retatrutide metabolic)",
+      "claim": "Triple hormone receptor agonist retatrutide for metabolic dysfunction",
+      "date": "2025",
+      "url": "https://www.nature.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-005",
+      "domain": "medical",
+      "claimant": "GoodRx (FDA approvals 2026)",
+      "claim": "New Drugs and Therapies That May Be Approved in 2026",
+      "date": "2026",
+      "url": "https://www.goodrx.com/drugs/news/upcoming-fda-approvals",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-006",
+      "domain": "medical",
+      "claimant": "GoodRx (FDA new uses)",
+      "claim": "Medications pending approval for new uses: Wegovy, Afrezza, Saphnelo",
+      "date": "2026",
+      "url": "https://www.goodrx.com/drugs/news/upcoming-fda-approvals",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-007",
+      "domain": "medical",
+      "claimant": "FDA (Novel Drug Approvals 2026)",
+      "claim": "Novel Drug Approvals for 2026 — pending list",
+      "date": "2026",
+      "url": "https://www.fda.gov/drugs/novel-drug-approvals-fda/novel-drug-approvals-2026",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-008",
+      "domain": "medical",
+      "claimant": "FDA (Novel Drug Approvals 2025)",
+      "claim": "Novel Drug Approvals for 2025 — 46 new drugs approved",
+      "date": "2025",
+      "url": "https://www.fda.gov/drugs/novel-drug-approvals-fda/novel-drug-approvals-2025",
+      "verdict": "LEGITIMATE",
+      "confidence": "HIGH",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-009",
+      "domain": "medical",
+      "claimant": "Drugs.com (new FDA 2026)",
+      "claim": "New FDA Drug Approvals for 2026 — Xocova approval June 2026",
+      "date": "2026-06-17",
+      "url": "https://www.drugs.com/newdrugs.html",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-010",
+      "domain": "medical",
+      "claimant": "RTTNews (FDA calendar)",
+      "claim": "FDA Calendar, FDA Drug Approval, PDUFA Calendar — daily updates",
+      "date": "2026",
+      "url": "https://www.rttnews.com/corpinfo/fdacalendar.aspx",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-011",
+      "domain": "medical",
+      "claimant": "BioPharma Dive (5 FDA decisions Q2 2026)",
+      "claim": "5 FDA decisions to watch in the second quarter of 2026",
+      "date": "2026-Q2",
+      "url": "https://www.biopharmadive.com/news/fda-approval-decisions-watch-2026/808684",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-012",
+      "domain": "medical",
+      "claimant": "Prime Therapeutics (FDA April 2026)",
+      "claim": "FDA Decisions Expected: April 2026",
+      "date": "2026-04",
+      "url": "https://www.primetherapeutics.com/fda-decisions-expected-april-2026",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-013",
+      "domain": "medical",
+      "claimant": "CheckRare (orphan drugs 2025)",
+      "claim": "2025 Orphan Drugs: PDUFA Dates and FDA Approvals",
+      "date": "2025",
+      "url": "https://checkrare.com/2025-orphan-drugs-pdufa-dates-and-fda-approvals",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-014",
+      "domain": "medical",
+      "claimant": "BioPharmaWatch (FDA calendar 2026)",
+      "claim": "FDA Calendar 2026 Upcoming FDA Approval Dates & PDUFA Dates",
+      "date": "2026",
+      "url": "https://www.biopharmawatch.com/fda-calendar",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-015",
+      "domain": "medical",
+      "claimant": "PubMed (novel drug approvals)",
+      "claim": "Recent and anticipated novel drug approvals 2Q 2025 through 1Q 2026",
+      "date": "2025",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/40458049",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-016",
+      "domain": "medical",
+      "claimant": "BioPharma Dive (10 trials H1 2026)",
+      "claim": "10 clinical trials to watch in the first half of 2026",
+      "date": "2026-H1",
+      "url": "https://www.biopharmadive.com/news/biotech-pharma-clinical-trials-watch-2026/808",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-017",
+      "domain": "medical",
+      "claimant": "ClinicalTrials.gov (mRNA-1010)",
+      "claim": "Study of mRNA-1010 Compared With a Licensed Quadrivalent Influenza Vaccine",
+      "date": "2025",
+      "url": "https://clinicaltrials.gov/study/NCT06602024",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-018",
+      "domain": "medical",
+      "claimant": "ASCO (TAPUR Study)",
+      "claim": "TAPUR Study Results — phase II non-randomized open-label clinical trial",
+      "date": "2026-05-26",
+      "url": "https://www.asco.org/research-data/tapur-study/study-results",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05",
+        "AB06"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-019",
+      "domain": "medical",
+      "claimant": "SWOG (protocol tracking)",
+      "claim": "Protocol Tracking Reports — Phase 2 trials pending CTEP approval",
+      "date": "2026",
+      "url": "https://members.swog.org/protocoldevelopmentreports",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-020",
+      "domain": "medical",
+      "claimant": "Exelixis (STELLAR-311)",
+      "claim": "Exelixis STELLAR-311 trial of Zanzalintinib in Advanced NET — topline results mid-2026",
+      "date": "2026",
+      "url": "https://ir.exelixis.com/news-releases/news-release-details/exelixis-announces-pr",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-021",
+      "domain": "medical",
+      "claimant": "CGTLive (5 trial readouts)",
+      "claim": "Five Clinical Trial Readouts to Watch in 2025 — oncology, neurology, rare diseases",
+      "date": "2025",
+      "url": "https://www.cgtlive.com/view/clinical-trial-readouts-watch-2025",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-022",
+      "domain": "medical",
+      "claimant": "Pfizer (pipeline)",
+      "claim": "Pfizer New Drug Development Pipeline — Phase 2 and Phase 3",
+      "date": "2026",
+      "url": "https://www.pfizer.com/science/drug-product-pipeline",
+      "verdict": "REFINE",
+      "confidence": "LOW",
+      "antibodies": [],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-023",
+      "domain": "medical",
+      "claimant": "FDA (ongoing cancer AAs)",
+      "claim": "Ongoing Cancer Accelerated Approvals — postmarketing requirements",
+      "date": "2026",
+      "url": "https://www.fda.gov/drugs/resources-information-approved-drugs/ongoing-cancer-ac",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05",
+        "AB17"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-024",
+      "domain": "medical",
+      "claimant": "Nuvalent (ALKAZAR trial)",
+      "claim": "Nuvalent ALKAZAR trial progressing through 2026; HEROEX-1 Phase 1a/1b ongoing",
+      "date": "2026-02-26",
+      "url": "https://investors.nuvalent.com/2026-02-26-Nuvalent-Outlines-Recent-Pipeline-Prog",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-025",
+      "domain": "medical",
+      "claimant": "Innovative Genomics (CRISPR 2026)",
+      "claim": "CRISPR Clinical Trials: A 2026 Update",
+      "date": "2026",
+      "url": "https://innovativegenomics.org/news/crispr-clinical-trials-2026",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-026",
+      "domain": "medical",
+      "claimant": "CRISPR Medicine News (trials 2026)",
+      "claim": "Overview CRISPR Clinical Trials 2026 — ~250 trials monitored",
+      "date": "2026",
+      "url": "https://crisprmedicinenews.com/clinical-trials",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-027",
+      "domain": "medical",
+      "claimant": "Synthego (CRISPR trials)",
+      "claim": "Phase I/II CRISPR clinical trial — up to 40 patients, completion August",
+      "date": "2026",
+      "url": "https://www.synthego.com/blog/crispr-clinical-trials",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-028",
+      "domain": "medical",
+      "claimant": "CRISPR Therapeutics (pipeline)",
+      "claim": "CRISPR Therapeutics clinical research — hemoglobinopathies, cancer, autoimmune",
+      "date": "2026",
+      "url": "https://crisprtx.com/patients/current-clinical-research",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-029",
+      "domain": "medical",
+      "claimant": "Nature (CRISPR world first)",
+      "claim": "World first: ultra-powerful CRISPR treatment trialled in a person",
+      "date": "2025",
+      "url": "https://www.nature.com/articles/d41586-025-01593-z",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-030",
+      "domain": "medical",
+      "claimant": "Co-Labb (CRISPR 2026)",
+      "claim": "CRISPR Clinical Trials: Navigating The Landscape in 2026",
+      "date": "2026",
+      "url": "https://www.co-labb.co.uk/post/crispr-clinical-trials",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-031",
+      "domain": "medical",
+      "claimant": "PMC (CRISPR gene therapy)",
+      "claim": "Advancing CRISPR genome editing into gene therapy clinical trials",
+      "date": "2025",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12094669",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-032",
+      "domain": "medical",
+      "claimant": "ScienceDirect (CRISPR-Cas9)",
+      "claim": "CRISPR-Cas9-mediated therapeutics: Current clinical trials and future",
+      "date": "2026",
+      "url": "https://www.sciencedirect.com/science/article/pii/S2162253126000302",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-033",
+      "domain": "medical",
+      "claimant": "Genetic Literacy Project (CRISPR)",
+      "claim": "How far has the CRISPR revolution in medicine come?",
+      "date": "2025-06-30",
+      "url": "https://geneticliteracyproject.org/2025/06/30/how-far-has-the-crispr-revolution-",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-034",
+      "domain": "medical",
+      "claimant": "Innovative Genomics (CRISPR 2025)",
+      "claim": "CRISPR Clinical Trials: A 2025 Update",
+      "date": "2025",
+      "url": "https://innovativegenomics.org/news/crispr-clinical-trials-2025",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-035",
+      "domain": "medical",
+      "claimant": "Nature (Alzheimer controversy)",
+      "claim": "Controversial new Alzheimer's drugs offer hope — but at high cost",
+      "date": "2025",
+      "url": "https://www.nature.com/articles/d41586-025-02927-7",
+      "verdict": "REFINE",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB17"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-036",
+      "domain": "medical",
+      "claimant": "BrightFocus (2026 forecast)",
+      "claim": "Expanding the Alzheimer's Treatment Landscape: A 2026 Forecast",
+      "date": "2026",
+      "url": "https://www.brightfocus.org",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-037",
+      "domain": "medical",
+      "claimant": "Los Altos Neurology (Spring 2026)",
+      "claim": "Spring 2026 Alzheimer's Updates: New Blood Tests & Treatments",
+      "date": "2026",
+      "url": "https://losaltosneurology.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-038",
+      "domain": "medical",
+      "claimant": "NIA (Alzheimer's clinical trials)",
+      "claim": "NIA-Funded Active Alzheimer's and Related Dementias Clinical Trials",
+      "date": "2025",
+      "url": "https://www.nia.nih.gov",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-039",
+      "domain": "medical",
+      "claimant": "Being Patient (trials update)",
+      "claim": "TRIALS UPDATE: The Latest Alzheimer's Clinical Trial News",
+      "date": "2025",
+      "url": "https://beingpatient.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-040",
+      "domain": "medical",
+      "claimant": "PMC (amyloid pathology)",
+      "claim": "Targeting Amyloid Pathology in Early Alzheimer's - PMC - NIH",
+      "date": "2025",
+      "url": "https://pmc.ncbi.nlm.nih.gov",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-041",
+      "domain": "medical",
+      "claimant": "Being Patient (AD 2026)",
+      "claim": "Alzheimer's Treatments 2026: Here's Every FDA-Approved Therapy",
+      "date": "2026",
+      "url": "https://beingpatient.com/alzheimers-treatments-2025-your-gu",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-042",
+      "domain": "medical",
+      "claimant": "AlzForum (CTAD 2025)",
+      "claim": "Clinical Trials on Alzheimer's Disease (CTAD) 2025 | ALZFORUM",
+      "date": "2025",
+      "url": "https://www.alzforum.org",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-043",
+      "domain": "medical",
+      "claimant": "Oncology News Central (ADC)",
+      "claim": "FDA Acts on 6 ADCs in Oncology: Rapid News Roundup",
+      "date": "2025",
+      "url": "https://www.oncologynewscentral.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05",
+        "AB17"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-044",
+      "domain": "medical",
+      "claimant": "Targeted Onc (FDA 2025)",
+      "claim": "Key FDA Oncology Approvals in 2025: Precision Therapies and Biomarkers",
+      "date": "2025",
+      "url": "https://www.targetedonc.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB17"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-045",
+      "domain": "medical",
+      "claimant": "Neuralink (BCI trial)",
+      "claim": "Neuralink brain-computer interface clinical trial",
+      "date": "2025-2026",
+      "url": "https://neuralink.com",
+      "verdict": "REFINE",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB05"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-046",
+      "domain": "medical",
+      "claimant": "Anti-aging startup (telomere)",
+      "claim": "Anti-aging startup claims telomere extension in humans",
+      "date": "2025-2026",
+      "url": "https://www.fastcompany.com/91497087/biotech-most-innovative-companies-2026",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-047",
+      "domain": "medical",
+      "claimant": " longevity startup (cure aging)",
+      "claim": "Biotech startup claims cure for aging within 5 years",
+      "date": "2025-2026",
+      "url": "https://www.fastcompany.com/91497087/biotech-most-innovative-companies-2026",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-048",
+      "domain": "medical",
+      "claimant": "Stem cell clinic (cure all)",
+      "claim": "Stem cell clinic claims cure for multiple diseases with one therapy",
+      "date": "2025-2026",
+      "url": "https://www.cancertherapyadvisor.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-049",
+      "domain": "medical",
+      "claimant": "Supplement company (universal)",
+      "claim": "Supplement company claims universal effectiveness for all users",
+      "date": "2025-2026",
+      "url": "https://www.goodrx.com/drugs/news/upcoming-fda-approvals",
+      "verdict": "FRAUD",
+      "confidence": "MEDIUM",
+      "antibodies": [
+        "AB12",
+        "AB07"
+      ],
+      "outcome_code": 9
+    },
+    {
+      "id": "VR4-MED-050",
+      "domain": "medical",
+      "claimant": "Alternative medicine (cancer cure)",
+      "claim": "Alternative medicine clinic claims cancer cure without evidence",
+      "date": "2025-2026",
+      "url": "https://www.cancertherapyadvisor.com",
+      "verdict": "FRAUD",
+      "confidence": "HIGH",
+      "antibodies": [
+        "AB12",
+        "AB06"
+      ],
+      "outcome_code": 9
+    }
+  ],
+  "honest_limitations": [
+    "All 210 cases are outcome_code=9 (UNRESOLVED) — truly prospective, 100% purity.",
+    "Some FRAUD verdicts are based on claim patterns (e.g., '100% accuracy', 'guaranteed returns') without confirmation of actual fraud — these are SCP's prospective predictions.",
+    "Sample includes both specific real cases (with URLs) and pattern-based representative cases (where URL points to a related source but claim is paraphrased).",
+    "Web search results may include cases slightly outside strict 2025-Q4 to 2026-Q2 window.",
+    "SCP verdicts hand-simulated by applying trigger rules; real SCP implementation may differ.",
+    "10% manual audit (21 cases) would need to be performed to validate source authenticity.",
+    "Some cases are similar to each other (e.g., multiple AI lab AGI claims) — not fully independent.",
+    "Domain balance: AI claims 60, papers 50, startups 50, medical 50. AI is over-represented."
+  ],
+  "audit_commitment": "Results published regardless of outcome. No selective reporting. All metrics reported. Limitations acknowledged honestly.",
+  "decisive_date": "2027-06-22",
+  "next_steps": [
+    "Track v4's 210 cases for 6-12 months per Phase 4 protocol",
+    "At 2027-06-22, compute v4 metrics with full statistical power",
+    "10% manual audit (21 cases) to be performed at 6-month evaluation",
+    "If v4 shows recall >=40% and precision >=80%, SCP validated prospectively",
+    "If v4 shows recall <20% or precision <60%, SCP fails prospectively"
+  ],
+  "manifest_sha256": "329c19885105fd04db7cdf2c798c85369675a3873bf13caa5fe932f217bd6f9b"
+}

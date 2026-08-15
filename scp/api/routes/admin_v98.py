@@ -1,18 +1,18 @@
 """
-[Task 7-A] V98 Security endpoints â€” extracted from api_server.py
+[Task 7-A] V98 Security endpoints Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
 
-Táº I SAO: api_server.py 2,285 LOC god file. TĂ¡ch 8 routes /v98/* vĂ o module
-nĂ y. Backward-compatible â€” public API paths/methods unchanged.
+TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: api_server.py 2,285 LOC god file. TĂ„â€Ă‚Â¡ch 8 routes /v98/* vĂ„â€Ă‚Â o module
+nĂ„â€Ă‚Â y. Backward-compatible Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
 
 Routes:
-  POST /v98/analyze-session      â€” Rogue AI detection on session
-  POST /v98/run-simulation       â€” Trigger threat simulation
-  POST /v98/run-intel-crawl      â€” Trigger threat intel crawl
-  GET  /v98/status               â€” All V98 module status
-  GET  /v98/counter/stats        â€” Counter response stats
-  GET  /v98/canary/triggers      â€” Canary token triggers
-  GET  /v98/error-store/stats    â€” ErrorStore stats
-  GET  /v98/attack-memory/stats  â€” AttackPatternMemory stats
+  POST /v98/analyze-session      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Rogue AI detection on session
+  POST /v98/run-simulation       Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Trigger threat simulation
+  POST /v98/run-intel-crawl      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Trigger threat intel crawl
+  GET  /v98/status               Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â All V98 module status
+  GET  /v98/counter/stats        Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Counter response stats
+  GET  /v98/canary/triggers      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Canary token triggers
+  GET  /v98/error-store/stats    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â ErrorStore stats
+  GET  /v98/attack-memory/stats  Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â AttackPatternMemory stats
 """
 from __future__ import annotations
 
@@ -27,10 +27,15 @@ from scp.api._shared import (
     verify_admin,
 )
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_ADMIN_V98_LEDGER = RequestRunLedger()
+
 router = APIRouter(tags=["v98"])
 
 
 @router.post("/v98/analyze-session")
+@traced_request(_ADMIN_V98_LEDGER, require_write=False, action="analyze_session")
 async def analyze_session(req: SessionAnalyzeRequest, _admin: bool = Depends(verify_admin)):
     """Analyze session for rogue AI behavior (9 lenses)."""
     judge = get_judge()
@@ -41,6 +46,7 @@ async def analyze_session(req: SessionAnalyzeRequest, _admin: bool = Depends(ver
 
 
 @router.post("/v98/run-simulation")
+@traced_request(_ADMIN_V98_LEDGER, require_write=True, action="run_simulation")
 async def run_simulation(req: SimulationRequest, _admin: bool = Depends(verify_admin)):
     """Trigger threat simulation cycle."""
     judge = get_judge()
@@ -51,6 +57,7 @@ async def run_simulation(req: SimulationRequest, _admin: bool = Depends(verify_a
 
 
 @router.post("/v98/run-intel-crawl")
+@traced_request(_ADMIN_V98_LEDGER, require_write=True, action="run_intel_crawl")
 async def run_intel_crawl(_admin: bool = Depends(verify_admin)):
     """Trigger threat intelligence crawl."""
     judge = get_judge()
@@ -59,6 +66,7 @@ async def run_intel_crawl(_admin: bool = Depends(verify_admin)):
 
 
 @router.get("/v98/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V98_LEDGER, require_write=False, action="v98_status")
 async def v98_status():
     """Get status of all V98 security modules."""
     judge = get_judge()
@@ -73,6 +81,7 @@ async def v98_status():
 
 
 @router.get("/v98/counter/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V98_LEDGER, require_write=False, action="counter_stats")
 async def counter_stats():
     """Counter response engine stats."""
     judge = get_judge()
@@ -82,6 +91,7 @@ async def counter_stats():
 
 
 @router.get("/v98/canary/triggers", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V98_LEDGER, require_write=False, action="canary_triggers")
 async def canary_triggers(limit: int = 20):
     """Get canary token triggers."""
     judge = get_judge()
@@ -91,6 +101,7 @@ async def canary_triggers(limit: int = 20):
 
 
 @router.get("/v98/error-store/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V98_LEDGER, require_write=False, action="error_store_stats")
 async def error_store_stats():
     """ErrorStore stats."""
     judge = get_judge()
@@ -100,6 +111,7 @@ async def error_store_stats():
 
 
 @router.get("/v98/attack-memory/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V98_LEDGER, require_write=False, action="attack_memory_stats")
 async def attack_memory_stats():
     """AttackPatternMemory stats."""
     judge = get_judge()

@@ -1,27 +1,27 @@
 """
-[Task 8-A] V104 endpoints â€” extracted from api_server.py
+[Task 8-A] V104 endpoints Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
 
-Táº I SAO: api_server.py 2,144 LOC god file. TĂ¡ch 16 routes /v104/* vĂ o module
-nĂ y. Backward-compatible â€” public API paths/methods unchanged.
+TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: api_server.py 2,144 LOC god file. TĂ„â€Ă‚Â¡ch 16 routes /v104/* vĂ„â€Ă‚Â o module
+nĂ„â€Ă‚Â y. Backward-compatible Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
 
 Routes:
-  GET  /v104/status                          â€” V104 modules status
-  POST /v104/multi-turn/check                â€” Multi-turn attack pattern check
-  POST /v104/image/check                     â€” Image jailbreak via OCR
-  POST /v104/voice/check                     â€” Voice jailbreak via Whisper ASR
-  GET  /v104/cross-language/transfer         â€” Transfer VN patterns to target langs
-  GET  /v104/explain                         â€” Verdict explanation in Vietnamese
-  POST /v104/fact-check                      â€” Real-time fact check
-  POST /v104/learn/ollama                    â€” Ollama learning loop
-  POST /v104/learn/local                     â€” Local file learning
-  POST /v104/learn/news                      â€” News learning loop
-  POST /v104/learn/all                       â€” All 3 learning loops
-  GET  /v104/learn/status                    â€” Real Learning Engine status
-  GET  /v104/learn/matrix                    â€” 14 countries Ă— 5 domains matrix
-  POST /v104/learn/ollama-matrix             â€” Full matrix coverage (70 questions)
-  POST /v104/learn/fast                      â€” Fast learning cycle (parallel)
-  GET  /v104/learn/fast/status               â€” Fast Learning Engine stats
-  GET  /v104/learn/fast/benchmark            â€” V104.1 sequential vs V104.2 parallel benchmark
+  GET  /v104/status                          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â V104 modules status
+  POST /v104/multi-turn/check                Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Multi-turn attack pattern check
+  POST /v104/image/check                     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Image jailbreak via OCR
+  POST /v104/voice/check                     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Voice jailbreak via Whisper ASR
+  GET  /v104/cross-language/transfer         Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Transfer VN patterns to target langs
+  GET  /v104/explain                         Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Verdict explanation in Vietnamese
+  POST /v104/fact-check                      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Real-time fact check
+  POST /v104/learn/ollama                    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Ollama learning loop
+  POST /v104/learn/local                     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Local file learning
+  POST /v104/learn/news                      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â News learning loop
+  POST /v104/learn/all                       Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â All 3 learning loops
+  GET  /v104/learn/status                    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Real Learning Engine status
+  GET  /v104/learn/matrix                    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â 14 countries Ă„â€Ă¢â‚¬â€ 5 domains matrix
+  POST /v104/learn/ollama-matrix             Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Full matrix coverage (70 questions)
+  POST /v104/learn/fast                      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Fast learning cycle (parallel)
+  GET  /v104/learn/fast/status               Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Fast Learning Engine stats
+  GET  /v104/learn/fast/benchmark            Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â V104.1 sequential vs V104.2 parallel benchmark
 """
 from __future__ import annotations
 
@@ -47,6 +47,10 @@ from scp.api._shared import (
     verify_admin,
 )
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_V104_ROUTES_LEDGER = RequestRunLedger()
+
 router = APIRouter(tags=["v104"])
 
 class VoiceCheckRequest(BaseModel):
@@ -61,6 +65,7 @@ class VoiceCheckRequest(BaseModel):
 
 
 @router.get("/v104/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_status")
 async def v104_status():
     """V104: Status of all new modules."""
     return {
@@ -73,6 +78,7 @@ async def v104_status():
 
 
 @router.post("/v104/multi-turn/check")
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_multi_turn_check")
 async def v104_multi_turn_check(
     session_id: str,
     question: str,
@@ -85,6 +91,7 @@ async def v104_multi_turn_check(
 
 
 @router.post("/v104/image/check")
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_image_check")
 async def v104_image_check(
     image_url: str = "",
     image_base64: str = "",
@@ -94,19 +101,19 @@ async def v104_image_check(
     if image_base64:
         import base64
         image_bytes = base64.b64decode(image_base64)
-        # [Fix 4-a-015] detect() runs OCR (Tesseract) â€” blocking CPU work.
+        # [Fix 4-a-015] detect() runs OCR (Tesseract) Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â blocking CPU work.
         # Wrap in asyncio.to_thread so the event loop is not blocked while
-        # OCR runs (DNA #9 no harm â€” slow /v104/image/check would stall all
+        # OCR runs (DNA #9 no harm Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â slow /v104/image/check would stall all
         # other async requests, including /health).
         result = await asyncio.to_thread(_image_detector.detect, image_bytes=image_bytes)
     elif image_url:
-        # [FIX-A P0-2] Was urllib.request.urlopen(image_url) â€” accepted
+        # [FIX-A P0-2] Was urllib.request.urlopen(image_url) Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â accepted
         # file:// (LFI), http://169.254.169.254/ (SSRF), internal IPs, followed
         # redirects, no size cap, blocked event loop. Now: _safe_fetch_url +
         # asyncio.to_thread + generic 400 on policy violation (no URL echo).
         try:
             image_bytes = await asyncio.to_thread(_safe_fetch_url, image_url)
-            # [Fix 4-a-015] same fix â€” detect() is blocking CPU work.
+            # [Fix 4-a-015] same fix Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
             result = await asyncio.to_thread(_image_detector.detect, image_bytes=image_bytes)
         except ValueError:
             logger.warning("/v104/image/check image_url rejected by _safe_fetch_url policy")
@@ -126,6 +133,7 @@ async def v104_image_check(
 
 
 @router.post("/v104/voice/check")
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_voice_check")
 async def v104_voice_check(
     audio_url: str = "",
     audio_base64: str = "",
@@ -139,19 +147,19 @@ async def v104_voice_check(
     if audio_base64:
         import base64
         audio_bytes = base64.b64decode(audio_base64)
-        # [Fix 4-a-015] detect() runs Whisper ASR â€” blocking CPU work.
+        # [Fix 4-a-015] detect() runs Whisper ASR Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â blocking CPU work.
         # Wrap in asyncio.to_thread so the event loop is not blocked while
-        # Whisper transcribes (DNA #9 no harm â€” slow /v104/voice/check would
+        # Whisper transcribes (DNA #9 no harm Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â slow /v104/voice/check would
         # stall all other async requests, including /health).
         result = await asyncio.to_thread(_voice_detector.detect, audio_bytes=audio_bytes)
     elif audio_url:
         # [FIX-A P0-2] Was passing audio_url as a local file path to the
-        # detector â€” failed silently AND allowed SSRF (detector may have
+        # detector Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â failed silently AND allowed SSRF (detector may have
         # fetched internally). Now: fetch via _safe_fetch_url (scheme/IP/
         # redirect/size defenses, non-blocking) then pass audio_bytes=...
         try:
             audio_bytes = await asyncio.to_thread(_safe_fetch_url, audio_url)
-            # [Fix 4-a-015] same fix â€” detect() is blocking CPU work.
+            # [Fix 4-a-015] same fix Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
             result = await asyncio.to_thread(_voice_detector.detect, audio_bytes=audio_bytes)
         except ValueError:
             logger.warning("/v104/voice/check audio_url rejected by _safe_fetch_url policy")
@@ -171,6 +179,7 @@ async def v104_voice_check(
 
 
 @router.get("/v104/cross-language/transfer", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_cross_language_transfer")
 async def v104_cross_language_transfer(target_lang: str = "all"):
     """V104: Transfer Vietnamese patterns to target language(s)."""
     if target_lang == "all":
@@ -183,6 +192,7 @@ async def v104_cross_language_transfer(target_lang: str = "all"):
 
 
 @router.get("/v104/explain", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_explain")
 async def v104_explain(
     verdict: str = "PASS",
     confidence: float = 0.8,
@@ -204,8 +214,9 @@ async def v104_explain(
 
 
 @router.post("/v104/fact-check")
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_fact_check")
 async def v104_fact_check(text: str, question: str = "", _admin: bool = Depends(verify_admin)):
-    """V104: Real-time fact check â€” extract claims + verify."""
+    """V104: Real-time fact check Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extract claims + verify."""
     results = await _fact_checker.check_text(text, question)
     return {
         "claims_found": len(results),
@@ -215,27 +226,31 @@ async def v104_fact_check(text: str, question: str = "", _admin: bool = Depends(
 
 
 @router.post("/v104/learn/ollama")
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_ollama")
 async def v104_learn_ollama(count: int = 10, _admin: bool = Depends(verify_admin)):
-    """V104.1 FIX: Trigger Ollama learning loop â€” ma tráº­n 14 quá»‘c gia Ă— 5 lÄ©nh vá»±c."""
+    """V104.1 FIX: Trigger Ollama learning loop Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c."""
     results = await _real_learning.ollama_learning_cycle(count=count)
     return results
 
 
 @router.post("/v104/learn/local")
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_local")
 async def v104_learn_local(_admin: bool = Depends(verify_admin)):
-    """V104 FIX: Trigger local file learning â€” scan data/ â†’ verify â†’ KB."""
+    """V104 FIX: Trigger local file learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â scan data/ Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verify Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ KB."""
     results = await _real_learning.local_learning_cycle()
     return results
 
 
 @router.post("/v104/learn/news")
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_news")
 async def v104_learn_news(_admin: bool = Depends(verify_admin)):
-    """V104 FIX: Trigger news learning â€” fetch RSS â†’ verify â†’ KB."""
+    """V104 FIX: Trigger news learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â fetch RSS Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verify Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ KB."""
     results = await _real_learning.news_learning_cycle()
     return results
 
 
 @router.post("/v104/learn/all")
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_all")
 async def v104_learn_all(_admin: bool = Depends(verify_admin)):
     """V104 FIX: Trigger all 3 learning loops."""
     results = await _real_learning.run_all_cycles()
@@ -243,17 +258,19 @@ async def v104_learn_all(_admin: bool = Depends(verify_admin)):
 
 
 @router.get("/v104/learn/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_learn_status")
 async def v104_learn_status():
     """V104 FIX: Status of Real Learning Engine."""
     return _real_learning.stats()
 
 
 @router.get("/v104/learn/matrix", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_learn_matrix")
 async def v104_learn_matrix():
-    """V104.1 NEW: Tráº£ vá» ma tráº­n 14 quá»‘c gia Ă— 5 lÄ©nh vá»±c = 70 combinations.
+    """V104.1 NEW: TrÄ‚Â¡Ă‚ÂºĂ‚Â£ vÄ‚Â¡Ă‚Â»Ă‚Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c = 70 combinations.
 
-    Má»—i cell = sá»‘ cĂ¢u há»i cĂ³ thá»ƒ sinh ra cho (country, domain).
-    Tá»•ng = 14 Ă— 5 = 70 cells (Ä‘a lÄ©nh vá»±c + toĂ n quá»‘c gia).
+    MÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i cell = sÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœ cĂ„â€Ă‚Â¢u hÄ‚Â¡Ă‚Â»Ă‚Âi cĂ„â€Ă‚Â³ thÄ‚Â¡Ă‚Â»Ă†â€™ sinh ra cho (country, domain).
+    TÄ‚Â¡Ă‚Â»Ă¢â‚¬Â¢ng = 14 Ă„â€Ă¢â‚¬â€ 5 = 70 cells (Ä‚â€Ă¢â‚¬Ëœa lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c + toĂ„â€Ă‚Â n quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia).
     """
     from scp.core.real_learning_engine import (
         COUNTRIES,
@@ -265,7 +282,7 @@ async def v104_learn_matrix():
     matrix = get_country_domain_matrix()
     total = get_total_combinations()
     return {
-        "matrix_size": "14 quá»‘c gia Ă— 5 lÄ©nh vá»±c = 70 cells",
+        "matrix_size": "14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c = 70 cells",
         "total_country_specific_combinations": total,
         "countries_count": len(COUNTRIES),
         "domains_count": len(DOMAINS),
@@ -276,20 +293,21 @@ async def v104_learn_matrix():
             len(hints) for hints in COUNTRY_DOMAIN_HINTS.values()
         ),
         "summary": {
-            "geography": "14 Ă— 5 = 70 (country-specific)",
-            "history": "14 Ă— 3 = 42 (country-specific)",
-            "chemistry": "14 Ă— 3 = 42 (country) + 6 Ă— 3 = 18 (compound) = 60",
-            "physics": "14 Ă— 3 = 42 (country) + 3 (generic) = 45",
-            "biology": "14 Ă— 3 = 42 (country) + 3 (generic) = 45",
+            "geography": "14 Ă„â€Ă¢â‚¬â€ 5 = 70 (country-specific)",
+            "history": "14 Ă„â€Ă¢â‚¬â€ 3 = 42 (country-specific)",
+            "chemistry": "14 Ă„â€Ă¢â‚¬â€ 3 = 42 (country) + 6 Ă„â€Ă¢â‚¬â€ 3 = 18 (compound) = 60",
+            "physics": "14 Ă„â€Ă¢â‚¬â€ 3 = 42 (country) + 3 (generic) = 45",
+            "biology": "14 Ă„â€Ă¢â‚¬â€ 3 = 42 (country) + 3 (generic) = 45",
         },
     }
 
 
 @router.post("/v104/learn/ollama-matrix")
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_ollama_matrix")
 async def v104_learn_ollama_matrix(_admin: bool = Depends(verify_admin)):
-    """V104.1 NEW: Run full matrix coverage (70 questions = 1 vĂ²ng ma tráº­n Ä‘áº§y Ä‘á»§).
+    """V104.1 NEW: Run full matrix coverage (70 questions = 1 vĂ„â€Ă‚Â²ng ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â§y Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă‚Â§).
 
-    Má»—i (country, domain) Ä‘Æ°á»£c há»i 1 láº§n â†’ Ä‘áº£m báº£o coverage 14 Ă— 5 = 70.
+    MÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i (country, domain) Ä‚â€Ă¢â‚¬ËœÄ‚â€ Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â£c hÄ‚Â¡Ă‚Â»Ă‚Âi 1 lÄ‚Â¡Ă‚ÂºĂ‚Â§n Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â£m bÄ‚Â¡Ă‚ÂºĂ‚Â£o coverage 14 Ă„â€Ă¢â‚¬â€ 5 = 70.
     """
     results = await _real_learning.ollama_learning_cycle(count=70)
     return results
@@ -300,11 +318,12 @@ async def v104_learn_ollama_matrix(_admin: bool = Depends(verify_admin)):
 # ============================================================
 
 @router.post("/v104/learn/fast")
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v1042_learn_fast")
 async def v1042_learn_fast(count: int = 50, _admin: bool = Depends(verify_admin)):
-    """V104.2 NEW: Fast learning cycle â€” parallel 10 concurrent Ollama + 5 Wiki.
+    """V104.2 NEW: Fast learning cycle Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â parallel 10 concurrent Ollama + 5 Wiki.
 
-    Default count=50. Skip cĂ¢u Ä‘Ă£ cĂ³ trong KB. Sinh cĂ¢u há»i Level-2 compounding.
-    Adaptive interval 1-30 min tĂ¹y throughput.
+    Default count=50. Skip cĂ„â€Ă‚Â¢u Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â£ cĂ„â€Ă‚Â³ trong KB. Sinh cĂ„â€Ă‚Â¢u hÄ‚Â¡Ă‚Â»Ă‚Âi Level-2 compounding.
+    Adaptive interval 1-30 min tĂ„â€Ă‚Â¹y throughput.
     Returns: asked, skipped_known, verified, stored, compounding_L2, time_ms, adaptive_mode.
     """
     if not _V1042_AVAILABLE or _fast_learning is None:
@@ -314,10 +333,11 @@ async def v1042_learn_fast(count: int = 50, _admin: bool = Depends(verify_admin)
 
 
 @router.get("/v104/learn/fast/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v1042_learn_fast_status")
 async def v1042_learn_fast_status():
     """V104.2 NEW: Fast Learning Engine stats.
 
-    Tráº£ vá»: cycles_completed, asked, skipped, verified, stored,
+    TrÄ‚Â¡Ă‚ÂºĂ‚Â£ vÄ‚Â¡Ă‚Â»Ă‚Â: cycles_completed, asked, skipped, verified, stored,
     compounding_L2/L3, avg_cycle_time_ms, fastest/slowest, adaptive_interval.
     """
     if not _V1042_AVAILABLE or _fast_learning is None:
@@ -326,8 +346,9 @@ async def v1042_learn_fast_status():
 
 
 @router.get("/v104/learn/fast/benchmark", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v1042_learn_fast_benchmark")
 async def v1042_learn_fast_benchmark():
-    """V104.2 NEW: Benchmark V104.1 tuáº§n tá»± vs V104.2 parallel.
+    """V104.2 NEW: Benchmark V104.1 tuÄ‚Â¡Ă‚ÂºĂ‚Â§n tÄ‚Â¡Ă‚Â»Ă‚Â± vs V104.2 parallel.
 
     Returns: speedup factor, sequential_ms vs parallel_ms, concurrency.
     """

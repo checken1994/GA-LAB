@@ -1,18 +1,18 @@
 """
-[Task 8-A] V102 + V103 endpoints â€” extracted from api_server.py
+[Task 8-A] V102 + V103 endpoints Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
 
-Táº I SAO: api_server.py god file. TĂ¡ch 7 routes /v102/* + /v103/* vĂ o module
-nĂ y. Backward-compatible â€” public API paths/methods unchanged.
+TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: api_server.py god file. TĂ„â€Ă‚Â¡ch 7 routes /v102/* + /v103/* vĂ„â€Ă‚Â o module
+nĂ„â€Ă‚Â y. Backward-compatible Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
 
 Routes:
-  GET  /v102/orchestrator/stats    â€” PipelineOrchestrator stats
-  GET  /v102/notifications/recent  â€” Recent user notifications
-  GET  /v103/storage/stats         â€” StorageManager stats
-  POST /v103/storage/maintain      â€” Trigger storage maintenance
-  POST /v103/gcg/test              â€” Generate GCG adversarial attacks
-  GET  /v103/attacks/crawled       â€” List crawled attacks
-  POST /v103/attacks/crawl         â€” Force crawl attacks
-  GET  /v103/status                â€” AttackCrawler + ThreatSimulator status
+  GET  /v102/orchestrator/stats    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â PipelineOrchestrator stats
+  GET  /v102/notifications/recent  Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Recent user notifications
+  GET  /v103/storage/stats         Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â StorageManager stats
+  POST /v103/storage/maintain      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Trigger storage maintenance
+  POST /v103/gcg/test              Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Generate GCG adversarial attacks
+  GET  /v103/attacks/crawled       Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â List crawled attacks
+  POST /v103/attacks/crawl         Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Force crawl attacks
+  GET  /v103/status                Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â AttackCrawler + ThreatSimulator status
 """
 from __future__ import annotations
 
@@ -28,21 +28,27 @@ from scp.api._shared import (
     verify_admin,
 )
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_V102_V103_ROUTES_LEDGER = RequestRunLedger()
+
 router = APIRouter(tags=["v102", "v103"])
 
 
 @router.get("/v102/orchestrator/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="orchestrator_stats")
 async def orchestrator_stats():
-    """PipelineOrchestrator stats â€” precision/recall/F1."""
-    # Orchestrator runs per-query â€” return last known metrics
+    """PipelineOrchestrator stats Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â precision/recall/F1."""
+    # Orchestrator runs per-query Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â return last known metrics
     judge = get_judge()
     return {
         "metrics": judge.get_v98_status(),  # placeholder
-        "message": "Orchestrator tracks per-query metrics â€” see /v100/status for module stats",
+        "message": "Orchestrator tracks per-query metrics Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â see /v100/status for module stats",
     }
 
 
 @router.get("/v102/notifications/recent", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="notifications_recent")
 async def notifications_recent(limit: int = 20):
     """Get recent user notifications."""
     from scp.runtime.notifications import NotificationConfig, UserNotificationSystem
@@ -52,14 +58,16 @@ async def notifications_recent(limit: int = 20):
 
 
 @router.get("/v103/storage/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="storage_stats")
 async def storage_stats():
-    """StorageManager stats â€” disk usage, rotation, archival."""
+    """StorageManager stats Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â disk usage, rotation, archival."""
     from scp.runtime.storage_manager import StorageManager
     sm = StorageManager(data_dir="data")
     return sm.stats()
 
 
 @router.post("/v103/storage/maintain")
+@traced_request(_V102_V103_ROUTES_LEDGER, require_write=True, action="storage_maintain")
 async def storage_maintain(_admin: bool = Depends(verify_admin)):
     """Trigger storage maintenance (rotate + vacuum + archive)."""
     from scp.runtime.storage_manager import StorageManager
@@ -79,6 +87,7 @@ async def storage_maintain(_admin: bool = Depends(verify_admin)):
 
 
 @router.post("/v103/gcg/test")
+@traced_request(_V102_V103_ROUTES_LEDGER, require_write=True, action="gcg_test")
 async def gcg_test(count: int = 10, _admin: bool = Depends(verify_admin)):
     """Generate GCG adversarial attacks."""
     from scp.security.gcg_attack import GCGAttackGenerator
@@ -94,8 +103,9 @@ async def gcg_test(count: int = 10, _admin: bool = Depends(verify_admin)):
 # V103 NEW: Attack Crawler endpoints
 # ============================================================
 @router.get("/v103/attacks/crawled", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="v103_crawled_attacks")
 async def v103_crawled_attacks(limit: int = 50):
-    """V103 NEW: List táº¥n cĂ´ng táº£i tá»« internet (GitHub + Reddit)."""
+    """V103 NEW: List tÄ‚Â¡Ă‚ÂºĂ‚Â¥n cĂ„â€Ă‚Â´ng tÄ‚Â¡Ă‚ÂºĂ‚Â£i tÄ‚Â¡Ă‚Â»Ă‚Â« internet (GitHub + Reddit)."""
     if _attack_crawler is None:
         return {"count": 0, "attacks": []}
     attacks = _attack_crawler.get_new_attacks()[:limit]
@@ -103,8 +113,9 @@ async def v103_crawled_attacks(limit: int = 50):
 
 
 @router.post("/v103/attacks/crawl")
+@traced_request(_V102_V103_ROUTES_LEDGER, require_write=True, action="v103_force_crawl")
 async def v103_force_crawl(_admin: bool = Depends(verify_admin)):
-    """V103 NEW: Force crawl táº¥n cĂ´ng má»›i ngay láº­p tá»©c. Requires auth if SCP_AUTH_PASSWORD set."""
+    """V103 NEW: Force crawl tÄ‚Â¡Ă‚ÂºĂ‚Â¥n cĂ„â€Ă‚Â´ng mÄ‚Â¡Ă‚Â»Ă¢â‚¬Âºi ngay lÄ‚Â¡Ă‚ÂºĂ‚Â­p tÄ‚Â¡Ă‚Â»Ă‚Â©c. Requires auth if SCP_AUTH_PASSWORD set."""
     if _attack_crawler is None:
         return {"error": "AttackCrawler not initialized"}
     # R9-3: crawl_all() makes HTTP requests to GitHub + HuggingFace + Reddit
@@ -118,8 +129,9 @@ async def v103_force_crawl(_admin: bool = Depends(verify_admin)):
 
 
 @router.get("/v103/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="v103_status")
 async def v103_status():
-    """V103 NEW: Status cá»§a AttackCrawler + ThreatSimulator tá»‘c Ä‘á»™."""
+    """V103 NEW: Status cÄ‚Â¡Ă‚Â»Ă‚Â§a AttackCrawler + ThreatSimulator tÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă¢â€Â¢."""
     return {
         "attack_crawler_stats": _attack_crawler.stats() if _attack_crawler else None,
         "threat_simulator_interval": os.environ.get("SCP_THREAT_SIMULATOR_INTERVAL", "10"),

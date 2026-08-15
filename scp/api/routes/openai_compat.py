@@ -1,13 +1,13 @@
 """
-[Task 8-A] OpenAI-compatible endpoints — extracted from api_server.py
+[Task 8-A] OpenAI-compatible endpoints â€” extracted from api_server.py
 
-TẠI SAO: api_server.py 2,144 LOC god file. Tách 2 routes /v1/* vào module
-này cho PyRIT/garak integration tests. Backward-compatible — public API
+Táº I SAO: api_server.py 2,144 LOC god file. TĂ¡ch 2 routes /v1/* vĂ o module
+nĂ y cho PyRIT/garak integration tests. Backward-compatible â€” public API
 paths/methods unchanged.
 
 Routes:
-  POST /v1/chat/completions   — OpenAI-compatible chat (PyRIT/garak target)
-  GET  /v1/models             — OpenAI models list
+  POST /v1/chat/completions   â€” OpenAI-compatible chat (PyRIT/garak target)
+  GET  /v1/models             â€” OpenAI models list
 """
 from __future__ import annotations
 
@@ -21,22 +21,27 @@ from fastapi.responses import JSONResponse
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
 from scp.api._shared import _extract_v98_context, get_judge, logger
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_OPENAI_COMPAT_LEDGER = RequestRunLedger()
+
 router = APIRouter(tags=["openai-compat"])
 
 
 @router.post("/v1/chat/completions")
+@traced_request(_OPENAI_COMPAT_LEDGER, require_write=False, action="openai_chat")
 async def openai_chat(request: Request):
-    """OpenAI-compatible endpoint — PyRIT/garak gọi endpoint này.
+    """OpenAI-compatible endpoint â€” PyRIT/garak gá»i endpoint nĂ y.
 
-    Extracts user message → runs V98 pipeline → returns OpenAI-format response.
+    Extracts user message â†’ runs V98 pipeline â†’ returns OpenAI-format response.
     """
     # [SCP-DNA-FIX 4-a-007] Capture _t0 at the very START of the handler.
-    # TẠI SAO: previously `elapsed_ms` was computed as
+    # Táº I SAO: previously `elapsed_ms` was computed as
     # `round((time.time() - v98_context.get("_t0", time.time())) * 1000, 1)`,
     # but `_t0` was NEVER set in v98_context (both _shared._extract_v98_context
     # and helpers._extract_v98_context omit it). The fallback `time.time()`
-    # was evaluated at the same moment as the subtraction's left operand →
-    # elapsed_ms ≈ 0 always (DNA #22: PASS≠TRUE — field present but always 0).
+    # was evaluated at the same moment as the subtraction's left operand â†’
+    # elapsed_ms â‰ˆ 0 always (DNA #22: PASSâ‰ TRUE â€” field present but always 0).
     # Operators/PyRIT could not see real latency. Fix: local `_t0` captured
     # at handler entry, used in the response builder. perf_counter() for
     # precision (monotonic, not wall-clock).
@@ -60,8 +65,8 @@ async def openai_chat(request: Request):
     v98_context = _extract_v98_context(request)
     v98_context["body"] = question
 
-    # [V104.41 #AA] TẠI SAO: was calling judge.judge() synchronously in async def
-    # → blocks event loop when SLM/API slow. PyRIT/garak parallel requests → server hang.
+    # [V104.41 #AA] Táº I SAO: was calling judge.judge() synchronously in async def
+    # â†’ blocks event loop when SLM/API slow. PyRIT/garak parallel requests â†’ server hang.
     # Fix: use asyncio.to_thread (same as /ask path).
     v = await asyncio.to_thread(
         judge.judge,
@@ -69,7 +74,7 @@ async def openai_chat(request: Request):
         v98_context=v98_context
     )
 
-    # [V104.41 #AC] TẠI SAO: DoS record_verdict never called → verdict-quality circuit dead.
+    # [V104.41 #AC] Táº I SAO: DoS record_verdict never called â†’ verdict-quality circuit dead.
     # Fix: record verdict after judge completes.
     if hasattr(judge, 'dos_protection') and judge.dos_protection:
         try:
@@ -83,10 +88,10 @@ async def openai_chat(request: Request):
     if _gov == "KILL" or v.verdict in ("FAIL", "FLAGGED"):
         answer = "I cannot comply with this request."
     elif v.verdict == "UNKNOWN" and answer:
-        answer = answer + "\n\n[SCP: unverified — confidence below threshold]"
+        answer = answer + "\n\n[SCP: unverified â€” confidence below threshold]"
 
-    # [V104.41 #AB] TẠI SAO: canary was appended to visible content → attacker sees it
-    # immediately → honeypot value destroyed. Fix: put canary in response metadata only,
+    # [V104.41 #AB] Táº I SAO: canary was appended to visible content â†’ attacker sees it
+    # immediately â†’ honeypot value destroyed. Fix: put canary in response metadata only,
     # NOT in visible content.
     canary = v.evidence.get("v98_canary_token")
 
@@ -117,6 +122,7 @@ async def openai_chat(request: Request):
 
 
 @router.get("/v1/models")
+@traced_request(_OPENAI_COMPAT_LEDGER, require_write=False, action="openai_models")
 async def openai_models():
     """OpenAI-compatible models list."""
     return {

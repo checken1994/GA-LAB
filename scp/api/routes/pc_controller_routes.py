@@ -10,6 +10,10 @@ from pydantic import BaseModel, Field
 
 from scp.pc_control.pc_controller import PCController
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_PC_CONTROLLER_ROUTES_LEDGER = RequestRunLedger()
+
 router = APIRouter(prefix="/v3/pc", tags=["v3-pc-controller"])
 _controller = PCController()
 
@@ -59,42 +63,49 @@ def _guard(request: Request, token: str | None) -> None:
 
 
 @router.get("/status")
+@traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=False, action="pc_status")
 async def pc_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return _controller.status()
 
 
 @router.post("/plan")
+@traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=False, action="pc_plan")
 async def pc_plan(payload: PlanRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return _controller.plan(payload.command, payload.capabilityLevel, payload.approved)
 
 
 @router.post("/execute")
+@traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=True, action="pc_execute")
 async def pc_execute(payload: ExecuteRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _controller.execute(payload.command, payload.capabilityLevel, payload.approved, payload.timeout)
 
 
 @router.post("/read")
+@traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=False, action="pc_read")
 async def pc_read(payload: ReadRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _controller.read_file(payload.path, payload.maxBytes)
 
 
 @router.post("/write")
+@traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=True, action="pc_write")
 async def pc_write(payload: WriteRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _controller.write_file(payload.path, payload.content, payload.capabilityLevel, payload.approved)
 
 
 @router.post("/kill")
+@traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=True, action="pc_kill")
 async def pc_kill(payload: KillRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return _controller.engage_kill_switch(payload.reason)
 
 
 @router.post("/kill/clear")
+@traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=True, action="pc_clear_kill")
 async def pc_clear_kill(payload: ClearKillRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return _controller.clear_kill_switch(payload.approved)

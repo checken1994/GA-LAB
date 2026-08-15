@@ -10,6 +10,10 @@ from scp.web_control.ai_orchestrator import AIOrchestrator
 from scp.web_control.multi_source_orchestrator import MultiSourceOrchestrator
 from scp.web_control.web_navigator import WebNavigator
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_WEB_CONTROL_ROUTES_LEDGER = RequestRunLedger()
+
 router = APIRouter(prefix="/v3", tags=["v3-web-control"])
 _navigator = WebNavigator()
 _orchestrator = AIOrchestrator(_navigator.browser)
@@ -62,24 +66,28 @@ def _guard(request: Request, token: str | None) -> None:
 
 
 @router.get("/web/status")
+@traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=False, action="web_status")
 async def web_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return {"navigator": await _navigator.status(), "orchestrator": await _orchestrator.status()}
 
 
 @router.post("/web/search")
+@traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=False, action="search_web")
 async def search_web(request_payload: SearchRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _navigator.search_public(request_payload.query, request_payload.maxResults)
 
 
 @router.post("/web/browse")
+@traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=True, action="browse")
 async def browse(request_payload: BrowseRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _navigator.browse(request_payload.url, request_payload.useLoggedInBrowser)
 
 
 @router.post("/ai/ask-resilient")
+@traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=True, action="ask_resilient")
 async def ask_resilient(request_payload: ResilientAskRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     if request_payload.useBrowser and not request_payload.approved:
@@ -94,6 +102,7 @@ async def ask_resilient(request_payload: ResilientAskRequest, request: Request, 
 
 
 @router.post("/ai/ask")
+@traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=True, action="ask_ai")
 async def ask_ai(request_payload: AskAIRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     if request_payload.useBrowser and not request_payload.approved:
@@ -102,6 +111,7 @@ async def ask_ai(request_payload: AskAIRequest, request: Request, x_scp_pc_token
 
 
 @router.post("/ai/cross-verify")
+@traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=False, action="cross_verify")
 async def cross_verify(request_payload: CrossVerifyRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     if not request_payload.approved:

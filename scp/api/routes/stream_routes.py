@@ -1,9 +1,9 @@
 """
-SCP V105 — Streaming /ask endpoint (real-time response)
+SCP V105 â€” Streaming /ask endpoint (real-time response)
 
-DEAD ROUTE — not registered in api_server.py. This router is defined but
+DEAD ROUTE â€” not registered in api_server.py. This router is defined but
 NOT wired (no `app.include_router(stream_router)` call). The 1 route
-below (`POST /v105/ask/stream`) is unreachable at runtime — calling it
+below (`POST /v105/ask/stream`) is unreachable at runtime â€” calling it
 through the gateway returns 404.
 
 This is INTENTIONAL (per Subagent A SA-R9-6 + Subagent G GATEWAY.md +
@@ -11,8 +11,8 @@ Subagent J Task 14.B). The router is retained as WIP for future rounds
 that may want to wire it. See `scp/api/routes/README.md` for the full
 list of dead routers + how to activate them.
 
-[COMPLETION-FIX] Thêm streaming response cho /ask:
-- POST /v105/ask/stream — streaming verdict (real-time)
+[COMPLETION-FIX] ThĂªm streaming response cho /ask:
+- POST /v105/ask/stream â€” streaming verdict (real-time)
 
 To activate:
     # In scp/api_server.py (around line 540, where other v105 routers are
@@ -32,6 +32,10 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger("scp.api.stream")
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_STREAM_ROUTES_LEDGER = RequestRunLedger()
+
 router = APIRouter(tags=["stream"])
 
 
@@ -41,8 +45,9 @@ class StreamAskRequest(BaseModel):
 
 
 @router.post("/v105/ask/stream")
+@traced_request(_STREAM_ROUTES_LEDGER, require_write=False, action="ask_stream")
 async def ask_stream(req: StreamAskRequest):
-    """Streaming /ask — trả verdict từng bước real-time."""
+    """Streaming /ask â€” tráº£ verdict tá»«ng bÆ°á»›c real-time."""
 
     async def generate():
         try:

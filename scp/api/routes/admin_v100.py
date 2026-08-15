@@ -1,19 +1,19 @@
 """
-[Task 7-A] V100 Knowledge endpoints â€” extracted from api_server.py
+[Task 7-A] V100 Knowledge endpoints Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
 
-Táº I SAO: api_server.py 2,285 LOC god file. TĂ¡ch 9 routes /v100/* vĂ o module
-nĂ y. Backward-compatible â€” public API paths/methods unchanged.
+TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: api_server.py 2,285 LOC god file. TĂ„â€Ă‚Â¡ch 9 routes /v100/* vĂ„â€Ă‚Â o module
+nĂ„â€Ă‚Â y. Backward-compatible Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
 
 Routes:
-  GET  /v100/status               â€” V100 knowledge + timing modules status
-  POST /v100/crawl                â€” Trigger scheduled data crawl
-  GET  /v100/antibodies/stats     â€” DomainAntibodySystem stats
-  POST /v100/antibodies/check     â€” Run antibodies on a question + answer
-  GET  /v100/knowledge/stats      â€” DomainKnowledgeStore stats
-  GET  /v100/knowledge/search     â€” Search knowledge base
-  GET  /v100/h8/stats             â€” H8 RedTeamBridge stats
-  GET  /v100/h8/bypasses          â€” Get recent bypasses
-  GET  /v100/h8/analyses          â€” Get recent bypass analyses
+  GET  /v100/status               Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â V100 knowledge + timing modules status
+  POST /v100/crawl                Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Trigger scheduled data crawl
+  GET  /v100/antibodies/stats     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â DomainAntibodySystem stats
+  POST /v100/antibodies/check     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Run antibodies on a question + answer
+  GET  /v100/knowledge/stats      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â DomainKnowledgeStore stats
+  GET  /v100/knowledge/search     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Search knowledge base
+  GET  /v100/h8/stats             Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â H8 RedTeamBridge stats
+  GET  /v100/h8/bypasses          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Get recent bypasses
+  GET  /v100/h8/analyses          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Get recent bypass analyses
 """
 from __future__ import annotations
 
@@ -25,10 +25,15 @@ from scp.api._shared import (
     verify_admin,
 )
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
+
+_ADMIN_V100_LEDGER = RequestRunLedger()
+
 router = APIRouter(tags=["v100"])
 
 
 @router.get("/v100/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="v100_status")
 async def v100_status():
     """V100 knowledge + timing modules status."""
     judge = get_judge()
@@ -40,6 +45,7 @@ async def v100_status():
 
 
 @router.post("/v100/crawl")
+@traced_request(_ADMIN_V100_LEDGER, require_write=True, action="v100_crawl")
 async def v100_crawl(max_per_domain: int = 3, _admin: bool = Depends(verify_admin)):
     """Trigger scheduled data crawl."""
     judge = get_judge()
@@ -48,9 +54,10 @@ async def v100_crawl(max_per_domain: int = 3, _admin: bool = Depends(verify_admi
 
 
 @router.get("/v100/antibodies/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="antibody_stats")
 async def antibody_stats():
     """DomainAntibodySystem stats."""
-    # Antibodies run inline, not stored as instance â€” return static stats
+    # Antibodies run inline, not stored as instance Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â return static stats
     return {
         "total_antibodies": 38,
         "domains": ["medical", "finance", "legal", "security", "environment", "tech", "general"],
@@ -59,6 +66,7 @@ async def antibody_stats():
 
 
 @router.post("/v100/antibodies/check")
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="antibody_check")
 async def antibody_check(request: Request, _admin: bool = Depends(verify_admin)):
     """Run antibodies on a question + answer."""
     from scp.knowledge.antibody_system import DomainAntibodySystem
@@ -76,6 +84,7 @@ async def antibody_check(request: Request, _admin: bool = Depends(verify_admin))
 
 
 @router.get("/v100/knowledge/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="knowledge_stats")
 async def knowledge_stats():
     """DomainKnowledgeStore stats."""
     judge = get_judge()
@@ -85,6 +94,7 @@ async def knowledge_stats():
 
 
 @router.get("/v100/knowledge/search", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="knowledge_search")
 async def knowledge_search(q: str = "", domain: str = "", limit: int = 5):
     """Search knowledge base."""
     judge = get_judge()
@@ -109,6 +119,7 @@ async def knowledge_search(q: str = "", domain: str = "", limit: int = 5):
 
 
 @router.get("/v100/h8/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="h8_stats")
 async def h8_stats():
     """H8 RedTeamBridge stats."""
     judge = get_judge()
@@ -118,6 +129,7 @@ async def h8_stats():
 
 
 @router.get("/v100/h8/bypasses", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="h8_bypasses")
 async def h8_bypasses(limit: int = 20):
     """Get recent bypasses detected by H8."""
     judge = get_judge()
@@ -127,8 +139,9 @@ async def h8_bypasses(limit: int = 20):
 
 
 @router.get("/v100/h8/analyses", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="h8_analyses")
 async def h8_analyses(limit: int = 20):
-    """Get recent bypass analyses (chiá»u 2 â€” 'táº¡i sao fail?')."""
+    """Get recent bypass analyses (chiÄ‚Â¡Ă‚Â»Ă‚Âu 2 Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â 'tÄ‚Â¡Ă‚ÂºĂ‚Â¡i sao fail?')."""
     judge = get_judge()
     if not judge.h8_redteam:
         raise HTTPException(status_code=503, detail="H8RedTeamBridge not available")

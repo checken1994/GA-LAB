@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 from scp.forecast import (
     ForecastContractError,
@@ -39,10 +40,10 @@ def _write_registry(path, *, valid_manifest: bool = True):
     path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
 
+_FORECAST_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "forecast" / "scp_reality_program_v4_pure_prospective_1.json"
+
 def test_current_v4_registry_is_loaded_as_unverified_anchor():
-    registry = ForecastRegistry.load(
-        "/home/ubuntu/scp-audit/origin-repos/PhanQuyetTuongLai/scp_reality_program_v4_pure_prospective (1).json"
-    )
+    registry = ForecastRegistry.load(_FORECAST_FIXTURE)
     assert registry.snapshot.case_count == 210
     assert registry.snapshot.manifest_status == "MISMATCH"
     assert all(case["outcome_code"] == 9 for case in registry.cases)
