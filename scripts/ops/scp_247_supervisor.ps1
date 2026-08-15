@@ -126,13 +126,10 @@ $safeEnvText = @(
     'SCP_AUTOFIX_MODE=apply',
     'SCP_MAX_AUDIT_BUGS=5',
     'SCP_AUTOFIX_DETERMINISTIC_ONLY=1',
-    # Explicit terminal/disabled boundaries for subsystems that must never
-    # silently enable themselves in a child process.
     'SCP_EVOLUTION_AUTO=0',
     'SCP_EVOLUTION_ENABLED=0',
     'SCP_WHY_LLM_ENABLED=0',
     'SCP_SUBSYSTEM_TELEMETRY_ENABLED=1',
-    # Provider/verifier stalls must become a terminal TIMEOUT ledger row.
     'SCP_FAST_LEARNING_CYCLE_TIMEOUT_SECONDS=300'
 ) -join [Environment]::NewLine
 $safeEnvTmp = "$SafeChildEnvFile.tmp"
@@ -340,7 +337,7 @@ try {
                 Write-Ledger -Event 'DRYRUN_START' -Service $Service.Name -Reason 'start_would_be_requested'
                 return [pscustomobject]@{ Id = 0; Name = $Service.Name; StartedAt = [DateTime]::UtcNow }
             }
-            $process = Start-Process -FilePath $Service.File -ArgumentList $Service.Args -WorkingDirectory $Service.Dir -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+            $process = Start-Process -FilePath $Service.File -ArgumentList $Service.Args -WorkingDirectory $Service.Dir -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
             try {
                 Add-ScpProcessToJob -ChildProcessId $process.Id
             } catch {
@@ -348,7 +345,7 @@ try {
                 throw
             }
             Write-Ledger -Event 'START' -Service $Service.Name -Reason 'supervisor_start' -Extra @{ child_pid = $process.Id; port = $Service.Port; contained_by_job = (-not $DryRun) }
-            return [pscustomobject]@{ Id = $process.Id; Name = $Service.Name; StartedAt = [DateTime]::UtcNow }
+            return [pscustomobject]@{ Id = $process.Id; Name = $Service.Name; Process = $process; StdoutStream = $null; StderrStream = $null; StdoutCopyTask = $null; StderrCopyTask = $null; StartedAt = [DateTime]::UtcNow }
         } finally {
             $env:LOOP_LOG_PATH = $oldLoopLog
             $env:SCP_BASE_URL = $oldScpBaseUrl
@@ -384,6 +381,13 @@ try {
         param([object]$Runtime, [string]$Reason)
         if ($null -eq $Runtime -or $Runtime.Id -le 0 -or $DryRun) { return }
         & taskkill.exe /PID $Runtime.Id /T /F *> $null
+        if ($null -ne $Runtime.Process) { try { $Runtime.Process.WaitForExit(2000) } catch {} }
+        foreach ($task in @($Runtime.StdoutCopyTask, $Runtime.StderrCopyTask)) {
+            if ($null -ne $task) { try { $task.Wait(2000) } catch {} }
+        }
+        foreach ($stream in @($Runtime.StdoutStream, $Runtime.StderrStream)) {
+            if ($null -ne $stream) { try { $stream.Dispose() } catch {} }
+        }
         Write-Ledger -Event 'STOP' -Service $Runtime.Name -Reason $Reason -Extra @{ child_pid = $Runtime.Id }
     }
 
