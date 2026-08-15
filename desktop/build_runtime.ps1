@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$SourceDir,
-    [string]$OutputDir = (Join-Path $PSScriptRoot 'runtime')
+    [string]$OutputDir = (Join-Path $PSScriptRoot 'runtime'),
+    [string]$DashboardDir = ''
 )
 
 Set-StrictMode -Version Latest
@@ -16,6 +17,11 @@ $required = @(
 )
 
 $source = (Resolve-Path $SourceDir).Path
+if (-not $DashboardDir) { $DashboardDir = Join-Path $source 'dashboard' }
+$dashboard = (Resolve-Path $DashboardDir -ErrorAction Stop).Path
+if (-not (Test-Path -LiteralPath (Join-Path $dashboard 'server.js') -PathType Leaf)) {
+    throw "Dashboard standalone server.js missing: $dashboard"
+}
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 foreach ($name in $required) {
@@ -25,6 +31,10 @@ foreach ($name in $required) {
     }
     Copy-Item -LiteralPath $candidate -Destination (Join-Path $OutputDir $name) -Force
 }
+
+$dashboardOutput = Join-Path $OutputDir 'dashboard'
+if (Test-Path -LiteralPath $dashboardOutput) { Remove-Item -LiteralPath $dashboardOutput -Recurse -Force }
+Copy-Item -LiteralPath $dashboard -Destination $dashboardOutput -Recurse -Force
 
 # Never copy live runtime data, production .env files, source Python, or node_modules.
 Get-ChildItem -LiteralPath $OutputDir -Force -ErrorAction SilentlyContinue |
@@ -52,6 +62,8 @@ $manifest = [ordered]@{
     production_env_copied = $false
     live_data_copied = $false
     source_python_copied = $false
+    dashboard_copied = $true
+    dashboard_server = 'dashboard/server.js'
 }
 $manifestPath = Join-Path $OutputDir 'runtime-build-manifest.json'
 $tmp = "$manifestPath.tmp"
