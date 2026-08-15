@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from scp.core.request_run_ledger import RequestRunLedger
+from scp.core.agent_autofix_adapter import AutoFixAdapter
 from scp.hands.goal_parser import GoalParser
 from scp.hands.hands_executor import HandsExecutor
 from scp.hands.planner import HandsPlanner
@@ -40,6 +41,7 @@ class AgentOrchestrator:
         self.planner = planner or HandsPlanner(self.executor)
         self.goal_parser = goal_parser or GoalParser(self.planner)
         self.ledger = ledger or RequestRunLedger()
+        self.autofix = AutoFixAdapter(ledger=self.ledger)
         raw_path = str(state_path or os.environ.get("SCP_AGENT_RUN_STATE_PATH", "data/agent_runs.jsonl"))
         self.state_path = Path(raw_path)
         if not self.state_path.is_absolute():
@@ -242,6 +244,15 @@ class AgentOrchestrator:
         if not plan or self._plan_hash(plan) != str(approval.get("planHash", "")):
             return {"success": False, "status": "APPROVAL_PLAN_CHANGED", "agent_run_id": agent_run_id, "plan_id": plan_id}
         return await self.run(plan_id=plan_id, execute=True, capability_level=capability_level, approved=True, parent_trace_id=parent_trace_id or state.get("trace_id"), agent_run_id=agent_run_id)
+
+    async def autofix_propose(self, payload: dict[str, Any], *, parent_trace_id: str | None = None) -> dict[str, Any]:
+        return await self.autofix.propose(payload, parent_trace_id=parent_trace_id)
+
+    async def autofix_apply(self, proposal_id: str, payload: dict[str, Any], *, parent_trace_id: str | None = None) -> dict[str, Any]:
+        return await self.autofix.apply(proposal_id, payload, parent_trace_id=parent_trace_id)
+
+    async def autofix_resume(self, proposal_id: str, permission_request_id: str, *, parent_trace_id: str | None = None) -> dict[str, Any]:
+        return await self.autofix.resume(proposal_id, permission_request_id, parent_trace_id=parent_trace_id)
 
     def status(self, limit: int = 20) -> dict[str, Any]:
         rows: list[dict[str, Any]] = []

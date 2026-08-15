@@ -41,6 +41,25 @@ class AgentResumeRequest(BaseModel):
     parentTraceId: str | None = Field(default=None, max_length=120)
 
 
+class AutoFixPayload(BaseModel):
+    file: str = Field(min_length=1, max_length=500)
+    line: int = Field(default=0, ge=0, le=1_000_000)
+    bugType: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=2000)
+    suggestedFix: str = Field(default="", max_length=20000)
+
+
+class AutoFixApplyRequest(AutoFixPayload):
+    proposalId: str = Field(min_length=8, max_length=120)
+    parentTraceId: str | None = Field(default=None, max_length=120)
+
+
+class AutoFixResumeRequest(BaseModel):
+    proposalId: str = Field(min_length=8, max_length=120)
+    permissionRequestId: str = Field(min_length=8, max_length=160)
+    parentTraceId: str | None = Field(default=None, max_length=120)
+
+
 def _guard(request: Request, token: str | None) -> None:
     host = request.client.host if request.client else ""
     local_only = os.environ.get("SCP_AGENT_LOCAL_ONLY", "1") == "1"
@@ -98,6 +117,34 @@ async def agent_resume(payload: AgentResumeRequest, request: Request, x_scp_pc_t
         payload.agentRunId,
         payload.approvalId,
         capability_level=payload.capabilityLevel,
+        parent_trace_id=_parent_trace(request, payload.parentTraceId),
+    )
+
+
+@router.post("/autofix/propose")
+@traced_request(_AGENT_LEDGER, require_write=False, action="agent_autofix_propose")
+async def agent_autofix_propose(payload: AutoFixPayload, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+    _guard(request, x_scp_pc_token)
+    return await _AGENT.autofix_propose(payload.model_dump(), parent_trace_id=_parent_trace(request, None))
+
+
+@router.post("/autofix/apply")
+@traced_request(_AGENT_LEDGER, require_write=True, action="agent_autofix_apply")
+async def agent_autofix_apply(payload: AutoFixApplyRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+    _guard(request, x_scp_pc_token)
+    data = payload.model_dump()
+    proposal_id = str(data.pop("proposalId"))
+    parent_trace_id = str(data.pop("parentTraceId", "") or "") or _parent_trace(request, None)
+    return await _AGENT.autofix_apply(proposal_id, data, parent_trace_id=parent_trace_id)
+
+
+@router.post("/autofix/resume")
+@traced_request(_AGENT_LEDGER, require_write=True, action="agent_autofix_resume")
+async def agent_autofix_resume(payload: AutoFixResumeRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+    _guard(request, x_scp_pc_token)
+    return await _AGENT.autofix_resume(
+        payload.proposalId,
+        payload.permissionRequestId,
         parent_trace_id=_parent_trace(request, payload.parentTraceId),
     )
 

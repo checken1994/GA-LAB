@@ -2140,11 +2140,25 @@ class AutoFixEngine:
                     f"[R10 v3 IMP-17] auto_rollback wire crash (fail-open): {_v4_ar_err}"
                 )
 
+            # [SCP-DNA-FIX] Surface the evidence already computed above.
+            # Before this return, Tier 1/2 deterministic fixes were reported as
+            # `fixed` but callers received no hashes, rollback token or reality
+            # result. That made an external orchestrator unable to distinguish
+            # a real reversible fix from an incomplete claim (DNA #22).
+            # Prefer the exact registry token created for the regression watcher;
+            # fall back to the audit backup token only when registration failed.
+            _result_rollback_token = locals().get("_v4_watch_token") or locals().get("_main_token", "n/a")
+            _result_rollback_registered = bool(locals().get("_v4_watch_token"))
             return {
                 "action": "fixed",
                 "tier": int(bug.tier),
                 "patched": patched,
                 "attack_mode": attack_mode,
+                "before_hash": locals().get("_main_bh", "n/a"),
+                "after_hash": locals().get("_main_ah", "n/a"),
+                "rollback_token": _result_rollback_token,
+                "rollback_registered": _result_rollback_registered,
+                "reality_test_result": locals().get("_main_rtr", "skipped"),
             }
 
         except Exception as e:
