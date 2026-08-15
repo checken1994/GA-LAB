@@ -56,7 +56,7 @@ class ExternalTrustRoot:
         "tests/external_audit/test_security.py",
         "tests/external_audit/conftest.py",
         ".github/workflows/",  # CI/CD
-        "scp/meta/constitution.py",  # Constitution
+        "meta/constitution.py",  # Constitution
     ]
 
     # [SCP-DNA-FIX 4-b-003] Approval is now granted ONLY by the strict
@@ -73,6 +73,21 @@ class ExternalTrustRoot:
         self.project_root = Path(project_root)
         self._baseline_hashes: dict[str, str] = {}
 
+    def _resolve_expected_path(self, expected: str) -> Path:
+        """Resolve an anchor from either the repository root or the scp package root.
+
+        The desktop starts from the repository root, while some maintenance commands
+        start inside ``scp``. The old code assumed one current working directory and
+        produced a false warning even when the anchors existed.
+        """
+        direct = self.project_root / expected
+        if direct.exists():
+            return direct
+        package_relative = self.project_root / "scp" / expected
+        if package_relative.exists():
+            return package_relative
+        return direct
+
     def verify_external(self) -> dict:
         """Verify all external trust roots exist + intact.
 
@@ -84,7 +99,7 @@ class ExternalTrustRoot:
         checks = []
         missing = []
         for expected in self.EXPECTED_FILES:
-            path = self.project_root / expected
+            path = self._resolve_expected_path(expected)
             exists = path.exists()
             checks.append({
                 "file": expected,
@@ -99,7 +114,7 @@ class ExternalTrustRoot:
         # forgeable by SCP itself (auto-added copyright notice passed).
         # Now: requires `# HUMAN_APPROVED_BY: <name> <YYYY-MM-DD>` as the
         # FIRST non-empty/non-shebang line. Substring matches NOT accepted.
-        constitution_path = self.project_root / "scp/meta/constitution.py"
+        constitution_path = self._resolve_expected_path("meta/constitution.py")
         constitution_approved = False
         if constitution_path.exists():
             content = constitution_path.read_text()
