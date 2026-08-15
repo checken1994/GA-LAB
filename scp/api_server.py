@@ -1657,3 +1657,14 @@ try:
 except ImportError as e:
     logger.warning(f"[SCP Hands v3.2] Hands router unavailable: {e}")
     _HANDS_AVAILABLE = False
+
+# SCP Agent Orchestrator: proposal-only planning, bounded tool execution and
+# approval resume. The router is local-only by default and does not replace the
+# legacy chat/judge path until its reality contract is verified.
+try:
+    from scp.api.routes.agent_routes import router as agent_router
+    app.include_router(agent_router)
+    _AGENT_ORCHESTRATOR_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"[SCP Agent] Agent orchestrator router unavailable: {e}")
+    _AGENT_ORCHESTRATOR_AVAILABLE = False
