@@ -230,7 +230,10 @@ class EscalationManager:
         # needed under the escalation lock here, so call log_action directly
         # without acquiring `lock`. Pre-fix: `with lock: self.log_action(...)`
         # held the lock during disk write for no reason.
-        self.log_action(f"Timeout occurred for threat: {threat}, executing default defensive playbook", "timeout_occurred")
+        self.log_action(
+            f"Timeout occurred for threat: {threat}, evaluating defensive playbook",
+            "timeout_occurred",
+        )
         self.execute_defensive_playbook(threat)
 
     def execute_defensive_playbook(self, threat: dict):
@@ -242,6 +245,11 @@ class EscalationManager:
         with a WARNING log. Previously the entire playbooks.py module was
         dead-imported so the guardrail was unenforced.
         """
+        # Only forensic logging is implemented in this module today. The
+        # other names are policy intents, not real OS/network controls. DNA #22:
+        # never record a skipped action as if it had been enforced.
+        implemented_actions = {"forensic_logging"}
+        results = []
         for action, enabled in DEFAULT_DEFENSIVE_PLAYBOOK.items():
             if not enabled:
                 continue
@@ -253,23 +261,33 @@ class EscalationManager:
                         f"'{action}' for threat {self._threat_id(threat)} "
                         f"skipping (FORBIDDEN_ACTIONS={sorted(FORBIDDEN_ACTIONS)})"
                     )
-                    # [SCP-DNA-FIX 4-b-018] log_action does file I/O — must NOT
-                    # happen inside `with lock:`. There is no state mutation
-                    # here, so just call log_action directly (no lock acquired).
                     self.log_action(
                         f"GUARDRAIL refused forbidden action: {action}",
                         "guardrail_refused",
                     )
+                    results.append({"action": action, "status": "GUARDRAIL_REFUSED"})
                     continue
             except Exception as guard_err:
                 # If the guardrail itself fails, fail-safe (skip the action).
                 logger.warning(f"[escalation] guardrail check error for '{action}': {guard_err} — skipping")
+                results.append({"action": action, "status": "GUARDRAIL_ERROR"})
                 continue
-            # Implement the logic for each action here
-            # For demonstration purposes, just log the action.
-            # [SCP-DNA-FIX 4-b-018] log_action (file I/O) OUTSIDE the
-            # escalation lock — pre-fix held the lock during disk write.
-            self.log_action(f"Executing {action} for threat: {threat}", action)
+            if action not in implemented_actions:
+                message = (
+                    f"DEFENSIVE_ACTION_NOT_IMPLEMENTED: {action} for threat "
+                    f"{self._threat_id(threat)}; no OS/network enforcement performed"
+                )
+                logger.warning("[escalation] %s", message)
+                self.log_action(message, "action_not_implemented")
+                results.append({"action": action, "status": "SKIPPED_NOT_IMPLEMENTED"})
+                continue
+            self.log_action(f"Forensic logging recorded for threat: {threat}", action)
+            results.append({"action": action, "status": "RECORDED"})
+        return {
+            "threat_id": self._threat_id(threat),
+            "enforcement_performed": False,
+            "actions": results,
+        }
 
     def log_action(self, message: str, why: str):
         """Write a log entry to disk.
