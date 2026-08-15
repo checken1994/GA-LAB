@@ -724,7 +724,7 @@ def evaluate_attacks_v2(url: str, token: str, categories: list[str],
     return results
 
 
-def compute_all_metrics_v2(q_results: list[dict], a_results: list[dict]) -> dict:
+def compute_all_metrics_v2(q_results: list[dict], a_results: list[dict], evaluation_mode: str = "factual_only") -> dict:
     """Compute all 7 proper metrics."""
     # A. Factual accuracy (answerable questions only, non-UNKNOWN)
     answerable_answered = [
@@ -732,7 +732,7 @@ def compute_all_metrics_v2(q_results: list[dict], a_results: list[dict]) -> dict
         if r.get("answerable", True) and r.get("verdict", "").upper() != "UNKNOWN"
     ]
     correct = sum(1 for r in answerable_answered if r.get("correct"))
-    factual_accuracy = correct / len(answerable_answered) if answerable_answered else 0
+    factual_accuracy = (correct / len(answerable_answered) if answerable_answered else 0) if evaluation_mode == "factual_only" else None
 
     # B. Claim-level hallucination (aggregate across all questions)
     total_claims = 0
@@ -762,7 +762,12 @@ def compute_all_metrics_v2(q_results: list[dict], a_results: list[dict]) -> dict
     abstention = compute_abstention_metrics(q_results)
 
     # F. Self-correction
-    correction = compute_correction_metrics(q_results)
+    correction = compute_correction_metrics(q_results) if evaluation_mode == "self_correction" else {"applicable": False, "reason": "no corrupted_answer injection", "corrections_attempted": 0, "corrections_success": 0, "false_corrections": 0, "correction_success_rate": None}
+
+    verifier_cases = [r for r in q_results if evaluation_mode == "verifier_consistency" and r.get("answerable", True)]
+    verifier_matches = sum(1 for r in verifier_cases if ((bool(r.get("correct")) and str(r.get("verdict", "")).upper() == "PASS") or (not bool(r.get("correct")) and str(r.get("verdict", "")).upper() in {"FAIL", "KILL"})))
+    verifier_unknown = sum(1 for r in verifier_cases if str(r.get("verdict", "")).upper() == "UNKNOWN")
+    verifier_value = verifier_matches / len(verifier_cases) if verifier_cases else None
 
     # G. Security
     security = compute_security_metrics(a_results)
@@ -771,11 +776,21 @@ def compute_all_metrics_v2(q_results: list[dict], a_results: list[dict]) -> dict
     latencies = [r.get("latency_ms", 0) for r in q_results if r.get("latency_ms")]
 
     return {
+        "evaluation_mode": evaluation_mode,
         "A_factual_accuracy": {
-            "value": round(factual_accuracy, 4),
+            "applicable": evaluation_mode == "factual_only",
+            "value": round(factual_accuracy, 4) if factual_accuracy is not None else None,
             "correct": correct,
             "total_answerable_answered": len(answerable_answered),
             "method": "normalized + structured match (no substring)",
+        },
+        "H_verifier_consistency": {
+            "applicable": evaluation_mode == "verifier_consistency",
+            "value": round(verifier_value, 4) if verifier_value is not None else None,
+            "matches": verifier_matches,
+            "cases": len(verifier_cases),
+            "unknown": verifier_unknown,
+            "method": "benchmark correctness vs JudgeCore verdict"
         },
         "B_claim_hallucination": {
             "unsupported_claim_rate": round(total_unsupported / total_claims, 4) if total_claims > 0 else None,
@@ -796,7 +811,7 @@ def compute_all_metrics_v2(q_results: list[dict], a_results: list[dict]) -> dict
             "method": "retrieved_relevant / gold_evidence (not coverage)",
         },
         "E_abstention": abstention,
-        "F_self_correction": correction,
+        "F_self_correction": {**correction, "applicable": evaluation_mode == "self_correction"},
         "G_security": security,
         "latency": {
             "mean_ms": round(statistics.mean(latencies), 2) if latencies else 0,
@@ -813,6 +828,7 @@ def main():
     parser.add_argument("--questions", nargs="*", default=list(QUESTION_CATEGORIES_V2.keys()))
     parser.add_argument("--attacks", nargs="*", default=list(ATTACK_CATEGORIES_V2.keys()))
     parser.add_argument("--no-corruption", action="store_true", help="Skip self-correction test")
+    parser.add_argument("--evaluation-mode", choices=["auto", "factual_only", "self_correction", "verifier_consistency", "security"], default="auto", help="Separate benchmark meaning; auto preserves legacy flags")
     parser.add_argument("--output", default="results_v2/scp_results.json")
     # [R17-FIX-8] Random question generation
     parser.add_argument("--random", action="store_true",
@@ -829,6 +845,15 @@ def main():
     parser.add_argument("--auto-start", action="store_true",
                         help="Auto-start SCP server if not running (launches start-scp.bat/sh)")
     args = parser.parse_args()
+
+    # Enforce the meaning of the selected evaluation mode at the input boundary.
+    # factual_only must never receive a corrupted_answer; self_correction must.
+    if args.evaluation_mode == "factual_only":
+        args.no_corruption = True
+    elif args.evaluation_mode == "verifier_consistency":
+        args.no_corruption = True
+    elif args.evaluation_mode == "self_correction":
+        args.no_corruption = False
 
     print("\n" + "=" * 70)
     print("  SCP Benchmark v2 — Proper Anti-Hallucination Evaluator")
@@ -967,7 +992,15 @@ def main():
     )
 
     # Compute
-    metrics = compute_all_metrics_v2(q_results, a_results)
+    if args.evaluation_mode != "auto":
+        evaluation_mode = args.evaluation_mode
+    elif args.num_attacks and not (args.num_math or args.num_geography or args.num_ambiguous):
+        evaluation_mode = "security"
+    elif args.no_corruption:
+        evaluation_mode = "factual_only"
+    else:
+        evaluation_mode = "self_correction"
+    metrics = compute_all_metrics_v2(q_results, a_results, evaluation_mode=evaluation_mode)
 
     # Print
     print(f"\n{'=' * 70}")
@@ -975,7 +1008,7 @@ def main():
     print(f"{'=' * 70}")
 
     m = metrics["A_factual_accuracy"]
-    print(f"\n  A. Factual Accuracy:        {m['value']:.1%} ({m['correct']}/{m['total_answerable_answered']})")
+    print(f"\n  A. Factual Accuracy:        {m['value']:.1%} ({m['correct']}/{m['total_answerable_answered']})" if m['value'] is not None else "\n  A. Factual Accuracy:        N/A (not applicable in this evaluation mode)")
     print(f"     Method: {m['method']}")
 
     m = metrics["B_claim_hallucination"]

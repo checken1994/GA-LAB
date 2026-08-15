@@ -1,24 +1,24 @@
 """
-SCP V105 — Prediction endpoints (Reality v4)
+SCP V105 â€” Prediction endpoints (Reality v4)
 
-Live — admin auth required (Fix 4-a-003). Router IS registered in
+Live â€” admin auth required (Fix 4-a-003). Router IS registered in
 api_server.py (around line 589-611) via `app.include_router(prediction_router)`.
 The 5 routes below (`/v105/predictions/run-cycle`,
 `/v105/predictions/pending`, `/v105/predictions/all`,
 `/v105/predictions/verify`, `/v105/predictions/stats`) are LIVE and
 require `Depends(verify_admin)` because `run-cycle` + `verify` are
-state-changing POST endpoints that trigger the Crawl → Generate →
-Predict → Verify → Learn pipeline (CPU/IO expensive — DoS amplifier
+state-changing POST endpoints that trigger the Crawl â†’ Generate â†’
+Predict â†’ Verify â†’ Learn pipeline (CPU/IO expensive â€” DoS amplifier
 if unauthenticated). It imports `from scp.api_server import
 _predictive_engine`, so the engine singleton must be initialised first
-— see `_predictive_engine` initialisation in api_server.py.
+â€” see `_predictive_engine` initialisation in api_server.py.
 
-[COMPLETION-FIX] Wire PredictiveOrchestrator vào API:
-- POST /v105/predictions/run-cycle — chạy 1 prediction cycle
-- GET  /v105/predictions/pending — list pending predictions
-- GET  /v105/predictions/all — list all predictions
-- POST /v105/predictions/verify — verify pending predictions
-- GET  /v105/predictions/stats — prediction statistics
+[COMPLETION-FIX] Wire PredictiveOrchestrator vĂ o API:
+- POST /v105/predictions/run-cycle â€” cháº¡y 1 prediction cycle
+- GET  /v105/predictions/pending â€” list pending predictions
+- GET  /v105/predictions/all â€” list all predictions
+- POST /v105/predictions/verify â€” verify pending predictions
+- GET  /v105/predictions/stats â€” prediction statistics
 """
 from __future__ import annotations
 
@@ -48,19 +48,19 @@ def _get_engine():
 
 @router.post("/run-cycle", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth (state-changing)
 async def run_prediction_cycle():
-    """Chạy 1 cycle: Crawl → Generate → Predict → Verify → Learn."""
+    """Cháº¡y 1 cycle: Crawl â†’ Generate â†’ Predict â†’ Verify â†’ Learn."""
     engine = _get_engine()
     try:
         result = engine.run_cycle()
         return {"status": "ok", "cycle": result}
     except Exception as e:
         logger.error(f"Prediction cycle failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Prediction cycle failed — see server logs") from e
+        raise HTTPException(status_code=500, detail="Prediction cycle failed â€” see server logs") from e
 
 
 @router.get("/pending", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
 async def get_pending_predictions(limit: int = 20):
-    """List pending predictions (chưa verify)."""
+    """List pending predictions (chÆ°a verify)."""
     engine = _get_engine()
     preds = engine.predictor.get_pending_predictions()
     return {"pending": preds[:limit], "total": len(preds)}
@@ -76,14 +76,14 @@ async def get_all_predictions(limit: int = 100):
 
 @router.post("/verify", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth (state-changing)
 async def verify_predictions(req: VerifyRequest):
-    """Verify pending predictions (nếu đến check_date)."""
+    """Verify pending predictions (náº¿u Ä‘áº¿n check_date)."""
     engine = _get_engine()
     try:
         results = engine.verifier.verify_pending(limit=req.limit)
         return {"verified": len(results), "results": results}
     except Exception as e:
         logger.error(f"Verify failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Verify failed — see server logs") from e
+        raise HTTPException(status_code=500, detail="Verify failed â€” see server logs") from e
 
 
 @router.get("/stats", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth

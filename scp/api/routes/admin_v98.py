@@ -1,18 +1,18 @@
 """
-[Task 7-A] V98 Security endpoints — extracted from api_server.py
+[Task 7-A] V98 Security endpoints â€” extracted from api_server.py
 
-TẠI SAO: api_server.py 2,285 LOC god file. Tách 8 routes /v98/* vào module
-này. Backward-compatible — public API paths/methods unchanged.
+Táº I SAO: api_server.py 2,285 LOC god file. TĂ¡ch 8 routes /v98/* vĂ o module
+nĂ y. Backward-compatible â€” public API paths/methods unchanged.
 
 Routes:
-  POST /v98/analyze-session      — Rogue AI detection on session
-  POST /v98/run-simulation       — Trigger threat simulation
-  POST /v98/run-intel-crawl      — Trigger threat intel crawl
-  GET  /v98/status               — All V98 module status
-  GET  /v98/counter/stats        — Counter response stats
-  GET  /v98/canary/triggers      — Canary token triggers
-  GET  /v98/error-store/stats    — ErrorStore stats
-  GET  /v98/attack-memory/stats  — AttackPatternMemory stats
+  POST /v98/analyze-session      â€” Rogue AI detection on session
+  POST /v98/run-simulation       â€” Trigger threat simulation
+  POST /v98/run-intel-crawl      â€” Trigger threat intel crawl
+  GET  /v98/status               â€” All V98 module status
+  GET  /v98/counter/stats        â€” Counter response stats
+  GET  /v98/canary/triggers      â€” Canary token triggers
+  GET  /v98/error-store/stats    â€” ErrorStore stats
+  GET  /v98/attack-memory/stats  â€” AttackPatternMemory stats
 """
 from __future__ import annotations
 

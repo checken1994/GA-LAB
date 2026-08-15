@@ -156,6 +156,11 @@ class AskResponse(BaseModel):
     v98_bypass_recorded: bool | None = None
     elapsed_ms: float
     session_id: str
+    # P1: Durable request-level identity and terminal status.
+    run_id: str | None = None
+    trace_id: str | None = None
+    run_status: str | None = None
+    ledger_status: str | None = None
     # V105: Full pipeline trace — SLM nào chạy, time từng phase, reasoning
     slm_trace: list[dict[str, Any]] | None = None  # [{domain, slm_name, answer, confidence, time_ms, source}]
     phase_timings: dict[str, float] | None = None  # {intake_ms, routing_ms, ...}

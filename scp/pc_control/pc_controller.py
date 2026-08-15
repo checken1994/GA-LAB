@@ -7,6 +7,7 @@ backups and a kill switch before touching the Windows host.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -106,7 +107,8 @@ class PCController:
     def _sensitive(self, path: Path) -> bool:
         return any(part.lower() in self.SENSITIVE_PARTS for part in path.parts)
 
-    def _audit(self, event: str, payload: dict[str, Any]) -> None:
+    # P2-FIX-AUDIT: return a durable result; callers must fail closed.
+    def _audit(self, event: str, payload: dict[str, Any]) -> bool:
         record = {
             "timestamp": time.time(),
             "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -116,8 +118,12 @@ class PCController:
         try:
             with self.audit_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            return True
         except OSError:
             logger.exception("Unable to append PC controller audit entry")
+            return False
 
     def kill_switch_engaged(self) -> bool:
         return self.kill_switch_path.exists()
@@ -197,9 +203,13 @@ class PCController:
         if not decision.allowed:
             self._audit("BLOCK", base)
             return {**base, "success": False, "output": "", "error": decision.reason}
+        if not self._audit("EXECUTE_INTENT", {**base, "timeout": timeout}):
+            return {**base, "success": False, "output": "", "error": "Audit storage unavailable; action blocked", "auditStatus": "DB_WRITE_FAILED"}
         result = await asyncio.to_thread(self._run_sync, command, timeout)
-        self._audit("EXECUTE", {**base, **result})
-        return {**base, **result}
+        post_audit_ok = self._audit("EXECUTE", {**base, **result})
+        if not post_audit_ok:
+            return {**base, **result, "executed": True, "auditStatus": "DB_WRITE_FAILED", "error": "Audit write failed after execution"}
+        return {**base, **result, "auditStatus": "OK"}
 
     async def read_file(self, path: str, max_bytes: int = 200_000) -> dict[str, Any]:
         target = self._resolve_path(path)
@@ -223,6 +233,10 @@ class PCController:
             return {"success": False, "error": "Sensitive path cannot be written by this endpoint"}
         if self.kill_switch_engaged() or capability_level < CapabilityLevel.WORKSPACE or not approved:
             return {"success": False, "error": "Write requires capability >= 3 and explicit approval"}
+        content_hash = hashlib.sha256(content.encode("utf-8", "replace")).hexdigest()
+        intent = {"path": str(target), "bytes": len(content.encode("utf-8")), "content_sha256": content_hash, "capability_level": int(capability_level)}
+        if not self._audit("WRITE_FILE_INTENT", intent):
+            return {"success": False, "error": "Audit storage unavailable; write blocked", "auditStatus": "DB_WRITE_FAILED"}
         target.parent.mkdir(parents=True, exist_ok=True)
         backup_id = uuid.uuid4().hex
         backup_path = self.backup_dir / f"{backup_id}.bak"
@@ -239,9 +253,17 @@ class PCController:
         finally:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)
-        result = {"success": True, "path": str(target), "backupId": backup_id if existed else None, "bytes": len(content.encode("utf-8"))}
-        self._audit("WRITE_FILE", result)
-        return result
+        result = {"success": True, "path": str(target), "backupId": backup_id if existed else None, "bytes": len(content.encode("utf-8")), "content_sha256": content_hash}
+        if not self._audit("WRITE_FILE", result):
+            try:
+                if existed:
+                    shutil.copy2(backup_path, target)
+                else:
+                    target.unlink(missing_ok=True)
+            except OSError:
+                logger.exception("Write rollback failed after audit failure")
+            return {"success": False, "path": str(target), "error": "Audit write failed; write rolled back", "auditStatus": "DB_WRITE_FAILED"}
+        return {**result, "auditStatus": "OK"}
 
     async def rollback(self, backup_id: str, approved: bool = False, capability_level: int = 3) -> dict[str, Any]:
         if not approved or capability_level < CapabilityLevel.WORKSPACE:
@@ -252,13 +274,21 @@ class PCController:
         return {"success": False, "error": "Rollback target metadata is not available in this backup format; use audit entry to select a target"}
 
     def engage_kill_switch(self, reason: str = "user requested") -> dict[str, Any]:
+        reason_hash = hashlib.sha256(reason.encode("utf-8", "replace")).hexdigest()
+        if not self._audit("KILL_SWITCH_INTENT", {"reason_sha256": reason_hash}):
+            return {"success": False, "killSwitch": self.kill_switch_engaged(), "error": "Audit storage unavailable; kill-switch action blocked", "auditStatus": "DB_WRITE_FAILED"}
         self.kill_switch_path.write_text(json.dumps({"reason": reason, "timestamp": time.time()}, ensure_ascii=False), encoding="utf-8")
-        self._audit("KILL_SWITCH_ENGAGED", {"reason": reason})
-        return {"success": True, "killSwitch": True, "reason": reason}
+        if not self._audit("KILL_SWITCH_ENGAGED", {"reason_sha256": reason_hash}):
+            return {"success": True, "killSwitch": True, "reason": reason, "auditStatus": "DB_WRITE_FAILED"}
+        return {"success": True, "killSwitch": True, "reason": reason, "auditStatus": "OK"}
 
     def clear_kill_switch(self, approved: bool = False) -> dict[str, Any]:
         if not approved:
             return {"success": False, "error": "Clearing kill switch requires explicit approval"}
+        if not self._audit("KILL_SWITCH_CLEAR_INTENT", {}):
+            return {"success": False, "killSwitch": True, "error": "Audit storage unavailable; clear blocked", "auditStatus": "DB_WRITE_FAILED"}
         self.kill_switch_path.unlink(missing_ok=True)
-        self._audit("KILL_SWITCH_CLEARED", {})
-        return {"success": True, "killSwitch": False}
+        if not self._audit("KILL_SWITCH_CLEARED", {}):
+            self.kill_switch_path.write_text(json.dumps({"reason": "audit failure fail-closed", "timestamp": time.time()}, ensure_ascii=False), encoding="utf-8")
+            return {"success": False, "killSwitch": True, "error": "Audit write failed; kill switch re-engaged", "auditStatus": "DB_WRITE_FAILED"}
+        return {"success": True, "killSwitch": False, "auditStatus": "OK"}

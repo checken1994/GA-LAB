@@ -1,15 +1,15 @@
 """
-[V104.48] SCP Chat — WebSocket giao tiếp real-time với user
+[V104.48] SCP Chat Ă¢â‚¬â€ WebSocket giao tiĂ¡ÂºÂ¿p real-time vĂ¡Â»â€ºi user
 
-TẠI SAO: SCP V104.47 chỉ có /ask (1 question → 1 verdict) và /v1/chat/completions
-(OpenAI-compat). KHÔNG có chat nhiều turn, nhớ context, hỏi lại user, giải thích.
+TĂ¡ÂºÂ I SAO: SCP V104.47 chĂ¡Â»â€° cÄ‚Â³ /ask (1 question Ă¢â€ â€™ 1 verdict) vÄ‚Â  /v1/chat/completions
+(OpenAI-compat). KHÄ‚â€NG cÄ‚Â³ chat nhiĂ¡Â»Âu turn, nhĂ¡Â»â€º context, hĂ¡Â»Âi lĂ¡ÂºÂ¡i user, giĂ¡ÂºÂ£i thÄ‚Â­ch.
 
-Module này thêm:
+Module nÄ‚Â y thÄ‚Âªm:
   - WebSocket /chat: real-time bidirectional
-  - Context memory: nhớ lịch sử conversation
-  - SCP tự hỏi lại user khi UNKNOWN
-  - SimpleExplainer: giải thích quyết định bằng tiếng Việt
-  - Evolution status: user xem SCP đang tự sửa gì
+  - Context memory: nhĂ¡Â»â€º lĂ¡Â»â€¹ch sĂ¡Â»Â­ conversation
+  - SCP tĂ¡Â»Â± hĂ¡Â»Âi lĂ¡ÂºÂ¡i user khi UNKNOWN
+  - SimpleExplainer: giĂ¡ÂºÂ£i thÄ‚Â­ch quyĂ¡ÂºÂ¿t Ă„â€˜Ă¡Â»â€¹nh bĂ¡ÂºÂ±ng tiĂ¡ÂºÂ¿ng ViĂ¡Â»â€¡t
+  - Evolution status: user xem SCP Ă„â€˜ang tĂ¡Â»Â± sĂ¡Â»Â­a gÄ‚Â¬
 """
 from __future__ import annotations
 
@@ -19,9 +19,11 @@ import time
 import uuid
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from types import SimpleNamespace
+from scp.core.request_run_ledger import RequestRunLedger
 
 # [FIX-CRIT-27 BUG 9] Import verify_admin from api_server to gate the
-# /chat/sessions + /chat/{id}/history endpoints (previously NO auth — anyone
+# /chat/sessions + /chat/{id}/history endpoints (previously NO auth Ă¢â‚¬â€ anyone
 # could list all active sessions + read any session's full history).
 from scp.api._shared import verify_admin
 from typing import Optional
@@ -29,10 +31,11 @@ from typing import Optional
 logger = logging.getLogger("scp.chat")
 
 router = APIRouter()
+_CHAT_LEDGER = RequestRunLedger()  # P2_CHAT_LEDGER
 
 
 class ConversationManager:
-    """Quản lý lịch sử conversation per session."""
+    """QuĂ¡ÂºÂ£n lÄ‚Â½ lĂ¡Â»â€¹ch sĂ¡Â»Â­ conversation per session."""
 
     def __init__(self, max_sessions: int = 100, max_history: int = 20):
         self._sessions: dict[str, list[dict]] = {}
@@ -76,10 +79,10 @@ _conversation_mgr = ConversationManager()
 @router.websocket("/chat")
 async def scp_chat(websocket: WebSocket):
     """
-    WebSocket endpoint — chat real-time với SCP.
+    WebSocket endpoint Ă¢â‚¬â€ chat real-time vĂ¡Â»â€ºi SCP.
 
-    User gửi: {"message": "What is 2+2?"}
-    SCP trả: {"answer": "4", "verdict": "PASS", "confidence": 0.99, "reasoning": "..."}
+    User gĂ¡Â»Â­i: {"message": "What is 2+2?"}
+    SCP trĂ¡ÂºÂ£: {"answer": "4", "verdict": "PASS", "confidence": 0.99, "reasoning": "..."}
     """
     await websocket.accept()
 
@@ -88,9 +91,9 @@ async def scp_chat(websocket: WebSocket):
 
     await websocket.send_json({
         "type": "system",
-        "message": f"SCP V104.48 đã kết nối. Session: {session_id}\n"
-                   f"Tôi có thể kiểm tra câu trả lời, phát hiện tấn công, và tự học.\n"
-                   f"Hỏi tôi bất cứ điều gì — tôi sẽ nói 'Tại sao?' và kiểm tra.",
+        "message": f"SCP V104.48 Ă„â€˜Ä‚Â£ kĂ¡ÂºÂ¿t nĂ¡Â»â€˜i. Session: {session_id}\n"
+                   f"TÄ‚Â´i cÄ‚Â³ thĂ¡Â»Æ’ kiĂ¡Â»Æ’m tra cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi, phÄ‚Â¡t hiĂ¡Â»â€¡n tĂ¡ÂºÂ¥n cÄ‚Â´ng, vÄ‚Â  tĂ¡Â»Â± hĂ¡Â»Âc.\n"
+                   f"HĂ¡Â»Âi tÄ‚Â´i bĂ¡ÂºÂ¥t cĂ¡Â»Â© Ă„â€˜iĂ¡Â»Âu gÄ‚Â¬ Ă¢â‚¬â€ tÄ‚Â´i sĂ¡ÂºÂ½ nÄ‚Â³i 'TĂ¡ÂºÂ¡i sao?' vÄ‚Â  kiĂ¡Â»Æ’m tra.",
         "session_id": session_id,
     })
 
@@ -105,6 +108,11 @@ async def scp_chat(websocket: WebSocket):
 
             if not user_message:
                 continue
+            run = _CHAT_LEDGER.begin(SimpleNamespace(source="websocket_chat", domain="general", message=user_message))
+            if not run.ledger_write_ok:
+                await websocket.send_json({"type": "error", "message": "Audit ledger unavailable; chat processing blocked", "run_id": run.run_id, "trace_id": run.trace_id, "run_status": "DB_WRITE_FAILED", "ledger_status": "DB_WRITE_FAILED"})
+                continue
+            _CHAT_LEDGER.stage(run, "chat_message_started", "RUNNING")
 
             _conversation_mgr.add_message(session_id, "user", user_message)
             _conversation_context = _conversation_mgr.get_context_string(session_id)
@@ -115,11 +123,12 @@ async def scp_chat(websocket: WebSocket):
                 from scp.api_server import get_judge
 
                 # [FIX-CRIT-27 BUG 8] Removed `os.environ.setdefault("SCP_DEV_MODE", "1")`
-                # — any WebSocket client was force-enabling SCP_DEV_MODE globally,
+                # Ă¢â‚¬â€ any WebSocket client was force-enabling SCP_DEV_MODE globally,
                 # which disables admin auth for ALL endpoints server-wide (verify_admin
                 # reads SCP_DEV_MODE at call time). Dev mode must be explicit, not
                 # auto-enabled by a chat connection.
                 judge = get_judge()
+                _CHAT_LEDGER.stage(run, "judge_ready", "RUNNING")
 
                 v = await asyncio.to_thread(
                     judge.judge,
@@ -134,6 +143,7 @@ async def scp_chat(websocket: WebSocket):
                         "current_question": user_message,
                     },
                 )
+                _CHAT_LEDGER.stage(run, "verifier_completed", "RUNNING", verdict=v.verdict, governance_decision=v.evidence.get("governance_decision", ""))
 
                 # [FIX-CRIT-27 BUG 7] Determine abstain BEFORE building response.
                 # Previously `answer` was set to v.final_answer unconditionally,
@@ -142,7 +152,7 @@ async def scp_chat(websocket: WebSocket):
                 _gov = v.evidence.get("governance_decision", "")
                 _abstain = (_gov == "KILL") or (v.verdict in ("FAIL", "FLAGGED"))
                 _ws_answer = ("[SCP: Answer withheld]" if _abstain
-                              else (v.final_answer or "(Không có câu trả lời)"))
+                              else (v.final_answer or "(KhÄ‚Â´ng cÄ‚Â³ cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi)"))
                 _ws_reasoning = ("" if _abstain
                                  else (v.reasoning[:300] if v.reasoning else ""))
 
@@ -161,8 +171,8 @@ async def scp_chat(websocket: WebSocket):
                 if v.verdict == "UNKNOWN":
                     response["type"] = "clarification"
                     response["question"] = (
-                        f"Tôi chưa đủ thông tin để kết luận. "
-                        f"Bạn có thể cung cấp thêm chi tiết về '{user_message[:50]}' không?"
+                        f"TÄ‚Â´i chĂ†Â°a Ă„â€˜Ă¡Â»Â§ thÄ‚Â´ng tin Ă„â€˜Ă¡Â»Æ’ kĂ¡ÂºÂ¿t luĂ¡ÂºÂ­n. "
+                        f"BĂ¡ÂºÂ¡n cÄ‚Â³ thĂ¡Â»Æ’ cung cĂ¡ÂºÂ¥p thÄ‚Âªm chi tiĂ¡ÂºÂ¿t vĂ¡Â»Â '{user_message[:50]}' khÄ‚Â´ng?"
                     )
 
                 if v.verdict == "FAIL":
@@ -170,18 +180,18 @@ async def scp_chat(websocket: WebSocket):
                     response["answer"] = "[SCP: Answer withheld]"  # [FIX-CRIT-27 BUG 7] belt-and-suspenders
                     response["reasoning"] = ""  # don't leak why attack was caught
                     response["explanation"] = (
-                        f"Tôi không thể xác nhận câu trả lời này. Lý do: "
-                        f"{v.reasoning[:200] if v.reasoning else 'Không đủ bằng chứng.'}"
+                        f"TÄ‚Â´i khÄ‚Â´ng thĂ¡Â»Æ’ xÄ‚Â¡c nhĂ¡ÂºÂ­n cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi nÄ‚Â y. LÄ‚Â½ do: "
+                        f"{v.reasoning[:200] if v.reasoning else 'KhÄ‚Â´ng Ă„â€˜Ă¡Â»Â§ bĂ¡ÂºÂ±ng chĂ¡Â»Â©ng.'}"
                     )
 
                 if v.verdict == "PASS":
                     response["type"] = "verified"
                     response["explanation"] = (
-                        f"Đã kiểm tra: câu trả lời đạt độ tin cậy {v.confidence:.0%}. "
+                        f"Ă„ÂÄ‚Â£ kiĂ¡Â»Æ’m tra: cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi Ă„â€˜Ă¡ÂºÂ¡t Ă„â€˜Ă¡Â»â„¢ tin cĂ¡ÂºÂ­y {v.confidence:.0%}. "
                         f"Domain: {v.domain}."
                     )
 
-                if "tiến hóa" in user_message.lower() or "evolution" in user_message.lower():
+                if "tiĂ¡ÂºÂ¿n hÄ‚Â³a" in user_message.lower() or "evolution" in user_message.lower():
                     try:
                         from scp.core.code_evolution_agent import get_evolution_agent
                         agent = get_evolution_agent()
@@ -189,7 +199,7 @@ async def scp_chat(websocket: WebSocket):
                     except Exception:
                         logger.exception("[chat.py:182] silenced exception")
 
-                if "học" in user_message.lower() or "learning" in user_message.lower():
+                if "hĂ¡Â»Âc" in user_message.lower() or "learning" in user_message.lower():
                     try:
                         from scp.api_server import _fast_learning
                         if _fast_learning:
@@ -200,13 +210,24 @@ async def scp_chat(websocket: WebSocket):
                     except Exception:
                         logger.exception("[chat.py:190] silenced exception")
 
+                run_status = RequestRunLedger.classify_result(response)
+                terminal_status, ledger_ok = _CHAT_LEDGER.finish(run, run_status, result=response)
+                if run_status == "SUCCESS" and terminal_status == "DB_WRITE_FAILED":
+                    run_status = "DB_WRITE_FAILED"
+                response.update({"run_id": run.run_id, "trace_id": run.trace_id, "run_status": run_status, "ledger_status": "OK" if ledger_ok else "DB_WRITE_FAILED"})
                 await websocket.send_json(response)
                 _conversation_mgr.add_message(session_id, "scp", response.get("answer", ""), response)
 
             except Exception as e:
+                failure_status = _CHAT_LEDGER.classify_error(e)
+                terminal_status, ledger_ok = _CHAT_LEDGER.finish(run, failure_status, error=e)
                 await websocket.send_json({
                     "type": "error",
-                    "message": f"Lỗi xử lý: {str(e)[:100]}",
+                    "message": "Lá»—i xá»­ lĂ½ request; xem run_id trong ledger",
+                    "run_id": run.run_id,
+                    "trace_id": run.trace_id,
+                    "run_status": terminal_status,
+                    "ledger_status": "OK" if ledger_ok else "DB_WRITE_FAILED",
                 })
                 logger.error(f"[SCP Chat] Error: {e}")
 

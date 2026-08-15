@@ -1,18 +1,18 @@
 """
-[Task 8-A] V102 + V103 endpoints — extracted from api_server.py
+[Task 8-A] V102 + V103 endpoints â€” extracted from api_server.py
 
-TẠI SAO: api_server.py god file. Tách 7 routes /v102/* + /v103/* vào module
-này. Backward-compatible — public API paths/methods unchanged.
+Táº I SAO: api_server.py god file. TĂ¡ch 7 routes /v102/* + /v103/* vĂ o module
+nĂ y. Backward-compatible â€” public API paths/methods unchanged.
 
 Routes:
-  GET  /v102/orchestrator/stats    — PipelineOrchestrator stats
-  GET  /v102/notifications/recent  — Recent user notifications
-  GET  /v103/storage/stats         — StorageManager stats
-  POST /v103/storage/maintain      — Trigger storage maintenance
-  POST /v103/gcg/test              — Generate GCG adversarial attacks
-  GET  /v103/attacks/crawled       — List crawled attacks
-  POST /v103/attacks/crawl         — Force crawl attacks
-  GET  /v103/status                — AttackCrawler + ThreatSimulator status
+  GET  /v102/orchestrator/stats    â€” PipelineOrchestrator stats
+  GET  /v102/notifications/recent  â€” Recent user notifications
+  GET  /v103/storage/stats         â€” StorageManager stats
+  POST /v103/storage/maintain      â€” Trigger storage maintenance
+  POST /v103/gcg/test              â€” Generate GCG adversarial attacks
+  GET  /v103/attacks/crawled       â€” List crawled attacks
+  POST /v103/attacks/crawl         â€” Force crawl attacks
+  GET  /v103/status                â€” AttackCrawler + ThreatSimulator status
 """
 from __future__ import annotations
 
@@ -33,12 +33,12 @@ router = APIRouter(tags=["v102", "v103"])
 
 @router.get("/v102/orchestrator/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 async def orchestrator_stats():
-    """PipelineOrchestrator stats — precision/recall/F1."""
-    # Orchestrator runs per-query — return last known metrics
+    """PipelineOrchestrator stats â€” precision/recall/F1."""
+    # Orchestrator runs per-query â€” return last known metrics
     judge = get_judge()
     return {
         "metrics": judge.get_v98_status(),  # placeholder
-        "message": "Orchestrator tracks per-query metrics — see /v100/status for module stats",
+        "message": "Orchestrator tracks per-query metrics â€” see /v100/status for module stats",
     }
 
 
@@ -53,7 +53,7 @@ async def notifications_recent(limit: int = 20):
 
 @router.get("/v103/storage/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 async def storage_stats():
-    """StorageManager stats — disk usage, rotation, archival."""
+    """StorageManager stats â€” disk usage, rotation, archival."""
     from scp.runtime.storage_manager import StorageManager
     sm = StorageManager(data_dir="data")
     return sm.stats()
@@ -95,7 +95,7 @@ async def gcg_test(count: int = 10, _admin: bool = Depends(verify_admin)):
 # ============================================================
 @router.get("/v103/attacks/crawled", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 async def v103_crawled_attacks(limit: int = 50):
-    """V103 NEW: List tấn công tải từ internet (GitHub + Reddit)."""
+    """V103 NEW: List táº¥n cĂ´ng táº£i tá»« internet (GitHub + Reddit)."""
     if _attack_crawler is None:
         return {"count": 0, "attacks": []}
     attacks = _attack_crawler.get_new_attacks()[:limit]
@@ -104,7 +104,7 @@ async def v103_crawled_attacks(limit: int = 50):
 
 @router.post("/v103/attacks/crawl")
 async def v103_force_crawl(_admin: bool = Depends(verify_admin)):
-    """V103 NEW: Force crawl tấn công mới ngay lập tức. Requires auth if SCP_AUTH_PASSWORD set."""
+    """V103 NEW: Force crawl táº¥n cĂ´ng má»›i ngay láº­p tá»©c. Requires auth if SCP_AUTH_PASSWORD set."""
     if _attack_crawler is None:
         return {"error": "AttackCrawler not initialized"}
     # R9-3: crawl_all() makes HTTP requests to GitHub + HuggingFace + Reddit
@@ -119,7 +119,7 @@ async def v103_force_crawl(_admin: bool = Depends(verify_admin)):
 
 @router.get("/v103/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 async def v103_status():
-    """V103 NEW: Status của AttackCrawler + ThreatSimulator tốc độ."""
+    """V103 NEW: Status cá»§a AttackCrawler + ThreatSimulator tá»‘c Ä‘á»™."""
     return {
         "attack_crawler_stats": _attack_crawler.stats() if _attack_crawler else None,
         "threat_simulator_interval": os.environ.get("SCP_THREAT_SIMULATOR_INTERVAL", "10"),

@@ -1,19 +1,19 @@
 """
-[Task 7-A] V100 Knowledge endpoints — extracted from api_server.py
+[Task 7-A] V100 Knowledge endpoints â€” extracted from api_server.py
 
-TẠI SAO: api_server.py 2,285 LOC god file. Tách 9 routes /v100/* vào module
-này. Backward-compatible — public API paths/methods unchanged.
+Táº I SAO: api_server.py 2,285 LOC god file. TĂ¡ch 9 routes /v100/* vĂ o module
+nĂ y. Backward-compatible â€” public API paths/methods unchanged.
 
 Routes:
-  GET  /v100/status               — V100 knowledge + timing modules status
-  POST /v100/crawl                — Trigger scheduled data crawl
-  GET  /v100/antibodies/stats     — DomainAntibodySystem stats
-  POST /v100/antibodies/check     — Run antibodies on a question + answer
-  GET  /v100/knowledge/stats      — DomainKnowledgeStore stats
-  GET  /v100/knowledge/search     — Search knowledge base
-  GET  /v100/h8/stats             — H8 RedTeamBridge stats
-  GET  /v100/h8/bypasses          — Get recent bypasses
-  GET  /v100/h8/analyses          — Get recent bypass analyses
+  GET  /v100/status               â€” V100 knowledge + timing modules status
+  POST /v100/crawl                â€” Trigger scheduled data crawl
+  GET  /v100/antibodies/stats     â€” DomainAntibodySystem stats
+  POST /v100/antibodies/check     â€” Run antibodies on a question + answer
+  GET  /v100/knowledge/stats      â€” DomainKnowledgeStore stats
+  GET  /v100/knowledge/search     â€” Search knowledge base
+  GET  /v100/h8/stats             â€” H8 RedTeamBridge stats
+  GET  /v100/h8/bypasses          â€” Get recent bypasses
+  GET  /v100/h8/analyses          â€” Get recent bypass analyses
 """
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ async def v100_crawl(max_per_domain: int = 3, _admin: bool = Depends(verify_admi
 @router.get("/v100/antibodies/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 async def antibody_stats():
     """DomainAntibodySystem stats."""
-    # Antibodies run inline, not stored as instance — return static stats
+    # Antibodies run inline, not stored as instance â€” return static stats
     return {
         "total_antibodies": 38,
         "domains": ["medical", "finance", "legal", "security", "environment", "tech", "general"],
@@ -128,7 +128,7 @@ async def h8_bypasses(limit: int = 20):
 
 @router.get("/v100/h8/analyses", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 async def h8_analyses(limit: int = 20):
-    """Get recent bypass analyses (chiều 2 — 'tại sao fail?')."""
+    """Get recent bypass analyses (chiá»u 2 â€” 'táº¡i sao fail?')."""
     judge = get_judge()
     if not judge.h8_redteam:
         raise HTTPException(status_code=503, detail="H8RedTeamBridge not available")
