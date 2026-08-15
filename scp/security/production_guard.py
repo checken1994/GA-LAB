@@ -33,6 +33,11 @@ def enforce_production_safety() -> None:
     egress_mode = os.environ.get("SCP_EGRESS_MODE", "").strip().lower()
     if egress_mode not in {"deny", "allowlist"}:
         errors.append("SCP_EGRESS_MODE must be deny or allowlist in production")
+    host = os.environ.get("SCP_HOST", "127.0.0.1").strip().lower()
+    loopback_hosts = {"127.0.0.1", "localhost", "::1"}
+    force_https = os.environ.get("SCP_FORCE_HTTPS", "0").strip().lower() in _TRUE
+    if host not in loopback_hosts and not force_https:
+        errors.append("SCP_FORCE_HTTPS=1 is required when SCP_HOST is not loopback")
     password = read_secret("SCP_AUTH_PASSWORD", "SCP_AUTH_PASSWORD_FILE")
     if len(password) < 16:
         errors.append("SCP_AUTH_PASSWORD must be at least 16 characters")

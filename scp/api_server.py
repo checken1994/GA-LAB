@@ -655,7 +655,7 @@ try:
         # [AUTOFIX-T2-SEC] Louder warning for production (non-localhost) deployments.
         # DNA SCP #6 Evidence Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â log the risk explicitly so operators can't miss it.
         _bind_host = os.environ.get("SCP_HOST", "127.0.0.1")
-        if _bind_host not in ("127.0.0.1", "localhost", "0.0.0.0"):
+        if _bind_host not in ("127.0.0.1", "localhost", "::1"):
             logger.warning(
                 "[Security] Ä‚Â¢Ă‚ÂĂ‚Â Ä‚Â¯Ă‚Â¸Ă‚Â  PRODUCTION DEPLOYMENT without HTTPS! "
                 f"Host={_bind_host} Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â set SCP_FORCE_HTTPS=1 or use a TLS-terminating "
