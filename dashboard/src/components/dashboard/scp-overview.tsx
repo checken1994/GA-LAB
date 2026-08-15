@@ -19,6 +19,7 @@ import {
   Globe2,
   Info,
   Layers3,
+  MessageCircle,
   Play,
   RefreshCw,
   ScanSearch,
@@ -61,6 +62,20 @@ type AlertSettings = {
 type DesktopBridge = {
   notifyCritical?: (payload: { title: string; body: string }) => Promise<boolean>
 }
+
+type SpeechRecognitionLike = {
+  lang: string
+  interimResults: boolean
+  continuous: boolean
+  start: () => void
+  stop: () => void
+  onstart: (() => void) | null
+  onend: (() => void) | null
+  onerror: ((event: { error?: string }) => void) | null
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
 
 type V31Snapshot = {
   pc: JsonRecord
@@ -254,6 +269,17 @@ export function ScpOverview() {
   const [webSearch, setWebSearch] = useState<JsonRecord>({})
   const [searchingWeb, setSearchingWeb] = useState(false)
   const [fixing, setFixing] = useState(false)
+  const [chatQuestion, setChatQuestion] = useState("")
+  const [chatAnswer, setChatAnswer] = useState<JsonRecord | null>(null)
+  const [chatBusy, setChatBusy] = useState(false)
+  const [micActive, setMicActive] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [mediaStatus, setMediaStatus] = useState("Mic và camera chỉ hoạt động sau khi bạn bấm nút.")
+  const sessionIdRef = useRef("")
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const cameraStreamRef = useRef<MediaStream | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const pendingImageRef = useRef<string | null>(null)
   const lastAlertKey = useRef("")
   const lastAlertAt = useRef(0)
 
@@ -277,6 +303,109 @@ export function ScpOverview() {
       setFixing(false)
     }
   }, [fixing])
+  const ensureSessionId = useCallback(() => {
+    if (sessionIdRef.current) return sessionIdRef.current
+    if (typeof window !== "undefined") {
+      const key = "scp-desktop-chat-session-id"
+      const old = window.sessionStorage.getItem(key)
+      sessionIdRef.current = old || (window.crypto?.randomUUID?.() ?? `desktop-${Date.now()}`)
+      window.sessionStorage.setItem(key, sessionIdRef.current)
+    } else {
+      sessionIdRef.current = `desktop-${Date.now()}`
+    }
+    return sessionIdRef.current
+  }, [])
+
+  const closeCamera = useCallback(() => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    cameraStreamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
+    setCameraOpen(false)
+  }, [])
+
+  const toggleMic = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+      recognitionRef.current = null
+      setMicActive(false)
+      setMediaStatus("Đã dừng mic.")
+      return
+    }
+    const speechWindow = window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setMediaStatus("Electron/trình duyệt này chưa có nhận giọng nói; hãy nhập chữ.")
+      return
+    }
+    const recognition = new SpeechRecognition()
+    recognition.lang = "vi-VN"
+    recognition.interimResults = false
+    recognition.continuous = false
+    recognition.onstart = () => { setMicActive(true); setMediaStatus("Đang nghe một câu. Bấm lại để dừng.") }
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript
+      if (transcript) setChatQuestion(transcript)
+    }
+    recognition.onerror = (event) => { setMediaStatus(`Mic lỗi: ${event.error || "không rõ"}`) }
+    recognition.onend = () => { recognitionRef.current = null; setMicActive(false) }
+    recognitionRef.current = recognition
+    try { recognition.start() } catch { recognitionRef.current = null; setMicActive(false); setMediaStatus("Không thể khởi động mic.") }
+  }, [])
+
+  const openCamera = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMediaStatus("Desktop chưa hỗ trợ webcam.")
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      cameraStreamRef.current = stream
+      setCameraOpen(true)
+      setMediaStatus("Webcam đang bật. Chỉ chụp khi bạn bấm Chụp ảnh.")
+      window.setTimeout(() => { if (videoRef.current) videoRef.current.srcObject = stream }, 0)
+    } catch (error) {
+      setMediaStatus(`Không mở được webcam: ${error instanceof Error ? error.message : "quyền bị từ chối"}`)
+    }
+  }, [])
+
+  const captureImage = useCallback(() => {
+    const video = videoRef.current
+    if (!video || !cameraStreamRef.current) return
+    const canvas = document.createElement("canvas")
+    canvas.width = video.videoWidth || 640
+    canvas.height = video.videoHeight || 480
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height)
+    pendingImageRef.current = canvas.toDataURL("image/jpeg", 0.82)
+    setMediaStatus("Đã chụp ảnh. Ảnh sẽ gửi cùng câu hỏi tiếp theo.")
+    closeCamera()
+  }, [closeCamera])
+
+  const sendChat = useCallback(async () => {
+    const question = chatQuestion.trim()
+    if (!question || chatBusy) return
+    setChatBusy(true)
+    setMediaStatus("SCP đang kiểm tra câu hỏi…")
+    try {
+      const response = await fetch("/api/scp/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, domain: "general", session_id: ensureSessionId(), image_data: pendingImageRef.current }),
+        cache: "no-store",
+      })
+      const data = await response.json().catch(() => ({ error: "Không đọc được câu trả lời" })) as JsonRecord
+      setChatAnswer(data)
+      if (response.ok) setChatQuestion("")
+      pendingImageRef.current = null
+      setMediaStatus(response.ok ? "SCP đã trả lời." : `SCP trả lỗi HTTP ${response.status}.`)
+    } catch (error) {
+      setMediaStatus(`Không kết nối được SCP: ${error instanceof Error ? error.message : "lỗi không rõ"}`)
+    } finally {
+      setChatBusy(false)
+    }
+  }, [chatBusy, chatQuestion, ensureSessionId])
+
+  useEffect(() => () => { recognitionRef.current?.stop(); closeCamera() }, [closeCamera])
+
   const refresh = useCallback(async () => {
     setRefreshing(true)
     try {
@@ -436,6 +565,8 @@ export function ScpOverview() {
 
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 sm:py-8 lg:px-10">
           <header className="flex flex-col gap-5 border-b border-white/[0.08] pb-7 md:flex-row md:items-start md:justify-between"><div><div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-medium text-cyan-200"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" />LIVE · tự làm mới mỗi 5 giây</div><h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Trung tâm điều khiển SCP</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400 sm:text-base">Một màn hình duy nhất để biết hệ thống đang khỏe hay không, dịch vụ nào đang chạy và SCP hiện đang làm gì.</p></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-xs uppercase tracking-[0.16em] text-slate-500">Giờ máy</div><div className="mt-1 font-mono text-sm text-slate-300">{now ? now.toLocaleTimeString("vi-VN") : "--:--:--"}</div></div><button type="button" onClick={refresh} disabled={refreshing} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60" aria-label="Làm mới trạng thái"><RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />Làm mới</button></div></header>`r`n          <nav aria-label="SCP tabs" className="mt-5 flex flex-wrap gap-2"><button type="button" data-testid="system-tab" onClick={() => { setActiveTab("system"); void refresh(); }} className={`rounded-xl border px-4 py-2 text-sm ${activeTab === "system" ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-100" : "border-white/10 text-slate-200"}`}>Kiểm tra hệ thống · Chạy kiểm tra ngay</button><button type="button" data-testid="fix-tab" onClick={() => void triggerControlledFix()} disabled={fixing} className={`rounded-xl border px-4 py-2 text-sm ${activeTab === "fix" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : "border-amber-300/30 text-amber-100"} disabled:cursor-wait disabled:opacity-60`}>{fixing ? "Đang gửi yêu cầu…" : "Sửa có kiểm soát · Gửi yêu cầu sửa có kiểm soát"}</button></nav>
+
+          <section aria-label="Chat với SCP" className="mt-5 rounded-3xl border border-cyan-300/20 bg-cyan-300/[0.06] p-5 sm:p-7"><SectionHeading eyebrow="00 · Giao tiếp trực tiếp" title="Hỏi SCP bằng chữ, mic hoặc webcam" description="Mic và camera chỉ hoạt động sau khi bạn bấm nút. SCP không tự ghi âm hoặc tự quay." icon={MessageCircle} /><div className="flex flex-col gap-3"><textarea value={chatQuestion} onChange={(event) => setChatQuestion(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") void sendChat() }} placeholder="Nhập câu hỏi cho SCP… (Ctrl+Enter để gửi)" rows={3} className="w-full resize-y rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/40" /><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => void sendChat()} disabled={chatBusy || !chatQuestion.trim()} className="rounded-xl bg-cyan-300 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-wait disabled:opacity-50">{chatBusy ? "Đang kiểm tra…" : "Gửi câu hỏi"}</button><button type="button" onClick={toggleMic} className={`rounded-xl border px-4 py-2.5 text-sm ${micActive ? "border-rose-300/50 bg-rose-300/10 text-rose-100" : "border-white/10 text-slate-200"}`}>{micActive ? "Dừng mic" : "Mic"}</button><button type="button" onClick={() => void openCamera()} className={`rounded-xl border px-4 py-2.5 text-sm ${cameraOpen ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : "border-white/10 text-slate-200"}`}>Webcam</button><span className="text-xs text-slate-400">{mediaStatus}</span></div>{cameraOpen && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-3"><video ref={videoRef} autoPlay muted playsInline className="h-40 w-60 rounded-xl bg-black object-contain" /><button type="button" onClick={captureImage} className="rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-semibold text-slate-950">Chụp ảnh</button><button type="button" onClick={closeCamera} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-slate-200">Tắt webcam</button></div>}{chatAnswer && <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-4"><div className="text-xs uppercase tracking-[0.16em] text-cyan-200">{firstValue(chatAnswer, ["verdict"], "UNKNOWN")} · {firstValue(chatAnswer, ["domain"], "general")}</div><div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{firstValue(chatAnswer, ["final_answer", "answer", "error"], "Chưa có câu trả lời")}</div></div>}</div></section>
 
           <section className="mt-7 rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-400/[0.14] via-white/[0.045] to-transparent p-5 shadow-2xl shadow-black/20 sm:p-7"><div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between"><div className="flex items-start gap-4"><div className={`mt-1 grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${overallKind === "online" ? "bg-emerald-400/15 text-emerald-300" : overallKind === "degraded" ? "bg-amber-400/15 text-amber-300" : "bg-slate-400/15 text-slate-300"}`}><Gauge className="h-6 w-6" /></div><div><div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Tình trạng tổng thể</div><h2 className="mt-1 text-2xl font-semibold text-white">{statusTitle}</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">{onlineCount}/3 dịch vụ nền tảng đang phản hồi. Kiểm tra gần nhất: <span className="text-slate-300">{formatTime(lastChecked)}</span>.</p></div></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.08] px-4 py-3"><div className="text-2xl font-semibold text-emerald-200">{onlineCount}</div><div className="mt-1 text-xs text-emerald-200/70">Đang chạy</div></div><div className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.08] px-4 py-3"><div className="text-2xl font-semibold text-amber-200">{degradedCount}</div><div className="mt-1 text-xs text-amber-200/70">Cảnh báo</div></div><div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3"><div className="text-2xl font-semibold text-slate-200">{3 - onlineCount - degradedCount}</div><div className="mt-1 text-xs text-slate-400">Chưa rõ</div></div></div></div></section>
 
