@@ -507,14 +507,26 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                     logger.info("[AUTO] Deep audit cycle starting...")
                     from scp.autofix.runner import run_deep_audit
                     results = run_deep_audit(max_bugs=int(os.environ.get("SCP_MAX_AUDIT_BUGS", "100")))  # [ROOT-FIX 47] was 20
+                    evolution_result = {"status": "disabled"}
+                    evolution_enabled = os.environ.get("SCP_EVOLUTION_AUTO", "0").strip().lower() in {"1", "true", "yes", "on"}
+                    if evolution_enabled:
+                        # One bounded cycle only. The evolution module reads the
+                        # same switch at execution time and keeps its test/rollback
+                        # gate. No scheduler or auto-fix is enabled by default.
+                        from scp.core.code_evolution_agent import run_evolution_cycle_once
+                        evolution_result = run_evolution_cycle_once()
+                        logger.info("[AUTO] Evolution cycle: %s", evolution_result.get("status"))
                     _deep_audit_telemetry.cycle_completed(
                         run_id,
                         "SUCCESS" if results.get("error") is None else "PROVIDER_FAILED",
                         processed=results.get("processed", 0),
                         fixed=results.get("fixed", 0),
+                        evolution_enabled=evolution_enabled,
+                        evolution_status=evolution_result.get("status"),
                     )
                     logger.info(f"[AUTO] Deep audit: {results.get('processed', 0)} bugs processed, "
-                                f"{results.get('fixed', 0)} auto-fixed")
+                                f"{results.get('fixed', 0)} auto-fixed; "
+                                f"evolution={evolution_result.get('status')}")
                 except TimeoutError as e:
                     _deep_audit_telemetry.cycle_failed(run_id, e, status="TIMEOUT")
                     logger.warning(f"[AUTO] Deep audit timeout: {e}")

@@ -41,7 +41,12 @@ logger = logging.getLogger("scp.evolution")
 
 SCP_ROOT = Path(__file__).parent.parent.parent  # project root
 MAX_FIXES_PER_DAY = int(os.environ.get("SCP_EVOLUTION_MAX_DAILY", "10"))
-AUTO_MODE = os.environ.get("SCP_EVOLUTION_AUTO", "0") == "1"  # default: manual
+AUTO_MODE = os.environ.get("SCP_EVOLUTION_AUTO", "0") == "1"  # legacy snapshot for compatibility
+
+
+def _auto_mode_enabled() -> bool:
+    """Read the safety switch at execution time, not only at import time."""
+    return os.environ.get("SCP_EVOLUTION_AUTO", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 class CodeEvolutionAgent:
@@ -126,7 +131,7 @@ class CodeEvolutionAgent:
         # to commit). Was: committed regardless of AUTO_MODE → auto-commits in
         # manual mode, defeating the purpose of the flag.
         if test_result["passed"]:
-            if AUTO_MODE:
+            if _auto_mode_enabled():
                 self._commit_fix(bug, fix, test_result)
                 self._fixes_applied += 1
                 self._fixes_today += 1
@@ -491,7 +496,7 @@ FIX:"""
             "fixes_skipped": self._fixes_skipped,
             "fixes_today": self._fixes_today,
             "max_per_day": MAX_FIXES_PER_DAY,
-            "auto_mode": AUTO_MODE,
+            "auto_mode": _auto_mode_enabled(),
         }
 
 
@@ -524,7 +529,7 @@ async def start_evolution_loop(interval: int = 3600):
     into `_lifespan.py` `deep_audit_loop` (parent-owned — not edited here).
     """
     agent = get_evolution_agent()
-    logger.info(f"[V104.48] Code Evolution Agent started (interval={interval}s, auto={AUTO_MODE})")
+    logger.info(f"[V104.48] Code Evolution Agent started (interval={interval}s, auto={_auto_mode_enabled()})")
 
     while True:
         try:
