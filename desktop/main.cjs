@@ -74,7 +74,7 @@ const PRODUCTION_CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' http://127.0.0.1:3000 http://localhost:3000",
+  "connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 ws://127.0.0.1:8000 ws://localhost:8000",
 ].join('; ');
 function installDesktopCsp() {
   const mode = String(rootEnv.SCP_DESKTOP_CSP_MODE || process.env.SCP_DESKTOP_CSP_MODE || "dev").trim().toLowerCase();
