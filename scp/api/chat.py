@@ -100,12 +100,14 @@ async def scp_chat(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            msg = {}
             try:
                 msg = json.loads(data)
                 user_message = msg.get("message", "").strip()
             except json.JSONDecodeError:
                 user_message = data.strip()
 
+            task_mode = str(msg.get("mode", "")).strip().lower() in {"agent_task", "task", "orchestrate"}
             if not user_message:
                 continue
             run = _CHAT_LEDGER.begin(SimpleNamespace(source="websocket_chat", domain="general", message=user_message))
@@ -113,6 +115,65 @@ async def scp_chat(websocket: WebSocket):
                 await websocket.send_json({"type": "error", "message": "Audit ledger unavailable; chat processing blocked", "run_id": run.run_id, "trace_id": run.trace_id, "run_status": "DB_WRITE_FAILED", "ledger_status": "DB_WRITE_FAILED"})
                 continue
             _CHAT_LEDGER.stage(run, "chat_message_started", "RUNNING")
+
+            if task_mode:
+                try:
+                    from scp.core.agent_orchestrator import AgentOrchestrator
+
+                    agent = AgentOrchestrator()
+                    task_result = await agent.run(
+                        goal=user_message,
+                        execute=True,
+                        capability_level=0,
+                        approved=False,
+                        prefer_local=True,
+                        parent_trace_id=run.trace_id,
+                    )
+                    task_status = str(task_result.get("status", "INTERNAL_FAILED"))
+                    if task_result.get("ledger_status") == "DB_WRITE_FAILED":
+                        outer_status = "DB_WRITE_FAILED"
+                    elif task_result.get("success") is True:
+                        outer_status = "SUCCESS"
+                    elif task_status in {"PLAN_READY", "WAITING_APPROVAL"}:
+                        outer_status = "UNKNOWN"
+                    else:
+                        outer_status = "INTERNAL_FAILED"
+                    terminal_status, ledger_ok = _CHAT_LEDGER.finish(
+                        run,
+                        outer_status,
+                        result={"verdict": "PASS" if outer_status == "SUCCESS" else "UNKNOWN"},
+                        task_status=task_status,
+                        agent_run_id=task_result.get("agent_run_id"),
+                    )
+                    task_response = {
+                        "type": "agent_task",
+                        "status": task_status,
+                        "success": bool(task_result.get("success")),
+                        "answer": "Đã hoàn thành tác vụ an toàn." if task_result.get("success") else "Tác vụ chưa được hoàn thành; xem trạng thái và approval.",
+                        "agent_run_id": task_result.get("agent_run_id"),
+                        "agent_trace_id": task_result.get("trace_id"),
+                        "plan": task_result.get("plan"),
+                        "approval": task_result.get("approval"),
+                        "result": task_result.get("result"),
+                        "run_id": run.run_id,
+                        "trace_id": run.trace_id,
+                        "run_status": outer_status if terminal_status != "DB_WRITE_FAILED" else "DB_WRITE_FAILED",
+                        "ledger_status": "OK" if ledger_ok else "DB_WRITE_FAILED",
+                    }
+                    await websocket.send_json(task_response)
+                    _conversation_mgr.add_message(session_id, "scp", task_response.get("answer", ""), task_response)
+                except Exception as exc:
+                    failure_status = _CHAT_LEDGER.classify_error(exc)
+                    terminal_status, ledger_ok = _CHAT_LEDGER.finish(run, failure_status, error=exc, task_mode=True)
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Lỗi xử lý agent task; xem run_id trong ledger",
+                        "run_id": run.run_id,
+                        "trace_id": run.trace_id,
+                        "run_status": terminal_status,
+                        "ledger_status": "OK" if ledger_ok else "DB_WRITE_FAILED",
+                    })
+                continue
 
             _conversation_mgr.add_message(session_id, "user", user_message)
             _conversation_context = _conversation_mgr.get_context_string(session_id)
