@@ -330,7 +330,11 @@ function createMainWindow() {
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
-  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+  mainWindow.webContents.on('console-message', (event) => {
+    const level = event?.level ?? 'info';
+    const message = event?.message ?? '';
+    const line = event?.lineNumber ?? event?.line ?? 0;
+    const sourceId = event?.sourceId ?? '';
     appendLog('desktop-console', `level=${level} ${sourceId}:${line} ${message}\\n`);
   });
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
