@@ -1677,3 +1677,15 @@ try:
 except ImportError as e:
     logger.warning(f"[SCP Call] Call signaling router unavailable: {e}")
     _CALL_SIGNALING_AVAILABLE = False
+
+# Optional OpenTelemetry HTTP traces. Disabled unless explicitly configured.
+try:
+    from scp.observability.otel import configure_fastapi_otel
+    _OTEL_STATUS = configure_fastapi_otel(app)
+    if _OTEL_STATUS.get("enabled"):
+        logger.info("[OTel] FastAPI tracing enabled without request-body/header capture")
+    else:
+        logger.info("[OTel] tracing disabled: %s", _OTEL_STATUS.get("reason", "not configured"))
+except Exception as e:
+    _OTEL_STATUS = {"enabled": False, "reason": type(e).__name__}
+    logger.warning("[OTel] optional instrumentation unavailable: %s", type(e).__name__)
