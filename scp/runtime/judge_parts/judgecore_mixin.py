@@ -1475,6 +1475,37 @@ class JudgeCoreMixin:
                             matched_slm = r
                             break
 
+            # Deterministic equivalence for arithmetic answers: a verbose model answer
+            # such as '2 + 2 = 4' must match a verifier answer such as '4'.
+            # This does not override the primary/non-primary safety rule below.
+            if matched_slm is None:
+                try:
+                    import re as _answer_match_re
+                    _math_like = bool(_answer_match_re.search(
+                        r'(?i)(?:calculate|compute|arithmetic|tinh|tinh toan|phep tinh)|[-+*/]\s*\d|\d\s*[-+*/=]\s*\d',
+                        str(question or ''),
+                    ))
+                    if _math_like and (ai_answer or final_answer):
+                        _nums = lambda _text: _answer_match_re.findall(
+                            r'(?<![A-Za-z_])[-+]?\d+(?:[.,]\d+)?',
+                            str(_text or ''),
+                        )
+                        _comparison_answer = ai_answer or final_answer
+                        _ai_nums = _nums(_comparison_answer)
+                        _ai_last = _ai_nums[-1].replace(',', '.') if _ai_nums else None
+                        if _ai_last is not None:
+                            from decimal import Decimal as _AnswerDecimal
+                            for _candidate in valid_responses:
+                                _candidate_nums = _nums(_candidate.get('answer', ''))
+                                if not _candidate_nums:
+                                    continue
+                                _candidate_last = _candidate_nums[-1].replace(',', '.')
+                                if _AnswerDecimal(_ai_last) == _AnswerDecimal(_candidate_last):
+                                    matched_slm = _candidate
+                                    break
+                except (ValueError, TypeError, ArithmeticError):
+                    matched_slm = None
+
             if matched_slm:
                 # [V104.42 #O] TẠI SAO: was `verdict_type = "PASS"` when AI matched ANY 1 SLM
                 # → multi-SLM conflict erased if AI happened to match one (even low-conf secondary).
@@ -1611,6 +1642,26 @@ class JudgeCoreMixin:
                     )
         except Exception as e:
             logger.debug(f"ToT explore failed: {e}")
+
+        _math_verdict = None
+        # Independent deterministic math verification. This only acts when
+        # the existing safe evaluator can parse and verify the expression.
+        # Security, WHY and Governance still run after this point.
+        try:
+            from scp.core.math_evaluator import verify_math as _verify_math
+            _math_verdict, _math_value, _math_reason = _verify_math(
+                question or '', ai_answer or final_answer or ''
+            )
+            if _math_verdict == 'PASS':
+                verdict_type = 'PASS'
+                confidence = max(confidence, 0.99)
+                reasoning = f'Deterministic math verify PASS: {_math_reason}'
+            elif _math_verdict == 'FAIL':
+                verdict_type = 'FAIL'
+                confidence = max(confidence, 0.99)
+                reasoning = f'Deterministic math verify FAIL: {_math_reason}'
+        except Exception as _math_err:
+            logger.debug(f'Deterministic math verification unavailable: {_math_err}')
 
         # Step 9: Build verdict
         verdict = JudgeVerdict(
@@ -2365,7 +2416,7 @@ class JudgeCoreMixin:
                             verdict.confidence *= 0.5
                             verdict.reasoning += f" | [V100] {_refuted} claims refuted"
 
-                        if _total > 0 and _unverified / _total > 0.5:
+                        if _total > 0 and _unverified / _total > 0.5 and not (_math_verdict == "PASS" and verdict.verdict == "PASS"):
                             # >50% claims UNVERIFIED — UPHOLD (can't confirm answer)
                             logger.warning(
                                 f"[R17-FIX-2] {_unverified}/{_total} claims unverified — "
