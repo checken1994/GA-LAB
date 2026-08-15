@@ -701,7 +701,18 @@ if _EXTRA_ROUTERS_AVAILABLE:
     app.include_router(v104_router)
     app.include_router(v105_router)
 
+# SCP control plane: authenticated capability and escalation decisions.
+# Import is fail-safe so an optional control module cannot kill startup.
+try:
+    from scp.api.routes.control_routes import router as control_router
+    app.include_router(control_router, tags=["control"])
+    _CONTROL_ROUTES_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"[SCP Control] Control router unavailable: {e}")
+    _CONTROL_ROUTES_AVAILABLE = False
+
 # [R12-10] Wire 4 previously-dead v105 routers (stream/threat/audit/prediction).
+
 # These routers existed in scp/api/routes/ but were never `include_router`-ed
 # (wiring-scan report). Each is wrapped in try/except to fail open (DNA #7:
 # a router import error must not crash the whole server Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â degraded mode > dead server).
