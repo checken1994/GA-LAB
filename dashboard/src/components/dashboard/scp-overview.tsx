@@ -278,6 +278,9 @@ export function ScpOverview() {
   const sessionIdRef = useRef("")
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
+  const micStreamRef = useRef<MediaStream | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const recorderChunksRef = useRef<Blob[]>([])
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const pendingImageRef = useRef<string | null>(null)
   const lastAlertKey = useRef("")
@@ -323,7 +326,41 @@ export function ScpOverview() {
     setCameraOpen(false)
   }, [])
 
-  const toggleMic = useCallback(() => {
+  const transcribeMicBlob = useCallback(async (blob: Blob) => {
+    setMediaStatus("Đang chuyển giọng nói thành chữ bằng SCP…")
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(String(reader.result || ""))
+        reader.onerror = () => reject(new Error("Không đọc được audio"))
+        reader.readAsDataURL(blob)
+      })
+      const audioBase64 = dataUrl.split(",", 2)[1] || ""
+      const response = await fetch("/api/scp/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio_base64: audioBase64 }),
+        cache: "no-store",
+      })
+      const data = await response.json().catch(() => ({ error: "Không đọc được kết quả Mic" })) as JsonRecord
+      if (data.jailbreak_detected === true) {
+        setChatAnswer(data)
+        setMediaStatus("Mic bị SCP chặn vì phát hiện nội dung nguy hiểm.")
+        return
+      }
+      const transcript = firstValue(data, ["text_extracted", "transcript", "text"], "")
+      if (transcript) {
+        setChatQuestion(transcript)
+        setMediaStatus("Đã nhận giọng nói. Kiểm tra câu chữ rồi bấm Gửi câu hỏi.")
+      } else {
+        setMediaStatus(firstValue(data, ["error"], `SCP không nhận được chữ · HTTP ${response.status}`))
+      }
+    } catch (error) {
+      setMediaStatus(`Mic lỗi: ${error instanceof Error ? error.message : "không rõ"}`)
+    }
+  }, [])
+
+  const toggleMic = useCallback(async () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
@@ -331,10 +368,42 @@ export function ScpOverview() {
       setMediaStatus("Đã dừng mic.")
       return
     }
+    if (recorderRef.current) {
+      recorderRef.current.stop()
+      setMediaStatus("Đã dừng ghi âm. Đang xử lý…")
+      return
+    }
+    if (navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined") {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        const supportedType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg"].find((type) => MediaRecorder.isTypeSupported(type))
+        const recorder = supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream)
+        micStreamRef.current = stream
+        recorderRef.current = recorder
+        recorderChunksRef.current = []
+        recorder.ondataavailable = (event) => { if (event.data.size > 0) recorderChunksRef.current.push(event.data) }
+        recorder.onstop = () => {
+          const audio = new Blob(recorderChunksRef.current, { type: recorder.mimeType || "audio/webm" })
+          recorderRef.current = null
+          micStreamRef.current?.getTracks().forEach((track) => track.stop())
+          micStreamRef.current = null
+          recorderChunksRef.current = []
+          setMicActive(false)
+          void transcribeMicBlob(audio)
+        }
+        recorder.start()
+        setMicActive(true)
+        setMediaStatus("Đang ghi âm một câu. Bấm Mic lần nữa để dừng.")
+        return
+      } catch (error) {
+        setMediaStatus(`Không mở được mic: ${error instanceof Error ? error.message : "quyền bị từ chối"}`)
+        return
+      }
+    }
     const speechWindow = window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }
     const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
     if (!SpeechRecognition) {
-      setMediaStatus("Electron/trình duyệt này chưa có nhận giọng nói; hãy nhập chữ.")
+      setMediaStatus("Desktop chưa có bộ nhận giọng nói; hãy nhập chữ.")
       return
     }
     const recognition = new SpeechRecognition()
@@ -350,7 +419,7 @@ export function ScpOverview() {
     recognition.onend = () => { recognitionRef.current = null; setMicActive(false) }
     recognitionRef.current = recognition
     try { recognition.start() } catch { recognitionRef.current = null; setMicActive(false); setMediaStatus("Không thể khởi động mic.") }
-  }, [])
+  }, [transcribeMicBlob])
 
   const openCamera = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -404,7 +473,12 @@ export function ScpOverview() {
     }
   }, [chatBusy, chatQuestion, ensureSessionId])
 
-  useEffect(() => () => { recognitionRef.current?.stop(); closeCamera() }, [closeCamera])
+  useEffect(() => () => {
+    recognitionRef.current?.stop()
+    recorderRef.current?.stop()
+    micStreamRef.current?.getTracks().forEach((track) => track.stop())
+    closeCamera()
+  }, [closeCamera])
 
   const refresh = useCallback(async () => {
     setRefreshing(true)
@@ -489,8 +563,33 @@ export function ScpOverview() {
   const overallKind: StatusKind = snapshot.status.scp === "online" ? "online" : degradedCount > 0 ? "degraded" : onlineCount === 3 ? "online" : onlineCount > 0 ? "degraded" : "unknown"
   const engine = asRecord(snapshot.status.engine)
   const loopData = asRecord(snapshot.loop)
-  const activity = firstValue(loopData, ["currentActivity", "activity", "message", "currentTask", "lastAction"], "Đang theo dõi tín hiệu và chờ vòng kiểm tra tiếp theo")
-  const loopState = firstValue(loopData, ["loop", "status", "state"], statusLabel(probeKind(combinedLoop)))
+  const lastRun = asRecord(loopData.last_run)
+  const latestRunStatus = firstValue(lastRun, ["status", "state"], "")
+  const runStatusLabel: Record<string, string> = {
+    queued: "đã xếp hàng",
+    running: "đang chạy",
+    completed: "đã hoàn thành",
+    complete: "đã hoàn thành",
+    ok: "đã hoàn thành",
+    failed: "bị lỗi",
+    error: "bị lỗi",
+  }
+  const activity = firstValue(
+    loopData,
+    ["currentActivity", "activity", "message", "currentTask", "lastAction"],
+    latestRunStatus
+      ? `Lần chạy gần nhất ${runStatusLabel[latestRunStatus.toLowerCase()] ?? latestRunStatus}`
+      : loopData.running === true
+        ? "Scheduler đang chạy vòng kiểm tra"
+        : loopData.paused === true
+          ? "Scheduler đang tạm dừng"
+          : "Scheduler đang chờ vòng kiểm tra tiếp theo",
+  )
+  const loopState = firstValue(
+    loopData,
+    ["loop", "status", "state"],
+    loopData.running === true ? "running" : loopData.paused === true ? "paused" : latestRunStatus || statusLabel(probeKind(combinedLoop)),
+  )
   const runCount = firstValue(loopData, ["runsToday", "runCount", "totalRuns", "cycles"], "—")
   const version = firstValue(engine, ["version", "engineVersion"], "SCP DNA")
   const loc = firstValue(engine, ["totalAutofixPyFiles", "autofixLoc", "totalLoc"], "—")

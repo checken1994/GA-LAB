@@ -27,8 +27,9 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
 from scp.api._shared import (
@@ -47,6 +48,11 @@ from scp.api._shared import (
 )
 
 router = APIRouter(tags=["v104"])
+
+
+class VoiceCheckRequest(BaseModel):
+    audio_url: str = ""
+    audio_base64: str = ""
 
 
 @router.get("/v104/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
@@ -118,9 +124,13 @@ async def v104_image_check(
 async def v104_voice_check(
     audio_url: str = "",
     audio_base64: str = "",
+    payload: VoiceCheckRequest | None = Body(default=None),
     _admin: bool = Depends(verify_admin),
 ):
     """V104: Check audio for jailbreak via Whisper ASR."""
+    if payload is not None:
+        audio_url = audio_url or payload.audio_url
+        audio_base64 = audio_base64 or payload.audio_base64
     if audio_base64:
         import base64
         audio_bytes = base64.b64decode(audio_base64)
