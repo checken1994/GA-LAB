@@ -192,7 +192,7 @@ class ExternalTrustRoot:
 
     def get_baseline_hash(self, file_path: str) -> str | None:
         """Get baseline hash of a file (for tamper detection)."""
-        path = self.project_root / file_path
+        path = self._resolve_expected_path(file_path)
         if not path.exists():
             return None
         return hashlib.sha256(path.read_bytes()).hexdigest()
