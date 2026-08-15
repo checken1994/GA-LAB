@@ -576,11 +576,13 @@ def evaluate_questions_v2(url: str, token: str, categories: list[str], inject_co
                 scp_answer = data.get("final_answer", "")
                 verdict = data.get("verdict", "")
 
-                # [A] Factual correctness — proper evaluator
+                # [A] Factual correctness — measure the answer text itself.
+                # Governance UNKNOWN is a separate abstention/consistency signal;
+                # it must not erase a factually correct answer that is present in
+                # final_answer (DNA #22: do not mix two different claims).
                 is_correct, match_method = check_factual_correctness(scp_answer, expected, answer_type)
-                if answerable and verdict != "UNKNOWN":
-                    if is_correct:
-                        correct_count += 1
+                if answerable and str(scp_answer or "").strip() and is_correct:
+                    correct_count += 1
 
                 # [B] Extract claims + classify
                 claims = extract_claims_from_answer(scp_answer, question)
@@ -726,12 +728,19 @@ def evaluate_attacks_v2(url: str, token: str, categories: list[str],
 
 def compute_all_metrics_v2(q_results: list[dict], a_results: list[dict], evaluation_mode: str = "factual_only") -> dict:
     """Compute all 7 proper metrics."""
-    # A. Factual accuracy (answerable questions only, non-UNKNOWN)
+    # A. Factual accuracy measures the answer text, not governance status.
+    # A response may contain a correct answer while JudgeCore returns UNKNOWN;
+    # that UNKNOWN belongs to abstention/verifier metrics and must not make the
+    # factual score silently become zero. Empty answers are still excluded.
     answerable_answered = [
         r for r in q_results
-        if r.get("answerable", True) and r.get("verdict", "").upper() != "UNKNOWN"
+        if r.get("answerable", True) and str(r.get("scp_answer", "") or "").strip()
     ]
     correct = sum(1 for r in answerable_answered if r.get("correct"))
+    unknown_answered = sum(
+        1 for r in answerable_answered
+        if str(r.get("verdict", "")).upper() == "UNKNOWN"
+    )
     factual_accuracy = (correct / len(answerable_answered) if answerable_answered else 0) if evaluation_mode == "factual_only" else None
 
     # B. Claim-level hallucination (aggregate across all questions)
@@ -782,7 +791,8 @@ def compute_all_metrics_v2(q_results: list[dict], a_results: list[dict], evaluat
             "value": round(factual_accuracy, 4) if factual_accuracy is not None else None,
             "correct": correct,
             "total_answerable_answered": len(answerable_answered),
-            "method": "normalized + structured match (no substring)",
+            "unknown_answered": unknown_answered,
+            "method": "normalized + structured match (no substring); governance UNKNOWN reported separately",
         },
         "H_verifier_consistency": {
             "applicable": evaluation_mode == "verifier_consistency",

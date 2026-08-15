@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 import uuid
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from types import SimpleNamespace
 from scp.core.request_run_ledger import RequestRunLedger
+from scp.core.chat_memory_store import ChatMemoryStore
 
 # [FIX-CRIT-27 BUG 9] Import verify_admin from api_server to gate the
 # /chat/sessions + /chat/{id}/history endpoints (previously NO auth Ă¢â‚¬â€ anyone
@@ -37,12 +39,18 @@ _CHAT_LEDGER = RequestRunLedger()  # P2_CHAT_LEDGER
 class ConversationManager:
     """QuĂ¡ÂºÂ£n lÄ‚Â½ lĂ¡Â»â€¹ch sĂ¡Â»Â­ conversation per session."""
 
-    def __init__(self, max_sessions: int = 100, max_history: int = 20):
+    def __init__(self, max_sessions: int = 100, max_history: int = 20, memory_store: ChatMemoryStore | None = None):
         self._sessions: dict[str, list[dict]] = {}
         self._max_sessions = max_sessions
         self._max_history = max_history
+        self._memory_store = memory_store or ChatMemoryStore()
+        self._persistence_failures = 0
 
     def get_history(self, session_id: str) -> list[dict]:
+        if session_id not in self._sessions:
+            loaded = self._memory_store.load(session_id, limit=self._max_history)
+            if loaded:
+                self._sessions[session_id] = loaded[-self._max_history :]
         return self._sessions.get(session_id, [])
 
     def add_message(self, session_id: str, role: str, content: str, metadata: Optional[dict] = None):
@@ -61,6 +69,15 @@ class ConversationManager:
 
         if len(self._sessions[session_id]) > self._max_history:
             self._sessions[session_id] = self._sessions[session_id][-self._max_history:]
+        if not self._memory_store.append(session_id, role, content, metadata):
+            self._persistence_failures += 1
+
+    def persistence_status(self) -> dict:
+        return {
+            "mode": "redacted_durable",
+            "path_configured": True,
+            "write_failures": self._persistence_failures,
+        }
 
     def get_context_string(self, session_id: str) -> str:
         history = self.get_history(session_id)
@@ -86,8 +103,10 @@ async def scp_chat(websocket: WebSocket):
     """
     await websocket.accept()
 
-    session_id = str(uuid.uuid4())[:8]
-    logger.info(f"[SCP Chat] Session {session_id} connected")
+    requested_session = str(websocket.query_params.get("session_id", "")).strip()
+    session_id = requested_session if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", requested_session or "") else str(uuid.uuid4())[:8]
+    resumed_history = bool(_conversation_mgr.get_history(session_id))
+    logger.info(f"[SCP Chat] Session {session_id} connected resumed={resumed_history}")
 
     await websocket.send_json({
         "type": "system",
@@ -95,6 +114,8 @@ async def scp_chat(websocket: WebSocket):
                    f"TÄ‚Â´i cÄ‚Â³ thĂ¡Â»Æ’ kiĂ¡Â»Æ’m tra cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi, phÄ‚Â¡t hiĂ¡Â»â€¡n tĂ¡ÂºÂ¥n cÄ‚Â´ng, vÄ‚Â  tĂ¡Â»Â± hĂ¡Â»Âc.\n"
                    f"HĂ¡Â»Âi tÄ‚Â´i bĂ¡ÂºÂ¥t cĂ¡Â»Â© Ă„â€˜iĂ¡Â»Âu gÄ‚Â¬ Ă¢â‚¬â€ tÄ‚Â´i sĂ¡ÂºÂ½ nÄ‚Â³i 'TĂ¡ÂºÂ¡i sao?' vÄ‚Â  kiĂ¡Â»Æ’m tra.",
         "session_id": session_id,
+        "resumed": resumed_history,
+        "memory_mode": "redacted_durable",
     })
 
     try:
@@ -110,6 +131,7 @@ async def scp_chat(websocket: WebSocket):
             task_mode = str(msg.get("mode", "")).strip().lower() in {"agent_task", "task", "orchestrate"}
             if not user_message:
                 continue
+            _conversation_mgr.add_message(session_id, "user", user_message, {"type": "user_message", "mode": "agent_task" if task_mode else "chat"})
             run = _CHAT_LEDGER.begin(SimpleNamespace(source="websocket_chat", domain="general", message=user_message))
             if not run.ledger_write_ok:
                 await websocket.send_json({"type": "error", "message": "Audit ledger unavailable; chat processing blocked", "run_id": run.run_id, "trace_id": run.trace_id, "run_status": "DB_WRITE_FAILED", "ledger_status": "DB_WRITE_FAILED"})
@@ -175,7 +197,6 @@ async def scp_chat(websocket: WebSocket):
                     })
                 continue
 
-            _conversation_mgr.add_message(session_id, "user", user_message)
             _conversation_context = _conversation_mgr.get_context_string(session_id)
 
             try:
@@ -303,6 +324,7 @@ async def list_sessions(_admin: bool = Depends(verify_admin)):  # [FIX-CRIT-27 B
     return {
         "active_sessions": len(_conversation_mgr._sessions),
         "sessions": list(_conversation_mgr._sessions.keys()),
+        "memory": _conversation_mgr.persistence_status(),
     }
 
 
