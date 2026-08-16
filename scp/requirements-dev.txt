@@ -28,7 +28,7 @@ hypothesis==6.108.0
 
 # === Type checking (OPTIONAL — recommended cho CI) ===
 mypy==1.13.0
-types-requests==2.32.0
+types-requests==2.33.0.20260712
 
 # === Code coverage (OPTIONAL — cho CI badge) ===
-coverage==7.6.0
+coverage==7.10.6

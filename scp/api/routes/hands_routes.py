@@ -8,11 +8,10 @@ from typing import Any
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
 from scp.hands.goal_parser import GoalParser
 from scp.hands.hands_executor import HandsExecutor
 from scp.hands.planner import HandsPlanner
-
-from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
 _HANDS_ROUTES_LEDGER = RequestRunLedger()
 
@@ -64,6 +63,12 @@ class GoalParseRequest(BaseModel):
 
 class PlannerRollbackRequest(BaseModel):
     capabilityLevel: int = Field(default=3, ge=0, le=5)
+    approved: bool = False
+
+
+class PlannerRecoveryRequest(BaseModel):
+    decision: str = Field(min_length=6, max_length=32)
+    evidenceRef: str = Field(min_length=1, max_length=512)
     approved: bool = False
 
 
@@ -178,3 +183,10 @@ async def planner_run_dag(plan_id: str, payload: PlannerDagRunRequest, request: 
 async def planner_rollback(plan_id: str, payload: PlannerRollbackRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _planner.rollback_plan(plan_id, payload.capabilityLevel, payload.approved)
+
+
+@router.post("/planner/{plan_id}/recover")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_recover")
+async def planner_recover(plan_id: str, payload: PlannerRecoveryRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+    _guard(request, x_scp_pc_token)
+    return _planner.recover_plan(plan_id, payload.decision, payload.evidenceRef, payload.approved)

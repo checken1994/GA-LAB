@@ -7,17 +7,20 @@ failures, records evidence, and requires approval before risky steps.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import os
+import threading
 import time
 import uuid
 from typing import Any
 
 from .hands_executor import HandsExecutor
 
-
 PLAN_VERSION = "3.7"
-PLAN_STATES = {"PLANNED", "RUNNING", "WAITING_APPROVAL", "VERIFIED", "FAILED", "ROLLED_BACK", "COMPLETED"}
-STEP_STATES = {"PLANNED", "RUNNING", "WAITING_APPROVAL", "VERIFIED", "FAILED", "ROLLED_BACK"}
+PLAN_STATES = {"PLANNED", "RUNNING", "WAITING_APPROVAL", "VERIFIED", "FAILED", "ROLLED_BACK", "COMPLETED", "UNKNOWN", "HUMAN_REVIEW"}
+STEP_STATES = {"PLANNED", "RUNNING", "WAITING_APPROVAL", "VERIFIED", "FAILED", "ROLLED_BACK", "UNKNOWN", "HUMAN_REVIEW"}
+RECOVERY_DECISIONS = {"NOT_APPLIED", "APPLIED", "PARTIAL", "CONFLICT", "UNKNOWN"}
 PRECONDITION_TYPES = {"always", "previous_steps_verified", "plan_state", "step_state"}
 POSTCONDITION_TYPES = {"verification_passed", "success", "text_contains", "url_prefix", "evidence_field_equals", "field_equals"}
 RETRY_TYPES = {"verification_failed", "execution_error", "always"}
@@ -30,7 +33,15 @@ class HandsPlanner:
         self.executor = executor or HandsExecutor()
         self.data_dir = self.executor.data_dir
         self.plan_path = self.data_dir / "plans.jsonl"
+        self.lease_dir = self.data_dir / "leases"
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.lease_dir.mkdir(parents=True, exist_ok=True)
+        self._journal_lock = threading.Lock()
+        self._active_runs: set[str] = set()
+        self._run_tokens: dict[str, str] = {}
+        self._event_seq = 0
+        self._previous_event_hash = ""
+        self._restore_journal_state()
 
     @staticmethod
     def _now() -> float:
@@ -40,11 +51,119 @@ class HandsPlanner:
     def _bounded_text(value: Any, limit: int = 5000) -> str:
         return str(value or "")[:limit]
 
+    @staticmethod
+    def _constant_time_equal(left: Any, right: Any) -> bool:
+        left_text = str(left or "")
+        right_text = str(right or "")
+        if len(left_text) != len(right_text):
+            return False
+        difference = 0
+        for left_char, right_char in zip(left_text, right_text, strict=True):
+            difference |= ord(left_char) ^ ord(right_char)
+        return difference == 0
+
+    def _lease_path(self, plan_id: str) -> Any:
+        safe_id = "".join(char for char in str(plan_id) if char.isalnum() or char in {"-", "_"})[:128]
+        return self.lease_dir / f"{safe_id}.json"
+
+    def _claim_lease(self, plan_id: str, ttl_seconds: int = 120) -> str | None:
+        lease_path = self._lease_path(plan_id)
+        now = self._now()
+        try:
+            if lease_path.exists():
+                try:
+                    current = json.loads(lease_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    current = {}
+                if float(current.get("expiresAt", 0) or 0) > now:
+                    return None
+                stale_path = lease_path.with_name(f"{lease_path.stem}.expired-{uuid.uuid4().hex}.json")
+                try:
+                    os.replace(lease_path, stale_path)
+                except FileNotFoundError:
+                    return None
+            token = uuid.uuid4().hex
+            payload = {"planId": plan_id, "token": token, "ownerPid": os.getpid(), "startedAt": now, "heartbeatAt": now, "expiresAt": now + ttl_seconds}
+            fd = os.open(str(lease_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    json.dump(payload, handle, ensure_ascii=True)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            except Exception:
+                try:
+                    lease_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                raise
+            return token
+        except FileExistsError:
+            return None
+        except OSError:
+            return None
+
+    def _lease_is_valid(self, plan_id: str, token: str) -> bool:
+        try:
+            lease = json.loads(self._lease_path(plan_id).read_text(encoding="utf-8"))
+            return self._constant_time_equal(lease.get("token"), token) and float(lease.get("expiresAt", 0) or 0) > self._now()
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            return False
+
+    def _renew_lease(self, plan_id: str, token: str, ttl_seconds: int = 120) -> bool:
+        lease_path = self._lease_path(plan_id)
+        if not self._lease_is_valid(plan_id, token):
+            return False
+        try:
+            lease = json.loads(lease_path.read_text(encoding="utf-8"))
+            now = self._now()
+            lease.update({"heartbeatAt": now, "expiresAt": now + ttl_seconds})
+            temporary = lease_path.with_suffix(f".{uuid.uuid4().hex}.tmp")
+            temporary.write_text(json.dumps(lease, ensure_ascii=True), encoding="utf-8")
+            os.replace(temporary, lease_path)
+            return True
+        except (OSError, json.JSONDecodeError):
+            return False
+
+    def _release_lease(self, plan_id: str, token: str) -> None:
+        if not self._lease_is_valid(plan_id, token):
+            return
+        try:
+            self._lease_path(plan_id).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    async def _lease_heartbeat(self, plan_id: str, token: str) -> None:
+        while True:
+            await asyncio.sleep(10)
+            if not self._renew_lease(plan_id, token):
+                return
+
+    def _restore_journal_state(self) -> None:
+        """Recover the last journal sequence/hash without trusting projection state."""
+        if not self.plan_path.exists():
+            return
+        try:
+            last_line = ""
+            with self.plan_path.open("r", encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    if line.strip():
+                        last_line = line
+            if last_line:
+                record = json.loads(last_line)
+                self._event_seq = int(record.get("eventSeq", 0) or 0)
+                self._previous_event_hash = str(record.get("eventHash", "") or "")
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            # A corrupt journal is not silently repaired here. New writes continue
+            # with sequence 0 and the audit/reality gate must report the corruption.
+            self._event_seq = 0
+            self._previous_event_hash = ""
+
     def _record(self, event: str, plan: dict[str, Any], extra: dict[str, Any] | None = None) -> None:
         record = {
             "timestamp": self._now(),
             "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "event": event,
+            "eventId": uuid.uuid4().hex,
             "planId": plan.get("planId"),
             "state": plan.get("state"),
             "goal": self._bounded_text(plan.get("goal"), 500),
@@ -52,8 +171,18 @@ class HandsPlanner:
         }
         if extra:
             record.update(extra)
-        with self.plan_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps({"plan": plan, **record}, ensure_ascii=False, default=str) + "\n")
+        with self._journal_lock:
+            self._event_seq += 1
+            record["eventSeq"] = self._event_seq
+            record["previousEventHash"] = self._previous_event_hash
+            canonical = json.dumps({"plan": plan, **record}, ensure_ascii=False, sort_keys=True, default=str)
+            record["eventHash"] = hashlib.sha256(canonical.encode("utf-8", "replace")).hexdigest()
+            journal_record = {"plan": plan, **record}
+            with self.plan_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(journal_record, ensure_ascii=False, default=str) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            self._previous_event_hash = record["eventHash"]
         self.executor._audit(event, {key: value for key, value in record.items() if key != "event"})
 
     def _load_latest(self) -> dict[str, dict[str, Any]]:
@@ -275,11 +404,48 @@ class HandsPlanner:
         dry_run: bool = False,
         stop_on_failure: bool = True,
     ) -> dict[str, Any]:
+        with self._journal_lock:
+            if plan_id in self._active_runs:
+                return {"success": False, "planId": plan_id, "error": "Plan run already active", "safeToRetry": False}
+            lease_token = self._claim_lease(plan_id)
+            if not lease_token:
+                return {"success": False, "planId": plan_id, "error": "Plan lease is held by another worker", "safeToRetry": False, "errorCode": "LEASE_HELD"}
+            self._active_runs.add(plan_id)
+            self._run_tokens[plan_id] = lease_token
+        heartbeat = asyncio.create_task(self._lease_heartbeat(plan_id, lease_token))
+        try:
+            return await self._run_plan_locked(plan_id, capability_level, approved, dry_run, stop_on_failure)
+        finally:
+            heartbeat.cancel()
+            await asyncio.gather(heartbeat, return_exceptions=True)
+            with self._journal_lock:
+                self._active_runs.discard(plan_id)
+                self._run_tokens.pop(plan_id, None)
+                self._release_lease(plan_id, lease_token)
+
+    def _run_lease_valid(self, plan_id: str) -> bool:
+        token = self._run_tokens.get(plan_id)
+        return bool(token and self._lease_is_valid(plan_id, token))
+
+    async def _run_plan_locked(
+        self,
+        plan_id: str,
+        capability_level: int = 0,
+        approved: bool = False,
+        dry_run: bool = False,
+        stop_on_failure: bool = True,
+    ) -> dict[str, Any]:
         plan = self._get(plan_id)
         if not plan:
             return {"success": False, "error": "Plan not found", "planId": plan_id}
         if plan.get("state") in {"COMPLETED", "ROLLED_BACK"}:
             return {"success": False, "error": f"Plan is already {plan.get('state')}", "plan": self._public_plan(plan)}
+        if plan.get("state") in {"UNKNOWN", "HUMAN_REVIEW"}:
+            return {"success": False, "error": "Plan requires recovery decision before another side effect", "requiresRecovery": True, "safeToRetry": False, "plan": self._public_plan(plan)}
+        if plan.get("state") == "RUNNING":
+            plan["state"] = "HUMAN_REVIEW"
+            self._save(plan, "PLAN_STALE_RUN_DETECTED", {"safeToRetry": False})
+            return {"success": False, "error": "A previous run may have stopped mid-side-effect; reconciliation is required", "requiresRecovery": True, "safeToRetry": False, "plan": self._public_plan(plan)}
         plan["state"] = "RUNNING"
         self._save(plan, "PLAN_STARTED")
         last_result: dict[str, Any] = {}
@@ -312,6 +478,12 @@ class HandsPlanner:
             max_attempts = max(1, min(int(retry_policy.get("maxAttempts", 1)), 3))
             retry_on = str(retry_policy.get("on", "verification_failed"))
             while int(step.get("attempts", 0)) < max_attempts:
+                if not self._run_lease_valid(plan_id):
+                    step["state"] = "UNKNOWN"
+                    step["error"] = "Lease lost before tool execution"
+                    plan["state"] = "UNKNOWN"
+                    self._save(plan, "PLAN_LEASE_LOST", {"stepId": step["stepId"], "safeToRetry": False})
+                    return {"success": False, "requiresRecovery": True, "safeToRetry": False, "errorCode": "STALE_LEASE", "plan": self._public_plan(plan), "stepId": step["stepId"]}
                 step["state"] = "RUNNING"
                 step["attempts"] = int(step.get("attempts", 0)) + 1
                 self._save(plan, "PLAN_STEP_STARTED", {"stepId": step["stepId"], "action": step["action"], "attempt": step["attempts"], "maxAttempts": max_attempts})
@@ -319,6 +491,12 @@ class HandsPlanner:
                     last_result = await self.executor.execute(step["action"], step.get("params", {}), requested_capability, request_approved, dry_run or bool(step.get("dryRun", False)))
                 except Exception as exc:
                     last_result = {"success": False, "error": f"Planner executor error: {exc}", "verification": {"passed": False}}
+                if not self._run_lease_valid(plan_id):
+                    step["state"] = "UNKNOWN"
+                    step["error"] = "Lease lost after tool execution; result requires reconciliation"
+                    plan["state"] = "UNKNOWN"
+                    self._save(plan, "PLAN_LEASE_LOST_AFTER_TOOL", {"stepId": step["stepId"], "safeToRetry": False})
+                    return {"success": False, "requiresRecovery": True, "safeToRetry": False, "errorCode": "STALE_LEASE", "plan": self._public_plan(plan), "stepId": step["stepId"], "result": last_result}
                 verification = last_result.get("verification") if isinstance(last_result.get("verification"), dict) else {}
                 verification_passed = bool(verification.get("passed"))
                 postcondition_ok, postcondition_message = self._evaluate_condition(step.get("postcondition", {"type": "verification_passed"}), plan, last_result)
@@ -342,6 +520,20 @@ class HandsPlanner:
                     self._save(plan, "PLAN_STEP_VERIFIED", {"stepId": step["stepId"], "action": step["action"], "attempt": step["attempts"]})
                     break
                 failure_kind = "execution_error" if step["error"] else "verification_failed"
+                definition_mutates = bool(definition.mutates_state)
+                if definition_mutates:
+                    step["state"] = "HUMAN_REVIEW"
+                    step["recovery"] = {
+                        "decision": "RECONCILE",
+                        "reason": "MUTATING_ACTION_RESULT_NOT_VERIFIED",
+                        "safeToRetry": False,
+                        "requiredEvidence": ["postcondition", "provider_or_driver_state"],
+                        "failureKind": failure_kind,
+                    }
+                    step["error"] = "Mutating action was not verified; automatic retry is blocked"
+                    plan["state"] = "HUMAN_REVIEW"
+                    self._save(plan, "PLAN_STEP_RECONCILE_REQUIRED", {"stepId": step["stepId"], "action": step["action"], "safeToRetry": False, "failureKind": failure_kind})
+                    return {"success": False, "requiresRecovery": True, "safeToRetry": False, "plan": self._public_plan(plan), "stepId": step["stepId"], "result": last_result}
                 can_retry = int(step.get("attempts", 0)) < max_attempts and retry_on in {failure_kind, "always"}
                 if can_retry:
                     step["state"] = "RUNNING"
@@ -382,6 +574,10 @@ class HandsPlanner:
         retry_on = str(retry_policy.get("on", "verification_failed"))
         last_result: dict[str, Any] = {}
         while int(step.get("attempts", 0)) < max_attempts:
+            if not self._run_lease_valid(str(plan.get("planId"))):
+                step["state"] = "UNKNOWN"
+                step["error"] = "Lease lost before tool execution"
+                return {"success": False, "requiresRecovery": True, "safeToRetry": False, "errorCode": "STALE_LEASE", "stepId": step["stepId"]}
             step["state"] = "RUNNING"
             step["attempts"] = int(step.get("attempts", 0)) + 1
             self._save(plan, "PLAN_STEP_STARTED", {"stepId": step["stepId"], "action": step["action"], "attempt": step["attempts"], "maxAttempts": max_attempts, "scheduler": "dag"})
@@ -389,6 +585,10 @@ class HandsPlanner:
                 last_result = await self.executor.execute(step["action"], step.get("params", {}), requested_capability, request_approved, dry_run or bool(step.get("dryRun", False)))
             except Exception as exc:
                 last_result = {"success": False, "error": f"Planner executor error: {exc}", "verification": {"passed": False}}
+            if not self._run_lease_valid(str(plan.get("planId"))):
+                step["state"] = "UNKNOWN"
+                step["error"] = "Lease lost after tool execution; result requires reconciliation"
+                return {"success": False, "requiresRecovery": True, "safeToRetry": False, "errorCode": "STALE_LEASE", "stepId": step["stepId"], "result": last_result}
             verification = last_result.get("verification") if isinstance(last_result.get("verification"), dict) else {}
             postcondition_ok, postcondition_message = self._evaluate_condition(step.get("postcondition", {"type": "verification_passed"}), plan, last_result)
             passed = bool(last_result.get("success")) and bool(verification.get("passed")) and postcondition_ok
@@ -411,6 +611,18 @@ class HandsPlanner:
                 self._save(plan, "PLAN_STEP_VERIFIED", {"stepId": step["stepId"], "action": step["action"], "attempt": step["attempts"], "scheduler": "dag"})
                 return {"success": True, "stepId": step["stepId"], "result": last_result}
             failure_kind = "execution_error" if step["error"] else "verification_failed"
+            if definition.mutates_state:
+                step["state"] = "HUMAN_REVIEW"
+                step["recovery"] = {
+                    "decision": "RECONCILE",
+                    "reason": "MUTATING_ACTION_RESULT_NOT_VERIFIED",
+                    "safeToRetry": False,
+                    "requiredEvidence": ["postcondition", "provider_or_driver_state"],
+                    "failureKind": failure_kind,
+                }
+                step["error"] = "Mutating action was not verified; automatic retry is blocked"
+                self._save(plan, "PLAN_STEP_RECONCILE_REQUIRED", {"stepId": step["stepId"], "action": step["action"], "scheduler": "dag", "safeToRetry": False, "failureKind": failure_kind})
+                return {"success": False, "requiresRecovery": True, "safeToRetry": False, "stepId": step["stepId"], "result": last_result}
             can_retry = int(step.get("attempts", 0)) < max_attempts and retry_on in {failure_kind, "always"}
             if can_retry:
                 self._save(plan, "PLAN_STEP_RETRY", {"stepId": step["stepId"], "action": step["action"], "attempt": step["attempts"], "nextAttempt": int(step["attempts"]) + 1, "reason": failure_kind, "scheduler": "dag"})
@@ -432,12 +644,46 @@ class HandsPlanner:
         max_parallel: int = 2,
         stop_on_failure: bool = True,
     ) -> dict[str, Any]:
+        with self._journal_lock:
+            if plan_id in self._active_runs:
+                return {"success": False, "planId": plan_id, "error": "Plan run already active", "safeToRetry": False}
+            lease_token = self._claim_lease(plan_id)
+            if not lease_token:
+                return {"success": False, "planId": plan_id, "error": "Plan lease is held by another worker", "safeToRetry": False, "errorCode": "LEASE_HELD"}
+            self._active_runs.add(plan_id)
+            self._run_tokens[plan_id] = lease_token
+        heartbeat = asyncio.create_task(self._lease_heartbeat(plan_id, lease_token))
+        try:
+            return await self._run_dag_locked(plan_id, capability_level, approved, dry_run, max_parallel, stop_on_failure)
+        finally:
+            heartbeat.cancel()
+            await asyncio.gather(heartbeat, return_exceptions=True)
+            with self._journal_lock:
+                self._active_runs.discard(plan_id)
+                self._run_tokens.pop(plan_id, None)
+                self._release_lease(plan_id, lease_token)
+
+    async def _run_dag_locked(
+        self,
+        plan_id: str,
+        capability_level: int = 0,
+        approved: bool = False,
+        dry_run: bool = False,
+        max_parallel: int = 2,
+        stop_on_failure: bool = True,
+    ) -> dict[str, Any]:
         """Run topologically ready steps concurrently with bounded parallelism."""
         plan = self._get(plan_id)
         if not plan:
             return {"success": False, "error": "Plan not found", "planId": plan_id}
         if plan.get("state") in {"COMPLETED", "ROLLED_BACK"}:
             return {"success": False, "error": f"Plan is already {plan.get('state')}", "plan": self._public_plan(plan)}
+        if plan.get("state") in {"UNKNOWN", "HUMAN_REVIEW"}:
+            return {"success": False, "error": "Plan requires recovery decision before another side effect", "requiresRecovery": True, "safeToRetry": False, "plan": self._public_plan(plan)}
+        if plan.get("state") == "RUNNING":
+            plan["state"] = "HUMAN_REVIEW"
+            self._save(plan, "PLAN_STALE_RUN_DETECTED", {"scheduler": "dag", "safeToRetry": False})
+            return {"success": False, "error": "A previous DAG run may have stopped mid-side-effect; reconciliation is required", "requiresRecovery": True, "safeToRetry": False, "plan": self._public_plan(plan)}
         max_parallel = max(1, min(int(max_parallel), 4))
         step_map = {str(step.get("stepId")): step for step in plan.get("steps", [])}
         pending = {step_id for step_id, step in step_map.items() if step.get("state") != "VERIFIED"}
@@ -499,14 +745,58 @@ class HandsPlanner:
                         other.cancel()
                     if running:
                         await asyncio.gather(*running.values(), return_exceptions=True)
-                    plan["state"] = "FAILED"
-                    self._save(plan, "PLAN_FAILED", {"scheduler": "dag", "reason": "step_failure", "stepId": step_id})
-                    return {"success": False, "plan": self._public_plan(plan), "stepId": step_id, "result": result}
+                    plan["state"] = "HUMAN_REVIEW" if result.get("requiresRecovery") else "FAILED"
+                    self._save(plan, "PLAN_RECONCILE_REQUIRED" if result.get("requiresRecovery") else "PLAN_FAILED", {"scheduler": "dag", "reason": "step_failure", "stepId": step_id, "safeToRetry": bool(result.get("safeToRetry", False))})
+                    return {"success": False, "plan": self._public_plan(plan), "stepId": step_id, "result": result, "requiresRecovery": bool(result.get("requiresRecovery")), "safeToRetry": bool(result.get("safeToRetry", False))}
         plan["state"] = "COMPLETED"
         plan["currentStepId"] = None
         plan["completedStepCount"] = sum(1 for step in plan.get("steps", []) if step.get("state") == "VERIFIED")
         self._save(plan, "PLAN_DAG_COMPLETED", {"maxParallel": max_parallel, "parallelSteps": max_parallel > 1})
         return {"success": True, "plan": self._public_plan(plan), "results": last_results}
+
+    def recover_plan(self, plan_id: str, decision: str, evidence_ref: str, approved: bool = False) -> dict[str, Any]:
+        """Reconcile an interrupted/uncertain plan before any new side effect."""
+        plan = self._get(plan_id)
+        if not plan:
+            return {"success": False, "error": "Plan not found", "planId": plan_id}
+        decision = str(decision or "").strip().upper()
+        evidence_ref = str(evidence_ref or "").strip()[:512]
+        if decision not in RECOVERY_DECISIONS:
+            return {"success": False, "error": f"Unsupported recovery decision: {decision}", "allowedDecisions": sorted(RECOVERY_DECISIONS)}
+        if not approved:
+            return {"success": False, "error": "Recovery requires explicit approval", "safeToRetry": False}
+        if plan.get("state") not in {"UNKNOWN", "HUMAN_REVIEW"}:
+            return {"success": False, "error": "Plan is not waiting for recovery", "state": plan.get("state"), "safeToRetry": False}
+        if not evidence_ref:
+            return {"success": False, "error": "Evidence reference is required", "safeToRetry": False}
+        evidence_hash = hashlib.sha256(evidence_ref.encode("utf-8", "replace")).hexdigest()
+        affected = [step for step in plan.get("steps", []) if step.get("state") in {"UNKNOWN", "HUMAN_REVIEW"}]
+        if not affected:
+            return {"success": False, "error": "No step is waiting for recovery", "safeToRetry": False}
+        recovery = {
+            "decision": decision,
+            "evidenceRefSha256": evidence_hash,
+            "evidenceProvided": True,
+            "safeToRetry": decision == "NOT_APPLIED",
+            "recordedAt": self._now(),
+        }
+        plan["recovery"] = recovery
+        for step in affected:
+            step["recovery"] = recovery
+            if decision == "NOT_APPLIED":
+                step["state"] = "PLANNED"
+                step["attempts"] = 0
+                step["error"] = ""
+            else:
+                step["state"] = "HUMAN_REVIEW"
+        if decision == "NOT_APPLIED":
+            plan["state"] = "PLANNED"
+            plan["currentStepId"] = None
+            self._save(plan, "PLAN_RECOVERY_RESUMED", {"decision": decision, "evidenceRefSha256": evidence_hash, "safeToRetry": True})
+            return {"success": True, "plan": self._public_plan(plan), "decision": decision, "safeToRetry": True}
+        plan["state"] = "HUMAN_REVIEW"
+        self._save(plan, "PLAN_RECOVERY_RECORDED", {"decision": decision, "evidenceRefSha256": evidence_hash, "safeToRetry": False})
+        return {"success": True, "plan": self._public_plan(plan), "decision": decision, "safeToRetry": False, "requiresHumanReview": True}
 
     async def rollback_plan(self, plan_id: str, capability_level: int = 3, approved: bool = False) -> dict[str, Any]:
         plan = self._get(plan_id)
@@ -530,13 +820,51 @@ class HandsPlanner:
         self._save(plan, "PLAN_ROLLED_BACK", {"checkpointCount": len(rollback_results)})
         return {"success": True, "plan": self._public_plan(plan), "rollbackResults": rollback_results}
 
+    def journal_integrity(self) -> dict[str, Any]:
+        checked = 0
+        legacy = 0
+        errors: list[str] = []
+        previous_hash = ""
+        expected_seq = 1
+        if not self.plan_path.exists():
+            return {"valid": True, "checked": 0, "legacy": 0, "errors": []}
+        try:
+            lines = self.plan_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError as exc:
+            return {"valid": False, "checked": 0, "legacy": 0, "errors": [str(exc)]}
+        for line_number, line in enumerate(lines, start=1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                errors.append(f"line {line_number}: invalid JSON")
+                continue
+            if "eventHash" not in record or "eventSeq" not in record:
+                legacy += 1
+                continue
+            checked += 1
+            if int(record.get("eventSeq", -1)) != expected_seq:
+                errors.append(f"line {line_number}: event sequence mismatch")
+            if str(record.get("previousEventHash", "")) != previous_hash:
+                errors.append(f"line {line_number}: previous hash mismatch")
+            supplied_hash = str(record.get("eventHash", ""))
+            canonical = {key: value for key, value in record.items() if key != "eventHash"}
+            calculated_hash = hashlib.sha256(json.dumps(canonical, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8", "replace")).hexdigest()
+            if supplied_hash != calculated_hash:
+                errors.append(f"line {line_number}: event hash mismatch")
+            previous_hash = supplied_hash
+            expected_seq += 1
+        return {"valid": not errors and legacy == 0, "checked": checked, "legacy": legacy, "errors": errors[:20]}
+
     def status(self) -> dict[str, Any]:
         plans = self.list_plans(20)
-        active = next((item for item in plans if item.get("state") in {"PLANNED", "RUNNING", "WAITING_APPROVAL"}), None)
+        active = next((item for item in plans if item.get("state") in {"PLANNED", "RUNNING", "WAITING_APPROVAL", "UNKNOWN", "HUMAN_REVIEW"}), None)
         return {
             "version": PLAN_VERSION,
             "planner": "online",
             "planCount": len(plans),
+            "journal": self.journal_integrity(),
             "activePlan": active,
             "states": {state: sum(1 for plan in plans if plan.get("state") == state) for state in sorted(PLAN_STATES)},
         }
