@@ -213,7 +213,7 @@ const state: LoopState = {
 // ─── Logging ───────────────────────────────────────────────────────────────
 
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join as pathJoin } from "node:path";
+import { join as pathJoin } from "node:path";
 
 async function appendRunToLog(run: LoopRun): Promise<void> {
   const line = JSON.stringify(run) + "\n";

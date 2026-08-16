@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 /**
  * SCP LLM Bridge — Ollama-compatible HTTP server → z-ai-web-dev-sdk.
  *
