@@ -16,7 +16,15 @@ results = []
 env = os.environ.copy()
 env.setdefault("PYTHONUTF8", "1")
 env.setdefault("PYTHONIOENCODING", "utf-8")
-env.setdefault("SCP_ENV_FILE", str(ROOT / ".env.test"))
+# Reality tests must never inherit a production env file. Create one empty,
+# explicit child-safe file when the suite itself did not provide an override.
+_TEST_ENV_FILE = ROOT / ".env.test"
+_TEST_ENV_CREATED = False
+if not _TEST_ENV_FILE.exists():
+    _TEST_ENV_FILE.write_text("# generated isolated reality-test environment\\n", encoding="utf-8")
+    _TEST_ENV_CREATED = True
+env["SCP_ENV_FILE"] = str(_TEST_ENV_FILE)
+env["SCP_SIDECAR_ENV_FILE"] = str(_TEST_ENV_FILE)
 env.setdefault("SCP_DEV_MODE", "0")
 env.setdefault("SCP_SKIP_STARTUP_GATE", "0")
 for test in sorted(TEST_DIR.glob("reality_*.py")):
@@ -51,5 +59,10 @@ summary = {
 }
 out = ROOT / "reality-tests-results.json"
 out.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+if _TEST_ENV_CREATED:
+    try:
+        _TEST_ENV_FILE.unlink()
+    except OSError:
+        pass
 print(json.dumps({k: summary[k] for k in ("test_count", "pass", "fail", "timeout", "error")}, ensure_ascii=False))
 raise SystemExit(0 if summary["fail"] == 0 and summary["timeout"] == 0 and summary["error"] == 0 else 1)
