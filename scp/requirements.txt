@@ -41,13 +41,10 @@ python-dotenv==1.0.1
 # === XML security (REQUIRED — biology.py imports defusedxml for XXE hardening) ===
 defusedxml==0.7.1
 
-# === Optional ML / embeddings (OPTIONAL — soft dep, try/except ImportError) ===
-# Verified: capabilities/vector_db.py + core/hybrid_matcher.py dùng
-# `from sentence_transformers import SentenceTransformer` trong try/except.
-# Nếu không cài → fallback to keyword matching (cosine similarity disabled).
-# Cài nếu cần vector search + semantic matching.
-sentence-transformers==3.3.1
-numpy==2.1.3
+# === Optional ML / embeddings ===
+# Không cài trong runtime mặc định: code hiện tại không import trực tiếp hai gói này,
+# và CI không được buộc tải torch hàng trăm MB chỉ để chạy policy/reality checks.
+# Nếu bật vector search/semantic matching, cài riêng từ requirements-optional-ml.txt.
 
 # === Production server extras (OPTIONAL — uncomment for production) ===
 # gunicorn==23.0.0

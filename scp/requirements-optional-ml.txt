@@ -1,0 +1,4 @@
+# Optional semantic/vector search dependencies.
+# Install only when the corresponding SCP feature is intentionally enabled.
+sentence-transformers==3.3.1
+numpy==2.1.3
