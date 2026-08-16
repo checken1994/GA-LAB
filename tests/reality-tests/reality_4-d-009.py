@@ -76,6 +76,8 @@ proc = subprocess.Popen(
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
+    encoding="utf-8",
+    errors="replace",
 )
 boot_log = ""
 try:
