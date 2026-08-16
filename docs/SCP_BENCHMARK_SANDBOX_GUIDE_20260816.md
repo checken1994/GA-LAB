@@ -126,3 +126,65 @@ Không map toàn bộ `C:\Users\check`, không map `C:\Users\check\Downloads\.en
 
 **Ngày:** 16/08/2026  
 **Tác giả:** Manus AI
+
+## Điều khiển Recovery Watchdog
+
+Script `scripts/control_scp_247_watchdog.ps1` chỉ tác động vào task `SCP-247-Recovery-Watchdog`. Mỗi thao tác `Disable`, `Enable` hoặc `SetInterval` đều export XML và lưu `status-before.json` dưới `scp-audit\watchdog-control-*` trước khi thay đổi.
+
+### Chỉ xem trạng thái
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+cd C:\Users\check\Downloads\scp
+.\scripts\control_scp_247_watchdog.ps1 -Action Status
+```
+
+### Vô hiệu hóa hoàn toàn, có rollback
+
+Lệnh này dừng lần chạy hiện tại nếu có, sau đó disable task. Nó không xóa script, log hay XML backup:
+
+```powershell
+.\scripts\control_scp_247_watchdog.ps1 -Action Disable
+```
+
+Sau lệnh này Supervisor vẫn có thể tiếp tục chạy; chỉ mất khả năng watchdog tự khởi động lại Supervisor khi Supervisor bị dừng. Nếu Supervisor đang Running, các service hiện tại không bị tắt chỉ vì watchdog bị disable.
+
+### Bật lại nhưng chưa chạy ngay
+
+```powershell
+.\scripts\control_scp_247_watchdog.ps1 -Action Enable
+```
+
+### Bật lại và chạy một lần ngay
+
+```powershell
+.\scripts\control_scp_247_watchdog.ps1 -Action Enable -StartAfterEnable
+```
+
+### Giữ watchdog nhưng giảm tần suất từ 1 phút xuống 5 phút
+
+```powershell
+.\scripts\control_scp_247_watchdog.ps1 -Action SetInterval -IntervalMinutes 5
+```
+
+Có thể dùng số phút khác từ 1 đến 1440. Không nên đặt dưới 1 phút; khoảng 5 phút phù hợp hơn nếu ưu tiên giảm process spawn. Đổi lịch không làm watchdog chạy resident; mỗi lần vẫn là một process ngắn rồi thoát.
+
+### Khôi phục task từ XML backup
+
+```powershell
+.\scripts\control_scp_247_watchdog.ps1 `
+  -Action Restore `
+  -BackupXmlPath 'C:\Users\check\Downloads\scp\scp-audit\watchdog-control-YYYYMMDD-HHmmss\SCP-247-Recovery-Watchdog.xml'
+```
+
+## Khuyến nghị cho PC hiện tại
+
+Có ba mức:
+
+| Mức | Cách làm | Khi nào dùng |
+|---|---|---|
+| Tắt hoàn toàn | `-Action Disable` | Khi đang debug Desktop hoặc không cần tự phục hồi |
+| Kiểm soát cân bằng | `-Action SetInterval -IntervalMinutes 5` | Khi muốn có recovery nhưng không muốn mở PowerShell mỗi phút |
+| Bảo vệ mạnh nhất | Giữ 1 phút, Hidden=True, timeout 30 giây, MultipleInstances=IgnoreNew, kill switch | Khi ưu tiên tự phục hồi 24/7 |
+
+Ở trạng thái hiện tại, watchdog đang `Running`, `Hidden=True`, `MultipleInstances=IgnoreNew`, timeout `PT30S`, trigger `PT1M`. Nó chỉ kiểm tra trạng thái Supervisor và ghi ledger; script không có resident loop. Nếu không cần tự phục hồi trong lúc benchmark, mức an toàn và ít gây khó chịu nhất là disable bằng script có backup, không phải kill `pwsh` bằng PID.
