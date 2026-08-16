@@ -35,11 +35,18 @@ def _portable_search_run(args, *pargs, **kwargs):
             rx = re.compile(pattern)
         except re.error:
             rx = re.compile(re.escape(pattern))
+        skip_dirs = {".git", "venv", "node_modules", "__pycache__", ".private-secrets", "data"}
         if root_path.is_file():
             files = [root_path]
         else:
             include_patterns = [x.split("=", 1)[1] for x in argv if x.startswith("--include=")]
-            files = [candidate for include_pattern in include_patterns for candidate in root_path.rglob(include_pattern)] if include_patterns else list(root_path.rglob("*"))
+            patterns = include_patterns or ["*"]
+            files = [
+                candidate
+                for include_pattern in patterns
+                for candidate in root_path.rglob(include_pattern)
+                if not any(part.lower() in skip_dirs for part in candidate.parts)
+            ]
         exts = None
         if str(argv[0]).lower() == "rg":
             wanted = {x for x in ("ts", "tsx") if x in argv}
