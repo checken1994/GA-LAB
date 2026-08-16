@@ -11,6 +11,7 @@ TEST_DIR = ROOT / "tests" / "reality-tests"
 PYTHON = os.environ.get("SCP_PYTHON_BIN") or sys.executable
 if PYTHON.startswith("/c/"):
     PYTHON = "C:" + PYTHON[2:].replace("/", "\\")
+PYTHON_COMMAND = [PYTHON, "-X", "utf8"] if os.name == "nt" else [PYTHON]
 results = []
 env = os.environ.copy()
 env.setdefault("PYTHONUTF8", "1")
@@ -22,7 +23,7 @@ for test in sorted(TEST_DIR.glob("reality_*.py")):
     started = time.time()
     try:
         proc = subprocess.run(
-            [PYTHON, str(test)], cwd=str(ROOT), env=env,
+            PYTHON_COMMAND + [str(test)], cwd=str(ROOT), env=env,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, encoding="utf-8", errors="replace", timeout=60,
         )
