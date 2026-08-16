@@ -238,8 +238,11 @@ try {
     $python = Join-Path $Root 'scp\venv\Scripts\python.exe'
     if (-not (Test-Path $python)) { throw "Python venv missing: $python" }
 
+    # Ollama is an external, pre-existing dependency on 127.0.0.1:11434.
+    # It is deliberately NOT a child service: Supervisor must never try to
+    # start llm-bridge on Ollama's port or count Ollama as a dead child.
+    $OllamaBaseUrl = 'http://127.0.0.1:11434'
     $services = @(
-        [ordered]@{ Name = 'llm-bridge'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\llm-bridge'); Port = 11434; Url = 'http://127.0.0.1:11434/api/tags' },
         [ordered]@{ Name = 'loop-scheduler'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\loop-scheduler'); Port = 3030; Url = 'http://127.0.0.1:3030/' },
         [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8000'); Dir = $Root; Port = 8000; Url = 'http://127.0.0.1:8000/health' },
         [ordered]@{ Name = 'autofix-worker'; File = $python; Args = @('-m', 'scp.autofix.deterministic_worker', '--max-jobs', '1', '--watch'); Dir = $Root; Port = 0; Url = '' },
@@ -277,7 +280,12 @@ try {
         $stderr = Join-Path $LogDir "$($Service.Name).err.log"
         $oldLoopLog = $env:LOOP_LOG_PATH
         $oldScpBaseUrl = $env:SCP_BASE_URL
+        # LLM_BRIDGE_URL remains a compatibility alias for older callers; the
+        # actual provider contract below is Ollama-only.
         $oldLlmBridgeUrl = $env:LLM_BRIDGE_URL
+        $oldOllamaHost = $env:OLLAMA_HOST
+        $oldOllamaEnabled = $env:OLLAMA_ENABLED
+        $oldProviderMode = $env:SCP_LLM_PROVIDER_MODE
         $oldClosedLoop = $env:SCP_ENABLE_CLOSED_LOOP
         $oldScpEnvFile = $env:SCP_ENV_FILE
         $oldAuthToken = $env:SCP_AUTH_TOKEN_SECRET
@@ -301,7 +309,12 @@ try {
             if ($Service.Name -in @('loop-scheduler','scp-python','autofix-worker','dashboard')) {
                 $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
                 $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
-                $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
+                # Use the real local Ollama service. Do not route through or
+                # start a Bun llm-bridge process.
+                $env:OLLAMA_HOST = $OllamaBaseUrl
+                $env:OLLAMA_ENABLED = 'true'
+                $env:SCP_LLM_PROVIDER_MODE = 'ollama_only'
+                $env:LLM_BRIDGE_URL = $OllamaBaseUrl
                 $env:SCP_AUTOFIX_MODE = 'apply'
                 $env:SCP_AUTOFIX_DETERMINISTIC_ONLY = '1'
                 $env:SCP_AUTOFIX_WORKER_MODE = 'deterministic'
@@ -350,6 +363,9 @@ try {
             $env:LOOP_LOG_PATH = $oldLoopLog
             $env:SCP_BASE_URL = $oldScpBaseUrl
             $env:LLM_BRIDGE_URL = $oldLlmBridgeUrl
+            if ($null -eq $oldOllamaHost) { Remove-Item Env:OLLAMA_HOST -ErrorAction SilentlyContinue } else { $env:OLLAMA_HOST = $oldOllamaHost }
+            if ($null -eq $oldOllamaEnabled) { Remove-Item Env:OLLAMA_ENABLED -ErrorAction SilentlyContinue } else { $env:OLLAMA_ENABLED = $oldOllamaEnabled }
+            if ($null -eq $oldProviderMode) { Remove-Item Env:SCP_LLM_PROVIDER_MODE -ErrorAction SilentlyContinue } else { $env:SCP_LLM_PROVIDER_MODE = $oldProviderMode }
             $env:SCP_ENABLE_CLOSED_LOOP = $oldClosedLoop
             if ($null -eq $oldScpEnvFile) { Remove-Item Env:SCP_ENV_FILE -ErrorAction SilentlyContinue } else { $env:SCP_ENV_FILE = $oldScpEnvFile }
             if ($null -eq $oldAuthToken) { Remove-Item Env:SCP_AUTH_TOKEN_SECRET -ErrorAction SilentlyContinue } else { $env:SCP_AUTH_TOKEN_SECRET = $oldAuthToken }
@@ -392,6 +408,14 @@ try {
     }
 
     Assert-Guardrails
+    if ($DryRun) {
+        Write-Ledger -Event 'OLLAMA_DEPENDENCY_CHECK_SKIPPED' -Service 'ollama' -Reason 'dry_run_does_not_require_external_provider'
+    } elseif (-not (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))) {
+        Write-Ledger -Event 'SUPERVISOR_ABORTED' -Service 'ollama' -Reason 'ollama_http_unhealthy'
+        exit 21
+    } else {
+        Write-Ledger -Event 'OLLAMA_DEPENDENCY_HEALTHY' -Service 'ollama' -Reason 'external_ollama_http_ok' -Extra @{ base_url = $OllamaBaseUrl }
+    }
     if (-not $DryRun) {
         $jobHandle = [ScpJobObjectNative]::CreateKillOnCloseJob()
         Write-Ledger -Event 'JOB_OBJECT_CREATED' -Reason 'kill_on_job_close_child_containment'
