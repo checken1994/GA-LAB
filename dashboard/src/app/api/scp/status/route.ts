@@ -69,13 +69,13 @@ const LAST_VERIFIED_FALLBACK_LOC: Record<string, number> = {
  * whether the number is fresh or stale.
  */
 function computeAutofixLoc(relPath: string): { loc: number; live: boolean } {
-  const abs = path.join(SCP_ROOT, relPath)
+  const abs = path.join(/* turbopackIgnore: true */ SCP_ROOT, relPath)
   try {
-    const stats = statSync(abs)
+    const stats = statSync(/* turbopackIgnore: true */ abs)
     if (!stats.isFile()) {
       throw new Error(`not a file: ${abs}`)
     }
-    const content = readFileSync(abs, "utf-8")
+    const content = readFileSync(/* turbopackIgnore: true */ abs, "utf-8")
     // `wc -l` counts newline characters. A file with no trailing newline still
     // has its last line; split('\n').length - 1 matches wc -l, but to align
     // exactly with wc -l semantics (which counts \n bytes), we count newlines.
