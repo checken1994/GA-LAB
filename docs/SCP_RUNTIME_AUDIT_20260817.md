@@ -30,6 +30,12 @@ SCP **đang chạy một phần quan trọng trên PC thật**: dashboard, sched
 | `SCP-247-Supervisor` | n/a | Windows Task Scheduler | `Running` | VERIFIED at audit time |
 | `SCP-Public-Relay-Bridge` | outbound-only | Windows Task Scheduler | `Running` | VERIFIED at audit time |
 
+## Child runtime guardrails
+
+Runtime file `.private-secrets/release-audit/scp-247/child-safe.env` do Supervisor tạo có các guardrail sau ở trạng thái `OFF`: `SCP_DEV_MODE`, `SCP_SKIP_STARTUP_GATE`, `SCP_AUTO_APPROVE_TIER3`, `SCP_TIER3_ALLOW_RELAXATION`, `SCP_TIER3_ALLOW_BAREEXCEPTPASS`, `SCP_ENABLE_CLOSED_LOOP`, `SCP_EVOLUTION_AUTO`, `SCP_WHY_LLM_ENABLED`. `SCP_AUTOFIX_DETERMINISTIC_ONLY` ở `ON`.
+
+Điều này chứng minh **child process đang chạy không nhận các cờ nguy hiểm đó**. Nó không nói rằng parent `.env` không có cờ cũ, và không tự biến policy production thành active.
+
 ## Độ tin cậy của test
 
 | Runner | Kết quả | Runtime thật? | Kết luận đúng phạm vi |
@@ -50,7 +56,7 @@ SCP **đang chạy một phần quan trọng trên PC thật**: dashboard, sched
 | Policy handoff production | Staging snapshot có 91 experience nhưng 0 lesson thuộc supported taxonomy; `data/active_policies.json` không tồn tại | BLOCKED by design | Cần lesson có action/target/value/provenance; không ép verdict history thành policy |
 | AutoFix deterministic fixture end-to-end | Private XSS fixture đã preview→policy-deny→apply→rollback hash đúng sau patch Windows line-ending | VERIFIED in staging | Cần candidate production-like riêng; fixture không chứng minh mọi file/bug/LLM patch |
 | Internet learning/connector SLA | Không có evidence SLA/fresh external call được redact | BLOCKED | Cần provenance, TTL, source policy, egress deny test |
-| Desktop capability/mic/webcam | UI/code tồn tại nhưng không có permission reality run trong audit | UNPROVEN | Cần test browser với grant/deny/repeat toggle thật |
+| Desktop capability/mic/webcam | Edge PC: Windows thấy XWF-1080P/microphone `OK`, consent `Allow`; user xác nhận Camera và Voice input hoạt động sau refresh | PARTIALLY VERIFIED | Cần evidence start/stop chu kỳ thứ hai và screenshot/error thật nếu failure quay lại |
 | Security full gate | Allowlist Ask, token hash/TTL/filter/RBAC có evidence trước | PARTIALLY VERIFIED | Thiếu deny, path, egress, injection, capability revoke sau patch |
 | Reproducibility | Backup/audit artifact và GitHub commits có | CANDIDATE | PC working tree dirty/history lệch, không phải snapshot sạch |
 
@@ -61,8 +67,8 @@ SCP **đang chạy một phần quan trọng trên PC thật**: dashboard, sched
 | AUD-001 | BLOCKER | OBSERVED | Không có active policy production; 91 experience staging đều không có taxonomy policy hợp lệ | Không thể nói learning đã điều khiển production | Tạo lesson có action/target/value/provenance → validate → human-reviewed atomic promotion → rollback proof |
 | AUD-002 | HIGH | PARTIALLY_CLOSED | AutoFix deterministic private fixture có apply/rollback evidence; production ledger chain vẫn chưa có | Không được suy diễn coverage mọi source/bug | Chạy candidate production-like trong clone/staging, lưu hashes, verifier và rollback artifact |
 | AUD-003 | HIGH | OBSERVED | PC repo có 76 dirty/untracked mục và diverge history | Khó tái hiện/bảo đảm code chạy giống GitHub | Inventory + backup + merge có kiểm soát, không reset/rebase mù |
-| AUD-004 | HIGH | OBSERVED | Parent `C:\Users\check\Downloads\.env` có dangerous flags active, repo-local `.env` có các flags cùng tên inactive | Dễ hiểu sai nguồn config; cần prove child process dùng safe source | Inspect sanitized child env/command contract và add source provenance ledger, không lộ value secret |
-| AUD-005 | MEDIUM | UNPROVEN | Mic/webcam chưa có browser permission evidence | UI có thể không hoạt động trên browser/thiết bị cụ thể | Grant/deny/unsupported/repeat-toggle test thật có user-controlled permissions |
+| AUD-004 | MEDIUM | PARTIALLY_CLOSED | Parent `.env` có thể có cờ legacy, nhưng actual Supervisor child-safe env tắt 8 guardrail nguy hiểm và giới hạn AutoFix deterministic | Cần tiếp tục nguồn-config provenance; không dùng parent env để suy luận runtime child | Giữ child-safe env là boundary duy nhất, thêm provenance ledger không lộ secret |
+| AUD-005 | MEDIUM | PARTIALLY_CLOSED | Edge PC đã dùng Camera/Voice input theo user, Windows device/consent precondition đạt | Chưa có repeat-toggle full proof hoặc artifact preview | Ghi evidence start/stop chu kỳ hai; nếu failure, lưu exact browser error |
 | AUD-006 | MEDIUM | UNPROVEN | Không có full chaos/security gate sau patch | Recovery/security coverage có blind spot | Chạy profile crash, timeout, egress deny, injection, revoke trong sandbox |
 
 ## Rollback và giới hạn
