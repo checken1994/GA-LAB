@@ -26,8 +26,8 @@ from scp.core.safe_process import safe_run
 
 SCP_ROOT = Path(__file__).resolve().parent.parent.parent
 API_SERVER = SCP_ROOT / "api_server.py"
-# [Task 19-A] verify_admin was extracted to api_server_parts/helpers.py — check both.
-API_SERVER_HELPERS = SCP_ROOT / "api_server_parts" / "helpers.py"
+ROUTES_DIR = SCP_ROOT / "api" / "routes"
+CANONICAL_AUTH = SCP_ROOT / "security" / "auth.py"
 
 # Routes that are PUBLIC by design — exempt from BFLA check.
 # Add new public routes here ONLY with justification comment.
@@ -43,28 +43,28 @@ PUBLIC_ROUTES = {
 
 
 def _extract_routes(src: str) -> list[tuple[int, str, str]]:
-    """Return [(line_number, method, path), ...] for every @app.* decorator."""
+    """Return [(line_number, method, path)] for every FastAPI app/router decorator."""
     routes = []
     for i, line in enumerate(src.splitlines(), start=1):
         m = re.match(
-            r'\s*@app\.(get|post|put|delete)\(\s*"([^"]+)"',
+            r'\s*@(app|router)\.(get|post|put|delete)\(\s*"([^"]+)"',
             line,
         )
         if m:
-            routes.append((i, m.group(1), m.group(2)))
+            routes.append((i, m.group(2), m.group(3)))
     return routes
 
 
 def _route_has_auth(src: str, decorator_line: int) -> bool:
     """Check whether the route on `decorator_line` has verify_admin auth.
 
-    Looks at the decorator line itself AND the next 5 lines (function signature).
+    Looks at the decorator line itself AND the next 8 lines (function signature).
     """
     lines = src.splitlines()
     # Decorator line itself (dependencies=[Depends(verify_admin)])
     chunk = lines[decorator_line - 1]
     # Function signature + following lines
-    for j in range(decorator_line, min(decorator_line + 5, len(lines))):
+    for j in range(decorator_line, min(decorator_line + 8, len(lines))):
         chunk += "\n" + lines[j]
     return "Depends(verify_admin)" in chunk
 
@@ -76,21 +76,21 @@ def test_admin_routes_have_auth():
     RC-2 added `dependencies=[Depends(verify_admin)]` to all of them.
     This test catches any new admin route added without auth.
     """
-    if not API_SERVER.exists():
-        pytest.skip("api_server.py not found — package layout differs")
-    src = API_SERVER.read_text(encoding="utf-8")
-    routes = _extract_routes(src)
-
     missing_auth = []
-    for lineno, method, path in routes:
-        # Skip public routes
-        if path in PUBLIC_ROUTES:
+    sources = [API_SERVER] + sorted(ROUTES_DIR.glob("*.py"))
+    for source_path in sources:
+        if not source_path.exists():
             continue
-        # Only check versioned admin prefixes (/v9*, /v10*, /v105*)
-        if not re.match(r'^/v(9|10)\d+', path) and not path.startswith("/v105/"):
-            continue
-        if not _route_has_auth(src, lineno):
-            missing_auth.append(f"  L{lineno}: {method.upper()} {path}")
+        src = source_path.read_text(encoding="utf-8")
+        for lineno, method, path in _extract_routes(src):
+            # Skip public routes
+            if path in PUBLIC_ROUTES:
+                continue
+            # Only check versioned admin prefixes (/v9*, /v10*, /v105*)
+            if not re.match(r'^/v(9|10)\d+', path) and not path.startswith("/v105/"):
+                continue
+            if not _route_has_auth(src, lineno):
+                missing_auth.append(f"  {source_path.name}:L{lineno}: {method.upper()} {path}")
 
     assert not missing_auth, (  # noqa: S101
         "BFLA regression — admin routes without verify_admin (RC-2):\n"
@@ -104,12 +104,8 @@ def test_verify_admin_no_dev_mode_bypass():
     Catches any future reintroduction of the V104.22 #3 hole:
         if os.environ.get("SCP_DEV_MODE", "0") == "1": return True
     """
-    if not API_SERVER.exists():
-        pytest.skip("api_server.py not found — package layout differs")
-    src = API_SERVER.read_text(encoding="utf-8")
-    # [Task 19-A] Also check helpers.py — verify_admin was extracted there.
-    if API_SERVER_HELPERS.exists():
-        src += "\n\n# --- from api_server_parts/helpers.py ---\n" + API_SERVER_HELPERS.read_text(encoding="utf-8")
+    assert CANONICAL_AUTH.exists(), "canonical security/auth.py is missing"
+    src = CANONICAL_AUTH.read_text(encoding="utf-8")
 
     # Extract verify_admin function body — non-greedy match to the NEXT
     # top-level def/class (so we don't accidentally swallow later functions
@@ -118,7 +114,7 @@ def test_verify_admin_no_dev_mode_bypass():
         r'^def verify_admin\([^)]*\)[^:]*:(?:.|\n)*?^(?:def |class |\Z)',
         src, re.MULTILINE,
     )
-    assert m, "verify_admin function not found in api_server.py"  # noqa: S101
+    assert m, "verify_admin function not found in canonical security/auth.py"  # noqa: S101
     # m.group(0) includes the trailing "def " of the next function — strip it.
     body = re.sub(r'\n(?:def |class ).*$', '', m.group(0), flags=re.MULTILINE)
 

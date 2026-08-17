@@ -26,9 +26,11 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+from scp.api._shared import verify_admin
 
 logger = logging.getLogger("scp.api.stream")
 
@@ -44,7 +46,7 @@ class StreamAskRequest(BaseModel):
     ai_answer: str = Field("", max_length=10000)
 
 
-@router.post("/v105/ask/stream")
+@router.post("/v105/ask/stream", dependencies=[Depends(verify_admin)])
 @traced_request(_STREAM_ROUTES_LEDGER, require_write=False, action="ask_stream")
 async def ask_stream(req: StreamAskRequest):
     """Streaming /ask â€” tráº£ verdict tá»«ng bÆ°á»›c real-time."""
