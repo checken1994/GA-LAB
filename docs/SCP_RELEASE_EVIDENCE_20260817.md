@@ -25,6 +25,7 @@
 | Ledger writer | VERIFIED | Writer dùng một JSON line/event; audit không còn cần suy luận qua dòng trống mới | Ledger lịch sử cũ chưa được dùng làm proof mới |
 | Evolution disabled lifecycle | VERIFIED | Child probe `SCP_EVOLUTION_ENABLED=0` ghi event `started` với terminal `DISABLED` trong `data/evolution_runs.jsonl` | Chỉ chứng minh nhánh disabled; không chạy `evolve_cycle`, AutoFix hoặc policy promotion |
 | Evolution staging timeout | VERIFIED | Provider staging 10 giây trả manifest `TIMEOUT`, `completed_at` có mặt, không còn child process, không tạo active policy production | Evolution production ledger cũ vẫn chỉ có `STARTING` |
+| AutoFix deterministic fixture rollback | VERIFIED in private staging | Candidate XSS fixture: preview immutable, malicious policy denied, deterministic apply, rollback hash trở lại before hash sau patch line-ending | Một fixture private không đại diện mọi file/bug/LLM patch hoặc production workload |
 | Policy handoff production | BLOCKED | `data/active_policies.json` không tồn tại trên PC production | Không được tự đưa policy học được vào active policy chỉ vì staging pass |
 | AutoFix candidate→patch→regression | BLOCKED | Có scanner/telemetry nhưng chưa có chuỗi evidence production đầy đủ | Không gọi AutoFix hoàn thiện |
 | Security full gate | BLOCKED | Relay có token hash, allowlist Ask, TTL, result filtering và RBAC website | Chưa chạy toàn bộ deny/egress/prompt-injection/capability-revoke profile sau patch |
@@ -39,6 +40,7 @@
 | `scripts/learning/learning_staging_r43.py` | Provider staging chạy child process có hard timeout | Các file `.before` trong `scp-audit\learning-staging-*` |
 | `scp/api_server.py` | Health detailed có marker route không nhạy cảm để quan sát runtime | Backup API trước patch trong audit |
 | `scp/core/subsystem_telemetry.py` | Startup có policy `disabled` ghi terminal `DISABLED` thay vì `STARTING` không có điểm kết thúc | `scp-audit\telemetry-terminal-20260817-191901\subsystem_telemetry.py.before` |
+| `scp/autofix/engine.py` | Giữ CRLF/LF trong pre-fix content để rollback byte hash trên Windows khôi phục đúng | `scp-audit\autofix-byte-preservation-20260817\engine.py.before` |
 
 ## Verdict
 
