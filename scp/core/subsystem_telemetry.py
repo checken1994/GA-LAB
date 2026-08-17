@@ -232,7 +232,11 @@ class SubsystemTelemetry:
         config_json = json.dumps(_json_safe(config or {}), sort_keys=True).encode("utf-8")
         config_hash = hashlib.sha256(config_json).hexdigest()
         with self._lock:
-            return self._write("started", "STARTING", config_hash=config_hash, policy_mode=mode)
+            # A subsystem intentionally disabled by policy is already in a
+            # terminal state. Recording it as STARTING left durable ledgers
+            # full of false unfinished runs after every safe startup.
+            initial_status = "DISABLED" if mode == "disabled" else "STARTING"
+            return self._write("started", initial_status, config_hash=config_hash, policy_mode=mode)
 
     def tick(self, *, status: str = "IDLE", next_due_at_utc: str | None = None, **counters: Any) -> dict[str, Any]:
         with self._lock:
