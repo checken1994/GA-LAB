@@ -18,7 +18,7 @@
 | Static patch | PASS_WITHIN_SCOPE | `git diff --check`; `py_compile` cho `api_server.py`, `bounded_evolution.py`, runner staging | Không chứng minh semantic mọi đường code |
 | Reality harness | PASS_WITHIN_SCOPE | `74/74` PASS, `0` fail, `0` timeout, exit `0` trên PC | Bộ harness không phủ toàn bộ workload production |
 | Python regression | PASS_WITHIN_SCOPE | `101 passed`, `2 warnings` bằng venv SCP sau patch telemetry | Test collection không thay cho chaos/security/E2E proof |
-| Runtime readiness | VERIFIED | Bốn HTTP probe `200` sau restart Supervisor | Không phải soak test dài ngày |
+| Runtime readiness / clean-start | VERIFIED | Controlled restart `SCP-247-Supervisor` tạo ledger `START` cho scheduler/backend/autofix/dashboard rồi `HEALTHY`; dashboard, scheduler, backend, Ollama đều HTTP `200` | Harness listener tự viết có false-negative (PowerShell predicate) nên verdict chỉ dựa HTTP + ledger, không phải soak test dài ngày |
 | Ask golden task | VERIFIED | `/ask` thật trả `final_answer=2 + 2 = 4`, `verdict=PASS`, `confidence=0.99`, `run_status=SUCCESS`; field `answer` không tồn tại | Một input toán an toàn, không đại diện mọi domain |
 | Supervisor recovery | VERIFIED | Với backend ngoài Job Object, ledger có `UNMANAGED_HEALTHY`; sau khi listener biến mất Supervisor lấy lại port `8000`; full stack lại `200` | Không kiểm thử mọi crash/lease/network failure |
 | Ollama prerequisite | VERIFIED | Supervisor nạp được Ollama local và full stack đạt `200` sau controlled restart | Chưa là Windows Service độc lập |
