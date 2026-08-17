@@ -4,7 +4,9 @@ import argparse
 import asyncio
 import hashlib
 import json
+import multiprocessing as mp
 import os
+import queue
 import shutil
 import sqlite3
 import sys
@@ -61,16 +63,63 @@ def safe_db_counts(db: Path) -> dict[str, int | str | None]:
     return result
 
 
-async def run_provider_cycle(root: Path, stage: Path, count: int) -> dict:
+async def run_provider_cycle(root: Path, stage: Path, count: int, timeout_seconds: int) -> dict:
     sys.path.insert(0, str(root))
     from scp.core.fast_learning_engine import FastLearningEngine
 
     engine = FastLearningEngine(scp_db_path=str(stage / "v13.db"), data_dir=str(stage))
     started = time.time()
-    result = await engine.fast_learning_cycle(count=max(1, min(count, 3)))
+    result = await asyncio.wait_for(
+        engine.fast_learning_cycle(count=max(1, min(count, 3))),
+        timeout=max(1, int(timeout_seconds)),
+    )
     result["elapsed_ms"] = int((time.time() - started) * 1000)
     result["stats"] = engine.stats()
     return result
+
+
+def _provider_child(result_queue: object, root: str, stage: str, count: int, timeout_seconds: int) -> None:
+    """Child process keeps an uninterruptible provider call outside the staging parent."""
+    try:
+        result = asyncio.run(run_provider_cycle(Path(root), Path(stage), count, timeout_seconds))
+        result_queue.put({"ok": True, "result": result})
+    except BaseException as exc:
+        result_queue.put({"ok": False, "error_class": type(exc).__name__, "error_summary": str(exc)[:300]})
+
+
+def run_provider_cycle_bounded(root: Path, stage: Path, count: int, timeout_seconds: int) -> dict:
+    """Return one terminal outcome; terminate a stuck provider child on deadline."""
+    context = mp.get_context("spawn")
+    result_queue = context.Queue(maxsize=1)
+    child = context.Process(
+        target=_provider_child,
+        args=(result_queue, str(root), str(stage), count, timeout_seconds),
+        name="scp-learning-staging-provider",
+    )
+    child.start()
+    child.join(timeout=max(1, int(timeout_seconds)))
+    if child.is_alive():
+        child.terminate()
+        child.join(timeout=5)
+        if child.is_alive():
+            child.kill()
+            child.join(timeout=5)
+        result_queue.close()
+        result_queue.join_thread()
+        return {"status": "TIMEOUT", "timeout_seconds": int(timeout_seconds), "reason": "provider_child_exceeded_staging_deadline"}
+    try:
+        message = result_queue.get(timeout=1)
+    except queue.Empty:
+        return {"status": "PROVIDER_FAILED", "reason": "provider_child_exited_without_result"}
+    finally:
+        result_queue.close()
+        result_queue.join_thread()
+    if message.get("ok"):
+        result = message.get("result")
+        if isinstance(result, dict):
+            result.setdefault("status", "COMPLETED")
+            return result
+    return {"status": "PROVIDER_FAILED", "error_class": message.get("error_class", "ProviderChildError"), "reason": message.get("error_summary", "provider child failed")}
 
 
 def main() -> int:
@@ -113,14 +162,24 @@ def main() -> int:
         os.environ["SCP_ENABLE_CLOSED_LOOP"] = "1"
         os.environ["OLLAMA_TIMEOUT"] = str(max(1, min(args.provider_timeout, 30)))
         manifest["provider_timeout_seconds"] = int(os.environ["OLLAMA_TIMEOUT"])
-        result = asyncio.run(run_provider_cycle(root, stage, args.count))
-        manifest["provider_result"] = {
-            "asked": result.get("asked"),
-            "verified": result.get("verified"),
-            "stored": result.get("stored"),
-            "adaptive_mode": result.get("adaptive_mode"),
-            "elapsed_ms": result.get("elapsed_ms"),
-        }
+        try:
+            result = run_provider_cycle_bounded(root, stage, args.count, args.provider_timeout)
+            manifest["provider_result"] = {
+                "status": result.get("status", "COMPLETED"),
+                "asked": result.get("asked"),
+                "verified": result.get("verified"),
+                "stored": result.get("stored"),
+                "adaptive_mode": result.get("adaptive_mode"),
+                "elapsed_ms": result.get("elapsed_ms"),
+                "reason": result.get("reason"),
+                "error_class": result.get("error_class"),
+            }
+        except asyncio.TimeoutError:
+            manifest["provider_result"] = {
+                "status": "TIMEOUT",
+                "timeout_seconds": int(os.environ["OLLAMA_TIMEOUT"]),
+                "reason": "fast_learning_cycle_exceeded_staging_deadline",
+            }
     manifest["stage_counts_after"] = safe_db_counts(stage_db)
     manifest["stage_db_sha256_after"] = sha256(stage_db)
     manifest["completed_at"] = utc_now()

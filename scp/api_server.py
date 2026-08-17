@@ -1543,6 +1543,10 @@ async def health_detailed():
             "multi_turn_tracker": _multi_turn_tracker.stats(),
             "cross_language": _cross_language_learner.stats(),
             "fact_checker": _fact_checker.stats(),
+            "runtime_routing": {
+                "math_probe_route": list(judge._route_question("2+2")),
+                "math_slm_loaded": "math" in judge.slms,
+            },
             "background_scheduler_started": _sched_started,
         }
     except Exception as e:

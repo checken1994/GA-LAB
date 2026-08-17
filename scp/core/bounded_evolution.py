@@ -12,11 +12,13 @@ import logging
 import multiprocessing as mp
 import os
 import queue
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from scp.core.learning_run_ledger import record_learning_run
+from scp.core.subsystem_telemetry import SubsystemTelemetry
 
 logger = logging.getLogger("scp.autofix.bounded_evolution")
 
@@ -87,6 +89,42 @@ def run_bounded_evolution(
         raise ValueError("timeout_seconds must be a positive finite number")
     started_at = _utc_iso()
     stage_file = str(Path(data_dir) / "evolution_stage.json")
+    run_id = f"bounded-evolution-{time.time_ns()}"
+    telemetry: SubsystemTelemetry | None = None
+    try:
+        telemetry = SubsystemTelemetry("evolution", data_dir)
+        telemetry.cycle_started(
+            run_id,
+            trigger="bounded_parent",
+            timeout_seconds=timeout_seconds,
+        )
+    except Exception as exc:  # Telemetry must not hide the true bounded outcome.
+        logger.warning("bounded evolution telemetry start failed: %s", type(exc).__name__)
+
+    def finalize(payload: dict[str, Any]) -> dict[str, Any]:
+        """Write one parent-owned terminal event for every returned outcome."""
+        if telemetry is None:
+            return payload
+        status = str(payload.get("status", "PROVIDER_FAILED"))
+        details = {
+            "execution_owner": "bounded_parent",
+            "child_pid": payload.get("child_pid"),
+            "stage": payload.get("stage"),
+            "timeout_seconds": payload.get("timeout_seconds"),
+            "error_class": payload.get("error_class"),
+            "error_summary": payload.get("error_summary"),
+            "bugs_found": payload.get("bugs_found"),
+            "bugs_fixed": payload.get("bugs_fixed"),
+            "verified": payload.get("verified"),
+            "stored": payload.get("stored"),
+        }
+        try:
+            telemetry.cycle_completed(run_id, status, **details)
+        except Exception as exc:  # Do not convert the real outcome into success.
+            logger.warning("bounded evolution telemetry completion failed: %s", type(exc).__name__)
+            payload = dict(payload)
+            payload["telemetry_degraded"] = True
+        return payload
     try:
         configured_provider_timeout = float(
             os.environ.get("SCP_EVOLUTION_PROVIDER_TIMEOUT_SECONDS", "30")
@@ -128,26 +166,26 @@ def run_bounded_evolution(
             error=error,
             ledger_path=str((Path(data_dir) / "learning_runs.jsonl").resolve()),
         )
-        return {
+        return finalize({
             "action": "timed_out",
             "status": "TIMEOUT",
             "stage": last_stage,
             "timeout_seconds": timeout_seconds,
             "child_pid": child_pid,
             "stage_file": stage_file,
-        }
+        })
 
     try:
         message = result_queue.get(timeout=1)
     except queue.Empty:
-        return {
+        return finalize({
             "action": "failed",
             "status": "PROVIDER_FAILED",
             "stage": "child_result_collection",
             "child_pid": child_pid,
             "error_class": "ChildResultMissing",
             "error_summary": "child exited without a result message",
-        }
+        })
     finally:
         result_queue.close()
         result_queue.join_thread()
@@ -163,16 +201,17 @@ def run_bounded_evolution(
                 result.setdefault("status", "PROVIDER_FAILED")
             else:
                 result.setdefault("status", "SUCCESS")
-        return result if isinstance(result, dict) else {"action": "evolved", "status": "SUCCESS", "result": result}
+        payload = result if isinstance(result, dict) else {"action": "evolved", "status": "SUCCESS", "result": result}
+        return finalize(payload)
 
-    return {
+    return finalize({
         "action": "failed",
         "status": "PROVIDER_FAILED",
         "stage": "child_evolve_cycle",
         "child_pid": child_pid,
         "error_class": message.get("error_class", "ChildEvolutionError"),
         "error_summary": message.get("error_summary", "child evolution failed"),
-    }
+    })
 
 
 if __name__ == "__main__":

@@ -182,7 +182,7 @@ try {
         foreach ($key in $Extra.Keys) {
             $record[$key] = $Extra[$key]
         }
-        ($record | ConvertTo-Json -Compress -Depth 5) + "`n" | Add-Content -Encoding UTF8 -Path $LedgerPath
+        [IO.File]::AppendAllText($LedgerPath, ($record | ConvertTo-Json -Compress -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))
     }
 
     function Get-EnvFlag {
@@ -266,6 +266,32 @@ try {
         }
     }
 
+    function Start-ExternalOllamaIfNeeded {
+        if ($DryRun -or (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))) { return $true }
+        $ollama = Get-Command 'ollama.exe' -ErrorAction SilentlyContinue
+        if ($null -eq $ollama) { $ollama = Get-Command 'ollama' -ErrorAction SilentlyContinue }
+        if ($null -eq $ollama) {
+            Write-Ledger -Event 'OLLAMA_START_REJECTED' -Service 'ollama' -Reason 'ollama_executable_missing'
+            return $false
+        }
+        Write-Ledger -Event 'OLLAMA_START_ATTEMPT' -Service 'ollama' -Reason 'external_dependency_unhealthy'
+        try {
+            Start-Process -FilePath $ollama.Source -ArgumentList 'serve' -WindowStyle Hidden -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Ledger -Event 'OLLAMA_START_REJECTED' -Service 'ollama' -Reason $_.Exception.GetType().Name
+            return $false
+        }
+        foreach ($attempt in 1..20) {
+            Start-Sleep -Seconds 1
+            if (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags')) {
+                Write-Ledger -Event 'OLLAMA_STARTED' -Service 'ollama' -Reason 'external_ollama_http_ok' -Extra @{ attempts = $attempt; base_url = $OllamaBaseUrl }
+                return $true
+            }
+        }
+        Write-Ledger -Event 'OLLAMA_START_REJECTED' -Service 'ollama' -Reason 'ollama_http_unhealthy_after_start'
+        return $false
+    }
+
     function Start-ScpService {
         param([object]$Service)
         if (Test-PortInUse $Service.Port) {
@@ -300,6 +326,7 @@ try {
         $oldAutofixWorkerRoot = $env:SCP_AUTOFIX_WORKER_ROOT
         $oldAutofixWorkerDataDir = $env:SCP_AUTOFIX_WORKER_DATA_DIR
         $oldAutofixWorkerRisk = $env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK
+        $oldPythonPath = $env:PYTHONPATH
         $oldDangerous = @{}
         foreach ($flag in @('SCP_DEV_MODE','SCP_SKIP_STARTUP_GATE','SCP_AUTO_APPROVE_TIER3','SCP_TIER3_ALLOW_RELAXATION','SCP_TIER3_ALLOW_BAREEXCEPTPASS')) {
             $oldDangerous[$flag] = [Environment]::GetEnvironmentVariable($flag, 'Process')
@@ -321,6 +348,10 @@ try {
                 $env:SCP_AUTOFIX_WORKER_ROOT = $Root
                 $env:SCP_AUTOFIX_WORKER_DATA_DIR = Join-Path $Root 'data'
                 $env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK = 'low'
+                # Force `python -m scp` to resolve the checked working tree first.
+                # Without this, an older user-site package can shadow the repo even
+                # when the venv executable and working directory are correct.
+                $env:PYTHONPATH = if ([string]::IsNullOrWhiteSpace($oldPythonPath)) { $Root } else { $Root + [IO.Path]::PathSeparator + $oldPythonPath }
                 # Bun/Python child processes must not receive the entire
                 # production env file: it may contain unrelated/dangerous flags.
                 # Read only auth values into the child environment, never print
@@ -380,6 +411,7 @@ try {
             if ($null -eq $oldAutofixWorkerRoot) { Remove-Item Env:SCP_AUTOFIX_WORKER_ROOT -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_WORKER_ROOT = $oldAutofixWorkerRoot }
             if ($null -eq $oldAutofixWorkerDataDir) { Remove-Item Env:SCP_AUTOFIX_WORKER_DATA_DIR -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_WORKER_DATA_DIR = $oldAutofixWorkerDataDir }
             if ($null -eq $oldAutofixWorkerRisk) { Remove-Item Env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK -ErrorAction SilentlyContinue } else { $env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK = $oldAutofixWorkerRisk }
+            if ($null -eq $oldPythonPath) { Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue } else { $env:PYTHONPATH = $oldPythonPath }
             foreach ($flag in $oldDangerous.Keys) {
                 if ($null -eq $oldDangerous[$flag]) { Remove-Item "Env:$flag" -ErrorAction SilentlyContinue } else { Set-Item "Env:$flag" $oldDangerous[$flag] }
             }
@@ -410,7 +442,7 @@ try {
     Assert-Guardrails
     if ($DryRun) {
         Write-Ledger -Event 'OLLAMA_DEPENDENCY_CHECK_SKIPPED' -Service 'ollama' -Reason 'dry_run_does_not_require_external_provider'
-    } elseif (-not (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))) {
+    } elseif (-not (Start-ExternalOllamaIfNeeded)) {
         Write-Ledger -Event 'SUPERVISOR_ABORTED' -Service 'ollama' -Reason 'ollama_http_unhealthy'
         exit 21
     } else {
@@ -450,7 +482,21 @@ try {
                 $processAlive = $true
             }
             $healthy = $processAlive -and (Test-HttpHealthy $service.Url)
+            # A listener can pre-date this Supervisor (for example after an
+            # interrupted task restart). It cannot be safely adopted into this
+            # Job Object, but a healthy listener must not consume restart budget
+            # every interval. Distinguish it in the ledger and start a contained
+            # child only after the listener actually disappears.
+            $unmanagedHealthy = ($null -eq $entry) -and ($service.Port -gt 0) -and (Test-HttpHealthy $service.Url)
+            if ($unmanagedHealthy) {
+                Write-Ledger -Event 'UNMANAGED_HEALTHY' -Service $service.Name -Reason 'healthy_listener_not_owned_by_supervisor'
+                continue
+            }
             if ($healthy) {
+                if ($restartHistory[$service.Name].Count -gt 0) {
+                    Write-Ledger -Event 'CIRCUIT_CLOSED' -Service $service.Name -Reason 'service_recovered' -Extra @{ cleared_restart_count = $restartHistory[$service.Name].Count }
+                    $restartHistory[$service.Name] = @()
+                }
                 Write-Ledger -Event 'HEALTHY' -Service $service.Name -Reason $(if ([string]::IsNullOrWhiteSpace($service.Url)) { 'process_ok_no_http_probe' } else { 'process_and_http_ok' })
                 continue
             }
