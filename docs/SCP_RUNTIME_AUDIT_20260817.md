@@ -42,6 +42,7 @@ Runtime file `.private-secrets/release-audit/scp-247/child-safe.env` do Supervis
 |---|---:|---|---|
 | `python -m pytest -q` bằng SCP venv | 101 passed, 2 warnings | Chủ yếu unit/integration | PASS_WITHIN_SCOPE |
 | `tests/run_reality_tests_portable.py` | 74/74 pass, 0 fail, 0 timeout | Có probe runtime theo các case runner thu thập | PASS_WITHIN_SCOPE |
+| `tests/test_release_contracts.py` | 11 passed | Secret file fail-closed, production bypass guard và Electron CSP/package markers | PASS_WITHIN_SCOPE; chủ yếu static/contract |
 | Evolution disabled-startup probe | `DISABLED_STARTUP_TERMINAL=PASS` | Có ghi event mới trong production data ledger, nhưng không chạy evolution | VERIFIED cho nhánh disabled duy nhất |
 | Golden Ask đã có | `2 + 2 = 4`, `PASS`, `0.99` ở evidence trước đó | Backend thật | VERIFIED cho input toán an toàn duy nhất |
 
