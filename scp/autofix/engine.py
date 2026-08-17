@@ -1055,7 +1055,12 @@ class AutoFixEngine:
             # Backup ở đây (pre-patch) để rollback có thể restore chính xác trạng thái cũ.
             _pre_fix_content: str | None = None
             try:
-                _pre_fix_content = filepath.read_text(encoding="utf-8")
+                # Keep original line endings. The rollback registry hashes
+                # UTF-8 content and writes with newline=""; read_text() uses
+                # universal-newline conversion and made a CRLF fixture fail
+                # its post-rollback byte hash on Windows.
+                with filepath.open("r", encoding="utf-8", newline="") as _pre_fix_file:
+                    _pre_fix_content = _pre_fix_file.read()
             except Exception as _bk_err:
                 logger.debug(f"[V9.1-UPGRADE] pre-fix backup failed (will skip verify): {_bk_err}")
 
@@ -1099,7 +1104,7 @@ class AutoFixEngine:
                                 # Rollback
                                 if _pre_fix_content is not None:
                                     filepath.write_text(
-                                        _pre_fix_content, encoding="utf-8"
+                                        _pre_fix_content, encoding="utf-8", newline=""
                                     )
                                 # Fall through to LLM fix
                             else:
