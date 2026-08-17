@@ -47,8 +47,8 @@ SCP **đang chạy một phần quan trọng trên PC thật**: dashboard, sched
 | Outbound public relay | Website hiển thị agent online và 4/4 service; bridge chỉ allow `ask` | VERIFIED trong Ask/heartbeat scope | Không có proof cho action khác vì cố ý không hỗ trợ |
 | FastLearning staging timeout | Child hard-timeout đã trả `TIMEOUT`, không tạo active policy production | VERIFIED trong staging timeout scope | Không chứng minh learning quality/external truth |
 | Evolution lifecycle khi tắt | Ledger event mới `started: DISABLED` | VERIFIED | Evolution production cycle không chạy |
-| Policy handoff production | `data/active_policies.json` không tồn tại | BLOCKED by design | Cần candidate, schema, verifier, atomic promotion, rollback evidence |
-| AutoFix deterministic end-to-end | Không có `data/autofix_runs.jsonl` tại audit | BLOCKED | Cần candidate→patch→test→verifier→artifact chain |
+| Policy handoff production | Staging snapshot có 91 experience nhưng 0 lesson thuộc supported taxonomy; `data/active_policies.json` không tồn tại | BLOCKED by design | Cần lesson có action/target/value/provenance; không ép verdict history thành policy |
+| AutoFix deterministic fixture end-to-end | Private XSS fixture đã preview→policy-deny→apply→rollback hash đúng sau patch Windows line-ending | VERIFIED in staging | Cần candidate production-like riêng; fixture không chứng minh mọi file/bug/LLM patch |
 | Internet learning/connector SLA | Không có evidence SLA/fresh external call được redact | BLOCKED | Cần provenance, TTL, source policy, egress deny test |
 | Desktop capability/mic/webcam | UI/code tồn tại nhưng không có permission reality run trong audit | UNPROVEN | Cần test browser với grant/deny/repeat toggle thật |
 | Security full gate | Allowlist Ask, token hash/TTL/filter/RBAC có evidence trước | PARTIALLY VERIFIED | Thiếu deny, path, egress, injection, capability revoke sau patch |
@@ -58,8 +58,8 @@ SCP **đang chạy một phần quan trọng trên PC thật**: dashboard, sched
 
 | ID | Mức | Nhãn evidence | Quan sát | Tác động | Cách đóng |
 |---|---|---|---|---|---|
-| AUD-001 | BLOCKER | OBSERVED | Không có active policy production | Không thể nói learning đã điều khiển production | Staging candidate → validate → human-reviewed atomic promotion → rollback proof |
-| AUD-002 | BLOCKER | OBSERVED | Không có AutoFix run ledger chain tại audit | Không thể đo patch success hoặc regression-free | Chạy một candidate deterministic trong clone/staging, lưu toàn bộ hashes và verifier output |
+| AUD-001 | BLOCKER | OBSERVED | Không có active policy production; 91 experience staging đều không có taxonomy policy hợp lệ | Không thể nói learning đã điều khiển production | Tạo lesson có action/target/value/provenance → validate → human-reviewed atomic promotion → rollback proof |
+| AUD-002 | HIGH | PARTIALLY_CLOSED | AutoFix deterministic private fixture có apply/rollback evidence; production ledger chain vẫn chưa có | Không được suy diễn coverage mọi source/bug | Chạy candidate production-like trong clone/staging, lưu hashes, verifier và rollback artifact |
 | AUD-003 | HIGH | OBSERVED | PC repo có 76 dirty/untracked mục và diverge history | Khó tái hiện/bảo đảm code chạy giống GitHub | Inventory + backup + merge có kiểm soát, không reset/rebase mù |
 | AUD-004 | HIGH | OBSERVED | Parent `C:\Users\check\Downloads\.env` có dangerous flags active, repo-local `.env` có các flags cùng tên inactive | Dễ hiểu sai nguồn config; cần prove child process dùng safe source | Inspect sanitized child env/command contract và add source provenance ledger, không lộ value secret |
 | AUD-005 | MEDIUM | UNPROVEN | Mic/webcam chưa có browser permission evidence | UI có thể không hoạt động trên browser/thiết bị cụ thể | Grant/deny/unsupported/repeat-toggle test thật có user-controlled permissions |
