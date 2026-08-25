@@ -376,6 +376,23 @@ def _call_smart_llm(prompt: str, bug_type: str, max_tokens: int = 4000) -> str |
     return _call_openrouter(prompt, max_tokens=max_tokens)
 
 
+def _validate_openrouter_base_url(base_url: str) -> str:
+    """Return a safe OpenRouter base URL for the direct fallback client."""
+    parsed = urllib.parse.urlparse(str(base_url).rstrip("/"))
+    allowed_hosts = {"openrouter.ai", "api.openrouter.ai", "localhost", "127.0.0.1"}
+    if parsed.hostname not in allowed_hosts:
+        raise ValueError(f"Unsupported OpenRouter host: {parsed.hostname!r}")
+    if parsed.hostname in {"openrouter.ai", "api.openrouter.ai"} and parsed.port not in {None, 443}:
+        raise ValueError("OpenRouter HTTPS endpoint must use the default port")
+    if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1"}:
+        raise ValueError(f"Unsupported OpenRouter scheme: {parsed.scheme!r}")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("OpenRouter base URL must not contain credentials or query data")
+    if not parsed.netloc or not parsed.path:
+        raise ValueError("OpenRouter base URL must include an API path")
+    return parsed.geturl()
+
+
 def _call_openrouter(prompt: str, max_tokens: int = 4000) -> str | None:
     """Call OpenRouter LLM with the given prompt. Returns LLM response text.
 
@@ -408,11 +425,9 @@ def _call_openrouter(prompt: str, max_tokens: int = 4000) -> str | None:
     }
 
     try:
-        full_url = f"{base_url}/chat/completions"
-        parsed = urllib.parse.urlparse(full_url)
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError(f"Unsupported URL scheme: {parsed.scheme!r}")
-        req = urllib.request.Request(  # noqa: S310 — scheme validated above
+        validated_base_url = _validate_openrouter_base_url(base_url)
+        full_url = f"{validated_base_url}/chat/completions"
+        req = urllib.request.Request(
             full_url,
             data=json.dumps(payload).encode("utf-8"),
             headers={
@@ -423,7 +438,7 @@ def _call_openrouter(prompt: str, max_tokens: int = 4000) -> str | None:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 — scheme validated above; nosec B310 — OpenRouter API call to validated URL
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 — HTTPS/localhost host allowlist is enforced above.
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
     except urllib.error.HTTPError as e:
@@ -503,7 +518,6 @@ def generate_fix_for_bug(bug) -> str | None:
     # [IMP-8] Try cache first — if hit, skip LLM call entirely.
     try:
         from scp.autofix.llm_fix_cache import (
-            cached_or_compute,
             compute_cache_key,
             get_llm_fix_cache,
             is_cache_enabled,

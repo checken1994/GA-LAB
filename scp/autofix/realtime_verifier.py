@@ -198,21 +198,15 @@ def _safe_exec_callable(source: str, func_name: str, input_val: Any) -> tuple[An
     full sandbox; for full sandboxing use subprocess + seccomp/container).
     """
     try:
-        # [SCP-DNA-FIX R13-5] Bug #5: SAFE_BUILTINS replaces the
-        # previously-auto-injected full __builtins__. Candidates can
-        # no longer call __import__, open, eval, exec, compile, etc.
-        # — they only see the allowlisted safe builtins. This blocks
-        # the trivial ``import os; os.system(...)`` attack.
-        namespace: dict[str, Any] = {
-            "__name__": "__realtime_verify__",
-            "__builtins__": SAFE_BUILTINS,
-        }
-        exec(compile(source, "<realtime>", "exec"), namespace)  # noqa: S102 — SAFE_BUILTINS sandbox
-        func = namespace.get(func_name)
-        if not callable(func):
-            return None, TypeError(f"{func_name} not callable")
-        result = func(input_val)
-        return result, None
+        from scp.autofix.restricted_exec import compile_restricted_function
+
+        func = compile_restricted_function(
+            source,
+            expected_name=func_name,
+            safe_builtins=SAFE_BUILTINS,
+            filename="<realtime>",
+        )
+        return func(input_val), None
     except Exception as e:
         return None, e
 

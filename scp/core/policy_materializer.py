@@ -233,14 +233,16 @@ class PolicyMaterializer:
         if not lesson_ids:
             return 0
         with sqlite3.connect(str(self.db_path), timeout=10) as conn:
-            placeholders = ",".join("?" for _ in lesson_ids)
-            params: list[Any] = [datetime.now(timezone.utc).isoformat(), *lesson_ids]
-            result = conn.execute(
-                f"UPDATE experiences SET applied = 1, applied_at = ? WHERE applied = 0 AND id IN ({placeholders})",
-                params,
-            )
+            applied_at = datetime.now(timezone.utc).isoformat()
+            applied_count = 0
+            for lesson_id in lesson_ids:
+                result = conn.execute(
+                    "UPDATE experiences SET applied = 1, applied_at = ? WHERE applied = 0 AND id = ?",
+                    (applied_at, lesson_id),
+                )
+                applied_count += int(result.rowcount)
             conn.commit()
-            return int(result.rowcount)
+            return applied_count
 
     def record_applied(self, lesson_ids: list[int], applied_count: int) -> None:
         payload = self.validate(self.active_path)

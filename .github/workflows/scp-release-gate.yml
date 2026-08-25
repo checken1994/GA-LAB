@@ -5,6 +5,12 @@ on:
 jobs:
   gate:
     runs-on: windows-latest
+    env:
+      SCP_PRODUCTION_MODE: '0'
+      SCP_SKIP_STARTUP_GATE: '0'
+      SCP_EGRESS_MODE: deny
+      SCP_PORT: '8002'
+      PORT: '8002'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,7 +22,20 @@ jobs:
       - shell: pwsh
         run: py -3 -m pip install -r scp\requirements-dev.txt
       - shell: pwsh
-        run: py -3 -m py_compile scp\api_server.py scp\__main__.py scp\security\auth.py scp\security\production_guard.py scp\security\secret_loader.py scp\autofix\llm_fix.py scp\autofix\runner_phases\ast_scan.py
+        run: py -3 -m py_compile scp\api_server.py scp\__main__.py scp\security\auth.py scp\security\production_guard.py scp\security\secret_loader.py scp\autofix\llm_fix.py scp\autofix\runner_phases\ast_scan.py scp\autofix\restricted_exec.py scp\runtime\safe_math.py scp\history\migration.py tools\summarize_bandit_report.py tools\verify_snapshot_manifest.py tools\check_bandit_policy.py
+      - shell: pwsh
+        run: py -3 tools\verify_snapshot_manifest.py reports\ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+      - shell: pwsh
+        run: py -3 -m ruff check scp\autofix\llm_fix.py scp\autofix\property_validator.py scp\autofix\realtime_verifier.py scp\autofix\runner_phases\reality_test.py scp\autofix\restricted_exec.py scp\core\knowledge_io.py scp\core\policy_materializer.py scp\history\migration.py scp\runtime\judge_parts\judgecore_mixin.py scp\runtime\safe_math.py scp\security\cisa_kev.py tests\test_glm_security_remediation.py tools\summarize_bandit_report.py tools\verify_snapshot_manifest.py tools\check_bandit_policy.py --select E9,F
+      - shell: pwsh
+        run: py -3 -m pytest -q
+      - shell: pwsh
+        run: |
+          py -3 -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
+          $banditExit = $LASTEXITCODE
+          py -3 tools\summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
+          py -3 tools\check_bandit_policy.py bandit-prod-summary.json --max-medium 9
+          if ($banditExit -gt 1) { exit $banditExit }
       - shell: pwsh
         run: py run_reality_tests_portable.py
       - shell: pwsh

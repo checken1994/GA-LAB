@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scp.core.knowledge_io import _sanitize_identifier_quoted
+
 
 class HistoryMigrationError(ValueError):
     """Raised when historical evidence cannot be classified safely."""
@@ -96,8 +98,12 @@ def _table_counts(path: Path, config: MigrationConfig) -> dict[str, int]:
         names = [row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")]
         result: dict[str, int] = {}
         for name in names:
-            safe_name = name.replace('"', '""')
-            result[name] = int(connection.execute(f'SELECT COUNT(*) FROM "{safe_name}"').fetchone()[0])
+            safe_name = _sanitize_identifier_quoted(name)
+            result[name] = int(
+                connection.execute(  # nosec B608 — safe_name is produced by _sanitize_identifier_quoted.
+                    f"SELECT COUNT(*) FROM {safe_name}"  # nosec B608 — safe_name is produced by _sanitize_identifier_quoted.
+                ).fetchone()[0]
+            )
         return result
     finally:
         connection.close()

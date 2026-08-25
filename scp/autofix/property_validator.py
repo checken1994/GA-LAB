@@ -81,7 +81,6 @@ import hashlib
 import logging
 import random
 import textwrap
-import types
 from dataclasses import dataclass, field
 from typing import Any, Callable, Sequence
 
@@ -479,18 +478,16 @@ def _compile_function(source: str, expected_name: str | None = None) -> Any:
                 if f.name == expected_name:
                     target = f
                     break
-        # [SCP-DNA-FIX R13-5] Bug #5: SAFE_BUILTINS replaces full
-        # __builtins__. Candidates can no longer call __import__, open,
-        # eval, exec, compile, etc. — they only see the allowlisted
-        # safe builtins. This blocks the trivial
-        # ``import os; os.system(...)`` attack.
-        ns: dict[str, Any] = {"__builtins__": SAFE_BUILTINS}
-        code = compile(src, "<property_validator>", "exec")
-        exec(code, ns)  # noqa: S102 — SAFE_BUILTINS sandbox (defense-in-depth)
-        fn = ns.get(target.name)
-        if callable(fn):
-            return fn
-        return None
+        from scp.autofix.restricted_exec import compile_restricted_function
+
+        # The restricted compiler rejects imports, classes, dunder traversal and
+        # dynamic execution names before compiling into the allowlisted namespace.
+        return compile_restricted_function(
+            src,
+            expected_name=target.name,
+            safe_builtins=SAFE_BUILTINS,
+            filename="<property_validator>",
+        )
     except SyntaxError as e:
         logger.debug(f"[IMP-19] syntax error compiling function: {e}")
         return None

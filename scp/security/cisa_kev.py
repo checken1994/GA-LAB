@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -25,6 +26,29 @@ logger = logging.getLogger("scp.security.cisa_kev")
 CISA_KEV_URL = "https://raw.githubusercontent.com/cisagov/kev-data/main/known_exploited_vulnerabilities.json"
 CISA_KEV_URL_FALLBACK = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 CACHE_TTL_SECONDS = 6 * 3600  # 6 hours — CISA updates multiple times/week
+_CISA_ALLOWED_HOSTS = {"raw.githubusercontent.com", "www.cisa.gov"}
+
+
+def _open_cisa_feed(url: str):
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in _CISA_ALLOWED_HOSTS:
+        raise ValueError(f"Unsupported CISA feed URL: {url!r}")
+    allowed_prefixes = {
+        "raw.githubusercontent.com": "/cisagov/kev-data/",
+        "www.cisa.gov": "/sites/default/files/feeds/",
+    }
+    if not parsed.path.startswith(allowed_prefixes[parsed.hostname]):
+        raise ValueError(f"Unsupported CISA feed path: {parsed.path!r}")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("CISA feed URL must not contain credentials or query data")
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "SCP-CISA-KEV/1.0",
+            "Accept": "application/json, text/plain, */*",
+        },
+    )
+    return urllib.request.urlopen(request, timeout=30)  # nosec B310 — fixed HTTPS host allowlist above.
 
 
 class CisaKevFeed:
@@ -67,17 +91,7 @@ class CisaKevFeed:
             return {"action": "skipped", "reason": "cache fresh", "count": len(self._vulns)}
 
         try:
-            if not CISA_KEV_URL.startswith(("https://", "http://")):
-                raise ValueError(f"Unsupported URL scheme for CISA KEV: {CISA_KEV_URL}")
-            req = urllib.request.Request(  # noqa: S310 — scheme validated above
-                CISA_KEV_URL,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "application/json, text/plain, */*",
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 — scheme validated above
+            with _open_cisa_feed(CISA_KEV_URL) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
 
             vulns = data.get("vulnerabilities", [])

@@ -41,9 +41,8 @@ import ast
 import importlib
 import importlib.util
 import logging
-import os
 import sys
-import traceback
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -65,7 +64,7 @@ _SMOKE_INPUTS_BY_NAME = {
     "name": "test",
     "filename": "test.txt",
     "file_path": "test.txt",
-    "path": "/tmp/test",
+    "path": str(Path(tempfile.gettempdir()) / "scp-reality-test"),
     "url": "http://localhost/test",
     "host": "localhost",
     "port": 8080,
@@ -93,7 +92,7 @@ _SMOKE_INPUTS_BY_ANNOTATION = {
     "set": set(),
     "tuple": (),
     "bytes": b"",
-    "Path": Path("/tmp/test"),
+    "Path": Path(tempfile.gettempdir()) / "scp-reality-test",
 }
 
 

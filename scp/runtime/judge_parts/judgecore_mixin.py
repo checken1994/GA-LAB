@@ -2864,7 +2864,9 @@ class JudgeCoreMixin:
                     # Only evaluate if it looks safe (digits + operators only)
                     if _re.fullmatch(r"[\d\s\+\-\*\/\(\)\.\^]+", _expr):
                         try:
-                            _re_eval = eval(_expr, {"__builtins__": {}}, {})  # noqa: S307 — sandboxed (no builtins)
+                            from scp.runtime.safe_math import safe_eval_arithmetic
+
+                            _re_eval = safe_eval_arithmetic(_expr)
                             if _re_eval is not None:
                                 _re_num = float(_re_eval)
                                 if abs(_re_num - _ans_num) < 0.01:
@@ -2930,7 +2932,7 @@ class JudgeCoreMixin:
                     return True, f"LogicSLM: answer '{_ans_lower}' is valid boolean"
                 # If answer is a logic expression, check it contains logic operators
                 if any(op in _ans_str for op in ["∧", "∨", "¬", "→", "↔", "AND", "OR", "NOT", "True", "False"]):
-                    return True, f"LogicSLM: answer contains logic operators"
+                    return True, "LogicSLM: answer contains logic operators"
                 # Otherwise: can't verify — log warning but don't fail (DNA #7 fail-open)
                 logger.warning(f"[R18-FIX-5] LogicSLM answer '{_ans_str[:50]}' not verifiable — trusting (logged)")
                 return True, "LogicSLM: answer format not recognized, trusting SLM (logged)"

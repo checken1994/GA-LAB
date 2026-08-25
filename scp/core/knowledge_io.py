@@ -17,6 +17,10 @@ logger = logging.getLogger("scp.core.knowledge_io")
 
 # Allow only alphanumeric + underscore for SQL identifiers (column/table names)
 _SAFE_IDENTIFIER = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+_SAFE_WHERE = re.compile(
+    r'^[A-Za-z_][A-Za-z0-9_]*\s*(?:=|<>|!=|<=|>=|<|>|LIKE|IS(?:\s+NOT)?)\s*\?$',
+    re.IGNORECASE,
+)
 
 
 def _sanitize_identifier(identifier: str) -> str:
@@ -56,9 +60,12 @@ def build_select_query(table: str, columns: list[str], where: str = "") -> str:
     # Call _sanitize_identifier(c) explicitly per V104.34 #42 contract
     for c in columns:
         _sanitize_identifier(c)
-    query = f"SELECT {safe_cols} FROM {safe_table}"
+    query = f"SELECT {safe_cols} FROM {safe_table}"  # nosec B608 — identifiers and WHERE grammar are allowlisted above.
     if where:
-        query += f" WHERE {where}"
+        normalized_where = where.strip()
+        if not _SAFE_WHERE.fullmatch(normalized_where):
+            raise ValueError("Unsafe WHERE clause; use one identifier/operator and a bound ? value")
+        query += f" WHERE {normalized_where}"  # nosec B608 — validated placeholder-only predicate.
     return query
 
 
