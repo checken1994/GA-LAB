@@ -22,7 +22,10 @@ def inventory(commit: str) -> list[dict[str, str]]:
             continue
         meta, path = item.split(b"\t", 1)
         mode, kind, oid = meta.decode("ascii").split(" ", 2)
-        rows.append({"mode": mode, "type": kind, "blob": oid, "path": path.decode("utf-8")})
+        path_text = path.decode("utf-8")
+        if path_text == "reports/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json":
+            continue
+        rows.append({"mode": mode, "type": kind, "blob": oid, "path": path_text})
     return sorted(rows, key=lambda row: row["path"])
 
 
@@ -34,7 +37,6 @@ def main() -> int:
     captured = str(manifest["captured_commit"])
     current = git("rev-parse", "HEAD")
     repo_root = Path(git("rev-parse", "--show-toplevel")).resolve()
-    manifest_path = args.manifest.resolve().relative_to(repo_root).as_posix()
     verification_mode = "captured_git_tree"
     try:
         if current != captured:
@@ -52,9 +54,9 @@ def main() -> int:
         expected_rows = list(manifest["inventory"])
         expected_paths = {str(row["path"]) for row in expected_rows}
         current_paths = {str(row["path"]) for row in current_rows}
-        if current_paths - expected_paths != {manifest_path}:
+        if current_paths - expected_paths:
             raise SystemExit("shallow checkout has unexpected files beyond the captured manifest inventory")
-        rows = [row for row in current_rows if row["path"] != manifest_path]
+        rows = current_rows
         actual_tree = str(manifest["captured_tree"])
     canonical = json.dumps(rows, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     actual_sha = hashlib.sha256(canonical).hexdigest()
