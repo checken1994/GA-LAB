@@ -47,9 +47,9 @@ const SCP_ROOT = process.env.SCP_ROOT ?? "/home/z/my-project/scp-system"
 // documents when the fallback was last cross-checked against reality.
 // Drift will recur if SCP changes; recompute via `wc -l scp/autofix/*.py`
 // after backend updates and bump the date.
-const LAST_VERIFIED_DATE = "2025-01 (Phase 6-A audit)"
+const LAST_VERIFIED_DATE = "2026-08-26 (remediation snapshot d53e5e3)"
 const LAST_VERIFIED_FALLBACK_LOC: Record<string, number> = {
-  "scp/autofix/property_validator.py": 916,
+  "scp/autofix/property_validator.py": 913,
   "scp/autofix/type_flow_verifier.py": 801,
   "scp/autofix/speculative_prefixer.py": 838,
   "scp/autofix/callgraph_delta.py": 734,
