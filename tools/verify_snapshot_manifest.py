@@ -73,7 +73,12 @@ def main() -> int:
         try:
             data = subprocess.check_output(["git", "show", f"{captured}:{path_name}"], encoding=None)
         except subprocess.CalledProcessError:
-            data = (repo_root / path_name).read_bytes()
+            try:
+                # In a depth-1 checkout the captured parent blob may be absent,
+                # but the current commit blob is available and is byte-stable.
+                data = subprocess.check_output(["git", "show", f"{current}:{path_name}"], encoding=None)
+            except subprocess.CalledProcessError:
+                data = (repo_root / path_name).read_bytes()
         if len(data) != int(expected["bytes"]) or hashlib.sha256(data).hexdigest() != expected["sha256"]:
             raise SystemExit(f"required path content hash mismatch: {path_name}")
     print(json.dumps({"status": "PASS_WITHIN_SCOPE", "verification_mode": verification_mode, "captured_commit": captured, "current_head": current, "tracked_count": len(rows), "tree": actual_tree}, indent=2))
