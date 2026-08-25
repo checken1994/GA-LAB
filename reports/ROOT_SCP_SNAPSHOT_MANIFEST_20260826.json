@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-25T18:00:13.141562+00:00",
-  "captured_commit": "eb1f36977000d2558709f969ec22f5539ce5de7e",
-  "captured_parent": "d53e5e337597b8414dc08f2a371e6824a721e9ec",
-  "captured_tree": "79ed55448b36a92aa63a98119304d3618104a2ac",
-  "tracked_count": 1236,
-  "inventory_sha256": "8ef0909c719ec6a24cc909f445a864dad82102dc605d6300ae33754bbd24e968",
+  "generated_at_utc": "2026-08-25T19:48:36.432414+00:00",
+  "captured_commit": "9303834c7207fbeb5596e551d1a7bc1e5fdea17b",
+  "captured_parent": "65bf9414b8f1aada5675f31498665428ddbe8230",
+  "captured_tree": "18b657df8821c1dcc5b18ab4ebde19923ff5400e",
+  "tracked_count": 1237,
+  "inventory_sha256": "24d715957500f93d1492f48be19d2fa7a3a9bcb835fb63a3d789ce1538d1b620",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -3226,7 +3226,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a64008a737914129cc9cfc654cd298dc902240e3",
+      "blob": "2e2fec277a9e519427722cb56a005d4213895cc1",
       "path": "scp/autofix/evidence_replay.py"
     },
     {
@@ -3394,7 +3394,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4ea4ef714b3f3e3baa26aa4fbc8a3ab86df406cf",
+      "blob": "3f9d7b43b01cd6636a6c2463a4d7ce136c7b42f5",
       "path": "scp/autofix/runner_phases/post_fix_verify.py"
     },
     {
@@ -6942,6 +6942,12 @@
       "type": "blob",
       "blob": "f93ff7ea8ff340cb7820794d5c611ad362a0f609",
       "path": "tests/test_evidence_ledger_r44.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3f752302394898d86c86c9c0069d5f10bbe46ef7",
+      "path": "tests/test_evidence_replay_contract.py"
     },
     {
       "mode": "100644",
