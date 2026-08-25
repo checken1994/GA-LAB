@@ -98,6 +98,63 @@ from scp.core.request_run_ledger import RequestRunLedger, stage_request, traced_
 
 _REQUEST_RUN_LEDGER = RequestRunLedger()
 
+# Task Kernel integration is deliberately scoped to context-backed/RAG asks.
+# Normal chat requests keep the existing JudgeCore path; a RAG request never
+# silently bypasses the kernel if its durable DB/trace cannot be initialized.
+_ASK_KERNEL_ADAPTERS: dict[tuple[str, str], Any] = {}
+_ASK_KERNEL_ADAPTER_LOCK = threading.Lock()
+_ASK_KERNEL_INIT_ERROR: Exception | None = None
+
+
+def _ask_kernel_enabled(req: AskRequest) -> bool:
+    if os.environ.get("SCP_ASK_KERNEL_ENABLED", "1") != "1":
+        return False
+    return bool(
+        getattr(req, "rag_enabled", False)
+        or getattr(req, "contexts", None)
+        or str(getattr(req, "retrieved_context", "") or "").strip()
+    )
+
+
+def _get_ask_kernel_adapter() -> Any:
+    """Get the durable adapter for the configured process-local paths."""
+    global _ASK_KERNEL_INIT_ERROR
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.environ.get("SCP_KERNEL_DB_PATH", os.path.join(root, "data", "ask_task_kernel.sqlite3"))
+    trace_path = os.environ.get("SCP_KERNEL_TRACE_PATH", os.path.join(root, "data", "ask_task_kernel_trace.jsonl"))
+    key = (db_path, trace_path)
+    with _ASK_KERNEL_ADAPTER_LOCK:
+        if key in _ASK_KERNEL_ADAPTERS:
+            return _ASK_KERNEL_ADAPTERS[key]
+        try:
+            from scp.ask_kernel_adapter import AskKernelAdapter
+
+            adapter = AskKernelAdapter(db_path, trace_path)
+            _ASK_KERNEL_ADAPTERS[key] = adapter
+            return adapter
+        except Exception as exc:
+            _ASK_KERNEL_INIT_ERROR = exc
+            logger.error("[ASK-KERNEL] durable adapter initialization failed: %s", type(exc).__name__)
+            return None
+
+
+def _kernel_gate_unavailable_response(req: AskRequest, exc: Exception) -> AskResponse:
+    return AskResponse(
+        verdict="FAIL",
+        final_answer="[SCP: Answer withheld — Kernel gate unavailable]",
+        confidence=0.0,
+        domain=req.domain_override or req.domain or "general",
+        falsification_status="KERNEL_GATE_UNAVAILABLE",
+        governance_decision="KILL",
+        v98_guard={"mode": "rag-verified", "readOnly": True, "security_blocked": True, "kernel_error": type(exc).__name__},
+        v98_classification={"provenance": "kernel_gate", "evidence_count": 0},
+        elapsed_ms=0.0,
+        session_id=req.session_id or "ask-kernel-unavailable",
+        run_status="REJECTED",
+        ledger_status="BLOCKED",
+    )
+
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s")
 
@@ -912,11 +969,141 @@ async def _ask_benchmark_fast(req: AskRequest, request: Request) -> AskResponse:
     )
 
 
+def _rag_terms(value: str) -> set[str]:
+    import re as _re
+    return set(_re.findall(r"[\wÀ-ỹ]{4,}", (value or "").lower()))
+
+
+def _ask_context_rag(req: AskRequest, request: Request) -> AskResponse:
+    """Explicit read-only RAG branch for caller-supplied evidence.
+
+    This is not a silent JudgeCore bypass: callers opt in with rag_enabled or
+    supplied retrieval fields, the response declares ``rag-verified`` mode, and
+    no public web/LLM fallback is allowed in this branch.
+    """
+    started = time.time()
+    contexts = [str(value).strip() for value in (req.contexts or []) if str(value).strip()]
+    if req.retrieved_context and req.retrieved_context.strip():
+        contexts.append(req.retrieved_context.strip())
+    answer = (req.ai_answer or "").strip()
+    evidence_text = "\n".join(contexts)
+    lowered = f"{evidence_text}\n{answer}".lower()
+    injection_markers = (
+        "ignore previous instructions",
+        "ignore all previous",
+        "system prompt",
+        "jailbreak",
+        "bỏ qua hướng dẫn",
+        "bỏ qua chỉ dẫn",
+    )
+    session_id = req.session_id or f"rag-verified-{int(started * 1000)}"
+    base_evidence = {
+        "mode": "rag-verified",
+        "contexts": contexts,
+        "evidence_count": len(contexts),
+        "ground_truth_used_for_generation": False,
+        "provenance": "input_context_only",
+    }
+    if any(marker in lowered for marker in injection_markers):
+        evidence = {**base_evidence, "security_blocked": True, "reason": "prompt_injection_marker"}
+        return AskResponse(
+            verdict="FAIL",
+            final_answer="[SCP: Answer withheld — prompt injection in RAG evidence]",
+            confidence=0.0,
+            domain="security",
+            falsification_status="RAG_CONTEXT_INJECTION_BLOCKED",
+            governance_decision="KILL",
+            v98_guard={"mode": "rag-verified", "readOnly": True, "security_blocked": True},
+            v98_classification=evidence,
+            elapsed_ms=round((time.time() - started) * 1000, 1),
+            session_id=session_id,
+            slm_trace=[],
+            reasoning="RAG evidence contained an instruction-like marker; answer withheld.",
+            v100_claims={"evidence": evidence},
+            v103_antibodies={"injection_blocked": True},
+            speculative_mode=None,
+        )
+    if not contexts or not answer:
+        evidence = {**base_evidence, "reason": "missing_context_or_ai_answer"}
+        return AskResponse(
+            verdict="FAIL",
+            final_answer="[SCP: Answer withheld — RAG evidence incomplete]",
+            confidence=0.0,
+            domain=req.domain_override or req.domain or "general",
+            falsification_status="RAG_EVIDENCE_INSUFFICIENT",
+            governance_decision="ESCALATE",
+            v98_guard={"mode": "rag-verified", "readOnly": True, "security_blocked": False},
+            v98_classification=evidence,
+            elapsed_ms=round((time.time() - started) * 1000, 1),
+            session_id=session_id,
+            slm_trace=[],
+            reasoning="RAG requires non-empty caller-supplied context and an answer candidate.",
+            v100_claims={"evidence": evidence},
+            v103_antibodies={"injection_blocked": False},
+            speculative_mode=None,
+        )
+    answer_terms = _rag_terms(answer)
+    evidence_terms = _rag_terms(evidence_text)
+    grounded_ratio = len(answer_terms & evidence_terms) / max(1, len(answer_terms))
+    truth_terms = _rag_terms(req.ground_truth)
+    truth_overlap = len(answer_terms & truth_terms) / max(1, len(answer_terms)) if truth_terms else 0.0
+    evidence = {
+        **base_evidence,
+        "grounded_ratio": round(grounded_ratio, 6),
+        "ground_truth_overlap": round(truth_overlap, 6),
+    }
+    if grounded_ratio < 0.35:
+        evidence["reason"] = "answer_not_grounded_in_input_context"
+        return AskResponse(
+            verdict="FAIL",
+            final_answer="[SCP: Answer withheld — answer not grounded in supplied RAG evidence]",
+            confidence=0.0,
+            domain=req.domain_override or req.domain or "general",
+            falsification_status="RAG_GROUNDING_FAILED",
+            governance_decision="ESCALATE",
+            v98_guard={"mode": "rag-verified", "readOnly": True, "security_blocked": False},
+            v98_classification=evidence,
+            elapsed_ms=round((time.time() - started) * 1000, 1),
+            session_id=session_id,
+            slm_trace=[],
+            reasoning="Answer-token overlap did not meet the 0.35 read-only grounding threshold.",
+            v100_claims={"evidence": evidence},
+            v103_antibodies={"injection_blocked": False},
+            speculative_mode=None,
+        )
+    return AskResponse(
+        verdict="PASS",
+        final_answer=answer,
+        confidence=round(min(0.99, max(0.35, grounded_ratio)), 6),
+        domain=req.domain_override or req.domain or "general",
+        falsification_status="GROUNDED_CONTEXT_CHECK",
+        governance_decision="UPHOLD",
+        v98_guard={"mode": "rag-verified", "readOnly": True, "security_blocked": False},
+        v98_classification=evidence,
+        elapsed_ms=round((time.time() - started) * 1000, 1),
+        session_id=session_id,
+        slm_trace=[{"domain": req.domain_override or req.domain or "general", "slm_name": "deterministic-extractive-rag", "answer": answer, "evidence_count": len(contexts)}],
+        reasoning="Answer accepted only because its terms are grounded in caller-supplied context.",
+        v100_claims={"evidence": evidence},
+        v103_antibodies={"injection_blocked": False},
+        speculative_mode=None,
+    )
+
+
 # POST /ask Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Main endpoint
 # ============================================================
 @app.post("/ask", response_model=AskResponse)
 @traced_request(_REQUEST_RUN_LEDGER)
 async def ask(req: AskRequest, request: Request):
+    if _ask_kernel_enabled(req):
+        adapter = _get_ask_kernel_adapter()
+        if adapter is None:
+            return _kernel_gate_unavailable_response(req, _ASK_KERNEL_INIT_ERROR or RuntimeError("kernel_adapter_unavailable"))
+        return await adapter.run_rag(req, request, _ask_impl)
+    return await _ask_impl(req, request)
+
+
+async def _ask_impl(req: AskRequest, request: Request):
     """Main endpoint Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â question Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ V98 pipeline Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verdict.
 
     Pipeline:
@@ -926,6 +1113,8 @@ async def ask(req: AskRequest, request: Request):
       4. [V98] AttackPolicy + CounterResponse + Canary + AttackPatternMemory.record_bypass
     """
     t0 = time.time()
+    if os.environ.get("SCP_ASK_KERNEL_ENABLED", "1") == "1" and (req.rag_enabled or req.contexts or str(req.retrieved_context or "").strip()):
+        return _ask_context_rag(req, request)
     if req.source == "scp_batch_benchmark_v1":
         return await _ask_benchmark_fast(req, request)
     judge = get_judge()
