@@ -202,6 +202,9 @@ class JudgeCoreMixin:
         # verdict creation. Adversary conflict is recorded as a flag and applied post-Step-6.
         verdict = None
         verdict_type = None
+        final_answer = ""
+        confidence = 0.0
+        verdict_evidence_spec = None
         reasoning = ""
         _pre_verdict_evidence: dict[str, Any] = {}
         _adversary_conflict = False
@@ -429,9 +432,9 @@ class JudgeCoreMixin:
         # question that PASSED all security checks).
         # Note: verdict_type/final_answer/confidence may be unset if KB didn't hit —
         # use getattr-style safe checks.
-        _kb_sc_verdict = locals().get('verdict_type', None)
-        _kb_sc_answer = locals().get('final_answer', '')
-        _kb_sc_conf = locals().get('confidence', 0.0)
+        _kb_sc_verdict = verdict_type
+        _kb_sc_answer = final_answer
+        _kb_sc_conf = confidence
         if _kb_sc_verdict == "PASS" and _kb_sc_answer and _kb_sc_conf >= 0.85 and v100_kb_hits:
             _best_hit = v100_kb_hits[0]
             _hit_tier = getattr(_best_hit, 'source_tier', 9)
@@ -1678,7 +1681,7 @@ class JudgeCoreMixin:
                 "slm_count": len(slm_responses),
                 "valid_slm_count": len(valid_responses),
                 **_pre_verdict_evidence,  # [P0-4 FIX] merge UnifiedDetector + ErrorStoreIndex evidence
-                **({"speculative_mode": verdict_evidence_spec} if 'verdict_evidence_spec' in dir() and verdict_type == "SPECULATIVE" else {}),
+                **({"speculative_mode": verdict_evidence_spec} if verdict_evidence_spec is not None and verdict_type == "SPECULATIVE" else {}),
             },
             domain=primary_domain,
             cross_validation={

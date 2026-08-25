@@ -211,12 +211,18 @@ def test_api_server_imports():
         "print('IMPORT_OK', type(app).__name__)"
     )
     env = {
-        "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/local/bin"),
+        # Preserve the host runtime/DLL lookup path in the isolated child.
+        "PATH": os.environ.get("PATH", ""),
         "HOME": __import__("tempfile").gettempdir(),  # nosec B108 - test fixture, uses tempfile.gettempdir() (not hardcoded)
         # Skip heavy startup gates that might fail in CI without Ollama.
         "SCP_SKIP_STARTUP_GATE": "1",
         "SCP_AUTH_TOKEN_SECRET": _TEST_TOKEN,  # nosec B105 - test fixture token (constant defined at module level)
     }
+    # Native Windows Python extensions require these OS variables.
+    if os.name == "nt":
+        for _key in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP", "PATHEXT"):
+            if _key in os.environ:
+                env[_key] = os.environ[_key]
     result = safe_run_python(code, timeout=60, env=env)
     assert "IMPORT_OK" in result.stdout, (  # noqa: S101
         f"api_server.py failed to import (cascade regression):\n"
