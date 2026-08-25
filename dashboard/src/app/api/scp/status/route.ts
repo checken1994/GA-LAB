@@ -29,14 +29,22 @@
 import { readdirSync, readFileSync, statSync } from "fs"
 import path from "path"
 import { NextResponse } from "next/server"
+import {
+  CURRENT_ROUND,
+  SCP_CANONICAL_MODEL_ID,
+  DOMAIN_EXPERT_ENSEMBLE_TERM,
+  SCP_LEGACY_PROTOCOLS,
+  SCP_RELEASE_LABEL,
+  SCP_RELEASE_VERSION,
+} from "@/lib/audit-data/version"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 const SCP_BASE_URL =
-  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8000"
+  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8002"
 
-const START_HINT = "Run: python -m scp 8000 (in your scp folder)"
+const START_HINT = "Run: SCP_PORT=8002 python -m scp (in your scp folder)"
 
 // SCP root: parent of dashboard/. Override via env for container deploys.
 const SCP_ROOT = process.env.SCP_ROOT ?? "/home/z/my-project/scp-system"
@@ -47,7 +55,7 @@ const SCP_ROOT = process.env.SCP_ROOT ?? "/home/z/my-project/scp-system"
 // documents when the fallback was last cross-checked against reality.
 // Drift will recur if SCP changes; recompute via `wc -l scp/autofix/*.py`
 // after backend updates and bump the date.
-const LAST_VERIFIED_DATE = "2026-08-26 (remediation snapshot d53e5e3)"
+const LAST_VERIFIED_DATE = "2026-08-26 (identity migration verification snapshot)"
 const LAST_VERIFIED_FALLBACK_LOC: Record<string, number> = {
   "scp/autofix/property_validator.py": 913,
   "scp/autofix/type_flow_verifier.py": 801,
@@ -214,8 +222,18 @@ export async function GET() {
   const v4LocTotal = V4_MODULES.reduce((sum, m) => sum + m.loc, 0)
   const v4LocAllLive = V4_MODULES.every((m) => m.locLive)
   const engine = {
-    version: "v4",
-    versionHistory: ["v2 (R7)", "v3 (R8)", "v4 (R9)"],
+    version: SCP_RELEASE_VERSION,
+    modelId: SCP_CANONICAL_MODEL_ID,
+    release: SCP_RELEASE_LABEL,
+    auditRound: CURRENT_ROUND,
+    expertTerm: DOMAIN_EXPERT_ENSEMBLE_TERM,
+    legacyProtocols: SCP_LEGACY_PROTOCOLS,
+    versionHistory: [
+      `${SCP_RELEASE_LABEL} (current)`,
+      "Autofix generation 2 (audit R7)",
+      "Autofix generation 3 (audit R8)",
+      "Autofix generation 4 (audit R9)",
+    ],
     totalAutofixPyFiles: 63, // 51 v2 + 6 v3 + 6 v4
     modulesByGeneration: {
       v2_count: 51,
@@ -240,9 +258,13 @@ export async function GET() {
       : `fallback (last verified ${LAST_VERIFIED_DATE}; at least one module's file was unreachable at ${SCP_ROOT})`,
   }
 
-  // --- 3. R9 audit metadata ---
+  // --- 3. Audit metadata ---
+  // Audit Round 20 is the current operator-visible round; the fields below
+  // are historical R9/R8 evidence retained for compatibility and provenance.
   const audit = {
-    round: 9,
+    auditRound: CURRENT_ROUND,
+    historicalEvidenceRound: 9,
+    evidenceLabel: "Historical R9 audit evidence",
     pythonFilesAstParseOk: "377/377",
     r9BugsFound: 7,
     r9BugsPatched: 7,

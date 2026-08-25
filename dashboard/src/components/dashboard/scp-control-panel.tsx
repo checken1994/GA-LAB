@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, Server, ServerOff, Terminal, Activity, ShieldAlert, Repeat, Play, Loader2 } from "lucide-react"
+import { CURRENT_ROUND } from "@/lib/audit-data/version"
 
 interface ScpHealth {
   scp: "online" | "degraded" | "offline"
@@ -77,6 +78,11 @@ interface ScpStatus {
   scp: "online" | "degraded" | "offline"
   engine: {
     version: string
+    modelId?: string
+    release?: string
+    auditRound?: number
+    expertTerm?: string
+    legacyProtocols?: readonly string[]
     totalAutofixPyFiles: number
     modulesByGeneration: { v2_count: number; v3_count: number; v4_count: number }
     modulesWired: { v3: number; v4: number }
@@ -90,7 +96,9 @@ interface ScpStatus {
     v4LocMethod?: string
   }
   audit: {
-    round: number
+    auditRound?: number
+    historicalEvidenceRound?: number
+    evidenceLabel?: string
     pythonFilesAstParseOk: string
     r9BugsFound: number
     r9BugsPatched: number
@@ -456,9 +464,9 @@ export function ScpControlPanel() {
               SCP Control Panel
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Live status của SCP Python FastAPI server (port 8000). Dashboard
+              Live status của SCP Python FastAPI server (port 8002). Dashboard
               gọi <code className="rounded bg-muted px-1.5 py-0.5 text-xs">/api/scp/health</code>{" "}
-              → proxy tới <code className="rounded bg-muted px-1.5 py-0.5 text-xs">http://127.0.0.1:8000/health</code>.
+              → proxy tới <code className="rounded bg-muted px-1.5 py-0.5 text-xs">http://127.0.0.1:8002/health</code>.
             </p>
           </div>
           <Button
@@ -556,20 +564,20 @@ export function ScpControlPanel() {
             </div>
           </Card>
 
-          {/* R9 audit metadata */}
+          {/* Historical R9 audit evidence */}
           <Card className="p-5 border-sky-500/30 bg-sky-500/5">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-              <span className="text-sm font-medium">R9 Audit</span>
+              <span className="text-sm font-medium">Historical R9 evidence</span>
               <Badge variant="outline" className="ml-auto border-sky-500/40 text-sky-700 dark:text-sky-300">
-                Round {status?.audit.round ?? 9}
+                Audit Round {status?.audit.auditRound ?? CURRENT_ROUND}
               </Badge>
             </div>
             <div className="mt-3 text-2xl font-bold">
               {status?.audit.r9BugsPatched ?? 7}/{status?.audit.r9BugsFound ?? 7} patched
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              {status?.audit.pythonFilesAstParseOk ?? "377/377"} .py ast.parse OK
+              Historical R9: {status?.audit.pythonFilesAstParseOk ?? "377/377"} .py ast.parse OK
             </div>
             <div className="mt-3 text-xs text-muted-foreground">
               <span className="font-mono">{status?.audit.r8ClaimsVerifiedTrue ?? 19}</span> TRUE
@@ -622,7 +630,7 @@ export function ScpControlPanel() {
             <CardDescription>
               All 73 SCP routes (defined in <code>scp/api_server.py</code> +
               <code>scp/api/routes/*.py</code>). Access through gateway: append
-              <code className="ml-1 rounded bg-muted px-1.5 py-0.5">?XTransformPort=8000</code>
+              <code className="ml-1 rounded bg-muted px-1.5 py-0.5">?XTransformPort=8002</code>
               to any path.
             </CardDescription>
           </CardHeader>

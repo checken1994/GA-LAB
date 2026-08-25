@@ -161,6 +161,11 @@ class AskResponse(BaseModel):
     trace_id: str | None = None
     run_status: str | None = None
     ledger_status: str | None = None
+    # Canonical public vocabulary: Domain Expert / Domain Expert Ensemble.
+    # Legacy slm_* fields remain as read-only compatibility aliases.
+    expert_trace: list[dict[str, Any]] | None = None
+    expert_responses: list[dict[str, Any]] | None = None
+    expert_ensemble: str | None = None
     # V105: Full pipeline trace — SLM nào chạy, time từng phase, reasoning
     slm_trace: list[dict[str, Any]] | None = None  # [{domain, slm_name, answer, confidence, time_ms, source}]
     phase_timings: dict[str, float] | None = None  # {intake_ms, routing_ms, ...}
@@ -169,6 +174,17 @@ class AskResponse(BaseModel):
     v100_claims: dict[str, Any] | None = None
     v103_antibodies: dict[str, Any] | None = None
     speculative_mode: dict[str, Any] | None = None
+
+    def __init__(self, **data: Any):
+        # Populate canonical fields from legacy callers without changing
+        # the old JSON contract. New callers should use expert_* fields.
+        if data.get("expert_trace") is None and data.get("slm_trace") is not None:
+            data["expert_trace"] = data["slm_trace"]
+        if data.get("expert_responses") is None and data.get("slm_responses") is not None:
+            data["expert_responses"] = data["slm_responses"]
+        if data.get("expert_ensemble") is None:
+            data["expert_ensemble"] = "Domain Expert Ensemble"
+        super().__init__(**data)
 
 
 

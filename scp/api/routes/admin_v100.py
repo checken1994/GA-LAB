@@ -40,7 +40,8 @@ async def v100_status():
     return {
         "v100_modules": judge.get_v100_status(),
         "v98_modules": judge.get_v98_status(),
-        "slms": len(judge.slms),
+        "domain_experts": len(judge.domain_experts),
+        "slms": len(judge.domain_experts),
     }
 
 

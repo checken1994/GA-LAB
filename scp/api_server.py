@@ -203,6 +203,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | 
 from typing import TYPE_CHECKING
 
 from scp import __version__ as _SCP_VERSION
+from scp.core.release_identity import (
+    DOMAIN_EXPERT_ENSEMBLE_TERM,
+    DOMAIN_EXPERT_TERM,
+    RELEASE_LABEL,
+    public_release_metadata,
+)
 from scp.core.streaming_factcheck import StreamingFactChecker
 from scp.meta.simple_explainer import SimpleExplainer
 from scp.runtime.judge import RealityJudge
@@ -366,7 +372,7 @@ _EXTRA_ROUTERS_AVAILABLE = False
 async def lifespan(app: FastAPI):
     global _background_task
     logger.info("=" * 60)
-    logger.info("SCP V99 API Server starting...")
+    logger.info(f"{RELEASE_LABEL} API Server starting...")
     logger.info("=" * 60)
 
     # [SCP-DNA-FIX R12-28] Disable WHY LLM + evolution during startup (fast boot).
@@ -692,16 +698,16 @@ async def lifespan(app: FastAPI):
     for _task in (_scheduler_bootstrap_task, _evolution_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
         if _task is not None and not _task.done():
             _task.cancel()
-    logger.info("SCP V99 API Server shutting down...")
+    logger.info(f"{RELEASE_LABEL} API Server shutting down...")
 
 
 # ============================================================
 # FastAPI app
 # ============================================================
 app = FastAPI(
-    title="SCP V104.48 Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Self-Correcting Pipeline API",
-    description="V98 security + 53 SLMs + FalsificationEngine + Governance + Chat + Evolution",
-    version="V104.49.0",
+    title=f"{RELEASE_LABEL} - Self-Correcting Pipeline API",
+    description=f"{DOMAIN_EXPERT_ENSEMBLE_TERM} + FalsificationEngine + Governance + Chat + Evolution",
+    version=_SCP_VERSION,
     lifespan=lifespan,
 )
 # [FIX-A P0-3 Bug C] CORS hardening Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â was allow_origins=["*"] + methods=*
@@ -1741,6 +1747,7 @@ async def health():
         "status": "ok",
         "service_identity": _scp_service_identity(),
         "version": _SCP_VERSION,
+        "release": public_release_metadata(),
         "routes": len(app.routes),
         "modules": "136+ Python files",
         "note": "minimal health Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â use /health/detailed for full status",
@@ -1769,7 +1776,9 @@ async def health_detailed():
         return {
             "status": "ok",
             "version": _SCP_VERSION,
-            "slms": len(judge.slms),
+            "release": public_release_metadata(),
+            "domain_experts": len(judge.domain_experts),
+            "slms": len(judge.domain_experts),
             "v98_modules": sum(1 for v in judge.get_v98_status().values() if v != "inactive"),
             "routes": len(app.routes),
             "modules": "136+ Python files",
@@ -1779,6 +1788,7 @@ async def health_detailed():
             "fact_checker": _fact_checker.stats(),
             "runtime_routing": {
                 "math_probe_route": list(judge._route_question("2+2")),
+                "domain_expert_loaded": "math" in judge.domain_experts,
                 "math_slm_loaded": "math" in judge.slms,
             },
             "background_scheduler_started": _sched_started,

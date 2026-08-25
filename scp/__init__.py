@@ -1,6 +1,6 @@
 # SCP - Viet Nam | Copyright (c) 2026 SCP Vietnam Project. All Rights Reserved.
-"""
-SCP V14 - Self-Correcting Predictor
-Multi-domain AI verification system
-"""
-__version__ = "14.0.0"
+"""SCP package identity and release version."""
+
+from scp.core.release_identity import RELEASE_VERSION
+
+__version__ = RELEASE_VERSION

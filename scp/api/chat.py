@@ -28,6 +28,7 @@ from scp.core.chat_memory_store import ChatMemoryStore
 # /chat/sessions + /chat/{id}/history endpoints (previously NO auth Ă¢â‚¬â€ anyone
 # could list all active sessions + read any session's full history).
 from scp.api._shared import verify_admin
+from scp.core.release_identity import RELEASE_LABEL
 from typing import Optional
 
 logger = logging.getLogger("scp.chat")
@@ -110,7 +111,7 @@ async def scp_chat(websocket: WebSocket):
 
     await websocket.send_json({
         "type": "system",
-        "message": f"SCP V104.48 Ă„â€˜Ä‚Â£ kĂ¡ÂºÂ¿t nĂ¡Â»â€˜i. Session: {session_id}\n"
+        "message": f"{RELEASE_LABEL} Ă„â€˜Ä‚Â£ kĂ¡ÂºÂ¿t nĂ¡Â»â€˜i. Session: {session_id}\n"
                    f"TÄ‚Â´i cÄ‚Â³ thĂ¡Â»Æ’ kiĂ¡Â»Æ’m tra cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi, phÄ‚Â¡t hiĂ¡Â»â€¡n tĂ¡ÂºÂ¥n cÄ‚Â´ng, vÄ‚Â  tĂ¡Â»Â± hĂ¡Â»Âc.\n"
                    f"HĂ¡Â»Âi tÄ‚Â´i bĂ¡ÂºÂ¥t cĂ¡Â»Â© Ă„â€˜iĂ¡Â»Âu gÄ‚Â¬ Ă¢â‚¬â€ tÄ‚Â´i sĂ¡ÂºÂ½ nÄ‚Â³i 'TĂ¡ÂºÂ¡i sao?' vÄ‚Â  kiĂ¡Â»Æ’m tra.",
         "session_id": session_id,

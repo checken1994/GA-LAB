@@ -29,7 +29,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
-logger = logging.getLogger("scp.slms")
+logger = logging.getLogger("scp.domain_experts")
 
 # ============================================================
 # V14 SLM RESPONSE
@@ -482,7 +482,7 @@ from scp.runtime.slm_impls.chem_reality_astro_slm import (
 # NOTE: EconomicsSLM, LiteratureSLM use new DataSources (FRED/WorldBank/Gutenberg/ERIC).
 # LawSLM/MilitarySLM/AgricultureSLM/ArtSLM/EngineeringSLM use existing DataSources.
 # PhilosophySLM/ManagementSLM use local knowledge only.
-# Aliases (*Expert) provided for clarity (see SLM_NAMING_NOTE.md).
+# Aliases (*Expert) provided for clarity (see DOMAIN_EXPERT_NAMING.md).
 # ============================================================
 from scp.runtime.slm_impls.economics_slm import (
     EconomicsExpert,  # noqa: F401
@@ -539,6 +539,11 @@ from scp.runtime.slm_impls.philosophy_slm import (
     PhilosophyExpert,  # noqa: F401
     PhilosophySLM,  # noqa: F401
 )
+
+# Canonical names for new code. Legacy SLM class names above remain
+# import-compatible and are not used as the primary public vocabulary.
+BaseDomainExpert = BaseSLM
+DomainExpertResponse = SLMResponse
 
 # IMPORTANT (name collision note):
 # - EducationSLM is ALREADY defined above (line ~281) as _DomainSLM subclass.

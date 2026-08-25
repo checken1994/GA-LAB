@@ -209,7 +209,7 @@ class RealityJudge(JudgeBgMixin, JudgeCoreMixin, JudgeRouteMixin, JudgeUtilMixin
         )
 
         # Khởi tạo SLMs
-        self.slms: dict[str, BaseSLM] = {
+        self.domain_experts: dict[str, BaseSLM] = {
             "math": MathSLM(),
             "biology": BiologySLM(registry=self.registry),
             "finance": FinanceSLM(registry=self.registry),
@@ -269,6 +269,9 @@ class RealityJudge(JudgeBgMixin, JudgeCoreMixin, JudgeRouteMixin, JudgeUtilMixin
             "military": MilitarySLM(),
             "spacemedicine": SpaceMedicineSLM(),
         }
+        # Compatibility alias: old callers can still access .slms.
+        # New code must use .domain_experts. Both names point to one dict.
+        self.slms = self.domain_experts
 
         # [v28] Verdict Predictor — skip API khi prediction confidence cao
         try:

@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
 from scp.api._shared import _extract_v98_context, get_judge, logger
+from scp.core.release_identity import CANONICAL_MODEL_ID, model_id_candidates
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
@@ -49,7 +50,7 @@ async def openai_chat(request: Request):
 
     body = await request.json()
     messages = body.get("messages", [])
-    model = body.get("model", "scp-v99")
+    model = body.get("model", CANONICAL_MODEL_ID)
 
     # Extract last user message
     question = ""
@@ -127,5 +128,12 @@ async def openai_models():
     """OpenAI-compatible models list."""
     return {
         "object": "list",
-        "data": [{"id": "scp-v99", "object": "model", "created": int(time.time()), "owned_by": "scp"}],
+        "data": [{
+            "id": model_id,
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "scp",
+            "canonical": index == 0,
+            "deprecated": index != 0,
+        } for index, model_id in enumerate(model_id_candidates())],
     }

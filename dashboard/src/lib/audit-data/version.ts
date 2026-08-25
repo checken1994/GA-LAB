@@ -1,4 +1,17 @@
 /**
+ * Canonical dashboard identity. Release version and audit round are
+ * different concepts. Legacy v98/v100/... labels are protocol paths.
+ */
+export const SCP_RELEASE_VERSION = "14.0.0"
+export const SCP_RELEASE_LABEL = `SCP ${SCP_RELEASE_VERSION}`
+export const SCP_CANONICAL_MODEL_ID = `scp-${SCP_RELEASE_VERSION}`
+export const SCP_LEGACY_MODEL_IDS = ["scp-v99"] as const
+export const SCP_LEGACY_PROTOCOLS = ["v98", "v100", "v102", "v103", "v104", "v105"] as const
+export const DOMAIN_EXPERT_TERM = "Domain Expert"
+export const DOMAIN_EXPERT_ENSEMBLE_TERM = "Domain Expert Ensemble"
+export const RED_TEAM_PAYLOAD_TERM = "Red-Team Payload Mutation"
+
+/**
  * Single source of truth for the dashboard's round number.
  *
  * [Fix 4-c-008 · Task Local-C] Previously the round number was duplicated as
@@ -25,7 +38,7 @@
 export const CURRENT_ROUND = 20
 
 /** Long-form label shown in subtitles, footers, and metadata titles. */
-export const CURRENT_ROUND_LABEL = `Round ${CURRENT_ROUND} · PASS ≠ TRUE (recursive)`
+export const CURRENT_ROUND_LABEL = `${SCP_RELEASE_LABEL} · Audit Round ${CURRENT_ROUND} · PASS ≠ TRUE (recursive)`
 
 /** Short label for badges (e.g. the header dot). */
 export const CURRENT_ROUND_BADGE = String(CURRENT_ROUND)

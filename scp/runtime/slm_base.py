@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
-logger = logging.getLogger("scp.slms")
+logger = logging.getLogger("scp.domain_experts")
 
 
 # [V104.32 #22] Token boundary helper (same as data_sources/_token_boundary_match)
@@ -222,5 +222,8 @@ class BaseSLM(ABC):
 # [OPT-7] Alias for clarity — SCP's "SLM" means "Specialized Logic Module"
 # (deterministic dispatcher), NOT "Small Language Model" (neural net).
 # New code should use `DomainExpert` to avoid confusion.
-# See SLM_NAMING_NOTE.md for full explanation.
+# See DOMAIN_EXPERT_NAMING.md for full explanation.
 DomainExpert = BaseSLM
+# Canonical names; BaseSLM/SLMResponse stay only as compatibility aliases.
+BaseDomainExpert = BaseSLM
+DomainExpertResponse = SLMResponse

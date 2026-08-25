@@ -72,7 +72,8 @@ async def v98_status():
     judge = get_judge()
     return {
         "version": _SCP_VERSION,  # [FIX-12] single source
-        "slms": len(judge.slms),
+        "domain_experts": len(judge.domain_experts),
+        "slms": len(judge.domain_experts),
         "v98_modules": judge.get_v98_status(),
         "falsification": judge.falsification is not None,
         "error_store": judge.error_store is not None,

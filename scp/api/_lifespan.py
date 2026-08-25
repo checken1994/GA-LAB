@@ -44,6 +44,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from scp.core.subsystem_telemetry import SubsystemTelemetry, heartbeat_sleep
+from scp.core.release_identity import RELEASE_LABEL
 
 logger = logging.getLogger("scp.api")
 
@@ -69,7 +70,7 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
             it on shutdown. (Dict avoids `global` declaration.)
     """
     logger.info("=" * 60)
-    logger.info("SCP V99 API Server starting...")
+    logger.info(f"{RELEASE_LABEL} API Server starting...")
     logger.info("=" * 60)
 
     # ============================================================
@@ -752,4 +753,4 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                 logger.info(f"[AUTO] {_name} stopped cleanly")
         except Exception as e:
             logger.warning(f"[AUTO] {_name} stop failed: {e}")
-    logger.info("SCP V99 API Server shutting down...")
+    logger.info(f"{RELEASE_LABEL} API Server shutting down...")
