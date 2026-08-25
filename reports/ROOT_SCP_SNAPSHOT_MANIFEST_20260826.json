@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-25T17:46:07.376591+00:00",
-  "captured_commit": "b8506663f97ad5b14b026164b67612c8948bcf31",
-  "captured_parent": "3cb2e0ab687b6bb4811a629baa67be348cb9036d",
-  "captured_tree": "0ba985eba09d6e7bfa6a8a6ed87809c4b019cbc2",
+  "generated_at_utc": "2026-08-25T18:00:13.141562+00:00",
+  "captured_commit": "eb1f36977000d2558709f969ec22f5539ce5de7e",
+  "captured_parent": "d53e5e337597b8414dc08f2a371e6824a721e9ec",
+  "captured_tree": "79ed55448b36a92aa63a98119304d3618104a2ac",
   "tracked_count": 1236,
-  "inventory_sha256": "1ef35a01b09833134dd058d1fdaaa284395ecf0aa28b24d2f493d4168236e032",
+  "inventory_sha256": "8ef0909c719ec6a24cc909f445a864dad82102dc605d6300ae33754bbd24e968",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -568,7 +568,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5ee02e6420cd794f3f3b45ea95c3c7f6bc815738",
+      "blob": "8d04c2ba28bd2e2b256e1372050fb6cf6e21eba4",
       "path": "dashboard/src/app/api/scp/status/route.ts"
     },
     {
