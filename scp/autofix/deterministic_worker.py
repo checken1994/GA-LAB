@@ -398,7 +398,7 @@ class DeterministicWorker:
         except Exception as exc:
             try:
                 self._atomic_write(path, before)
-                rollback_ok = _sha256_file(path) == before_hash
+                rollback_ok = self._sha256_file(path) == before_hash
             except Exception as rollback_exc:
                 rollback_ok = False
                 logger.critical("worker rollback failed for %s: %s", path, rollback_exc)

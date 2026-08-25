@@ -873,7 +873,8 @@ class RealityJudge(JudgeBgMixin, JudgeCoreMixin, JudgeRouteMixin, JudgeUtilMixin
 
     async def judge_async(self, question: str, ai_answer: str = "",
                           cycle_count: int = 0, source: str = "",
-                          v98_context: Optional[dict] = None) -> Any:
+                          v98_context: Optional[dict] = None,
+                          domain_override: str | None = None) -> Any:
         """Async version of judge() — uses extracted phases + direct LLM await.
 
         [OPT-8] Benefits over sync judge():
@@ -924,11 +925,13 @@ class RealityJudge(JudgeBgMixin, JudgeCoreMixin, JudgeRouteMixin, JudgeUtilMixin
                 question=question, ai_answer=ai_answer,
                 cycle_count=cycle_count, source=source,
                 v98_context=v98_context or {},
+                domain_override=domain_override,
             )
 
     async def judge_with_react_fallback(self, question: str, ai_answer: str = "",
                                          cycle_count: int = 0, source: str = "",
-                                         v98_context: Optional[dict] = None) -> Any:
+                                         v98_context: Optional[dict] = None,
+                                         domain_override: str | None = None) -> Any:
         """[OPT-9] Judge with ReActAgent fallback for low-confidence routing.
 
         Flow:
@@ -955,6 +958,7 @@ class RealityJudge(JudgeBgMixin, JudgeCoreMixin, JudgeRouteMixin, JudgeUtilMixin
                 self, question, ai_answer,
                 cycle_count=cycle_count, source=source,
                 v98_context=v98_context,
+                domain_override=domain_override,
             )
         except Exception as _pj_err:
             logger.warning(

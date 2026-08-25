@@ -56,7 +56,7 @@ _WHITELISTED_TOOLS = frozenset({
 # Previously the bypass `if "/" not in str(exe) and "\\" not in str(exe): raise`
 # let ANY path-based exe through — including "/tmp/evil.sh" or "./evil.cmd".
 # That was a P0 RCE vector (DNA #6 Gốc tin cậy bên ngoài, #9 No harm).
-_PYTHON_BASENAME_RE = _re.compile(r"^python\d*(\.\d+)*$")
+_PYTHON_BASENAME_RE = _re.compile(r"^python\d*(\.\d+)*(\.exe)?$", _re.IGNORECASE)
 
 
 def _build_whitelisted_paths() -> frozenset[str]:
@@ -148,8 +148,10 @@ def safe_run(
     else:
         resolved = shutil.which(str(exe)) or os.path.realpath(str(exe))
         base = os.path.basename(resolved)
+        base_name = base[:-4] if base.lower().endswith(".exe") else base
         if (resolved not in _WHITELISTED_PATHS
                 and base not in _WHITELISTED_TOOLS
+                and base_name not in _WHITELISTED_TOOLS
                 and not _PYTHON_BASENAME_RE.match(base)):
             raise ValueError(
                 f"safe_run: executable '{exe}' (resolved: {resolved}) is not "
@@ -166,6 +168,13 @@ def safe_run(
     # [AUTOFIX-T2-WINDOWS] encoding="utf-8" + errors="replace" — fixes UnicodeDecodeError
     # on Windows (cp1258/cp1252 can't decode byte 0x81 from ollama/taskkill output).
     # DNA SCP: "Thực tế > Mô hình" — Windows uses locale codepage by default, not UTF-8.
+    merged_env = env
+    if env is not None and sys.platform == "win32":
+        merged_env = dict(env)
+        for k in ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP"):
+            if k in os.environ and k not in merged_env and k.lower() not in [x.lower() for x in merged_env]:
+                merged_env[k] = os.environ[k]
+
     return subprocess.run(  # noqa: S603 — audited: shell=False, whitelist, timeout. See module docstring.
         args,
         shell=False,  # FORCED — no shell injection possible
@@ -175,7 +184,7 @@ def safe_run(
         errors="replace" if text else None,   # [AUTOFIX-T2] Don't crash on bad bytes
         timeout=timeout,
         cwd=cwd,
-        env=env,
+        env=merged_env,
         check=check,
     )
 

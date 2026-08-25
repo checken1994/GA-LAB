@@ -63,11 +63,13 @@ except ImportError:  # pragma: no cover
         return _wrap
     class _Stub:
         def __getattr__(self, _):
-            return st  # return self for any attr access
+            return self
+        def __call__(self, *a, **kw):
+            return self
     st = _Stub()  # type: ignore
     class HealthCheck:
         too_slow = "too_slow"
-    def assume(_):
+    def assume(*a, **kw):
         return True
 else:
     HAS_HYPOTHESIS = True

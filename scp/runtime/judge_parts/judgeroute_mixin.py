@@ -81,14 +81,29 @@ def _get_multi_llm_checker():
 class JudgeRouteMixin:
     """Mixin for RealityJudge — provides _route_question."""
 
-    def _route_question(self, question: str) -> list[str]:
+    def _route_question(self, question: str, domain_override: str | None = None) -> list[str]:
         """Route question to appropriate SLM(s).
         [V72] Cached — same question returns same routing for 1 hour.
         [V95] Uses SmartClassifier if available, falls back to keyword matching.
         """
+        # Explicit domain supplied by a trusted benchmark/request caller wins over
+        # heuristic numbers/date tokens. Only route to domains with a registered SLM.
+        if domain_override:
+            normalized = str(domain_override).strip().lower()
+            allowed = {
+                "math", "biology", "finance", "geography", "history", "chemistry",
+                "weather", "physics", "education", "psychology", "environment",
+                "energy", "transport", "blockchain", "cybersecurity", "genai",
+                "social", "aerospace", "tourism", "foodtech", "geology",
+                "oceanography", "cartography", "architecture", "uxui",
+                "digitalmarketing", "ecommerce", "audiovideo", "crafts",
+                "diplomacy", "heritage", "military", "spacemedicine",
+                "legal", "general",
+            }
+            if normalized in allowed:
+                return [normalized]
         if not question:
             return ["math"]
-
         # [V72] Check cache first
         cache_key = hashlib.sha256(question.encode()).hexdigest()
         cached = self._ROUTE_CACHE.get(cache_key)

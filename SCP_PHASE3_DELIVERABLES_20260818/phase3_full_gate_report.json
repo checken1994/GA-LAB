@@ -1,0 +1,93 @@
+{
+  "schema_version": "phase3-full-gate-report-v1",
+  "generated_at": 1786997607.4674613,
+  "gold_file_sha256": "4d1125f08b0516e2489009b712b2d480d5be2a28b423db3a0c7c2e1730adb047",
+  "pilot_file_sha256": "12f3f7caa06a948b5f7a80b880d0789f0c2e49cdad2bac40543815829a921637",
+  "rows_total": 1000,
+  "eligible_gold_rows": 0,
+  "pilot_rows": 3,
+  "pilot_metric_names": [
+    "context_precision",
+    "context_recall",
+    "faithfulness",
+    "answer_relevancy",
+    "answer_correctness"
+  ],
+  "gates": {
+    "gold_1000_has_accepted_rows": false,
+    "ragas_import_and_pilot_completed": true,
+    "ares_completed": false,
+    "full_1000_metric_scores_present": false
+  },
+  "verdict": "BLOCKED",
+  "reason_codes": [
+    "INSUFFICIENT_GOLD_1000",
+    "ARES_NOT_EXECUTED",
+    "FULL_1000_SCORES_NOT_ALLOWED",
+    "SOURCE_ALIGNMENT_DATA_QUALITY_BLOCKER",
+    "ARES_PRECONDITIONS_BLOCKED"
+  ],
+  "policy": "No custom metric and no score is emitted when gold is insufficient.",
+  "source_alignment_screening": {
+    "schema_version": "source-alignment-screening-v1",
+    "generated_at": 1786997977.65769,
+    "rows": 1000,
+    "zero_shared_terms": 886,
+    "one_or_more_shared_terms": 114,
+    "note": "Heuristic data-quality screen only; not a retrieval or answer-quality metric and never promotes gold."
+  },
+  "seeded_ragas_reproducibility": {
+    "schema_version": "phase3-ragas-seeded-reproducibility-v1",
+    "generated_at": "2026-08-17T20:32:59.0244378Z",
+    "run1_sha256": "6BEB377D9A6EC19835467741C02EA1678EDE4634320FFB893E73591C246BF4B2",
+    "replay_sha256": "6BEB377D9A6EC19835467741C02EA1678EDE4634320FFB893E73591C246BF4B2",
+    "seed": 42,
+    "temperature": 0,
+    "rows": 3,
+    "metrics": [
+      "context_precision",
+      "context_recall",
+      "faithfulness",
+      "answer_relevancy",
+      "answer_correctness"
+    ],
+    "max_abs_diff": 0,
+    "exact_equal": true,
+    "verdict": "REPRODUCIBLE_PILOT",
+    "limitations": [
+      "Determinism is proven only for this 3-row pilot with local Ollama and fixed seed.",
+      "It does not create gold answers for the 1,000-question dataset.",
+      "ARES remains unexecuted."
+    ]
+  },
+  "ares_preconditions": {
+    "schema_version": "ares-precondition-report-v1",
+    "generated_at": 1786998825.1313384,
+    "checks": {
+      "ares_package_importable": true,
+      "human_validation_set_at_least_50": false,
+      "few_shot_prompt_available": false,
+      "unlabeled_query_doc_answer_set": false,
+      "full_gold_non_abstain_rows": false
+    },
+    "human_validation_rows": 0,
+    "unlabeled_rows": 0,
+    "status": "BLOCKED",
+    "reason_codes": [
+      "human_validation_set_at_least_50",
+      "few_shot_prompt_available",
+      "unlabeled_query_doc_answer_set",
+      "full_gold_non_abstain_rows"
+    ],
+    "policy": "ARES score is not emitted until documented preconditions are true.",
+    "ares_environment": "eval-venv-ares311",
+    "ares_version": "0.6.6",
+    "torch_cuda": false
+  },
+  "gold_eligibility": {
+    "rows_total": 1000,
+    "eligible_rows": 0,
+    "abstain_rows": 1000,
+    "policy": "ABSTAIN is fail-closed and never counted as gold pass."
+  }
+}

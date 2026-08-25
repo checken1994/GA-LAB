@@ -1,0 +1,3 @@
+{"input": 1000, "seed_terminal": 275, "pending": 725, "output": "C:\\Users\\check\\Downloads\\scp\\reports\\SCP_FULL_RUNTIME_RAG_1000_RETRY_V2_2026-08-17.jsonl"}
+{"round": 1, "processed_round": 10, "pending_round": 725, "terminal_total": 282, "retry_pending": 3}
+{"round": 1, "processed_round": 20, "pending_round": 725, "terminal_total": 289, "retry_pending": 6}

@@ -1,0 +1,15 @@
+{
+  "kept": [
+    ".\\benchmark\\bo_de_1000_cau_v3-v2.xlsx",
+    ".\\benchmark\\run_1000_rag_standard.py",
+    ".\\benchmark\\results_rag_1000_scp_standard_20260817.json",
+    ".\\benchmark\\results_rag_1000_scp_standard_20260817.jsonl"
+  ],
+  "deleted": [
+    ".\\benchmark\\results_rag_1000_scp_remaining_20260817.json",
+    ".\\benchmark\\results_scp_current_smoke_20260817.json",
+    ".\\benchmark\\results_vietnamese_rag_scp_current_20260817.json"
+  ],
+  "kept_raw_batch_state": "data\\benchmark_batches (giữ để audit, không dùng làm file dữ liệu chuẩn)",
+  "note": "Không xóa file Excel nguồn và không xóa raw batch state của lần chạy mới vì chúng là bằng chứng audit."
+}

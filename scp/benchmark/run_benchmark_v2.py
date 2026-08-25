@@ -29,7 +29,10 @@ from typing import Any
 import requests
 
 # [R17-FIX-8] Import random question generator
-from question_generator import generate_random_questions, save_questions_to_jsonl
+try:
+    from scp.benchmark.question_generator import generate_random_questions, save_questions_to_jsonl
+except ImportError:
+    from question_generator import generate_random_questions, save_questions_to_jsonl
 
 BENCHMARK_DIR = Path(__file__).parent
 DEFAULT_URL = os.environ.get("SCP_BASE_URL", "http://127.0.0.1:8000")

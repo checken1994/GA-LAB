@@ -91,7 +91,8 @@ class JudgeCoreMixin:
     """Mixin for RealityJudge — provides judge."""
 
     def judge(self, question: str, ai_answer: str = "", cycle_count: int = 0,
-              source: str = "", v98_context: Optional[dict[str, Any]] = None) -> JudgeVerdict:
+              source: str = "", v98_context: Optional[dict[str, Any]] = None,
+              domain_override: str | None = None) -> JudgeVerdict:
         """Process a question through the reality-checking pipeline.
 
         [G4-FIX P0-12] ACTUAL phases in this method (audited by Task G4-C).
@@ -502,7 +503,7 @@ class JudgeCoreMixin:
                 logger.debug(f"[V104.44 #BX] ErrorStoreIndex search error: {e}")
 
         # Step 1: Route -> SLMs
-        domains = self._route_question(question)
+        domains = self._route_question(question, domain_override=domain_override)
 
         # [V90 OPT] Skip PolicyApplier — minor effect, high overhead
         applied_principle_ids: list[int] = []
@@ -766,8 +767,8 @@ class JudgeCoreMixin:
                                 _blocked_in_vote.append(_src)
                                 continue  # blocked sources don't vote at all
                             _ew = float(_ing.get("effective_weight", 1.0) or 1.0)
-                        except Exception:
-                            pass  # fail-open: full weight if ingestion_decision raises
+                        except Exception as e:
+                            logger.debug(f"[judgecore_mixin.py:770] silenced: {e}")
                     values_for_resolution.append({
                         "value": val,
                         "source": _src,

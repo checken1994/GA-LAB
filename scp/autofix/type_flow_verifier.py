@@ -714,7 +714,7 @@ def verify_type_flow(
             try:
                 if fp.resolve() == target_path:
                     continue  # don't scan the file itself
-            except Exception:  # noqa as _scp_exc: BLE001
+            except Exception as _scp_exc:  # noqa: BLE001
                 logger.debug(f"[SCP deterministic autofix] silenced exception: {_scp_exc!r}")
             sites, b = _scan_file_for_calls(fp, target_function)
             if b:

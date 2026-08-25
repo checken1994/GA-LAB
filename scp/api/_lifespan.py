@@ -629,8 +629,8 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                     _j = None
                     try:
                         _j = get_judge()
-                    except Exception:
-                        pass  # judge not ready yet — skip this cycle
+                    except Exception as _scp_exc:
+                        logger.debug(f"[SCP deterministic autofix] silenced exception: {_scp_exc!r}")
                     _we = getattr(_j, "why_engine", None) if _j else None
                     if _we is not None and hasattr(_we, "run_pending_verification_cycle"):
                         _stats = _we.run_pending_verification_cycle(limit=10)

@@ -30,6 +30,50 @@ import binascii
 import logging
 import os
 import threading
+from typing import Any
+
+
+def _scp_service_identity() -> dict:
+    """Expose bounded runtime identity for local service/port verification."""
+    import hashlib as _hashlib
+    import subprocess as _subprocess
+    from pathlib import Path as _Path
+    import sys as _sys
+    try:
+        _port = int(os.environ.get("SCP_PORT", "8000"))
+    except (TypeError, ValueError):
+        _port = -1
+    _mode = os.environ.get("SCP_MODE")
+    if not _mode:
+        _mode = "production" if _port == 8000 else "test" if _port == 8001 else "unknown"
+    try:
+        _commit = _subprocess.check_output(
+            ["git", "-C", str(_Path(__file__).resolve().parent.parent), "rev-parse", "HEAD"],
+            text=True, stderr=_subprocess.DEVNULL, timeout=2,
+        ).strip()
+    except Exception:
+        _commit = "unknown"
+    _env_path = _Path(os.environ.get("SCP_ENV_FILE", _Path(__file__).resolve().parent.parent / ".env"))
+    _config_hash = os.environ.get("SCP_CONFIG_HASH")
+    if not _config_hash and _env_path.exists():
+        try:
+            _cfg = "\n".join(
+                line for line in _env_path.read_text(encoding="utf-8-sig").splitlines()
+                if not line.startswith("SCP_CONFIG_HASH=")
+            )
+            _config_hash = "sha256:" + _hashlib.sha256(_cfg.encode("utf-8")).hexdigest()
+        except Exception:
+            _config_hash = "unknown"
+    return {
+        "service_name": os.environ.get("SCP_SERVICE_NAME", "scp-backend"),
+        "mode": _mode,
+        "host": os.environ.get("SCP_HOST", "127.0.0.1"),
+        "configured_port": _port,
+        "pid": os.getpid(),
+        "commit": _commit or "unknown",
+        "config_hash": _config_hash or "unknown",
+        "argv": list(_sys.argv),
+    }
 import time
 from collections import deque
 from contextlib import asynccontextmanager
@@ -1506,6 +1550,7 @@ async def health():
     import os as _os
     return {
         "status": "ok",
+        "service_identity": _scp_service_identity(),
         "version": _SCP_VERSION,
         "routes": len(app.routes),
         "modules": "136+ Python files",

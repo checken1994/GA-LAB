@@ -471,8 +471,8 @@ def _cleanup_shadow(shadow_path: str) -> None:
                     if stem in f:
                         try:
                             os.unlink(os.path.join(pyc_dir, f))
-                        except Exception:  # noqa: BLE001
-                            pass
+                        except Exception as e:  # noqa: BLE001
+                            logger.debug(f"[shadow_canary.py:474] silenced: {e}")
     except Exception as e:  # noqa: BLE001
         logger.debug(f"[IMP-23] shadow cleanup error: {e}")
 
@@ -718,8 +718,8 @@ def shadow_apply_and_compare(
                 _cleanup_shadow(orig_path)
             if "shadow_path" in locals() and shadow_path:
                 _cleanup_shadow(shadow_path)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"[shadow_canary.py:721] silenced: {e}")
 
     return result
 

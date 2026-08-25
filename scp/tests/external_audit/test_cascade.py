@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ast
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -43,6 +44,8 @@ def test_no_undefined_names_via_ruff():
     ignore exposed 32 real bugs (logger/Optional/threading/sys/_tracker_log_deferred
     /PredictiveEngine undefined). This test guards against recurrence.
     """
+    if not shutil.which("ruff"):
+        pytest.skip("ruff not installed on system")
     result = safe_run(
         ["ruff", "check", "--select=F821", "--no-cache", str(SCP_ROOT)],
     )
@@ -58,6 +61,8 @@ def test_no_bare_except_via_ruff():
     SystemExit — and silently hides bugs. V105 had 1 in judge.py:1689
     (tracker.log failure path). Fixed to `except Exception as e: logger.warning(...)`.
     """
+    if not shutil.which("ruff"):
+        pytest.skip("ruff not installed on system")
     result = safe_run(
         ["ruff", "check", "--select=E722", "--no-cache", str(SCP_ROOT)],
     )
@@ -177,10 +182,10 @@ def test_all_python_files_parse():
     """
     failures = []
     for py_file in SCP_ROOT.rglob("*.py"):
-        # Skip __pycache__ and the tests folder itself (we don't audit our own tests)
-        if "__pycache__" in str(py_file):
+        # Skip __pycache__, venv, site-packages, .git, and the tests folder itself
+        if any(p in ("__pycache__", "venv", ".venv", "site-packages", ".git") for p in py_file.parts):
             continue
-        if "/tests/external_audit/" in str(py_file) or str(py_file).endswith("conftest.py"):
+        if "external_audit" in py_file.parts or str(py_file).endswith("conftest.py"):
             continue
         try:
             ast.parse(py_file.read_text(encoding="utf-8"))
@@ -206,7 +211,7 @@ def test_api_server_imports():
         "print('IMPORT_OK', type(app).__name__)"
     )
     env = {
-        "PATH": "/usr/bin:/bin:/usr/local/bin",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/local/bin"),
         "HOME": __import__("tempfile").gettempdir(),  # nosec B108 - test fixture, uses tempfile.gettempdir() (not hardcoded)
         # Skip heavy startup gates that might fail in CI without Ollama.
         "SCP_SKIP_STARTUP_GATE": "1",

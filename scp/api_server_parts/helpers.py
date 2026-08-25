@@ -179,6 +179,11 @@ class AskRequest(BaseModel):
     confidence: float = Field(0.8, ge=0.0, le=1.0)
     session_id: str | None = None
     source: str = Field("api")
+    contexts: list[str] = Field(default_factory=list, max_length=8)
+    retrieved_context: str = Field("", max_length=96000)
+    ground_truth: str = Field("", max_length=4000)
+    rag_enabled: bool = False
+    domain_override: str = Field("", max_length=64)
     # [V104.45 #CP] Multimodal input remains optional and bounded.
     image_url: str | None = Field(None, description="URL of image to scan for jailbreak")
     voice_url: str | None = Field(None, description="URL of audio to scan for jailbreak")
