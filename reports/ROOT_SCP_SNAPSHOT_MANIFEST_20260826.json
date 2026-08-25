@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-25T19:48:36.432414+00:00",
-  "captured_commit": "9303834c7207fbeb5596e551d1a7bc1e5fdea17b",
-  "captured_parent": "65bf9414b8f1aada5675f31498665428ddbe8230",
-  "captured_tree": "18b657df8821c1dcc5b18ab4ebde19923ff5400e",
-  "tracked_count": 1237,
-  "inventory_sha256": "24d715957500f93d1492f48be19d2fa7a3a9bcb835fb63a3d789ce1538d1b620",
+  "generated_at_utc": "2026-08-25T21:41:30.942428+00:00",
+  "captured_commit": "8da8ff25b1c960da820a3405a26c469944679761",
+  "captured_parent": "4f65160d90a2f43e896ef9d736934c2e283f5b1b",
+  "captured_tree": "23bc3be8ad190012ed14eab570cf8d85403a6aab",
+  "tracked_count": 1239,
+  "inventory_sha256": "4f2b269e3e27b12451b00ab320f110a2300dc6176cb5154f4d1a052161fa32f1",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -14,9 +14,9 @@
       "sha256": "48d9b846be628ed715b62a67953de230940e129763afecd3b17c3bd54463ef6a"
     },
     "scp/api_server.py": {
-      "blob": "4ed71aae5fd22b8a510e87145d9299c95a4a9f8f",
-      "bytes": 98942,
-      "sha256": "2d181f8c9f6fd58d769542730d992186d75597c48182f2a1c0c2f2b832f9e0cd"
+      "blob": "516e10f104f420a14562d417a62224028ab7597d",
+      "bytes": 99318,
+      "sha256": "33274a784cd76f9a2b0db5d05c7dd8113493c13bb2fa02d62f509b60ea26367c"
     },
     "scp/task_kernel.py": {
       "blob": "63847ee57e6791fad3547c422d060c5dc3a18dab",
@@ -538,7 +538,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8213ac4ba9cc25660e2fb3907e8239e5d6169146",
+      "blob": "4accce9a3d185c5be58cded3ac78b6131e7e1846",
       "path": "dashboard/src/app/api/scp/health/route.ts"
     },
     {
@@ -568,7 +568,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8d04c2ba28bd2e2b256e1372050fb6cf6e21eba4",
+      "blob": "0eba18512b45dfaf2dbc47712d4bbad0a5ec3eb7",
       "path": "dashboard/src/app/api/scp/status/route.ts"
     },
     {
@@ -778,7 +778,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e1f16b39c4143492c59c6ab5b3b724cc7016d06c",
+      "blob": "5bfdb7f6a555b533eb99ad0bc5182c6efaa404e4",
       "path": "dashboard/src/components/dashboard/scp-control-panel.tsx"
     },
     {
@@ -1258,7 +1258,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "28f13b5effbe6dd84bc79ad7accaf8b0251e5a6c",
+      "blob": "8d6634e26d231260f0668f3685a1866a481c3bf2",
       "path": "dashboard/src/lib/audit-data/version.ts"
     },
     {
@@ -2830,7 +2830,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9e41c7c57ca6a260ba2926523c6defa81251af88",
+      "blob": "f68be28136c9efdc79d6dc7e9cca3829e98ec62f",
       "path": "scp/__init__.py"
     },
     {
@@ -2854,7 +2854,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0aa919d934ea642c42b3a1f5783602ab527cae5a",
+      "blob": "030dc134f42bf8d5552a4eb9e05d626a28066916",
       "path": "scp/api/_lifespan.py"
     },
     {
@@ -2866,7 +2866,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e2c9ff038d73e9b92007ff446e0a0a9b9ca26acb",
+      "blob": "218404ace3e41c2cda0baf3635231f81187cf519",
       "path": "scp/api/chat.py"
     },
     {
@@ -2890,13 +2890,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b1742bea0d0a1ac0400ec90f78b505895b91db18",
+      "blob": "4ad50e1285865ba8c26e097c067877c0c1dd534c",
       "path": "scp/api/routes/admin_v100.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "371d1d6dbaf54240d69f6214cb060d3e093b6e2d",
+      "blob": "f2cc88086c533cb69bdb57344a7ab39bb8113a95",
       "path": "scp/api/routes/admin_v98.py"
     },
     {
@@ -2944,7 +2944,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "181ebea799f63cfaec6fa477381deedc84fda108",
+      "blob": "9505060fbf3897811434d8c438892e7b7cf58489",
       "path": "scp/api/routes/openai_compat.py"
     },
     {
@@ -3004,7 +3004,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4ed71aae5fd22b8a510e87145d9299c95a4a9f8f",
+      "blob": "516e10f104f420a14562d417a62224028ab7597d",
       "path": "scp/api_server.py"
     },
     {
@@ -3016,7 +3016,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b65f3eb6b741adf8e0f64d14ea134604445c911a",
+      "blob": "e2da5ff404361fd400f904e64c6e7d09450ffe04",
       "path": "scp/api_server_parts/helpers.py"
     },
     {
@@ -4102,6 +4102,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "0951c70aafbeffcdf054c1ec6d7343dd68be44cc",
+      "path": "scp/core/release_identity.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "368fa1261a378258007ff57b28604e3fc67a386f",
       "path": "scp/core/request_run_ledger.py"
     },
@@ -5164,8 +5170,8 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "19c9617618abb5a2be99b76629d9fd6b69dc530d",
-      "path": "scp/runtime/SLM_NAMING_NOTE.md"
+      "blob": "7b5b7f7d1e53e51312f0b7d7d2353eeafb9bd7d0",
+      "path": "scp/runtime/DOMAIN_EXPERT_NAMING.md"
     },
     {
       "mode": "100644",
@@ -5206,7 +5212,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "81c602f4cd66bc2ea477c308641a4bc4ea9da244",
+      "blob": "6a245486bd1460cbb272a28a42c2d835e841cdd6",
       "path": "scp/runtime/judge.py"
     },
     {
@@ -5314,7 +5320,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "af80384462468ba1c1bea9b7790aea1aae2b11b6",
+      "blob": "800c3b862fd5ad74d43a82180a482c4998985c5a",
       "path": "scp/runtime/slm_base.py"
     },
     {
@@ -5422,7 +5428,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "520b9c0f7cccffcc108ac2cf9e86a2d00329a234",
+      "blob": "e42a1e40ffbfbdb2ec9936300c585300f9a13039",
       "path": "scp/runtime/slms.py"
     },
     {
@@ -7026,6 +7032,12 @@
       "type": "blob",
       "blob": "598c30aa5e7abf62d671eb85240fb5c96f3fad1e",
       "path": "tests/test_history_migration_r44.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "61e06f3a9f65d20112e53642090ff3150da2b16c",
+      "path": "tests/test_identity_naming_contract.py"
     },
     {
       "mode": "100644",
