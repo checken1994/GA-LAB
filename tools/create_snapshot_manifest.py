@@ -45,7 +45,11 @@ def tree_inventory(commit: str) -> list[dict[str, str]]:
             continue
         meta, path = item.split(b"\t", 1)
         mode, kind, oid = meta.decode("ascii").split(" ", 2)
-        entries.append({"mode": mode, "type": kind, "blob": oid, "path": path.decode("utf-8")})
+        path_text = path.decode("utf-8")
+        # The manifest is committed after capture and must not hash itself.
+        if path_text == "reports/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json":
+            continue
+        entries.append({"mode": mode, "type": kind, "blob": oid, "path": path_text})
     entries.sort(key=lambda row: row["path"])
     return entries
 
