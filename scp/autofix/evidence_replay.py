@@ -74,7 +74,7 @@ _OUTPUT_SNIPPET_LEN = 200
 # itself to fail-closed on suspicious paths (defense-in-depth — even if a
 # future refactor accidentally re-introduces shell=True, this guard holds).
 _SHELL_METACHAR_BLACKLIST = frozenset(
-    ";|&$`><\n\r\\\"'!*?[]{()}~"
+    ";|&$`><\n\r\"'!*?[]{()}~"
 )
 
 
@@ -171,7 +171,7 @@ def compute_bug_signature(bug_type: str, description: str) -> str:
 
     Used as key to look up gold fix in GoldDataset.
     """
-    raw = f"{bug_type}:{description}".encode("utf-8")
+    raw = f"{bug_type}:{description}".encode()
     return hashlib.sha256(raw).hexdigest()
 
 
@@ -307,8 +307,21 @@ class EvidenceReplay:
             # shlex.split handles `python -c "..."` style commands with
             # nested quotes correctly (produces ['python', '-c', '...']).
             # If the command is already a list, use it as-is.
-            if isinstance(test_command, (list, tuple)):
+            if isinstance(test_command, list | tuple):
                 argv = [str(a) for a in test_command]
+            elif sys.platform.startswith("win"):
+                # POSIX shlex treats backslashes as escape characters and turns
+                # a Windows executable path into `C:Users...`. Parse with
+                # Windows-preserving mode, then remove only the outer quotes
+                # that quote a complete argv token. Keep shell=False: this is
+                # tokenization, not shell execution.
+                argv = shlex.split(test_command, posix=False)
+                argv = [
+                    token[1:-1]
+                    if len(token) >= 2 and token[0] == token[-1] and token[0] in {"'", '"'}
+                    else token
+                    for token in argv
+                ]
             else:
                 argv = shlex.split(test_command)
             if not argv:
@@ -477,11 +490,25 @@ class EvidenceReplay:
 
     # --- helpers ---
     @staticmethod
+    def _invalidate_bytecode_cache(target: Path) -> None:
+        """Remove bytecode for target so B/S/G replay cannot read stale code."""
+        candidates = [target.with_suffix(".pyc")]
+        cache_dir = target.parent / "__pycache__"
+        if cache_dir.exists():
+            candidates.extend(cache_dir.glob(f"{target.stem}.*.pyc"))
+        for cached in candidates:
+            try:
+                cached.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.warning(f"[BSG-VA] bytecode cache cleanup failed {cached}: {exc}")
+
+    @staticmethod
     def _write_source(target: Path, source: str) -> None:
-        """Write source to target file (UTF-8). Fail-open: log on error."""
+        """Write source to target file (UTF-8), invalidating stale bytecode."""
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(source, encoding="utf-8")
+            EvidenceReplay._invalidate_bytecode_cache(target)
         except OSError as e:
             logger.error(f"[BSG-VA] write failed {target}: {e}")
 

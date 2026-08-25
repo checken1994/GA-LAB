@@ -283,6 +283,9 @@ def run_full_post_fix_verify(
     # escalate/rollback even when other phases pass).
     _bsgva_escalate = False
     _bsgva_rollback = False
+    # Missing or failed oracle evidence is explicitly unverified. Escalate for
+    # review, but do not auto-rollback a candidate merely because gold is absent.
+    _bsgva_unverified = False
 
     # Phase A: base post-fix verify (vulture + import + hypothesis)
     base_result = run_post_fix_verify(
@@ -367,12 +370,11 @@ def run_full_post_fix_verify(
         try:
             import tempfile as _bsgva_tmpfile
 
-            from scp.autofix.evidence_replay import (
-                EvidenceReplay as _BSGVA_Replay,
-                EvidenceRole as _BSGVA_Role,
-                GoldDataset as _BSGVA_Dataset,
-                compute_bug_signature as _bsgva_sig,
-            )
+            from scp.autofix import evidence_replay as _bsgva_module
+            _BSGVA_Replay = _bsgva_module.EvidenceReplay
+            _BSGVA_Role = _bsgva_module.EvidenceRole
+            _BSGVA_Dataset = _bsgva_module.GoldDataset
+            _bsgva_sig = _bsgva_module.compute_bug_signature
 
             _bsgva_bug_sig = _bsgva_sig(bug_type, bug_id or "")
             _bsgva_ds = _BSGVA_Dataset()
@@ -442,8 +444,11 @@ def run_full_post_fix_verify(
                         f"discriminating={_bsgva_result.discriminating}"
                     )
             else:
+                _bsgva_unverified = True
+                _bsgva_escalate = True
                 phases["evidence_replay"] = {
-                    "ok": True,
+                    "ok": False,
+                    "status": "UNVERIFIED",
                     "skipped": True,
                     "reason": (
                         f"no gold entry for bug_signature="
@@ -454,8 +459,11 @@ def run_full_post_fix_verify(
             logger.debug(
                 f"[R12-9 BSG-VA] evidence_replay unavailable (fail-open): {_bsgva_imp}"
             )
+            _bsgva_unverified = True
+            _bsgva_escalate = True
             phases["evidence_replay"] = {
-                "ok": True,
+                "ok": False,
+                "status": "UNVERIFIED",
                 "skipped": True,
                 "reason": f"import skipped: {_bsgva_imp}",
             }
@@ -463,8 +471,11 @@ def run_full_post_fix_verify(
             logger.warning(
                 f"[R12-9 BSG-VA] evidence_replay error (fail-open): {_bsgva_err}"
             )
+            _bsgva_unverified = True
+            _bsgva_escalate = True
             phases["evidence_replay"] = {
-                "ok": True,
+                "ok": False,
+                "status": "UNVERIFIED",
                 "skipped": True,
                 "reason": f"error: {_bsgva_err}",
             }
@@ -480,10 +491,9 @@ def run_full_post_fix_verify(
     # → flag for review. If target function is GONE from fixed_ast → CRITICAL.
     # Fail-open per DNA #7: parse error / no backup / no method_name → skip.
     try:
-        from scp.autofix.runner_phases.semantic_equiv import (
-            BugLocation as _V3_SE_BugLoc,
-            verify_semantic_equiv as _v3_se_verify,
-        )
+        from scp.autofix.runner_phases import semantic_equiv as _v3_se_module
+        _V3_SE_BugLoc = _v3_se_module.BugLocation
+        _v3_se_verify = _v3_se_module.verify_semantic_equiv
         # Read pre-fix source from backup (.tier3bak or .audit_fix_backup).
         _v3_se_target = Path(file_path)
         _v3_se_backup = _v3_se_target.with_suffix(_v3_se_target.suffix + ".tier3bak")
@@ -548,16 +558,17 @@ def run_full_post_fix_verify(
             "ok": True, "skipped": True, "reason": f"error: {_v3_se_err}",
         }
 
-    escalate = (not all_ok) or _bsgva_escalate
+    overall_ok = all_ok and not _bsgva_unverified
+    escalate = (not all_ok) or _bsgva_escalate or _bsgva_unverified
     reason = (
         f"[IMP-1] run_full_post_fix_verify for {bug_id}: "
-        f"{'ALL PASS' if all_ok else 'FAILED'} "
+        f"{'ALL PASS' if overall_ok else 'FAILED/UNVERIFIED'} "
         f"(phases: {', '.join(phases.keys())})"
     )
     logger.info(reason)
 
     return {
-        "ok": all_ok,
+        "ok": overall_ok,
         "phases": phases,
         "rollback": _bsgva_rollback or (not all_ok and any(
             not p.get("ok", True) and not p.get("complete", True)
