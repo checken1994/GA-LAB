@@ -37,3 +37,16 @@ Broad Bandit over the monolith remains a legacy inventory with existing findings
 ## Merge safety
 
 The original GA-LAB main was observed clean at `06e1cef` immediately before port, and a local restore branch `backup/pre-structural-port-20260825` points to that exact commit. The original directory was not edited directly during port; this worktree is the merge candidate.
+
+## npm release gate remediation
+
+| Check | Result |
+|---|---|
+| Production dependency model | `prisma` moved from dependencies to devDependencies; `@prisma/client` remains runtime dependency |
+| `npm install --package-lock-only --ignore-scripts` | PASS |
+| `npm ci --ignore-scripts` | PASS, 523 packages installed |
+| `npm run build` | PASS, Next.js production build completed |
+| `npm audit --omit=dev --audit-level=high` | PASS, 0 vulnerabilities |
+| Lockfile scope | Only deepmerge-ts 7.1.5 → 8.0.2 plus expected root dependency/override metadata changed |
+
+The first remote workflow after the structural port failed at its pre-existing dashboard npm audit with 3 high vulnerabilities via Prisma CLI. This candidate fixes that release gate without a Prisma major upgrade and was validated locally before commit. Full audit still reports non-high dev-only findings; the CI gate intentionally audits production dependencies only.
