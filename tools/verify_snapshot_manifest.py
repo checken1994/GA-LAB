@@ -34,7 +34,10 @@ def main() -> int:
     captured = str(manifest["captured_commit"])
     current = git("rev-parse", "HEAD")
     if current != captured:
-        parents = git("rev-list", "--parents", "-n", "1", current).split()[1:]
+        # GitHub Actions normally uses fetch-depth=1. The commit object still
+        # contains parent metadata even when the parent object is not fetched.
+        commit_object = git("cat-file", "-p", current)
+        parents = [line.split(" ", 1)[1] for line in commit_object.splitlines() if line.startswith("parent ")]
         if captured not in parents:
             raise SystemExit(f"manifest captured commit is not HEAD or its direct parent: {captured} vs {current}")
     rows = inventory(captured)
