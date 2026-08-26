@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T20:21:25.897306+00:00",
-  "captured_commit": "a332143515ce631d5e35051caa48d3ccdd2b500a",
-  "captured_parent": "e97795ad10d0bab757d26d27fa3adfed8b05e13f",
-  "captured_tree": "e1ab1700d0cd19e615d767342b9a1eb59438ba43",
-  "tracked_count": 1321,
-  "inventory_sha256": "0e295310b020b5175c77b44a1303d03b9a3d805529c3265d1832c3690d56840e",
+  "generated_at_utc": "2026-08-26T21:05:16.789357+00:00",
+  "captured_commit": "af043665a646bf525bcf831249a02c0bb28f97ab",
+  "captured_parent": "df8d475b31621c4c069928c119bea4bad6178a13",
+  "captured_tree": "4d965cdab2ce053445f4ddcd37a0175e9d4566dd",
+  "tracked_count": 1300,
+  "inventory_sha256": "cc62c6a243392aeb288b8b040d23dff7e4488fe9ba7651162d7d2f47de433bcf",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -100,98 +100,26 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4718e3f3c7e6a8d9eeba4dfe375e3829d812cb9b",
+      "blob": "ad19cd391177c74868f41fc633b2913464c8e88a",
       "path": ".gitignore"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a0ce53a167ddeeba4150668358f68a19f08a788c",
-      "path": "APPLY_CHECKLIST_VI.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "d170607d04469f6696d6995dd24b34109b66acd0",
-      "path": "ARCHITECTURE_CANONICAL_ROOT.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "66bb5ec543396581a0bcac81b3593d7f4cf26336",
-      "path": "COMMERCIAL_LICENSE_NOTICE.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "067152bd6ce4383647079662d0851efc85f45fa7",
+      "blob": "50790159ecbfafd3c5da9ac73bd216adde8d1fd9",
       "path": "CONTRIBUTING.md"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e5b1419299d73a644628cfde85ee2c19a1771931",
-      "path": "GA_LAB_COMPATIBILITY_MATRIX.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "ee3aa1575fd53dcfacfc3c5c42744f5a47e9d146",
-      "path": "GA_LAB_PORT_EVIDENCE.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9e19c2e2a372132764052278ff59affece3cb9e8",
+      "blob": "65fdc1b959af3fdd7ccfe55b60684e4a891d285f",
       "path": "LICENSE"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0277966dd6325aba5edb925366a98b1e30dac0c7",
-      "path": "LICENSES.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "c8eb7c40d36cf8d4ec59df39060439a101e16ffa",
+      "blob": "346b94c9e6f7991716d467fd0bcae140fa194fb5",
       "path": "README.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "da1096c19f16faeb00fd5d078c3ab21516f4c05c",
-      "path": "ROUND20-README.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "60567a984c54f54c522976bb54196512429f0ff0",
-      "path": "SCP_20_BASELINE_20260813-044852.txt"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "3afa6d3d635d21e6a9a972df75c46523006f6d46",
-      "path": "SCP_DNA_AUDIT_ROUND12.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "11f5a02ec5676241db9cfedf07d95457f8b2ecc1",
-      "path": "SCP_DNA_AUDIT_ROUND13.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9fd9a9ed2a6c33b6179311ef30cf54548b505610",
-      "path": "SCP_DNA_AUDIT_ROUND14.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "7b589d66a4d5b2800ac5304466121876ead2c74b",
-      "path": "SCP_DNA_AUDIT_ROUND15.md"
     },
     {
       "mode": "100644",
@@ -328,18 +256,6 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6e1552d207f5735ffed8e45361304e190cfd80e0",
-      "path": "SCP_V31_AI_LOGIN_GUIDE.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "c6fe60e556287f3a82d2c3f3fafc0e31f38a518c",
-      "path": "SECRET_SCAN_REPORT.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "7cf4f2e7805ff5b6ed97a288ed083c7d4adfec62",
       "path": "SECURITY.md"
     },
@@ -396,30 +312,6 @@
       "type": "blob",
       "blob": "310a1605b78ece37cc6490e2027c03af96cec600",
       "path": "SKILL SCP/scp-task-kernel-review.zip"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "b87c10086af2a51fda20a892bbebea9efecfb2f3",
-      "path": "STRUCTURE_DEBT_PC_BASELINE.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "8d8b954df74f6e8e2e920db64acd70b2d15cfa37",
-      "path": "THIRD_PARTY_NOTICES.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "fdc3783bb62d88c4298821ed082e6f6b973b485c",
-      "path": "TRADEMARKS.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "bd77eaebe12395ee11225c396b84a056ebe39698",
-      "path": "WINDOWS-README.md"
     },
     {
       "mode": "100644",
@@ -552,12 +444,6 @@
       "type": "blob",
       "blob": "3740c58e5107f07bee6b19f8cc978c3d05a69f53",
       "path": "benchmark/run_ragas_v2.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9fcea9267a96f417179cace635715fd4769f785d",
-      "path": "create_production_candidate.ps1"
     },
     {
       "mode": "100644",
@@ -1732,7 +1618,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "fde470e98326b43165006fb2ba81e13820e06c34",
+      "blob": "20e80493199b6d9546181d7770c51dbe7901e032",
       "path": "docs/SCP_JOB_OBJECT_RUNTIME_GROWTH_AND_TIMELINE_20260814.md"
     },
     {
@@ -1936,6 +1822,30 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "d170607d04469f6696d6995dd24b34109b66acd0",
+      "path": "docs/architecture/ARCHITECTURE_CANONICAL_ROOT.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e5b1419299d73a644628cfde85ee2c19a1771931",
+      "path": "docs/architecture/GA_LAB_COMPATIBILITY_MATRIX.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fd356bb2bbe4d199440a9bbfff990e7bb39f15b8",
+      "path": "docs/architecture/REPOSITORY_LAYOUT.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ee3aa1575fd53dcfacfc3c5c42744f5a47e9d146",
+      "path": "docs/archive/GA_LAB_PORT_EVIDENCE.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "da1096c19f16faeb00fd5d078c3ab21516f4c05c",
       "path": "docs/archive/ROUND20-README.md"
     },
@@ -1972,6 +1882,24 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "c6fe60e556287f3a82d2c3f3fafc0e31f38a518c",
+      "path": "docs/archive/SECRET_SCAN_REPORT.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b87c10086af2a51fda20a892bbebea9efecfb2f3",
+      "path": "docs/archive/STRUCTURE_DEBT_PC_BASELINE.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bba28536d4784edf8af020e90900cc635beb0072",
+      "path": "docs/archive/replaced-guides/WINDOWS-README-legacy.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "db158792c0e6711d0e9bd9e245923a8c1463deae",
       "path": "docs/assets/runtime_growth_t0_t90.csv"
     },
@@ -2002,14 +1930,44 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4c2307dd526ba88a7b71db8cc9173dbb2e828af6",
+      "blob": "a0ce53a167ddeeba4150668358f68a19f08a788c",
+      "path": "docs/guides/APPLY_CHECKLIST_VI.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6e1552d207f5735ffed8e45361304e190cfd80e0",
       "path": "docs/guides/SCP_V31_AI_LOGIN_GUIDE.md"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bba28536d4784edf8af020e90900cc635beb0072",
+      "blob": "bd77eaebe12395ee11225c396b84a056ebe39698",
       "path": "docs/guides/WINDOWS-README.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "66bb5ec543396581a0bcac81b3593d7f4cf26336",
+      "path": "docs/legal/COMMERCIAL_LICENSE_NOTICE.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a9b4f969cd01c153a73f0705375a74935c73f44e",
+      "path": "docs/legal/LICENSES.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8d8b954df74f6e8e2e920db64acd70b2d15cfa37",
+      "path": "docs/legal/THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fdc3783bb62d88c4298821ed082e6f6b973b485c",
+      "path": "docs/legal/TRADEMARKS.md"
     },
     {
       "mode": "100644",
@@ -2028,30 +1986,6 @@
       "type": "blob",
       "blob": "f5dce1f8841a03e03e0e6d46683636725099584d",
       "path": "docs/worklog-r16.md"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "31d6c38204c9b923630c17de45c2cce092feb849",
-      "path": "final_reality_two_fixes.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "f5deb3529c33a42c2307490137f18869fb91e431",
-      "path": "fix_reality_4d025_path.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "a484056ccfc5866f9ab52073e49191903f55e130",
-      "path": "fix_reality_root_concat.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "79aebdeecd2bb796e0801dcf8490fa1672e851bf",
-      "path": "fullstack_http_ready_harness.ps1"
     },
     {
       "mode": "100644",
@@ -2076,12 +2010,6 @@
       "type": "blob",
       "blob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
       "path": "licenses/Apache-2.0.txt"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "f3ddcbf85af46f8114d2a11b5cf0db43dfb91cd0",
-      "path": "manual_fullstack_probe.ps1"
     },
     {
       "mode": "100644",
@@ -2136,96 +2064,6 @@
       "type": "blob",
       "blob": "d6090fd5e78255a8238329c2e26b5df389935ba6",
       "path": "mini-services/loop-scheduler/package.json"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9472b39d0e5a09492e645a4fad87a0e3231bfea6",
-      "path": "p1_fix_verifier_stage.ps1"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "544e67b6ea85bd1e0b05533dd0c980d99727a012",
-      "path": "p1_patch_api_ledger.ps1"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "b83fd6edc8b8def0cf0325209df0bfe1578dc977",
-      "path": "p1_patch_api_ledger_v2.ps1"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "d0719839133b13933f88583cf4b18dce40354b42",
-      "path": "p2_patch_routes.ps1"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "91ea795f73e50a1666066a7b4222c6bdbabfbb6b",
-      "path": "patch_bridge_provider_secret_files.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "d6f130a7729aff330914a581b6e7dd19b1a68872",
-      "path": "patch_egress_policy.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "4a796f8c80ff4695ef0cc876948b31176ae28064",
-      "path": "patch_escalation_write_lock.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "ff360ef264217388a17e35be4470999b00c4d659",
-      "path": "patch_llm_fix_secret_files.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "8e2c66cfdd81004f6ad4e6f0c120cac143c041f4",
-      "path": "patch_production_guard.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9cab6a3f893a6544c2839df36c4960707c9bd0f7",
-      "path": "patch_reality_runner_portable.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9f5a7b81edf86f23af09402614c0fa11f2b7f484",
-      "path": "patch_reality_windows_commands.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "7540de8af2ce92cb0a025dbe0538f4cf4ecca979",
-      "path": "patch_runner_cygpath.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "61b3e306da16621594cc2fae3c37dcc1d4ca6238",
-      "path": "patch_runner_utf8.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "1b52eed72d04ae901de8d1239dcb844d0ffe6108",
-      "path": "patch_scheduler_admin_auth.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "d989efb351300277736bd02092de3afc5fe06c97",
-      "path": "patch_secret_file_auth.py"
     },
     {
       "mode": "100644",
@@ -2358,24 +2196,6 @@
       "type": "blob",
       "blob": "8faf1aea48a7b171d1f15d4288e35a3cc7316946",
       "path": "pytest.ini"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "3f576e3bce83ef915b4b47d6ec302e1e1c42d24c",
-      "path": "reality-tests-results.json"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "e2088d109a2159580c4c227a971499ac12a628a5",
-      "path": "recovery_manager_isolated_edit.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "30e5d248962facbc48a4f13e5061a03d1d5919be",
-      "path": "release-evidence-gate.html"
     },
     {
       "mode": "100644",
@@ -2688,6 +2508,30 @@
       "type": "blob",
       "blob": "a6f83025dc4b9c9f39d1802ffef5dc687e389ef7",
       "path": "reports/SCP_TEST_RUNTIME_RESTART_2026-08-17_stdout.txt"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3f576e3bce83ef915b4b47d6ec302e1e1c42d24c",
+      "path": "reports/archive/quarantined/reality-tests-results-legacy-20260826.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "30e5d248962facbc48a4f13e5061a03d1d5919be",
+      "path": "reports/archive/root-artifacts/release-evidence-gate.html"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6aa566691b80da90e67956af918ce4245570eece",
+      "path": "reports/archive/root-artifacts/runner-one.err"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c970c1b90b7599a6e95a711ff0b781b5f3702145",
+      "path": "reports/archive/root-artifacts/scp_mount_marker.txt"
     },
     {
       "mode": "100644",
@@ -3148,20 +2992,8 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "891cd629a73c204984715901d8bd3853d0d17198",
+      "blob": "3ecb8a8419f6b763217101bcdd5471c4d65bf5ea",
       "path": "run_reality_tests_portable.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "6aa566691b80da90e67956af918ce4245570eece",
-      "path": "runner-one.err"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "0a42f6dfbe6cd2bc2a75222eb5bcd7ed5ef8f492",
-      "path": "sanitize_candidate_enrichment_review.py"
     },
     {
       "mode": "100644",
@@ -6178,30 +6010,6 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "37a56d54555358c0febbb9e89654dc6af3d2ac39",
-      "path": "scp_247_install.ps1"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "2771aaa05f23e83472cfd0d606671bbe3ff8bb3f",
-      "path": "scp_247_supervisor.ps1"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "192696f64b61fea7fb987f8d9d58404ac15fec4f",
-      "path": "scp_bridge.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "c970c1b90b7599a6e95a711ff0b781b5f3702145",
-      "path": "scp_mount_marker.txt"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "e4d18b3f1c30fec9a3d71e69b5dec894fcac8113",
       "path": "scripts/benchmarks/README.md"
     },
@@ -6330,6 +6138,90 @@
       "type": "blob",
       "blob": "560f731363114e0da537ba548253a0c96d9c70b7",
       "path": "scripts/maintenance/fix_consistency_indent.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9472b39d0e5a09492e645a4fad87a0e3231bfea6",
+      "path": "scripts/maintenance/legacy/20260827-root-one-offs/p1_fix_verifier_stage.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "544e67b6ea85bd1e0b05533dd0c980d99727a012",
+      "path": "scripts/maintenance/legacy/20260827-root-one-offs/p1_patch_api_ledger.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b83fd6edc8b8def0cf0325209df0bfe1578dc977",
+      "path": "scripts/maintenance/legacy/20260827-root-one-offs/p1_patch_api_ledger_v2.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d0719839133b13933f88583cf4b18dce40354b42",
+      "path": "scripts/maintenance/legacy/20260827-root-one-offs/p2_patch_routes.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e2088d109a2159580c4c227a971499ac12a628a5",
+      "path": "scripts/maintenance/legacy/20260827-root-one-offs/recovery_manager_isolated_edit.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0a42f6dfbe6cd2bc2a75222eb5bcd7ed5ef8f492",
+      "path": "scripts/maintenance/legacy/20260827-root-one-offs/sanitize_candidate_enrichment_review.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f559defc2322a454d770364bb22855940ac4310f",
+      "path": "scripts/maintenance/legacy/20260827-root-one-offs/storage_large_dirs_audit_20260816.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "352051a653a2ffa0d7fa173221c7d4479604f7f0",
+      "path": "scripts/maintenance/legacy/20260827-root-one-offs/storage_rollback_20260816.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9fcea9267a96f417179cace635715fd4769f785d",
+      "path": "scripts/maintenance/legacy/20260827-root-ops-versions/create_production_candidate.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "79aebdeecd2bb796e0801dcf8490fa1672e851bf",
+      "path": "scripts/maintenance/legacy/20260827-root-ops-versions/fullstack_http_ready_harness.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f3ddcbf85af46f8114d2a11b5cf0db43dfb91cd0",
+      "path": "scripts/maintenance/legacy/20260827-root-ops-versions/manual_fullstack_probe.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "37a56d54555358c0febbb9e89654dc6af3d2ac39",
+      "path": "scripts/maintenance/legacy/20260827-root-ops-versions/scp_247_install.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2771aaa05f23e83472cfd0d606671bbe3ff8bb3f",
+      "path": "scripts/maintenance/legacy/20260827-root-ops-versions/scp_247_supervisor.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e81c4b6a02040436dc371e72634c1b306184b5f5",
+      "path": "scripts/maintenance/legacy/20260827-root-ops-versions/start-scp-test.ps1"
     },
     {
       "mode": "100644",
@@ -6592,12 +6484,6 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e81c4b6a02040436dc371e72634c1b306184b5f5",
-      "path": "start-scp-test.ps1"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "e166a28bd979d81a7c87d1bd8b850c8bf5dc438a",
       "path": "start-scp.bat"
     },
@@ -6618,18 +6504,6 @@
       "type": "blob",
       "blob": "c6b76ae26669850179829373e2dd9cfc808ba996",
       "path": "stop-scp.sh"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "f559defc2322a454d770364bb22855940ac4310f",
-      "path": "storage_large_dirs_audit_20260816.ps1"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "352051a653a2ffa0d7fa173221c7d4479604f7f0",
-      "path": "storage_rollback_20260816.ps1"
     },
     {
       "mode": "100644",
