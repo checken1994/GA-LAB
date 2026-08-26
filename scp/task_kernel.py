@@ -166,6 +166,7 @@ class TaskKernel:
                 deadline_ms INTEGER NOT NULL,
                 max_attempts INTEGER NOT NULL,
                 input_hash TEXT NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 5,
                 state TEXT NOT NULL,
                 version INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
@@ -228,6 +229,19 @@ class TaskKernel:
             );
             """
         )
+        task_columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(tasks)").fetchall()}
+        if "priority" not in task_columns:
+            self.conn.execute("ALTER TABLE tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 5")
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS queue_accounts (
+                owner TEXT PRIMARY KEY,
+                active INTEGER NOT NULL DEFAULT 0,
+                dispatch_count INTEGER NOT NULL DEFAULT 0,
+                last_dispatch_at REAL NOT NULL DEFAULT 0
+            )
+            """
+        )
 
     def _begin(self) -> None:
         self.conn.execute("BEGIN IMMEDIATE")
@@ -276,17 +290,20 @@ class TaskKernel:
         return row
 
     def create_task(self, task_id: str, owner: str, goal: str, risk_tier: str = "R0",
-                    deadline_ms: int = 120000, max_attempts: int = 3, input_hash: str | None = None) -> dict[str, Any]:
+                    deadline_ms: int = 120000, max_attempts: int = 3, input_hash: str | None = None,
+                    priority: int = 5) -> dict[str, Any]:
         if not task_id or not owner or not goal or deadline_ms <= 0 or max_attempts <= 0:
             raise KernelError("invalid task contract")
+        if not isinstance(priority, int) or not 0 <= priority <= 100:
+            raise KernelError("invalid task priority")
         if risk_tier not in {"R0", "R1", "R2", "R3"}:
             raise KernelError("invalid risk tier")
         created = now_iso(); input_hash = input_hash or stable_hash({"goal": goal})
         self._begin()
         try:
             self.conn.execute(
-                "INSERT INTO tasks(task_id,owner,goal,risk_tier,deadline_ms,max_attempts,input_hash,state,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (task_id, owner, goal, risk_tier, deadline_ms, max_attempts, input_hash, "CREATED", created, created),
+                "INSERT INTO tasks(task_id,owner,goal,risk_tier,deadline_ms,max_attempts,input_hash,priority,state,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (task_id, owner, goal, risk_tier, deadline_ms, max_attempts, input_hash, priority, "CREATED", created, created),
             )
             self._append_event(task_id, "TASK_CREATED", None, "CREATED", "kernel", "task_created", {"input_hash": input_hash})
             self.conn.execute("COMMIT")
@@ -346,12 +363,92 @@ class TaskKernel:
                 (lease_id, task_id, attempt_id, worker_id, now, now + ttl_seconds, now, token, control["global_kill_epoch"]),
             )
             self.conn.execute("UPDATE tasks SET state='LEASED',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task_id))
+            self.conn.execute(
+                "INSERT INTO queue_accounts(owner,active,dispatch_count,last_dispatch_at) VALUES (?,?,?,?) ON CONFLICT(owner) DO UPDATE SET active=active+1,dispatch_count=dispatch_count+1,last_dispatch_at=excluded.last_dispatch_at",
+                (task["owner"], 1, 1, now),
+            )
             self._append_event(task_id, "LEASE_GRANTED", "QUEUED", "LEASED", "kernel", "lease_granted", {"lease_id": lease_id, "fencing_token": token, "worker_id": worker_id})
             self.conn.execute("COMMIT")
             return Lease(lease_id, task_id, attempt_id, worker_id, now + ttl_seconds, token, control["global_kill_epoch"])
         except Exception:
             self.conn.execute("ROLLBACK")
             raise
+
+    def claim_next(
+        self,
+        worker_id: str,
+        max_active_per_owner: int = 1,
+        ttl_seconds: float = 30.0,
+        now: float | None = None,
+    ) -> Lease | None:
+        """Claim one queued task using priority + owner fair-share + deadline guards."""
+        if not worker_id or max_active_per_owner <= 0 or ttl_seconds <= 0:
+            raise KernelError("invalid queue claim contract")
+        now = time.time() if now is None else float(now)
+        self._begin()
+        try:
+            control = self._assert_not_killed()
+            candidates = self.conn.execute(
+                """
+                SELECT t.*, COALESCE(a.active,0) AS owner_active,
+                       COALESCE(a.dispatch_count,0) AS owner_dispatch_count,
+                       COALESCE(a.last_dispatch_at,0) AS owner_last_dispatch_at
+                FROM tasks t LEFT JOIN queue_accounts a ON a.owner=t.owner
+                WHERE t.state='QUEUED'
+                ORDER BY t.priority ASC, owner_dispatch_count ASC,
+                         owner_last_dispatch_at ASC, t.created_at ASC, t.task_id ASC
+                """
+            ).fetchall()
+            for task in candidates:
+                created_at = datetime.fromisoformat(task["created_at"]).timestamp()
+                if now >= created_at + (int(task["deadline_ms"]) / 1000.0):
+                    self.conn.execute(
+                        "UPDATE tasks SET state='FAILED',version=version+1,updated_at=? WHERE task_id=?",
+                        (now_iso(), task["task_id"]),
+                    )
+                    self._append_event(
+                        task["task_id"], "DEADLINE_EXPIRED", "QUEUED", "FAILED", "kernel",
+                        "queue_deadline_guard", {"deadline_ms": task["deadline_ms"]},
+                    )
+                    continue
+                if int(task["owner_active"]) >= max_active_per_owner:
+                    continue
+                attempt_id = "attempt_" + secrets.token_hex(8)
+                latest = self.conn.execute(
+                    "SELECT COALESCE(MAX(fencing_token),0) AS n FROM leases WHERE task_id=?",
+                    (task["task_id"],),
+                ).fetchone()["n"]
+                fencing_token = int(latest) + 1
+                lease_id = "lease_" + secrets.token_hex(12)
+                expires_at = now + ttl_seconds
+                self.conn.execute(
+                    "INSERT INTO leases(lease_id,task_id,attempt_id,worker_id,issued_at,expires_at,heartbeat_at,fencing_token,global_kill_epoch) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (lease_id, task["task_id"], attempt_id, worker_id, now, expires_at, now, fencing_token, control["global_kill_epoch"]),
+                )
+                self.conn.execute(
+                    "UPDATE tasks SET state='LEASED',version=version+1,updated_at=? WHERE task_id=?",
+                    (now_iso(), task["task_id"]),
+                )
+                self.conn.execute(
+                    "INSERT INTO queue_accounts(owner,active,dispatch_count,last_dispatch_at) VALUES (?,?,?,?) ON CONFLICT(owner) DO UPDATE SET active=active+1,dispatch_count=dispatch_count+1,last_dispatch_at=excluded.last_dispatch_at",
+                    (task["owner"], 1, 1, now),
+                )
+                self._append_event(
+                    task["task_id"], "LEASE_GRANTED", "QUEUED", "LEASED", "kernel",
+                    "fair_queue_claim", {"lease_id": lease_id, "fencing_token": fencing_token, "worker_id": worker_id},
+                )
+                self.conn.execute("COMMIT")
+                return Lease(lease_id, task["task_id"], attempt_id, worker_id, expires_at, fencing_token, control["global_kill_epoch"])
+            self.conn.execute("COMMIT")
+            return None
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
+
+    def queue_status(self) -> dict[str, Any]:
+        rows = self.conn.execute("SELECT owner,active,dispatch_count,last_dispatch_at FROM queue_accounts ORDER BY owner").fetchall()
+        queued = self.conn.execute("SELECT COUNT(*) AS n FROM tasks WHERE state='QUEUED'").fetchone()["n"]
+        return {"queued": int(queued), "owners": [dict(row) for row in rows]}
 
     def _lease(self, lease_id: str) -> sqlite3.Row:
         row = self.conn.execute("SELECT * FROM leases WHERE lease_id=?", (lease_id,)).fetchone()
@@ -402,6 +499,8 @@ class TaskKernel:
                     old=task["state"]; self.conn.execute("UPDATE tasks SET state='RECOVERING',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task["task_id"]))
                     self._append_event(task["task_id"], "LEASE_EXPIRED", old, "RECOVERING", "kernel", "heartbeat_expired", {"lease_id": lease["lease_id"]})
                 self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?", (lease["lease_id"],))
+                owner = self._task(lease["task_id"])["owner"]
+                self.conn.execute("UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?", (owner,))
             self.conn.execute("COMMIT")
             return expired
         except Exception:
@@ -410,7 +509,12 @@ class TaskKernel:
     def release(self, task_id: str, lease_id: str) -> None:
         self._begin()
         try:
-            self._assert_lease(lease_id,task_id);self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?",(lease_id,));self._append_event(task_id,"LEASE_RELEASED",None,None,"kernel","worker_release",{"lease_id":lease_id});self.conn.execute("COMMIT")
+            lease = self._assert_lease(lease_id,task_id)
+            self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?",(lease_id,))
+            owner = self._task(task_id)["owner"]
+            self.conn.execute("UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?", (owner,))
+            self._append_event(task_id,"LEASE_RELEASED",None,None,"kernel","worker_release",{"lease_id":lease_id})
+            self.conn.execute("COMMIT")
         except Exception:
             self.conn.execute("ROLLBACK");raise
 
@@ -757,14 +861,21 @@ class TaskKernel:
         try:
             self._assert_lease(lease_id,task_id);task=self._task(task_id)
             if task["state"] not in {"VERIFYING","RUNNING"}: raise InvalidTransition(f"{task['state']}->COMPLETED")
-            old=task["state"];self.conn.execute("UPDATE tasks SET state='COMPLETED',version=version+1,updated_at=? WHERE task_id=?",(now_iso(),task_id));self._append_event(task_id,"TASK_COMPLETED",old,"COMPLETED","verifier","postcondition_verified",{"evidence_ref":evidence_ref,"verifier_verdict":verifier_verdict,"lease_id":lease_id});self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?",(lease_id,));self.conn.execute("COMMIT");return self.get_task(task_id)
+            old=task["state"];            self.conn.execute("UPDATE tasks SET state='COMPLETED',version=version+1,updated_at=? WHERE task_id=?",(now_iso(),task_id))
+            self._append_event(task_id,"TASK_COMPLETED",old,"COMPLETED","verifier","postcondition_verified",{"evidence_ref":evidence_ref,"verifier_verdict":verifier_verdict,"lease_id":lease_id})
+            self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?",(lease_id,))
+            self.conn.execute("UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=(SELECT owner FROM tasks WHERE task_id=? )", (task_id,))
+            self.conn.execute("COMMIT");return self.get_task(task_id)
         except Exception:
             self.conn.execute("ROLLBACK");raise
 
     def set_global_kill(self, active: bool, actor: str = "operator") -> int:
         self._begin()
         try:
-            c=self._control();epoch=int(c["global_kill_epoch"])+(1 if active else 0);self.conn.execute("UPDATE control SET global_kill=?,global_kill_epoch=? WHERE id=1",(1 if active else 0,epoch));self._append_event("__global__","GLOBAL_KILL_ON" if active else "GLOBAL_KILL_OFF",None,None,actor,"operator_toggle",{"epoch":epoch});self.conn.execute("COMMIT");return epoch
+            c=self._control();epoch=int(c["global_kill_epoch"])+(1 if active else 0)
+            self.conn.execute("UPDATE control SET global_kill=?,global_kill_epoch=? WHERE id=1",(1 if active else 0,epoch))
+            self._append_event("__global__","GLOBAL_KILL_ON" if active else "GLOBAL_KILL_OFF",None,None,actor,"operator_toggle",{"epoch":epoch})
+            self.conn.execute("COMMIT");return epoch
         except Exception:
             self.conn.execute("ROLLBACK");raise
 
@@ -774,7 +885,13 @@ class TaskKernel:
             task=self._task(task_id)
             if task["state"] in TERMINAL:
                 raise InvalidTransition("terminal task is immutable")
-            self.conn.execute("UPDATE tasks SET state='CANCELLED',version=version+1,updated_at=? WHERE task_id=?",(now_iso(),task_id));self.conn.execute("UPDATE leases SET released=1 WHERE task_id=?",(task_id,));self._append_event(task_id,"TASK_KILLED",task["state"],"CANCELLED",actor,"task_kill",{});self.conn.execute("COMMIT");return self.get_task(task_id)
+            active_leases = self.conn.execute("SELECT lease_id FROM leases WHERE task_id=? AND released=0", (task_id,)).fetchall()
+            self.conn.execute("UPDATE tasks SET state='CANCELLED',version=version+1,updated_at=? WHERE task_id=?",(now_iso(),task_id))
+            self.conn.execute("UPDATE leases SET released=1 WHERE task_id=?",(task_id,))
+            for _ in active_leases:
+                self.conn.execute("UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?", (task["owner"],))
+            self._append_event(task_id,"TASK_KILLED",task["state"],"CANCELLED",actor,"task_kill",{})
+            self.conn.execute("COMMIT");return self.get_task(task_id)
         except Exception:
             self.conn.execute("ROLLBACK");raise
 
