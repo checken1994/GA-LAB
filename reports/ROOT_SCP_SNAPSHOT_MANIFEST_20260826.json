@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T13:03:34.133440+00:00",
-  "captured_commit": "b8d600ca1bf1b4b83982541ed129450d7d732aef",
-  "captured_parent": "0ed26c07478ef20d279e37a45bf725d356a40323",
-  "captured_tree": "2766c2d337c588cee71d64ea284073bea022f148",
+  "generated_at_utc": "2026-08-26T13:06:32.813820+00:00",
+  "captured_commit": "8ecc062e2b7a82753446273537cd30233bf4a67e",
+  "captured_parent": "8b24261c8ce78579d0b72e7d2a2be41f37e16781",
+  "captured_tree": "19d833dcca371d2802ad3fa20a59562300bbaa14",
   "tracked_count": 1326,
-  "inventory_sha256": "425b9c32e4f854930afd8fa7231e6dae016abb7ddf82c4d686b3fb102a2619c5",
+  "inventory_sha256": "1d99655b2f550e7dfee88c040a6721e6d62a283b4cfabf1909d01d9b6d6733bf",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -7600,7 +7600,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ddf3656f1d68cefa6fe8dedbc0958111dd6b1ac7",
+      "blob": "4181edc318d428002344a20036c37ed4167ddaaf",
       "path": "tests/test_url_fetcher_pinned_connect.py"
     },
     {
