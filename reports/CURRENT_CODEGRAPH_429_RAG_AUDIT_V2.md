@@ -1,6 +1,6 @@
 # SCP codegraph, 429, RAG và proof gaps — V2
 
-**Snapshot code:** `10296595f5cb24dce9cb3127334fb879199a91d1` trên branch bridge; phần code và artifact này đã được kiểm tra bằng branch CI `32949517028`. Báo cáo này dùng nguyên tắc **evidence maturity**, không biến code tồn tại hoặc test pass thành tuyên bố production tuyệt đối.
+**Snapshot code:** `dd6df2422302bdeb7c945a597a8c68f40b5f7bb1` trên canonical `main`; phần code và artifact này đã được kiểm tra bằng main CI `32952487961`. Báo cáo này dùng nguyên tắc **evidence maturity**, không biến code tồn tại hoặc test pass thành tuyên bố production tuyệt đối.
 
 ## 1. Codegraph hiện tại
 
@@ -65,14 +65,14 @@ Giới hạn: đây là bounded local managed-process path, chưa chứng minh m
 | Hands capability revoke | `INTEGRATION_PROVEN` | Chưa phải distributed cancellation |
 | Safe planner chain | `INTEGRATION_PROVEN` | Fake/safe driver, chưa là mọi side-effect |
 | Local Hands side-effect → UNKNOWN/reconcile | `RUNTIME_PROVEN` bounded | Chưa bao phủ connector bên ngoài |
-| Queue fairness/quota/deadline | `UNPROVEN` | Thiếu two-tenant stress/starvation evidence |
-| Provider timeout/recovery | `UNPROVEN` | Thiếu controlled real timeout + recovery artifact |
+| Queue fairness/quota/deadline | `INTEGRATION_PROVEN` | Chưa phải multi-process/multi-host chaos proof |
+| Provider timeout → task-specific fallback | `INTEGRATION_PROVEN` | Chưa phải live provider outage hoặc distributed recovery |
 | 50 reviewed factual Gold | `BLOCKED` | Human/independent review còn 0/50 |
 | Official Ragas score | `BLOCKED` | Chưa có verified rows và provider/embedding profile hợp lệ |
 | ARES score | `BLOCKED` | Thiếu formal precondition sets/package |
 | Full 1.000-question factual RAG | `BLOCKED` | Candidate history còn empty answer/context/request errors |
 
-Theo feature matrix 15 mục, hiện có **3 runtime-proven, 5 integration-proven, 1 release-proven, 2 unproven và 4 blocked**. Tỷ lệ có release/integration/runtime evidence là **9/15 = 60,0%**; runtime tuyệt đối là **3/15 = 20,0%**; weighted evidence score là **50,0%**. Đây không phải RAG accuracy, không phải benchmark score và không phải tỷ lệ code đã hoàn thiện.
+Theo feature matrix 15 mục, hiện có **3 runtime-proven, 7 integration-proven, 1 release-proven và 4 blocked**; không còn mục `UNPROVEN` trong 15 capability này, nhưng 4 mục RAG/ARES vẫn bị chặn bởi precondition dữ liệu. Tỷ lệ có release/integration/runtime evidence là **11/15 = 73,3%**; runtime tuyệt đối là **3/15 = 20,0%**; weighted evidence score là **60,0%**. Đây không phải RAG accuracy, không phải benchmark score và không phải tỷ lệ code đã hoàn thiện.
 
 ## 6. Việc chưa được phép tuyên bố
 

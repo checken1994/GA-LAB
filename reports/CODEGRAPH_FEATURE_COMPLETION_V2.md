@@ -1,6 +1,6 @@
 # SCP codegraph và mức hoàn thiện theo bằng chứng
 
-**Snapshot mã nguồn được phân tích:** `48c836adc73270cc8e60d927fca59db096f52b5c`. Đây là báo cáo về evidence maturity, không phải tỷ lệ số dòng code đã viết.
+**Snapshot mã nguồn được phân tích:** `dd6df2422302bdeb7c945a597a8c68f40b5f7bb1`. Đây là báo cáo về evidence maturity, không phải tỷ lệ số dòng code đã viết.
 
 ## Codegraph
 
