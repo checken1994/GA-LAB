@@ -89,7 +89,14 @@ assert_bash_syntax() {
 
 assert_python_syntax() {
   local id="$1" file="$2" desc="$3"
-  if "$PYTHON_BIN" -c "import ast; ast.parse(open('$file').read())" 2>/dev/null; then
+  local python_file="$file"
+  # Git Bash exposes Windows paths as /c/... while Windows Python expects
+  # C:/...; normalize only when cygpath is available. Linux CI keeps the
+  # original path unchanged.
+  if command -v cygpath >/dev/null 2>&1; then
+    python_file=$(cygpath -w "$file")
+  fi
+  if "$PYTHON_BIN" -c 'import ast, sys; ast.parse(open(sys.argv[1], encoding="utf-8").read())' "$python_file" 2>/dev/null; then
     echo -e "  ${GREEN}✓ $id${NC} $desc"
     PASS=$((PASS + 1))
   else
