@@ -1,6 +1,6 @@
 # SCP codegraph và mức hoàn thiện theo bằng chứng
 
-**Snapshot mã nguồn được phân tích:** `4426a38c32b938d70340c2a7d3b9d200500d17a8`. Đây là báo cáo về evidence maturity, không phải tỷ lệ số dòng code đã viết.
+**Snapshot mã nguồn được phân tích:** `10296595f5cb24dce9cb3127334fb879199a91d1`. Đây là báo cáo về evidence maturity, không phải tỷ lệ số dòng code đã viết.
 
 ## Codegraph
 
@@ -8,11 +8,11 @@ Codegraph được tạo bằng AST từ thư mục `scp/`. Graph ghi lại modu
 
 ![Nodes by segment](codegraph_20260826/nodes_by_segment.png)
 
-Có **452 nodes** và **850 internal import edges**. Bảy phân khúc lớn nhất là `autofix` 72, `data_sources` 68, `core` 59, `runtime` 56, `meta` 51, `security` 35 và `api` 25. Các phân khúc lớn phản ánh phạm vi mã nguồn, không tự chứng minh chất lượng hoặc mức tích hợp runtime.
+Có **453 nodes** và **852 internal import edges**. Bảy phân khúc lớn nhất là `autofix` 72, `data_sources` 68, `core` 59, `runtime` 56, `meta` 51, `security` 35 và `api` 25. Các phân khúc lớn phản ánh phạm vi mã nguồn, không tự chứng minh chất lượng hoặc mức tích hợp runtime.
 
 ## Tỷ lệ hoàn thiện theo evidence maturity
 
-Ma trận theo dõi 15 capability cấp hệ thống. Tám capability đã có bằng chứng release/integration/runtime trong phạm vi hiện tại, tương đương **53,3%**. Nếu chỉ tính runtime-proven tuyệt đối thì có **2/15 = 13,3%**. Một điểm nhìn có trọng số, trong đó integration/release được tính 0,75 và static-only là 0,5, cho kết quả **43,3%**.
+Ma trận theo dõi 15 capability cấp hệ thống. Chín capability đã có bằng chứng release/integration/runtime trong phạm vi hiện tại, tương đương **60,0%**. Nếu chỉ tính runtime-proven tuyệt đối thì có **3/15 = 20,0%**. Một điểm nhìn có trọng số, trong đó integration/release được tính 0,75 và static-only là 0,5, cho kết quả **50,0%**.
 
 ![Feature maturity counts](codegraph_20260826/feature_maturity_counts.png)
 
@@ -22,13 +22,13 @@ Ba số này không mâu thuẫn. Chúng trả lời ba câu hỏi khác nhau:
 
 | Cách tính | Kết quả | Ý nghĩa |
 |---|---:|---|
-| Runtime-proven tuyệt đối | 2/15 = 13,3% | Chỉ những capability có runtime evidence trực tiếp |
-| Release/integration/runtime-proven | 8/15 = 53,3% | Có test tích hợp/release evidence, nhưng không phải tất cả là runtime E2E |
-| Weighted evidence score | 43,3% | Điểm quy đổi để nhìn mức trưởng thành, không phải accuracy |
+| Runtime-proven tuyệt đối | 3/15 = 20,0% | Chỉ những capability có runtime evidence trực tiếp |
+| Release/integration/runtime-proven | 9/15 = 60,0% | Có test tích hợp/release evidence, nhưng không phải tất cả là runtime E2E |
+| Weighted evidence score | 50,0% | Điểm quy đổi để nhìn mức trưởng thành, không phải accuracy |
 
 ## Những phần chưa hoàn thiện
 
-Các capability còn `UNPROVEN` hoặc `BLOCKED` không có nghĩa là không có file code. Nó nghĩa là chưa có postcondition độc lập chứng minh đúng ở tầng cần claim. Capability revoke tại Hands API boundary và safe golden-task chain nay đã có integration proof, nhưng vẫn không đại diện cho toàn bộ connector/tool layer hoặc side-effect thật. Các vùng còn thiếu gồm connector side-effect gọi `record_action_dispatched()` và reconcile thật; fairness/quota/deadline của queue; timeout/recovery với provider thật; 50 factual Gold rows đã human-review; official Ragas score; ARES score; và full 1.000-question factual RAG.
+Các capability còn `UNPROVEN` hoặc `BLOCKED` không có nghĩa là không có file code. Nó nghĩa là chưa có postcondition độc lập chứng minh đúng ở tầng cần claim. Capability revoke tại Hands API boundary và safe golden-task chain nay đã có integration proof; bounded local managed-process side-effect path cũng đã có runtime proof. Bằng chứng đó vẫn không đại diện cho mọi connector/tool hoặc side-effect bên ngoài. Các vùng còn thiếu gồm fairness/quota/deadline của queue; timeout/recovery với provider thật; 50 factual Gold rows đã human-review; official Ragas score; ARES score; và full 1.000-question factual RAG.
 
 Ragas là thư viện đánh giá, không phải corpus Gold; hàm `evaluate()` nhận dataset, metrics và tùy chọn LLM/embeddings [1] [2]. BEIR là benchmark retrieval công khai và KILT là benchmark knowledge-intensive có corpus/task/provenance riêng [3] [4]. Vì vậy SCP phải giữ external benchmark lane và in-domain Vietnamese Gold lane tách biệt.
 

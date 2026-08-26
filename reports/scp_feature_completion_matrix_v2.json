@@ -1,6 +1,6 @@
 {
   "schema_version": "scp-feature-completion-matrix-v2",
-  "snapshot_commit": "4426a38c32b938d70340c2a7d3b9d200500d17a8",
+  "snapshot_commit": "10296595f5cb24dce9cb3127334fb879199a91d1",
   "interpretation": "Evidence maturity, not percentage of code implemented",
   "weights": {
     "RUNTIME_PROVEN": 1.0,
@@ -14,10 +14,10 @@
     {"id":"F01","name":"API health/startup on 8002","status":"RUNTIME_PROVEN","evidence":"health response on 127.0.0.1:8002 at commit 1131e42"},
     {"id":"F02","name":"API DoS rate-limit boundary","status":"RUNTIME_PROVEN","evidence":"12/12 live /ask responses HTTP 429 with Retry-After: 5; port 8002 isolated"},
     {"id":"F03","name":"OpenRouter provider 429 fallback","status":"INTEGRATION_PROVEN","evidence":"controlled 429 reproduction: paid model -> openai/gpt-oss-20b:free"},
-    {"id":"F04","name":"Codegraph generation","status":"RELEASE_PROVEN","evidence":"AST graph committed with 452 nodes and 850 internal import edges at snapshot 4426a38"},
+    {"id":"F04","name":"Codegraph generation","status":"RELEASE_PROVEN","evidence":"AST graph committed with 453 nodes and 852 internal import edges at snapshot 1029659"},
     {"id":"F05","name":"Gold JSONL/CSV/XLSX schema alignment","status":"INTEGRATION_PROVEN","evidence":"Phase 3 validator and 50-row contract tests"},
     {"id":"F06","name":"TaskKernel checkpoint/recovery contracts","status":"INTEGRATION_PROVEN","evidence":"existing kernel recovery/reconcile tests and CI"},
-    {"id":"F07","name":"Side-effect connector -> UNKNOWN/reconcile wiring","status":"UNPROVEN","evidence":"production connector call site not observed"},
+    {"id":"F07","name":"Bounded local Hands side-effect -> UNKNOWN/reconcile wiring","status":"RUNTIME_PROVEN","evidence":"reports/runtime_proof_20260826_hands_bridge.json; HTTP 8002 start/stop + non-owned-stop UNKNOWN + explicit NOT_APPLIED reconcile; CI 32949517028"},
     {"id":"F08","name":"Capability revoke across Hands API tool boundary","status":"INTEGRATION_PROVEN","evidence":"tests/test_capability_epoch_api.py; local-only/auth-guarded GET status + POST revoke/restore; main CI 32946722396"},
     {"id":"F09","name":"Queue fairness/quota/deadline","status":"UNPROVEN","evidence":"no two-tenant fairness/starvation stress profile"},
     {"id":"F10","name":"Provider timeout and recovery","status":"UNPROVEN","evidence":"no controlled real timeout with recovery artifact"},

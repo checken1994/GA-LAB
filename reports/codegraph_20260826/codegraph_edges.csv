@@ -42,6 +42,7 @@ scp.api.routes.hands_routes,scp.core.request_run_ledger,import
 scp.api.routes.hands_routes,scp.hands.goal_parser,import
 scp.api.routes.hands_routes,scp.hands.hands_executor,import
 scp.api.routes.hands_routes,scp.hands.planner,import
+scp.api.routes.hands_routes,scp.hands.task_kernel_bridge,import
 scp.api.routes.import_routes,scp.api._shared,import
 scp.api.routes.import_routes,scp.core.request_run_ledger,import
 scp.api.routes.openai_compat,scp.api._shared,import
@@ -486,6 +487,7 @@ scp.hands.hands_executor,scp.web_control.web_navigator,import
 scp.hands.hands_executor,scp.hands.action_registry,import
 scp.hands.hands_executor,scp.hands.process_manager,import
 scp.hands.planner,scp.hands.hands_executor,import
+scp.hands.task_kernel_bridge,scp.task_kernel,import
 scp.history,scp,import
 scp.history.migration,scp.core.knowledge_io,import
 scp.interfaces,scp,import

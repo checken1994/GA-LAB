@@ -1,10 +1,10 @@
 {
   "schema_version": "scp-codegraph-v1",
-  "generated_at": "2026-08-26T08:23:06.383140+00:00",
-  "commit": "4426a38c32b938d70340c2a7d3b9d200500d17a8",
+  "generated_at": "2026-08-26T08:50:23.946554+00:00",
+  "commit": "10296595f5cb24dce9cb3127334fb879199a91d1",
   "source_root": "scp",
-  "node_count": 452,
-  "edge_count": 850,
+  "node_count": 453,
+  "edge_count": 852,
   "nodes": [
     {
       "id": "scp",
@@ -154,10 +154,10 @@
       "id": "scp.api.routes.hands_routes",
       "path": "scp/api/routes/hands_routes.py",
       "layer": "api",
-      "lines": 218,
-      "sha256": "sha256:0f0c571e439c597058719f0ebff03a01957ddd3d24d7d599e25560c36adba276",
+      "lines": 253,
+      "sha256": "sha256:d1e19f3c63938a97b6a196c78ac238c9410a05b7950eb6abe66fd417bcc1e85c",
       "parse_status": "parsed",
-      "import_count": 8
+      "import_count": 9
     },
     {
       "id": "scp.api.routes.import_routes",
@@ -2410,6 +2410,15 @@
       "import_count": 1
     },
     {
+      "id": "scp.hands.task_kernel_bridge",
+      "path": "scp/hands/task_kernel_bridge.py",
+      "layer": "hands",
+      "lines": 316,
+      "sha256": "sha256:e488c7451d5abc802740a50047a0ea6b799ae3ad6f2e48876239b2e5bdda6794",
+      "parse_status": "parsed",
+      "import_count": 4
+    },
+    {
       "id": "scp.history",
       "path": "scp/history/__init__.py",
       "layer": "history",
@@ -4289,6 +4298,11 @@
     {
       "source": "scp.api.routes.hands_routes",
       "target": "scp.hands.planner",
+      "kind": "import"
+    },
+    {
+      "source": "scp.api.routes.hands_routes",
+      "target": "scp.hands.task_kernel_bridge",
       "kind": "import"
     },
     {
@@ -6512,6 +6526,11 @@
       "kind": "import"
     },
     {
+      "source": "scp.hands.task_kernel_bridge",
+      "target": "scp.task_kernel",
+      "kind": "import"
+    },
+    {
       "source": "scp.history",
       "target": "scp",
       "kind": "import"
@@ -8327,17 +8346,17 @@
       "kind": "import"
     }
   ],
-  "focused_node_count": 52,
-  "focused_edge_count": 228,
+  "focused_node_count": 53,
+  "focused_edge_count": 230,
   "focused_nodes": [
     {
       "id": "scp.api.routes.hands_routes",
       "path": "scp/api/routes/hands_routes.py",
       "layer": "api",
-      "lines": 218,
-      "sha256": "sha256:0f0c571e439c597058719f0ebff03a01957ddd3d24d7d599e25560c36adba276",
+      "lines": 253,
+      "sha256": "sha256:d1e19f3c63938a97b6a196c78ac238c9410a05b7950eb6abe66fd417bcc1e85c",
       "parse_status": "parsed",
-      "import_count": 8
+      "import_count": 9
     },
     {
       "id": "scp.api_server",
@@ -8581,6 +8600,15 @@
       "sha256": "sha256:6a99b1ad03fbf1a1f4173c28ee168b9e9aa6084e3f1f3ba8c6570d6de4c4b93c",
       "parse_status": "parsed",
       "import_count": 1
+    },
+    {
+      "id": "scp.hands.task_kernel_bridge",
+      "path": "scp/hands/task_kernel_bridge.py",
+      "layer": "hands",
+      "lines": 316,
+      "sha256": "sha256:e488c7451d5abc802740a50047a0ea6b799ae3ad6f2e48876239b2e5bdda6794",
+      "parse_status": "parsed",
+      "import_count": 4
     },
     {
       "id": "scp.history.evidence_ledger",
@@ -8848,6 +8876,11 @@
     {
       "source": "scp.api.routes.hands_routes",
       "target": "scp.hands.planner",
+      "kind": "import"
+    },
+    {
+      "source": "scp.api.routes.hands_routes",
+      "target": "scp.hands.task_kernel_bridge",
       "kind": "import"
     },
     {
@@ -9378,6 +9411,11 @@
     {
       "source": "scp.hands.planner",
       "target": "scp.hands.hands_executor",
+      "kind": "import"
+    },
+    {
+      "source": "scp.hands.task_kernel_bridge",
+      "target": "scp.task_kernel",
       "kind": "import"
     },
     {
@@ -9944,15 +9982,15 @@
   "top_import_targets": [
     [
       "__future__",
-      288
+      289
     ],
     [
       "typing",
-      266
+      267
     ],
     [
       "pathlib",
-      143
+      144
     ],
     [
       "dataclasses",

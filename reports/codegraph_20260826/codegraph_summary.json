@@ -1,24 +1,24 @@
 {
   "schema_version": "scp-codegraph-v1",
-  "generated_at": "2026-08-26T08:23:06.383140+00:00",
-  "commit": "4426a38c32b938d70340c2a7d3b9d200500d17a8",
+  "generated_at": "2026-08-26T08:50:23.946554+00:00",
+  "commit": "10296595f5cb24dce9cb3127334fb879199a91d1",
   "source_root": "scp",
-  "node_count": 452,
-  "edge_count": 850,
-  "focused_node_count": 52,
-  "focused_edge_count": 228,
+  "node_count": 453,
+  "edge_count": 852,
+  "focused_node_count": 53,
+  "focused_edge_count": 230,
   "top_import_targets": [
     [
       "__future__",
-      288
+      289
     ],
     [
       "typing",
-      266
+      267
     ],
     [
       "pathlib",
-      143
+      144
     ],
     [
       "dataclasses",
