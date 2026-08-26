@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T11:38:08.603716+00:00",
-  "captured_commit": "787ef75172f792e2e24d6eb93b725db195c98a1a",
-  "captured_parent": "e815e1ce6edcbb1bf9d4192f0d670f4eb624d959",
-  "captured_tree": "c25266ba6444d2a92f56af23d6c067da4ad62e86",
-  "tracked_count": 1316,
-  "inventory_sha256": "69cc7c5d4f16b6c8c6dec8c154198f2a8ef08d20123146c2c140a52087ad170e",
+  "generated_at_utc": "2026-08-26T11:44:34.903251+00:00",
+  "captured_commit": "2cfefc0ca9a93959855068cd42ace89ed1302d96",
+  "captured_parent": "dbaf046b1e31f00dffd33c03bcd034a32482edd5",
+  "captured_tree": "a75cc6539b438a6229e2f95194357928813c9382",
+  "tracked_count": 1318,
+  "inventory_sha256": "3dd6a30302e31d774dcb3484dfca13a7eb56c44bc6f23a64b877a10dbe60b7cf",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2868,6 +2868,18 @@
       "type": "blob",
       "blob": "2a2fb19b283afe502af7b276110efd97d08d14a6",
       "path": "reports/full_system_smoke_20260826_request_ledger_fix.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "42ca247c9c9e2c08d09879b9e1b328eef211e78a",
+      "path": "reports/full_system_smoke_top_agent_contracts_20260826.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b78895bcbd83ac979c4fe13c5af8598b8c822887",
+      "path": "reports/full_system_smoke_top_agent_contracts_cleanup_20260826.json"
     },
     {
       "mode": "100644",
