@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 export async function GET() {
-  const base = process.env.SCP_API_URL || "http://127.0.0.1:8000"
+  const base = process.env.SCP_API_URL || "http://127.0.0.1:8002"
   try {
     const response = await fetch(`${base}/v3/hands/planner/status`, { cache: "no-store", signal: AbortSignal.timeout(5000) })
     const data = await response.json()

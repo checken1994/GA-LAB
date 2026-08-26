@@ -5,7 +5,7 @@ from pathlib import Path
 
 import requests
 
-BASE = "http://127.0.0.1:8000"
+BASE = "http://127.0.0.1:8002"
 ROOT = Path(__file__).resolve().parents[1]
 
 

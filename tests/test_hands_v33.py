@@ -6,7 +6,7 @@ from pathlib import Path
 
 import requests
 
-BASE = "http://127.0.0.1:8000"
+BASE = "http://127.0.0.1:8002"
 
 
 def post(action: str, params: dict | None = None, capability: int = 0, approved: bool = False, dry_run: bool = False) -> dict:

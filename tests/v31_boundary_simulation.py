@@ -44,7 +44,7 @@ def post_plan(base_url: str, case: Case) -> dict:
 
 
 def main() -> int:
-    base_url = os.environ.get("SCP_API_URL", "http://127.0.0.1:8000")
+    base_url = os.environ.get("SCP_API_URL", "http://127.0.0.1:8002")
     failures: list[str] = []
     print("SCP V3.1 boundary simulation — PLAN endpoint only")
     print(f"Endpoint: {base_url}/v3/pc/plan")

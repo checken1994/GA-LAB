@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-const SCP_BASE_URL = (process.env.SCP_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "")
+const SCP_BASE_URL = (process.env.SCP_BASE_URL ?? "http://127.0.0.1:8002").replace(/\/+$/, "")
 const TOKEN_FILE = process.env.SCP_AUTH_TOKEN_SECRET_FILE?.trim()
 
 async function readAdminToken() {

@@ -92,12 +92,12 @@ R10 Task 14.B, the decision is:
    app.include_router(audit_router)
    ```
 
-4. Restart SCP: `python3 -m scp 8000`
+4. Restart SCP: `python3 -m scp 8002`
 5. Verify the route is now live:
    ```bash
-   curl http://127.0.0.1:8000/v105/audit/stats
+   curl http://127.0.0.1:8002/v105/audit/stats
    # (or through the gateway)
-   curl 'https://<gateway>/v105/audit/stats?XTransformPort=8000'
+   curl 'https://<gateway>/v105/audit/stats?XTransformPort=8002'
    ```
 6. The dashboard's `/api/scp/routes` endpoint will mark the route
    `wired: true` (green "live" badge) instead of `wired: false`

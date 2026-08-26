@@ -19,8 +19,8 @@ After fix:
   - Replaced with links to real, reachable resources:
       /api/scp/status  (live JSON, always exists)
       /api/audit       (live JSON, always exists)
-  - Plus a note pointing operators to the on-disk worklog at
-    /home/z/my-project/worklog.md and the SCP source tree.
+  - Plus a note pointing operators to repository-relative reports/ and scp/
+    paths at the canonical root.
 
 Run:
     python3 tests/reality-tests/reality_4-c-007.py
@@ -62,23 +62,20 @@ def main() -> int:
 
     # -------------------------------------------------------------------------
     # TEST 3 — replacement links point to real, reachable resources
-    # (either /api/... or /home/z/my-project/worklog.md note)
+    # (repository-relative reports/ and scp/ note)
     # -------------------------------------------------------------------------
     api_links = re.findall(r'href\s*=\s*["\'](/api/[^"\']*)["\']', no_comments)
     assert api_links, (
         "FAIL: closing-section.tsx has no /api/... links to replace the dead "
         "/download/ buttons — operator has no live data source"
     )
-    # Must mention worklog path (the on-disk full audit) somewhere.
-    assert (
-        "worklog.md" in src
-        or "/home/z/my-project/worklog" in src
-        or "scp-system/scp/" in src
-    ), (
-        "FAIL: closing-section.tsx does not reference the on-disk worklog/SCP "
-        "source tree — operator has no path to the full audit data"
+    # Must mention the repository evidence/source tree without a machine-specific
+    # absolute path. The UI now points to reports/ and scp/ at the canonical root.
+    assert "reports/" in src and "scp/" in src, (
+        "FAIL: closing-section.tsx does not reference repository reports/ and "
+        "scp/ paths — operator has no path to the audit data"
     )
-    print(f"PASS [3/3]: replacement links present ({len(api_links)} /api/* links + worklog reference)")
+    print(f"PASS [3/3]: replacement links present ({len(api_links)} /api/* links + repo-relative evidence reference)")
 
     print("\n✓ Reality test 4-c-007 PASSED")
     return 0

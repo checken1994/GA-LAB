@@ -2,7 +2,8 @@ import json,re,math,collections,time,os
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import requests
-ROOT=Path(r"C:\Users\check\Downloads\scp");CORP=ROOT/'data'/'rag_corpus'/'v20260817'/'chunks.jsonl';BATCH=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';OUT=ROOT/'data'/'rag_standard_pipeline_20260817.jsonl';TMP=ROOT/'data'/'rag_standard_pipeline_20260817.partial.jsonl';K=5;WORKERS=4
+ROOT=Path(os.environ.get("SCP_ROOT", Path(__file__).resolve().parents[1]));CORP=ROOT/'data'/'rag_corpus'/'v20260817'/'chunks.jsonl';BATCH=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';OUT=ROOT/'data'/'rag_standard_pipeline_20260817.jsonl';TMP=ROOT/'data'/'rag_standard_pipeline_20260817.partial.jsonl';K=5;WORKERS=4
+SCP_INTERNAL_URL=os.environ.get("SCP_INTERNAL_URL", "http://127.0.0.1:8002").rstrip("/")
 
 def tok(s):return re.findall(r'[\wÀ-ỹ]{3,}',str(s).lower())
 chunks=[json.loads(x) for x in CORP.read_text(encoding='utf-8').splitlines() if x.strip()];docs=[]
@@ -23,7 +24,7 @@ def one(q):
  ret=retrieve(q['question']);payload={'question':q['question'],'contexts':[f"[chunk_id={x['chunk_id']}] source_url={x['source_url']}\n{x['text']}" for x in ret],'retrieved_context':'\n\n'.join(x['text'] for x in ret),'ground_truth':'','rag_enabled':True,'domain_override':q.get('domain','general')};last='';
  for attempt in range(2):
   try:
-   rr=requests.post('http://127.0.0.1:8000/ask',json=payload,timeout=(10,90));
+   rr=requests.post(SCP_INTERNAL_URL + '/ask',json=payload,timeout=(10,90));
    try:body=rr.json()
    except Exception:body={'raw':rr.text[:1000]}
    return {'question_id':q['id'],'question':q['question'],'retrieval':ret,'generation':body,'http_status':rr.status_code,'gold_reference':q.get('ground_truth',''),'gold_source_url':q.get('ground_truth_source_url',''),'corpus_version':'v20260817','ground_truth_status':'NOT_HUMAN_VERIFIED','attempts':attempt+1}

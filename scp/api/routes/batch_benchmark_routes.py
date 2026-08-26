@@ -72,7 +72,7 @@ def _load_results(path: Path) -> dict[int, dict[str, Any]]:
 
 class BatchCreateRequest(BaseModel):
     questions: list[dict[str, Any]] = Field(min_length=1, max_length=2000)
-    baseUrl: str = Field(default="http://127.0.0.1:8000", min_length=10, max_length=200)
+    baseUrl: str = Field(default="http://127.0.0.1:8002", min_length=10, max_length=200)
     maxParallel: int = Field(default=4, ge=1, le=8)
     timeoutSeconds: int = Field(default=180, ge=5, le=300)
     maxRetries: int = Field(default=3, ge=0, le=4)

@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$root = 'C:\Users\check\Downloads\scp'
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $body = @{
     question = 'SCP_FULL_FALLBACK_TEST: reply with one short sentence'
     providers = @('local_llm', 'chatgpt', 'claude', 'gemini')
@@ -9,7 +9,7 @@ $body = @{
 } | ConvertTo-Json -Depth 4
 
 try {
-    $result = Invoke-RestMethod 'http://127.0.0.1:8000/v3/ai/ask-resilient' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 180
+    $result = Invoke-RestMethod 'http://127.0.0.1:8002/v3/ai/ask-resilient' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 180
     Write-Output ('resilientSuccess=' + $result.success)
     Write-Output ('successfulAI=' + (($result.successfulAIProviders) -join ','))
     Write-Output ('webSuccess=' + $result.webSearch.success)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import requests
 
-BASE = "http://127.0.0.1:8000"
+BASE = "http://127.0.0.1:8002"
 
 
 def execute(action: str, params: dict | None = None, capability: int = 0, approved: bool = False) -> dict:

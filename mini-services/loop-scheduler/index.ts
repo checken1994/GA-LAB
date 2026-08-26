@@ -37,13 +37,13 @@
  *   set, SCP will return 503 "Auth not configured" — we log that and continue.
  *
  * Run:
- *   cd /home/z/my-project/mini-services/loop-scheduler
+ *   cd "$SCP_ROOT/mini-services/loop-scheduler"
  *   bun run dev            # hot-reload dev mode
  *   bun index.ts           # production
  *
  * Env vars (all optional):
  *   LOOP_INTERVAL_SEC  — seconds between runs (default 300 = 5 min)
- *   SCP_BASE_URL       — SCP base URL (default http://127.0.0.1:8000)
+ *   SCP_BASE_URL       — SCP base URL (default http://127.0.0.1:8002)
  *   SCP_AUTH_TOKEN_SECRET — Bearer token for SCP admin endpoints
  *   SCP_AUTH_PASSWORD     — Alt auth (sent as Bearer if no token secret)
  *   LOOP_SCHEDULER_PORT — port to listen on (default 3030)

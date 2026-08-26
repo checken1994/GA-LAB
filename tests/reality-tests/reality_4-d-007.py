@@ -95,15 +95,20 @@ import time
 import http.client
 
 # Start a stub SCP that hangs 5s on /v105/autofix/run-audit and is fast on /health
-def stub_scp_server(port: int, ready: threading.Event):
+def stub_scp_server(port: int, ready: threading.Event, stop: threading.Event, port_holder: list[int], server_holder: list[socket.socket]):
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_holder.append(srv)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(("127.0.0.1", port))
     srv.listen(8)
+    srv.settimeout(0.2)
+    port_holder.append(int(srv.getsockname()[1]))
     ready.set()
-    while True:
+    while not stop.is_set():
         try:
             conn, _ = srv.accept()
+        except socket.timeout:
+            continue
         except OSError:
             break
         try:
@@ -135,13 +140,20 @@ def stub_scp_server(port: int, ready: threading.Event):
             except Exception:
                 pass
 
-stub_port = 8765
+stub_port = 0
 stub_ready = threading.Event()
+stub_stop = threading.Event()
+stub_port_holder: list[int] = []
+stub_server_holder: list[socket.socket] = []
 stub_thread = threading.Thread(
-    target=stub_scp_server, args=(stub_port, stub_ready), daemon=True
+    target=stub_scp_server,
+    args=(stub_port, stub_ready, stub_stop, stub_port_holder, stub_server_holder),
+    daemon=True,
 )
 stub_thread.start()
-stub_ready.wait(timeout=2)
+if not stub_ready.wait(timeout=2) or not stub_port_holder:
+    raise RuntimeError("stub SCP did not bind an ephemeral port")
+stub_port = stub_port_holder[0]
 
 # Start the loop-scheduler as a subprocess with a long interval + stub SCP URL
 env = dict(os.environ)
@@ -211,5 +223,12 @@ finally:
             proc.kill()
         except Exception:
             pass
+    stub_stop.set()
+    if stub_server_holder:
+        try:
+            stub_server_holder[0].close()
+        except OSError:
+            pass
+    stub_thread.join(timeout=2)
 
 print("\n✓ Reality test 4-d-007 PASSED")

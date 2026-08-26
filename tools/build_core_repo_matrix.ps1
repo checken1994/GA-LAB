@@ -1,9 +1,18 @@
 param(
-  [string]$RepoA = 'C:\Users\check\Downloads\scp-agent-structure-debt',
-  [string]$RepoB = 'C:\Users\check\Downloads\scp',
-  [string]$OutputDir = 'C:\Users\check\Downloads\scp-structure-debt-worktree\reports\core_repo_matrix_20260825'
+  [string]$RepoA = '',
+  [string]$RepoB = '',
+  [string]$OutputDir = ''
 )
 $ErrorActionPreference = 'Stop'
+$CanonicalRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+if ([string]::IsNullOrWhiteSpace($RepoB)) { $RepoB = $CanonicalRoot }
+if ([string]::IsNullOrWhiteSpace($OutputDir)) { $OutputDir = Join-Path $CanonicalRoot 'reports/core_repo_matrix_latest' }
+if ([string]::IsNullOrWhiteSpace($RepoA)) { throw 'RepoA is required. Pass -RepoA <path-to-read-only-source-repo>; retired workspace defaults were removed.' }
+if ($RepoA -match '(?i)(scp-agent-structure-debt|scp-structure-debt-worktree)') { throw 'RepoA points to a retired workspace name; pass the intended read-only source checkout explicitly.' }
+foreach ($repo in @($RepoA, $RepoB)) {
+  if (-not (Test-Path -LiteralPath $repo -PathType Container)) { throw "Repository path does not exist: $repo" }
+  if (-not (Test-Path -LiteralPath (Join-Path $repo '.git'))) { throw "Repository is not a Git checkout: $repo" }
+}
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 function Get-TreeMap([string]$Repo) {
   $map = @{}

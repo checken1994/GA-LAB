@@ -173,14 +173,13 @@ export function ClosingSection() {
                 </a>
               </div>
               <p className="mt-4 text-[11px] text-muted-foreground">
-                The full narrative audit lives on disk at{" "}
-                <code className="font-mono">/home/z/my-project/worklog.md</code>{" "}
-                (Phases 1–7 summary + Task 4-c findings + reality-test
-                scripts). The Python tree lives at{" "}
-                <code className="font-mono">/home/z/my-project/scp-system/scp/</code>.
-                Build a zip yourself with{" "}
-                <code className="font-mono">cd /home/z/my-project/scp-system &amp;&amp; zip -r scp.zip scp/ dashboard/ mini-services/</code>{" "}
-                if you need an offline bundle.
+                The full narrative audit is stored in the repository under{" "}
+                <code className="font-mono">reports/</code> (including the
+                release-gate and RAG-status evidence). The Python tree lives in
+                <code className="font-mono">scp/</code> at the canonical repository
+                root. To make an offline bundle, run{" "}
+                <code className="font-mono">zip -r scp.zip scp/ dashboard/ mini-services/</code>{" "}
+                from that repository root.
               </p>
             </div>
 

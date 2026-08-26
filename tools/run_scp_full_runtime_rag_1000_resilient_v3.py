@@ -1,17 +1,19 @@
 import datetime
 import json
 import time
+import os
 from pathlib import Path
 
 import requests
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
+ROOT = Path(os.environ.get("SCP_ROOT", Path(__file__).resolve().parents[1]))
 SRC = ROOT / "data" / "benchmark_batches" / "cc047e32d62448678a773738abe08833" / "questions.jsonl"
 SEED_V1 = ROOT / "reports" / "SCP_FULL_RUNTIME_RAG_1000_2026-08-17.jsonl"
 SEED_V2 = ROOT / "reports" / "SCP_FULL_RUNTIME_RAG_1000_RETRY_V2_2026-08-17.jsonl"
 OUT = ROOT / "reports" / "SCP_FULL_RUNTIME_RAG_1000_RETRY_V3_2026-08-17.jsonl"
-HEALTH_URL = "http://127.0.0.1:8001/health"
-ASK_URL = "http://127.0.0.1:8001/ask"
+SCP_INTERNAL_URL = os.environ.get("SCP_INTERNAL_URL", "http://127.0.0.1:8002").rstrip("/")
+HEALTH_URL = SCP_INTERNAL_URL + "/health"
+ASK_URL = SCP_INTERNAL_URL + "/ask"
 MAX_REQUEST_ATTEMPTS = 3
 MAX_ROUNDS = 8
 HEALTH_WAIT_SECONDS = 45

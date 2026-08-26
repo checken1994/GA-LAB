@@ -37,7 +37,7 @@ Flow:
       target_function="ingestion_decision",
       orig_signature=Signature(args=["ctx"], returns="Optional[Decision]"),
       new_signature=Signature(args=["ctx"], returns="Decision"),
-      scp_root="/home/z/my-project/scp",
+      scp_root="<GA-LAB_ROOT>/scp",
   )
   if not result.compatible:
       for site in result.incompatible_sites:
@@ -672,7 +672,7 @@ def verify_type_flow(
         target_function: Function name (e.g. "ingestion_decision").
         orig_signature: Signature before the fix.
         new_signature: Signature after the fix.
-        scp_root: Root of the codebase to walk (e.g. /home/z/my-project/scp).
+        scp_root: Root of the codebase to walk (e.g. <GA-LAB_ROOT>/scp).
 
     Returns:
         TypeFlowResult. Fail-open: parse error / no callers found →

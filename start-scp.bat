@@ -46,7 +46,7 @@ REM   Bun-based process on the system -- including unrelated dev servers,
 REM   Discord bots, other Node tools using the Bun runtime. Operator lost
 REM   other work.
 REM Fix: rely on window-title kill (lines below) + port-based PID kill
-REM   (netstat to find PID on ports 11434/3030/8000/3000, then taskkill /pid).
+REM   (netstat to find PID on ports 11434/3030/8002/3000, then taskkill /pid).
 REM   This only kills SCP-owned processes, leaving other Bun apps alone.
 echo [0/4] Dung services cu (neu co)...
 taskkill /f /fi "WINDOWTITLE eq SCP-LLM-Bridge*" >nul 2>&1
@@ -55,7 +55,7 @@ taskkill /f /fi "WINDOWTITLE eq SCP-Python*" >nul 2>&1
 taskkill /f /fi "WINDOWTITLE eq SCP-Dashboard*" >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":11434 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3030 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8000 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8002 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 timeout /t 3 /nobreak >nul
 
@@ -70,12 +70,12 @@ timeout /t 3 /nobreak >nul
 
 REM --- 2. Loop Scheduler (port 3030) ---
 echo [2/4] Loop Scheduler - port 3030
-start "SCP-Loop-Scheduler" cmd /k "cd /d %~dp0mini-services\loop-scheduler && set LOOP_LOG_PATH=%~dp0data\loop_runs.jsonl && bun run dev"
+start "SCP-Loop-Scheduler" cmd /k "cd /d %~dp0mini-services\loop-scheduler && set SCP_BASE_URL=http://127.0.0.1:8002 && set LLM_BRIDGE_URL=http://127.0.0.1:11434 && set LOOP_LOG_PATH=%~dp0data\loop_runs.jsonl && bun run dev"
 timeout /t 1 /nobreak >nul
 
-REM --- 3. SCP Python (port 8000) - run from ROOT (not scp/) so data/ resolves correctly ---
-echo [3/4] SCP Python - port 8000 (boot ~60s, vui long doi...)
-start "SCP-Python" cmd /k "cd /d %~dp0 && scp\venv\Scripts\python.exe -m scp 8000"
+REM --- 3. SCP Python (port 8002) - run from ROOT (not scp/) so data/ resolves correctly ---
+echo [3/4] SCP Python - port 8002 (boot ~60s, vui long doi...)
+start "SCP-Python" cmd /k "cd /d %~dp0 && scp\venv\Scripts\python.exe -m scp 8002"
 
 REM --- 4. Dashboard Next.js (port 3000) ---
 echo [4/4] Dashboard Next.js - port 3000
@@ -87,7 +87,7 @@ echo [INFO] Doi SCP khoi dong (polling /health, toi da 180s)...
 set /a COUNT=0
 :waitloop
 set /a COUNT+=1
-curl -sf --max-time 2 http://127.0.0.1:8000/health >nul 2>&1
+curl -sf --max-time 2 http://127.0.0.1:8002/health >nul 2>&1
 if not errorlevel 1 (
     echo [OK] SCP san sang sau ~!COUNT! giay
     goto :ready
@@ -106,7 +106,7 @@ echo   [DONE] SCP SYSTEM DANG CHAY!
 echo ============================================================
 echo.
 echo   Dashboard:       http://localhost:3000
-echo   SCP /health:     http://127.0.0.1:8000/health
+echo   SCP /health:     http://127.0.0.1:8002/health
 echo   LLM Bridge:      http://127.0.0.1:11434/api/tags
 echo   Loop Scheduler:  http://127.0.0.1:3030/
 echo.

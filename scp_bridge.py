@@ -37,7 +37,7 @@ SCP_ROOT = Path(os.getenv("SCP_ROOT", "."))
 DATA_DIR = SCP_ROOT / "data"
 
 # Backend API cua SCP (de lay health/status)
-SCP_API = os.getenv("SCP_INTERNAL_URL", "http://127.0.0.1:8000")
+SCP_API = os.getenv("SCP_INTERNAL_URL", "http://127.0.0.1:8002")
 
 POLL_SECONDS = int(os.getenv("SCP_POLL_SECONDS", "5"))
 # ============================================================

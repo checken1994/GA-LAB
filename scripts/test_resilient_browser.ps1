@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$root = 'C:\Users\check\Downloads\scp'
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $py = Join-Path $root 'scp\venv\Scripts\python.exe'
 $apiOut = Join-Path $root 'data\scp-api.out.log'
 $apiErr = Join-Path $root 'data\scp-api.err.log'
@@ -8,19 +8,19 @@ function Test-Port([int]$port) {
     return [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
 }
 
-if (-not (Test-Port 8000)) {
+if (-not (Test-Port 8002)) {
     Remove-Item $apiOut, $apiErr -Force -ErrorAction SilentlyContinue
     $env:SCP_SKIP_STARTUP_GATE = '1'
-    Start-Process -FilePath $py -ArgumentList '-m', 'scp', '8000' -WorkingDirectory $root -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr -WindowStyle Hidden | Out-Null
+    Start-Process -FilePath $py -ArgumentList '-m', 'scp', '8002' -WorkingDirectory $root -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr -WindowStyle Hidden | Out-Null
     Remove-Item Env:SCP_SKIP_STARTUP_GATE -ErrorAction SilentlyContinue
 }
 
 $ready = $false
 for ($i = 0; $i -lt 45; $i++) {
     Start-Sleep -Seconds 1
-    if (Test-Port 8000) {
+    if (Test-Port 8002) {
         try {
-            Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8000/openapi.json' -TimeoutSec 5 | Out-Null
+            Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8002/openapi.json' -TimeoutSec 5 | Out-Null
             $ready = $true
             break
         } catch {
@@ -44,7 +44,7 @@ $body = @{
 } | ConvertTo-Json -Depth 4
 
 try {
-    $result = Invoke-RestMethod 'http://127.0.0.1:8000/v3/ai/ask-resilient' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 150
+    $result = Invoke-RestMethod 'http://127.0.0.1:8002/v3/ai/ask-resilient' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 150
     Write-Output ('resilientSuccess=' + $result.success)
     Write-Output ('successfulAI=' + (($result.successfulAIProviders) -join ','))
     Write-Output ('skipped=' + (($result.skippedProviders | ForEach-Object { $_.provider + ':' + $_.reason }) -join '|'))

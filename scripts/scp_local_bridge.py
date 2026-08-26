@@ -51,7 +51,7 @@ def service_status() -> dict[str, str]:
     targets = {
         "dashboard": "http://127.0.0.1:3000/",
         "scheduler": "http://127.0.0.1:3030/healthz",
-        "backend": "http://127.0.0.1:8000/health",
+        "backend": "http://127.0.0.1:8002/health",
         "ollama": "http://127.0.0.1:11434/api/tags",
     }
     result: dict[str, str] = {}

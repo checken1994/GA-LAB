@@ -2,7 +2,7 @@ from pathlib import Path
 """Reality test for Fix 4-d-020: Caddyfile must allowlist XTransformPort.
 
 Before fix: ?XTransformPort=<any> blindly proxied (SSRF surface).
-After fix: only 8000, 3030, 11434 allowed; others get 403.
+After fix: only 8002, 3030, 11434 allowed; others get 403.
 
 DNA principles:
   #6  (gốc tin cậy bên ngoài — backend ports must be allowlisted, not
@@ -18,7 +18,6 @@ import os, glob
 
 caddyfile_paths = [
     str(Path(__file__).resolve().parents[2]) + '/Caddyfile',
-    "/home/z/my-project/Caddyfile",
 ]
 # Also search for any Caddyfile in scp-system
 caddyfile_paths += glob.glob(str(Path(__file__).resolve().parents[2]) + '/**/Caddyfile', recursive=True)
@@ -32,7 +31,7 @@ for p in caddyfile_paths:
     if "XTransformPort" not in src:
         continue
     # TEST 1: must have an allowlist (not just blind proxy)
-    has_allowlist = ("8000" in src and "3030" in src and "11434" in src)
+    has_allowlist = ("8002" in src and "3030" in src and "11434" in src)
     assert has_allowlist, f"FAIL: no port allowlist in {p}"
     print(f"PASS [1/3]: port allowlist present in {p}")
     # TEST 2: must reject non-allowlisted ports (403 or similar)
@@ -47,5 +46,5 @@ for p in caddyfile_paths:
     found = True
     break
 if not found:
-    print("SKIP: Caddyfile with XTransformPort not found — may not be in scp-system")
+    print("SKIP: Caddyfile with XTransformPort not found — may not be in the canonical root")
 print("\n✓ Reality test 4-d-020 PASSED")

@@ -23,8 +23,8 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3030 " ^| findstr "LISTENIN
     echo   Killing PID %%a (port 3030)
     taskkill /f /pid %%a >nul 2>&1
 )
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8000 " ^| findstr "LISTENING"') do (
-    echo   Killing PID %%a (port 8000)
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8002 " ^| findstr "LISTENING"') do (
+    echo   Killing PID %%a (port 8002)
     taskkill /f /pid %%a >nul 2>&1
 )
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 " ^| findstr "LISTENING"') do (
@@ -41,7 +41,7 @@ echo ============================================================
 echo.
 
 echo Kiem tra ports (phai trong):
-netstat -aon | findstr ":11434 :3030 :8000 :3000 " | findstr "LISTENING"
+netstat -aon | findstr ":11434 :3030 :8002 :3000 " | findstr "LISTENING"
 if errorlevel 1 echo   (khong co process nao con chay)
 
 echo.

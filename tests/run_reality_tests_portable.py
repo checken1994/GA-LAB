@@ -15,7 +15,14 @@ results = []
 env = os.environ.copy()
 env.setdefault("PYTHONUTF8", "1")
 env.setdefault("PYTHONIOENCODING", "utf-8")
-env.setdefault("SCP_ENV_FILE", str(ROOT / ".env.test"))
+test_env_file = ROOT / ".env.test"
+if test_env_file.exists():
+    env.setdefault("SCP_ENV_FILE", str(test_env_file))
+else:
+    # Do not manufacture an explicit env-file path. Sidecars fail closed when
+    # SCP_ENV_FILE is set but missing; absence must remain process.env-only.
+    env.pop("SCP_ENV_FILE", None)
+    env.pop("SCP_SIDECAR_ENV_FILE", None)
 env.setdefault("SCP_DEV_MODE", "0")
 env.setdefault("SCP_SKIP_STARTUP_GATE", "0")
 for test in sorted(TEST_DIR.glob("reality_*.py")):

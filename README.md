@@ -113,21 +113,24 @@ cd GA-LAB
 # Install dependencies
 pip install -r requirements.txt
 
-# Start SCP
-python -m scp.api_server
+# Start SCP on the canonical loopback port
+python -m scp
 
-# Run 74 Reality Tests (should all PASS)
-python run_reality_tests_portable.py
+# Run the portable Reality runner
+python tests/run_reality_tests_portable.py
 
-# Run RAG Benchmark (50 gold rows)
-python benchmark/run_ragas_v1.py
+# RAG evaluation is currently evidence-gated; do not treat the legacy
+# deterministic runner as an official Ragas/ARES score.
 ```
 
-### Docker (Coming Soon)
+### Runtime contract
+
+SCP binds to loopback `127.0.0.1:8002` by default. A Dockerfile/Compose
+release is not part of the current canonical root, so no Docker command is
+advertised here. For a local health check:
 
 ```bash
-docker compose up
-# Access at http://localhost:8000/docs
+curl http://127.0.0.1:8002/health
 ```
 
 ---
@@ -138,40 +141,38 @@ SCP is built on **evidence-first verification**. Every claim can be reproduced:
 
 | Test Suite | Count | Status |
 |-----------|-------|--------|
-| Unit Tests | 101 | ✅ ALL PASS |
-| Reality Tests | 74 | ✅ ALL PASS |
-| Module Import Tests | 444 | ✅ ALL PASS |
-| Syntax Validation | 860 files | ✅ 0 errors |
-| API Routes | 136 | ✅ ALL LOADED |
-| RAG Gold Benchmark | 50 rows | ✅ OPEN |
+| Python contract/unit tests | 211 passed (local profile) | PASS_WITHIN_SCOPE |
+| Portable Reality runner | 69/74 in sandbox; 5 Bun runtime portions unavailable | PARTIAL |
+| Python syntax validation | 0 syntax errors in canonical scan | PASS_WITHIN_SCOPE |
+| Full-system smoke | 8002 loopback, egress-deny profile | PASS_WITHIN_SCOPE |
+| Official Ragas/ARES gates | Human-reviewed gold and required metrics | BLOCKED |
 
 ```bash
 # Reproduce all test results yourself:
-python -m pytest scp/tests/ -v
-python run_reality_tests_portable.py
-python benchmark/run_ragas_v1.py
+python -m pytest -q
+python tests/run_reality_tests_portable.py
+# See reports/PHASE3_RAG_GATE_STATUS_V3_20260826.md before any RAG claim.
 ```
 
 ---
 
 ## RAG Benchmark (Phase 3)
 
-SCP's RAG system was evaluated on **50 verified gold anchor rows** extracted from Wikipedia (open, reproducible) and a curated Vietnamese knowledge base.
+The RAG artifacts and runners are present, but the official Phase 3 gates
+remain **BLOCKED**. The current repository does not prove independently
+human-reviewed gold answers, official Ragas/ARES metrics, or a factual
+1,000-question result. Deterministic token-overlap output must not be
+reported as an official Ragas score.
 
-| Metric | Score | Method |
-|--------|-------|--------|
-| Context Precision | *see benchmark output* | Token-overlap (deterministic) |
-| Faithfulness | *see benchmark output* | Token-overlap (deterministic) |
-| Answer Relevancy | *see benchmark output* | Token-overlap (deterministic) |
-| Fail-Closed Compliance | 100% | SCP ABSTAIN policy |
+| Gate | Current status | Evidence boundary |
+|------|----------------|-------------------|
+| Retrieval recall/precision by gold chunk ID | BLOCKED | No independently verified gold set |
+| Context relevance/precision | BLOCKED | No accepted official evaluation run |
+| Answer correctness and faithfulness | BLOCKED | Gold answer/human review incomplete |
+| Citation provenance | Structural only | Does not prove factual correctness |
 
-**Dataset SHA-256:** `4dacd4f05768bec7f3271de36c3c7f91022a097f38332720fb68af98984c3acd`
-
-Reproduce:
-```bash
-python benchmark/run_ragas_v1.py
-# Output: benchmark/ragas_results_v1.json
-```
+See `reports/PHASE3_RAG_GATE_STATUS_V3_20260826.md` for the authoritative
+status and remaining admission conditions.
 
 ---
 
@@ -187,7 +188,7 @@ python benchmark/run_ragas_v1.py
 | Prompt injection blocking | ✅ PROVEN |
 | Deterministic rollback | ✅ PROVEN |
 | Production-scale (8000+ QPS) | ⚠️ NOT YET PROVEN |
-| Full RAG 1000 questions | ⚠️ PARTIAL (50 gold verified) |
+| Full RAG 1000 questions | ⚠️ BLOCKED (official gold/review not proven) |
 | OS-level sandbox | ⚠️ Application-level only |
 
 ---

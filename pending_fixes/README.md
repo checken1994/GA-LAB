@@ -50,26 +50,24 @@ which violates #11.
       - **Defer** — need more info. Leave the file in place; it will
         surface again on the next weekly reminder (see below).
 
-## Currently pending (3 files)
+## Currently pending (20 tracked files; 3 target groups)
 
-- `api_server_pending_1786246424_40b6b9bc.py`
-  - Target: `scp/api_server.py` (or the round-11 snapshot path listed
-    in the file header).
-  - Suggestion: address Ruff rule `PLW0603` (global statement use).
-  - Note: the suggestion is a one-liner pointing at Ruff docs — review
-    whether the `global` is genuinely needed or refactorable.
+Inventory checked on 2026-08-26 found **20 pending candidate files**. They are
+not 20 approved fixes: none has been independently reviewed, applied, or
+rejected by this audit. Several entries have identical content hashes because
+the same suggestion was queued more than once; those duplicates are retained
+as review history rather than silently discarded.
 
-- `conflict_resolver_pending_1786246579_c72bdb3c.py`
-  - Target: `scp/core/conflict_resolver.py`.
-  - Suggestion: replace `pass # metric tracking is best-effort` with
-    `logger.debug("Metric tracking is best-effort")` (slightly better
-    observability — `pass` swallows silently, `logger.debug` records
-    it under debug log level).
+- **16 `ai_patterns_pending_*.py` files** — target `scp/ai_patterns.py`.
+- **2 `api_server_pending_*.py` files** — target `scp/api_server.py`; one
+  older entry records a historical snapshot path in its header.
+- **2 `conflict_resolver_pending_*.py` files** — target
+  `scp/core/conflict_resolver.py`.
 
-- `conflict_resolver_pending_1786246636_393402a1.py`
-  - Target: `scp/core/conflict_resolver.py` (same file, different fix).
-  - Suggestion: `User Safety: safe` marker only — review whether this
-    is the same as the above or a different fix.
+Review each file against the current target before taking any action. A
+pending candidate is not evidence that the target is broken, and it must not
+be auto-promoted to production or Gold data. Use the approve/reject/defer
+procedure above and record the decision in the audit trail.
 
 ## Weekly reminder
 

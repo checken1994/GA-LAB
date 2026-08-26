@@ -199,7 +199,7 @@ try {
     $services = @(
         [ordered]@{ Name = 'llm-bridge'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\llm-bridge'); Port = 11434; Url = 'http://127.0.0.1:11434/api/tags' },
         [ordered]@{ Name = 'loop-scheduler'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\loop-scheduler'); Port = 3030; Url = 'http://127.0.0.1:3030/' },
-        [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8000'); Dir = $Root; Port = 8000; Url = 'http://127.0.0.1:8000/health' },
+        [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8002'); Dir = $Root; Port = 8002; Url = 'http://127.0.0.1:8002/health' },
         [ordered]@{ Name = 'dashboard'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'dashboard'); Port = 3000; Url = 'http://127.0.0.1:3000/' }
     )
 
@@ -237,7 +237,7 @@ try {
         $env:SCP_ENABLE_CLOSED_LOOP = '0'
         if ($Service.Name -eq 'loop-scheduler') {
             $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
-            $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
+            $env:SCP_BASE_URL = 'http://127.0.0.1:8002'
             $env:LLM_BRIDGE_URL = 'http://127.0.0.1:11434'
         }
         try {

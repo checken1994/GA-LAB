@@ -46,8 +46,9 @@ const SCP_BASE_URL =
 
 const START_HINT = "Run: SCP_PORT=8002 python -m scp (in your scp folder)"
 
-// SCP root: parent of dashboard/. Override via env for container deploys.
-const SCP_ROOT = process.env.SCP_ROOT ?? "/home/z/my-project/scp-system"
+// SCP root: parent of dashboard/. Override via env when dashboard and backend
+// are deployed separately. Resolving from cwd avoids a machine-specific path.
+const SCP_ROOT = process.env.SCP_ROOT ?? path.resolve(process.cwd(), "..")
 
 // [4-c-006] Last-verified fallback LOC values (per `wc -l` of actual files).
 // Used ONLY when computeAutofixLoc cannot read the actual file at module load

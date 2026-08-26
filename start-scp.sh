@@ -7,8 +7,8 @@
 set -e
 
 # Fix 4-d-001: auto-resolve PROJECT_DIR to the directory containing this script.
-# Previously hardcoded "/home/z/my-project" (sandbox root), so every
-# `cd $PROJECT_DIR/mini-services/...` failed and `set -e` aborted the script.
+# The root is derived from this script, so `cd $PROJECT_DIR/mini-services/...`
+# remains portable across checkouts and does not depend on a sandbox path.
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="/tmp/scp-logs"
 mkdir -p "$LOG_DIR"
@@ -82,29 +82,30 @@ start_services() {
   # 2. Loop Scheduler (port 3030) — optional but useful
   echo "  [2/4] Loop Scheduler → port 3030"
   cd "$PROJECT_DIR/mini-services/loop-scheduler"
-  setsid nohup bun run dev > "$LOG_DIR/loop-scheduler.log" 2>&1 &
+  SCP_BASE_URL="${SCP_BASE_URL:-http://127.0.0.1:8002}" \
+    LLM_BRIDGE_URL="${LLM_BRIDGE_URL:-http://127.0.0.1:11434}" \
+    LOOP_LOG_PATH="$PROJECT_DIR/data/loop_runs.jsonl" \
+    setsid nohup bun run dev > "$LOG_DIR/loop-scheduler.log" 2>&1 &
   echo $! > "$LOG_DIR/loop-scheduler.pid"
 
   # Fix 4-d-017: poll /healthz instead of `sleep 1`. Same race-condition fix.
   wait_for_url "http://127.0.0.1:3030/healthz" "Loop Scheduler" 30 \
     || { echo "ERROR: Loop Scheduler not ready — aborting startup. Check $LOG_DIR/loop-scheduler.log" >&2; exit 1; }
 
-  # 3. SCP Python (port 8000) — boots in ~60s
-  echo "  [3/4] SCP Python → port 8000 (booting ~60s, please wait...)"
+  # 3. SCP Python (port 8002) — boots in ~60s
+  echo "  [3/4] SCP Python → port 8002 (booting ~60s, please wait...)"
   cd "$PROJECT_DIR"
-  setsid nohup python3 -m scp 8000 > "$LOG_DIR/scp-server.log" 2>&1 &
+  setsid nohup python3 -m scp 8002 > "$LOG_DIR/scp-server.log" 2>&1 &
   echo $! > "$LOG_DIR/scp-server.pid"
 
   # 4. Dashboard Next.js (port 3000)
   # Fix 4-d-002: previously `cd "$PROJECT_DIR"` ran `bun run dev` against
   # whichever package.json lived at $PROJECT_DIR — which on this layout is
-  # either the SANDBOX Next.js project (if PROJECT_DIR=/home/z/my-project) or
-  # nothing (no package.json at scp-system/ root). The real SCP dashboard is
+  # nothing (no package.json at the repository root). The real SCP dashboard is
   # at $PROJECT_DIR/dashboard/.
   #
-  # PORT CONFLICT NOTE: both the sandbox project (/home/z/my-project/package.json:
-  # "dev": "next dev -p 3000 ...") and the SCP dashboard
-  # ($PROJECT_DIR/dashboard/package.json: "dev": "next dev -p 3000") want port
+  # PORT CONFLICT NOTE: the SCP dashboard
+  # ($PROJECT_DIR/dashboard/package.json: "dev": "next dev -p 3000") uses port
   # 3000. If you need both running simultaneously, set DASHBOARD_PORT=3001 (or
   # any free port) in the environment. We pass `-- -p $DASHBOARD_PORT` after
   # `bun run dev`; next dev accepts the LAST -p flag, so this overrides the
@@ -122,7 +123,7 @@ start_services() {
   # failure instead of a misleading "🎉 SCP SYSTEM RUNNING" banner.
   echo ""
   echo "⏳ Waiting for SCP to finish booting (polling /health, max 120s)..."
-  wait_for_url "http://127.0.0.1:8000/health" "SCP Python" 120 \
+  wait_for_url "http://127.0.0.1:8002/health" "SCP Python" 120 \
     || { echo "ERROR: SCP not ready after 120s — check $LOG_DIR/scp-server.log" >&2; exit 1; }
 
   # --- final status ---
@@ -132,8 +133,8 @@ start_services() {
   echo "============================================================"
   echo ""
   echo "  Dashboard:       http://localhost:3000"
-  echo "  SCP /health:     http://localhost:8000/health"
-  echo "  SCP /ask:        curl -X POST http://localhost:8000/ask \\"
+  echo "  SCP /health:     http://localhost:8002/health"
+  echo "  SCP /ask:        curl -X POST http://localhost:8002/ask \\"
   echo "                     -H 'Content-Type: application/json' \\"
   echo "                     -d '{\"question\":\"What is the capital of France?\"}'"
   echo "  LLM Bridge:      http://localhost:11434/api/tags"

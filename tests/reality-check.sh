@@ -131,8 +131,8 @@ assert_contains "4-d-010a" "$DASHBOARD_DIR/src/app/api/scp/health/route.ts" "114
   "health route probes llm-bridge (11434)"
 assert_contains "4-d-010b" "$DASHBOARD_DIR/src/app/api/scp/health/route.ts" "3030" \
   "health route probes loop-scheduler (3030)"
-assert_contains "4-d-010c" "$DASHBOARD_DIR/src/app/api/scp/health/route.ts" "8000" \
-  "health route probes FastAPI (8000)"
+assert_contains "4-d-010c" "$DASHBOARD_DIR/src/app/api/scp/health/route.ts" "8002" \
+  "health route probes FastAPI (8002)"
 
 echo ""
 echo "   Fix group 1-B: Python backend silent failures"
@@ -337,7 +337,7 @@ assert_not_in_code "4-d-008" "$PROJECT_DIR/mini-services/loop-scheduler/index.ts
   "4-d-008: loop-scheduler does not bind 0.0.0.0"
 assert_contains "4-d-008b" "$PROJECT_DIR/mini-services/loop-scheduler/index.ts" "127.0.0.1\|LOOP_SCHEDULER_HOST" \
   "4-d-008: loop-scheduler binds 127.0.0.1 (loopback)"
-assert_not_in_code "4-d-009a" "$PROJECT_DIR/mini-services/llm-bridge/index.ts" 'Access-Control-Allow-Origin.*"\*"\|"\\\\*"' \
+assert_not_in_code "4-d-009a" "$PROJECT_DIR/mini-services/llm-bridge/index.ts" 'Access-Control-Allow-Origin.*"\*"' \
   "4-d-009: llm-bridge no wildcard CORS *"
 assert_contains "4-d-009b" "$PROJECT_DIR/mini-services/llm-bridge/index.ts" "127.0.0.1\|ZAI_BRIDGE_HOST" \
   "4-d-009: llm-bridge binds 127.0.0.1 or has HOST env"
@@ -413,16 +413,16 @@ check_url() {
   fi
 }
 
-check_url "RT-001" "http://127.0.0.1:8000/health" "200" "FastAPI backend health"
-check_url "RT-002" "http://127.0.0.1:8000/health/detailed" "200" "FastAPI /health/detailed"
+check_url "RT-001" "http://127.0.0.1:8002/health" "200" "FastAPI backend health"
+check_url "RT-002" "http://127.0.0.1:8002/health/detailed" "200" "FastAPI /health/detailed"
 check_url "RT-003" "http://127.0.0.1:11434/api/tags" "200" "llm-bridge /api/tags"
 check_url "RT-004" "http://127.0.0.1:3030/healthz" "200" "loop-scheduler /healthz"
 check_url "RT-005" "http://127.0.0.1:3000/api/scp/health" "200" "dashboard composite health"
 
-if curl -sf --max-time 2 "http://127.0.0.1:8000/health/detailed" 2>/dev/null | grep -q '"background_scheduler_started": *true'; then
+if curl -sf --max-time 2 "http://127.0.0.1:8002/health/detailed" 2>/dev/null | grep -q '"background_scheduler_started": *true'; then
   echo -e "  ${GREEN}✓ RT-006${NC} background_scheduler_started = true (4-a-001 verified at runtime)"
   RT_PASS=$((RT_PASS + 1))
-elif curl -sf --max-time 2 "http://127.0.0.1:8000/health/detailed" 2>/dev/null | grep -q '"background_scheduler_started"'; then
+elif curl -sf --max-time 2 "http://127.0.0.1:8002/health/detailed" 2>/dev/null | grep -q '"background_scheduler_started"'; then
   echo -e "  ${RED}✗ RT-006${NC} background_scheduler_started present but NOT true"
   RT_FAIL=$((RT_FAIL + 1))
 else

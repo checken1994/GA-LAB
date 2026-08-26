@@ -748,7 +748,7 @@ app.add_middleware(
 #
 # HTTPS:
 #   HTTPSRedirectMiddleware is OPT-IN via SCP_FORCE_HTTPS=1. We do NOT
-#   force HTTPS in dev (breaks localhost:8000 testing). Production
+#   force HTTPS in dev (breaks localhost:8002 testing). Production
 #   deployments set SCP_FORCE_HTTPS=1 (and typically run behind a TLS-
 #   terminating reverse proxy anyway, so the redirect is a defense-in-
 #   depth backstop, not the primary TLS layer).

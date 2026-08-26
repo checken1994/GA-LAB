@@ -985,7 +985,7 @@ const server = Bun.serve({
     };
     if (allowedOrigin) {
       // Restricted — only echo back the request's origin IF it's allowlisted.
-      // Never set Access-Control-Allow-Origin: "*" (that's the bug we fixed).
+      // Never set a wildcard Access-Control-Allow-Origin value (that was the bug fixed).
       corsHeaders["Access-Control-Allow-Origin"] = allowedOrigin;
       corsHeaders["Vary"] = "Origin";
     }

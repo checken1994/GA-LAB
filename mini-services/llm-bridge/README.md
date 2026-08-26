@@ -29,10 +29,10 @@ LLM). This lets SCP's LLM Gateway (`scp/llm_gateway/client.py`) work end-to-end
 ## Run
 
 ```bash
-cd /home/z/my-project/mini-services/llm-bridge
+cd $SCP_ROOT/mini-services/llm-bridge
 bun install           # installs z-ai-web-dev-sdk locally
 bun run dev           # bun --hot index.ts  (auto-restart on change)
-# → [scp-llm-bridge] listening on http://0.0.0.0:11434
+# → [scp-llm-bridge] listening on http://127.0.0.1:11434
 ```
 
 Override port/host via env:
@@ -67,13 +67,13 @@ points at `127.0.0.1:11434`:
 
 ```bash
 # Terminal 1: bridge
-cd /home/z/my-project/mini-services/llm-bridge && bun run dev
+cd $SCP_ROOT/mini-services/llm-bridge && bun run dev
 
 # Terminal 2: SCP
-cd /home/z/my-project && python3 -m scp 8000
+cd $SCP_ROOT && python3 -m scp 8002
 
 # Test
-curl -s -X POST http://127.0.0.1:8000/ask \
+curl -s -X POST http://127.0.0.1:8002/ask \
   -H 'Content-Type: application/json' \
   -d '{"question":"What is the capital of France?"}' | jq .
 ```

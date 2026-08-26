@@ -1,11 +1,11 @@
 """SCP entry point — run with: python3 -m scp [port]
 
-Defaults to port 8000. Reads SCP_PORT env var if no arg is passed.
+Defaults to port 8002. Reads SCP_PORT env var if no arg is passed.
 Reads SCP_HOST env var (default 127.0.0.1 — bind to loopback only; the
-Caddy gateway on :81 reverse-proxies public traffic via ?XTransformPort=8000).
+Caddy gateway on :81 reverse-proxies public traffic via ?XTransformPort=8002).
 
 Examples:
-    python3 -m scp                 # 127.0.0.1:8000 (default)
+    python3 -m scp                 # 127.0.0.1:8002 (default)
     python3 -m scp 8080            # 127.0.0.1:8080
     SCP_PORT=9000 python3 -m scp   # 127.0.0.1:9000
 
@@ -91,12 +91,12 @@ enforce_production_safety()
 def main() -> None:
     if any(arg in {"-h", "--help"} for arg in sys.argv[1:]):
         print("usage: python -m scp [PORT]")
-        print("Starts the SCP API on loopback; PORT defaults to SCP_PORT or 8000.")
+        print("Starts the SCP API on loopback; PORT defaults to SCP_PORT or 8002.")
         return
     port = (
         int(sys.argv[1])
         if len(sys.argv) > 1
-        else int(os.environ.get("SCP_PORT", "8000"))
+        else int(os.environ.get("SCP_PORT", "8002"))
     )
     host = os.environ.get("SCP_HOST", "127.0.0.1")
 
