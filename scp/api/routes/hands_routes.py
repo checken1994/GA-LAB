@@ -12,13 +12,22 @@ from scp.core.request_run_ledger import RequestRunLedger, traced_request
 from scp.hands.goal_parser import GoalParser
 from scp.hands.hands_executor import HandsExecutor
 from scp.hands.planner import HandsPlanner
+from scp.hands.task_kernel_bridge import TaskKernelHandsBridge
 
 _HANDS_ROUTES_LEDGER = RequestRunLedger()
 
 router = APIRouter(prefix="/v3/hands", tags=["v3.5-hands", "v3.6-planner"])
 _hands = HandsExecutor()
-_planner = HandsPlanner(_hands)
+_hands_bridge = TaskKernelHandsBridge(_hands)
+_planner = HandsPlanner(_hands_bridge)
 _goal_parser = GoalParser(_planner)
+
+
+def _active_bridge() -> TaskKernelHandsBridge:
+    global _hands_bridge
+    if _hands_bridge.executor is not _hands:
+        _hands_bridge = TaskKernelHandsBridge(_hands)
+    return _hands_bridge
 
 
 class CapabilityControlRequest(BaseModel):
@@ -37,6 +46,14 @@ class HandsRollbackRequest(BaseModel):
     checkpointId: str = Field(min_length=8, max_length=128)
     capabilityLevel: int = Field(default=3, ge=0, le=5)
     approved: bool = False
+
+
+class HandsReconcileRequest(BaseModel):
+    taskId: str = Field(min_length=8, max_length=128)
+    checkpointId: str = Field(min_length=8, max_length=128)
+    outcome: str = Field(min_length=8, max_length=16)
+    evidenceRef: str = Field(min_length=1, max_length=512)
+    verifierId: str | None = Field(default=None, max_length=128)
 
 
 class PlannerCreateRequest(BaseModel):
@@ -137,14 +154,32 @@ async def hands_plan(payload: HandsActionRequest, request: Request, x_scp_pc_tok
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_execute")
 async def hands_execute(payload: HandsActionRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _hands.execute(payload.action, payload.params, payload.capabilityLevel, payload.approved, payload.dryRun)
+    request_key = request.headers.get("X-SCP-Idempotency-Key") or request.headers.get("Idempotency-Key")
+    return await _active_bridge().execute(payload.action, payload.params, payload.capabilityLevel, payload.approved, payload.dryRun, request_key=request_key)
 
 
 @router.post("/rollback")
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_rollback")
 async def hands_rollback(payload: HandsRollbackRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _hands.rollback(payload.checkpointId, payload.capabilityLevel, payload.approved)
+    return await _active_bridge().rollback(payload.checkpointId, payload.capabilityLevel, payload.approved)
+
+
+@router.post("/reconcile")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_reconcile")
+async def hands_reconcile(payload: HandsReconcileRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+    _guard(request, x_scp_pc_token)
+    try:
+        task = _active_bridge().reconcile_unknown(
+            payload.taskId,
+            payload.checkpointId,
+            payload.outcome,
+            payload.evidenceRef,
+            payload.verifierId,
+        )
+        return {"success": True, "task": task}
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "taskId": payload.taskId}
 
 
 @router.get("/planner/status")
