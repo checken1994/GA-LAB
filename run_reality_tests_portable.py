@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path.cwd()
+ROOT = Path(__file__).resolve().parent
 TEST_DIR = ROOT / "tests" / "reality-tests"
 PYTHON = os.environ.get("SCP_PYTHON_BIN") or sys.executable
 if PYTHON.startswith("/c/"):
@@ -57,7 +57,8 @@ summary = {
     "error": sum(r["status"] == "ERROR" for r in results),
     "results": results,
 }
-out = ROOT / "reality-tests-results.json"
+out = ROOT / "reports" / "reality" / "reality-tests-results.json"
+out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 if _TEST_ENV_CREATED:
     try:

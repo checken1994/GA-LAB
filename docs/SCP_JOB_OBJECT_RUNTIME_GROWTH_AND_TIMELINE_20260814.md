@@ -63,7 +63,7 @@ Reality evidence sau khi Job Object được cài:
 
 ## 4. Biểu đồ tăng trưởng runtime tables T0–T90
 
-![Biểu đồ tăng trưởng question_events và healing_history](runtime_growth_t0_t90.png)
+![Biểu đồ tăng trưởng question_events và healing_history](assets/runtime_growth_t0_t90.png)
 
 Dữ liệu trên là các row counts đọc bằng SQLite read-only audit trên PC thật, không phải dữ liệu mô phỏng.
 

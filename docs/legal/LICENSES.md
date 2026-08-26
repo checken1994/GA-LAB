@@ -6,8 +6,8 @@ This document is the authoritative human-readable map for the repository's multi
 
 | Identifier | Full name | Full text |
 |---|---|---|
-| `AGPL-3.0-only` | GNU Affero General Public License v3.0 only | [`licenses/AGPL-3.0-only.txt`](licenses/AGPL-3.0-only.txt) |
-| `Apache-2.0` | Apache License 2.0 | [`licenses/Apache-2.0.txt`](licenses/Apache-2.0.txt) |
+| `AGPL-3.0-only` | GNU Affero General Public License v3.0 only | [`AGPL-3.0-only.txt`](../../licenses/AGPL-3.0-only.txt) |
+| `Apache-2.0` | Apache License 2.0 | [`Apache-2.0.txt`](../../licenses/Apache-2.0.txt) |
 | `NOASSERTION` | Not yet classified or not solely owned by this project | Must be reviewed before redistribution |
 
 ## 2. Core components — AGPL-3.0-only

@@ -9,9 +9,9 @@ Thank you for your interest in contributing to SCP DNA. This project contains bo
 Please read:
 
 - [`LICENSE`](LICENSE)
-- [`LICENSES.md`](LICENSES.md)
-- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
-- [`TRADEMARKS.md`](TRADEMARKS.md)
+- [`LICENSES.md`](docs/legal/LICENSES.md)
+- [`docs/legal/THIRD_PARTY_NOTICES.md`](docs/legal/THIRD_PARTY_NOTICES.md)
+- [`TRADEMARKS.md`](docs/legal/TRADEMARKS.md)
 - [`SECURITY.md`](SECURITY.md), if the repository contains one
 
 Do not submit secrets, private keys, API tokens, customer data, proprietary employer code, unlicensed datasets, copied source code, or files whose license you do not understand.
@@ -97,7 +97,7 @@ Do not paste confidential source code, credentials, personal data, or private cu
 
 ## 7. License headers and file placement
 
-New source files must use the SPDX identifier assigned by [`LICENSES.md`](LICENSES.md). Do not invent a new license identifier or write a shortened replacement for AGPL or Apache.
+New source files must use the SPDX identifier assigned by [`LICENSES.md`](docs/legal/LICENSES.md). Do not invent a new license identifier or write a shortened replacement for AGPL or Apache.
 
 If a file is generated, vendored, copied, or supplied by a third party, do not add a project SPDX header that falsely claims ownership. Mark the file for review and add the appropriate notice instead.
 
@@ -117,7 +117,7 @@ Passing tests does not guarantee acceptance. License, security, provenance, and 
 
 ## 9. No automatic trademark permission
 
-Contributing code does not grant permission to use SCP DNA, SCP, GA-LAB, logos, or other project marks. See [`TRADEMARKS.md`](TRADEMARKS.md).
+Contributing code does not grant permission to use SCP DNA, SCP, GA-LAB, logos, or other project marks. See [`TRADEMARKS.md`](docs/legal/TRADEMARKS.md).
 
 ## 10. Developer Certificate of Origin option
 

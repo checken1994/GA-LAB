@@ -2,14 +2,14 @@
 
 Copyright (c) 2026 Nguyễn Văn Minh (Ga Lab)
 
-SCP DNA is a multi-component repository. It is **not** distributed under one single license for every file. The applicable license is determined by the component map in [`LICENSES.md`](LICENSES.md), the SPDX header in each source file, and the full license texts in [`licenses/`](licenses/).
+SCP DNA is a multi-component repository. It is **not** distributed under one single license for every file. The applicable license is determined by the component map in [`LICENSES.md`](docs/legal/LICENSES.md), the SPDX header in each source file, and the full license texts in [`licenses/`](licenses/).
 
 ## Component licenses
 
 - **Core SCP runtime and protected agent logic** are licensed under **GNU Affero General Public License v3.0 only (`AGPL-3.0-only`)**, unless a file contains a more specific notice.
-- **Separately distributed SDKs, connectors, bridges, and integration components** identified in [`LICENSES.md`](LICENSES.md) are licensed under **Apache License 2.0 (`Apache-2.0`)**, only where the component map and source headers say so.
-- **Third-party components, dependencies, models, datasets, fonts, and generated assets** remain under their own licenses. They are not relicensed by this notice; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-- **Project names, logos, and marks** are not licensed for endorsement or branding use by this notice. See [`TRADEMARKS.md`](TRADEMARKS.md).
+- **Separately distributed SDKs, connectors, bridges, and integration components** identified in [`LICENSES.md`](docs/legal/LICENSES.md) are licensed under **Apache License 2.0 (`Apache-2.0`)**, only where the component map and source headers say so.
+- **Third-party components, dependencies, models, datasets, fonts, and generated assets** remain under their own licenses. They are not relicensed by this notice; see [`docs/legal/THIRD_PARTY_NOTICES.md`](docs/legal/THIRD_PARTY_NOTICES.md).
+- **Project names, logos, and marks** are not licensed for endorsement or branding use by this notice. See [`TRADEMARKS.md`](docs/legal/TRADEMARKS.md).
 
 ## Full license texts
 
@@ -20,7 +20,7 @@ The files above contain the full, unmodified license texts. Do not replace them 
 
 ## Commercial licensing
 
-A separate commercial license may be available for eligible components, subject to a written agreement with the copyright holder. A commercial notice is not a modification of the AGPL or Apache license and does not remove rights already granted under an earlier open-source release. See [`COMMERCIAL_LICENSE_NOTICE.md`](COMMERCIAL_LICENSE_NOTICE.md).
+A separate commercial license may be available for eligible components, subject to a written agreement with the copyright holder. A commercial notice is not a modification of the AGPL or Apache license and does not remove rights already granted under an earlier open-source release. See [`COMMERCIAL_LICENSE_NOTICE.md`](docs/legal/COMMERCIAL_LICENSE_NOTICE.md).
 
 ## No warranty
 

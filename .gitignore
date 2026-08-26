@@ -33,6 +33,9 @@ build/
 *.before-*
 *.tmp
 reports/pytest-basetemp/
+# Portable reality output is generated evidence, not tracked source.
+reports/reality/*.json
+!reports/reality/README.md
 SCP_CODE_STRUCTURE_DETAILED.*
 _scp_*
 _inspect_*

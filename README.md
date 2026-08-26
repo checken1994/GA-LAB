@@ -1,7 +1,7 @@
 # SCP — Structured Constraint Protocol
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI: SCP Release Gate](https://img.shields.io/github/actions/workflow/status/checken1994/GA-LAB/scp-release-gate.yml?label=SCP%20Release%20Gate)](https://github.com/checken1994/GA-LAB/actions/workflows/scp-release-gate.yml)
+[![CI: SCP Release Gate](https://img.shields.io/badge/CI-SCP%20Release%20Gate-blue.svg)](https://github.com/checken1994/GA-LAB/actions/workflows/scp-release-gate.yml)
 [![Status: Agent Runtime Candidate](https://img.shields.io/badge/status-Agent%20Runtime%20Candidate-orange.svg)](#trạng-thái-hiện-tại)
 
 > **SCP là một dự án nghiên cứu về lớp control/runtime cho AI agent: giới hạn quyền, ghi bằng chứng, kiểm tra kết quả và xử lý trạng thái không chắc chắn.**
@@ -125,7 +125,7 @@ Profile runtime trên PC sử dụng Windows Task Scheduler cho `SCP-247-Supervi
 | SCP API | `8002` | Canonical backend loopback |
 | Ollama | `11434` | External local model dependency |
 
-Tại thời điểm cập nhật README ngày 27/08/2026, commit được đánh giá là `83bf46b8bf78d48c7c660c117ca7efb18f7afdf8`. Bounded recovery evidence cho việc khởi động lại Ollama sau process kill gồm một cycle đạt 17 giây và một run ba cycle đạt 11/18/18 giây; supervisor vẫn chạy, các listener được kiểm tra lại và hourly monitor trả `PASS` trong phạm vi đó. GitHub Actions cũng có push release-gate run thành công cho commit này; lịch sử và artifact chính thức nằm trong GitHub Actions, không nên coi các con số snapshot này là SLO dài hạn.
+Bounded recovery evidence cho việc khởi động lại Ollama sau process kill đã được ghi trong các report/release artifacts tương ứng, gồm một cycle 17 giây và một run ba cycle 11/18/18 giây. Đây là evidence bounded của một snapshot cụ thể, không phải SLO dài hạn. README không đóng đinh commit hoặc số test tại đây; hãy xem [branch `main`](https://github.com/checken1994/GA-LAB/commits/main) và [GitHub Actions](https://github.com/checken1994/GA-LAB/actions) để lấy release evidence mới nhất.
 
 Đây là **bounded recovery evidence**, không phải chứng minh uptime liên tục. Những điều vẫn chưa được chứng minh gồm logoff, pre-logon/system-service, cold boot, sleep/hibernate, mất điện, disk-full, memory leak, SQLite corruption/busy kéo dài, log rotation, load/endurance nhiều ngày và mọi external-provider outage. Trên PC hiện tại, supervisor/recovery boundary vẫn nằm trong **interactive user-session scope**.
 
@@ -146,6 +146,20 @@ Hourly monitor là chương trình read-only: nó kiểm tra health/readiness, p
 | TOP 1 hoặc tốt hơn mọi AI/con người | `UNPROVEN` |
 
 > **Verdict tổng: `CANDIDATE_NOT_PROVEN`.** `PASS` trong một test chỉ có nghĩa là không phát hiện lỗi trong phạm vi, profile và dữ liệu của test đó.
+
+## Bố cục repository
+
+Root chỉ giữ entry guide, policy GitHub, cấu hình test và launcher tương thích. Code đang chạy nằm trong `scp/`, `dashboard/` và `mini-services/`; supervisor/monitor/harness hiện hành nằm trong `scripts/ops/`; maintenance helper nằm trong `scripts/maintenance/`; tài liệu và lịch sử nằm trong `docs/`; test nằm trong `tests/`; report/evidence nằm trong `reports/`.
+
+| Khu vực | Vai trò |
+|---|---|
+| [`docs/README.md`](docs/README.md) | Mục lục chung của tài liệu |
+| [`docs/architecture/REPOSITORY_LAYOUT.md`](docs/architecture/REPOSITORY_LAYOUT.md) | Hợp đồng bố cục canonical và quy tắc move |
+| `scripts/ops/` | Runtime supervisor, watchdog, monitor và harness active |
+| `scripts/maintenance/` | Migration/maintenance; patch one-off đã chuyển vào `legacy/` |
+| `reports/` | Evidence/report theo run và snapshot; không phải source |
+
+Không dùng số lượng file, thư mục hoặc tên “final” để suy ra release readiness. Xem [`docs/README.md`](docs/README.md) trước khi thêm tài liệu mới.
 
 ## Cài đặt và chạy API tối thiểu
 
@@ -189,7 +203,7 @@ Kiểm tra health:
 curl http://127.0.0.1:8002/health
 ```
 
-Để chạy bộ dịch vụ local đầy đủ, xem hướng dẫn nền tảng trong [`WINDOWS-README.md`](WINDOWS-README.md) và các launcher trong repository. Các launcher local không phải bằng chứng rằng deployment đã đạt production hoặc 24/7 độc lập đăng nhập.
+Để chạy bộ dịch vụ local đầy đủ, xem hướng dẫn nền tảng trong [`docs/guides/WINDOWS-README.md`](docs/guides/WINDOWS-README.md), bản đồ repository trong [`docs/architecture/REPOSITORY_LAYOUT.md`](docs/architecture/REPOSITORY_LAYOUT.md) và các launcher trong repository. Các launcher local không phải bằng chứng rằng deployment đã đạt production hoặc 24/7 độc lập đăng nhập.
 
 ## Kiểm thử và release gate
 
@@ -222,7 +236,7 @@ Snapshot hiện tại của branch `main`:
 | Trường | Giá trị |
 |---|---|
 | Repository | `checken1994/GA-LAB` |
-| Commit tại thời điểm cập nhật | `83bf46b8bf78d48c7c660c117ca7efb18f7afdf8` |
+| Branch cần kiểm tra | [`main`](https://github.com/checken1994/GA-LAB/tree/main) |
 | Python package version | `0.14.0` trong `scp/pyproject.toml` |
 | Release label | `Agent Runtime Candidate` |
 | Tổng verdict | `CANDIDATE_NOT_PROVEN` |
@@ -245,7 +259,7 @@ Trước khi gửi pull request, hãy đọc [`CONTRIBUTING.md`](CONTRIBUTING.md
 
 ## Giấy phép
 
-MIT License — xem [`LICENSE`](LICENSE). Các dependency bên thứ ba có thể có giấy phép riêng; xem [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+MIT License — xem [`LICENSE`](LICENSE). Các dependency bên thứ ba có thể có giấy phép riêng; xem [`docs/legal/THIRD_PARTY_NOTICES.md`](docs/legal/THIRD_PARTY_NOTICES.md).
 
 ## Trích dẫn
 
