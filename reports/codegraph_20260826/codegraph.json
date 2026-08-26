@@ -1,7 +1,7 @@
 {
   "schema_version": "scp-codegraph-v1",
-  "generated_at": "2026-08-26T07:42:49.039982+00:00",
-  "commit": "1131e4219b09e6bc4f0fe55330679809fbc44c55",
+  "generated_at": "2026-08-26T07:59:43.079688+00:00",
+  "commit": "cd3b97c22d1b3731f987a0c4a1427f2762262eb1",
   "source_root": "scp",
   "node_count": 451,
   "edge_count": 849,
