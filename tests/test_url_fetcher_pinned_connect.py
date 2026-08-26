@@ -3,7 +3,14 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
+import pytest
+
 from scp.core import url_fetcher
+
+
+@pytest.fixture(autouse=True)
+def _allow_local_fixture_egress(monkeypatch):
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allow")
 
 
 class _Handler(BaseHTTPRequestHandler):
