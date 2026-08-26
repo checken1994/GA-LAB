@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T18:40:21.796125+00:00",
-  "captured_commit": "38d8198709ade1655e271950ff4abce03b20a86f",
-  "captured_parent": "fb12015a164777636d1540a4589382cdbe6a5a49",
-  "captured_tree": "56bee1132b9680a41b30a5afc0646a4f2960fe71",
+  "generated_at_utc": "2026-08-26T18:51:13.604794+00:00",
+  "captured_commit": "c1e9f9d27b023a16f926f47dce7618f4e1d7da01",
+  "captured_parent": "4957d043e3f098a32e999c72d1ac41985afa3350",
+  "captured_tree": "7cfabcf41bfceee2f09a54beb202d7e25e299967",
   "tracked_count": 1321,
-  "inventory_sha256": "da17bf48a9dc1ddabf06a394e5a6eb4bf358b72d51773de0b5a32edb462ea69e",
+  "inventory_sha256": "23369a32c805de1b7565007b32ae0aee50b47ca8d587b9841f5d2fb94cd73396",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -6484,7 +6484,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a73e134a54e8a0eac71b80191b782e0052fa71c3",
+      "blob": "c709e0a79de3936af3fb08be90cf91286d60f84f",
       "path": "scripts/ops/scp_247_bounded_outage_test.ps1"
     },
     {
