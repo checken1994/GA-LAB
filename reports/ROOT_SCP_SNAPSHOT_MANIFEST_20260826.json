@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T07:44:21.777348+00:00",
-  "captured_commit": "dc0113fe4cf0fc8c7430122735d10d97d0dd3b38",
-  "captured_parent": "1131e4219b09e6bc4f0fe55330679809fbc44c55",
-  "captured_tree": "086aedc9bd4c09c2a35513793f214cb48e362d52",
-  "tracked_count": 1274,
-  "inventory_sha256": "cf8ef226914b5e9906b96e9fc4dde7b76d606a26b695ce710b1dbb20ab20fe0d",
+  "generated_at_utc": "2026-08-26T08:09:55.374021+00:00",
+  "captured_commit": "05903302b981061704951c2467a7b7c8d6fa5571",
+  "captured_parent": "8c000d9ec8e1c03141f3b187fa31ea4503e6302f",
+  "captured_tree": "868d23aadb5daa9616e517b7e229f8434359ab40",
+  "tracked_count": 1283,
+  "inventory_sha256": "6f0f68d514f6aa169b4d2754cfb04e85e25b8143b89290e3fa2a24211c59aaf0",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2374,6 +2374,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "cf1e968947aa6484bec9159de8a7f308340a5ea6",
+      "path": "reports/CODEGRAPH_FEATURE_COMPLETION_V2.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "e381375f0d259aff2c4e357bc56f869f53c8edcd",
       "path": "reports/CURRENT_CODEGRAPH_429_RAG_AUDIT_V1.md"
     },
@@ -2650,7 +2656,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "02af93bfeee6433f0fec3f9d8a2a15908df304e7",
+      "blob": "e2e352acf9d9b575f3a8b8ed8d828d179be11911",
       "path": "reports/codegraph_20260826/codegraph.json"
     },
     {
@@ -2680,8 +2686,26 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "465323a8a8141ea344f990da41e73ea5512193ab",
+      "blob": "1c6c9f1e793e4d97bb0f5a961a5edfb85d72346e",
       "path": "reports/codegraph_20260826/codegraph_summary.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ba3555fa35dc012b9606ff8b8f13e31e007401cb",
+      "path": "reports/codegraph_20260826/feature_evidence_coverage.png"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8fdfcb887c26f35f8f375c276765bad6f34ce9c3",
+      "path": "reports/codegraph_20260826/feature_maturity_counts.png"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "78f58550c330221bfce2809e80ce6a148d7ca28b",
+      "path": "reports/codegraph_20260826/nodes_by_segment.png"
     },
     {
       "mode": "100644",
@@ -2962,6 +2986,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "75a4e0eca2b599327f9c140fac8d2c74774fe1d2",
+      "path": "reports/scp_feature_completion_matrix_v2.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "891cd629a73c204984715901d8bd3853d0d17198",
       "path": "run_reality_tests_portable.py"
     },
@@ -3088,7 +3118,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "86b28147815c33e789f968518e2b46892c7c0c49",
+      "blob": "638c1bf88e84e5513e3cebd888915c183484e80d",
       "path": "scp/api/routes/hands_routes.py"
     },
     {
@@ -4804,7 +4834,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4ecf59963fb8475a6825e72c61480f8e5e6e852f",
+      "blob": "8f281f52afd6884fc1ec0c5816d7f018febe99b5",
       "path": "scp/hands/hands_executor.py"
     },
     {
@@ -5754,6 +5784,12 @@
       "type": "blob",
       "blob": "920e54f4c6d470523779e11e45b98fb3df3f26c4",
       "path": "scp/security/canary_monitor.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "103fb3c6dd69aa19d5d691a1b5aadadfe23462e5",
+      "path": "scp/security/capability_epoch.py"
     },
     {
       "mode": "100644",
@@ -7096,6 +7132,18 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "dac1243dfe7e674037b65393082a422f22d70aa7",
+      "path": "tests/test_capability_epoch.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e5aacc482609d0609e168ad8214dfd3bf42714b2",
+      "path": "tests/test_capability_epoch_api.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "62b6e8e525d765012b49589b380e63eb46ee573d",
       "path": "tests/test_chat_multimodal_contract.py"
     },
@@ -7548,6 +7596,12 @@
       "type": "blob",
       "blob": "5fd8b42ed9fb3842e3f7bad7d252362704b7bd88",
       "path": "tools/patch_retriever_quality_v1.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "57a7b0f4b27cb54e445dc0cc57eed40a389236b0",
+      "path": "tools/plot_codegraph_feature_completion.py"
     },
     {
       "mode": "100644",
