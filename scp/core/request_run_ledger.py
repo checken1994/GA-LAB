@@ -21,6 +21,8 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
 
+from .trace_contract import TraceSpanContract
+
 try:
     from fastapi import HTTPException
 except Exception:  # pragma: no cover - keeps the module importable outside FastAPI
@@ -98,6 +100,7 @@ class RequestRunLedger:
             ledger_path = Path.cwd() / ledger_path
         self.path = ledger_path
         self._lock = threading.RLock()
+        self.trace_contract = TraceSpanContract(self)
 
     def _append(self, row: dict[str, Any]) -> bool:
         try:
@@ -124,6 +127,16 @@ class RequestRunLedger:
             "metadata": run.metadata,
             "status": status,
             **fields,
+        }
+        return self._append(row)
+
+    def _event_by_identity(self, trace_id: str, event: str, payload: dict[str, Any]) -> bool:
+        """Persist a bounded span event when only trace identity is available."""
+        row = {
+            "event": event,
+            "trace_id": str(trace_id)[:120],
+            "ts_utc": _utc_now(),
+            **payload,
         }
         return self._append(row)
 
@@ -158,7 +171,21 @@ class RequestRunLedger:
         return RequestRun(**{**run.__dict__, "ledger_write_ok": received_ok and running_ok})
 
     def stage(self, run: RequestRun, stage: str, status: str = "RUNNING", **fields: Any) -> bool:
-        return self._event(run, "stage", status, stage=stage, **fields)
+        ok = self._event(run, "stage", status, stage=stage, **fields)
+        try:
+            span = self.trace_contract.start(
+                trace_id=run.trace_id,
+                name=str(stage),
+                kind="request.stage",
+                parent_id=self.trace_contract.active_parent_id(run.trace_id),
+                attributes={"run_id": run.run_id, "status": status, **fields},
+            )
+            span_status = "OK" if status in {"RUNNING", "RECEIVED", "AUDIT_READY", "SUCCESS"} else ("UNKNOWN" if status == "UNKNOWN" else "ERROR")
+            self.trace_contract.finish(span, status=span_status, attributes={"terminal_status": status})
+        except (OSError, RuntimeError, TypeError, ValueError):
+            # The request ledger remains authoritative; tracing is observability only.
+            pass
+        return ok
 
     def finish(self, run: RequestRun, status: str, *, result: Any = None, error: BaseException | None = None, **fields: Any) -> tuple[str, bool]:
         if status not in TERMINAL_STATUSES:
@@ -295,6 +322,18 @@ def traced_request(ledger: RequestRunLedger, require_write: bool = False, action
                 req = args[0]
             effective_risk = risk_class if risk_class != "unknown" else ("high" if require_write else "normal")
             run = ledger.begin(req, action=action, risk_class=effective_risk, policy_version=policy_version, decision_source=decision_source)
+            root_span = None
+            try:
+                root_span = ledger.trace_contract.start(
+                    trace_id=run.trace_id,
+                    name=getattr(func, "__name__", "request"),
+                    kind="http.request",
+                    attributes={"run_id": run.run_id, "source": run.source, "domain": run.domain, "action": action},
+                    input_value=next((getattr(req, name, None) for name in ("question", "prompt", "message", "command", "content") if getattr(req, name, None) is not None), None),
+                )
+            except (OSError, TypeError, ValueError):
+                # Observability must not turn a normal API request into a failure.
+                root_span = None
             http_request = kwargs.get("request")
             if http_request is None and len(args) > 1:
                 http_request = args[1]
@@ -307,6 +346,11 @@ def traced_request(ledger: RequestRunLedger, require_write: bool = False, action
             if require_write and not run.ledger_write_ok:
                 exc = HTTPException(status_code=503, detail="Audit ledger unavailable; high-risk action blocked")
                 ledger.finish(run, "DB_WRITE_FAILED", error=exc, action=str(action)[:100])
+                if root_span is not None:
+                    try:
+                        ledger.trace_contract.finish(root_span, status="ERROR", error=exc)
+                    except (OSError, RuntimeError, TypeError, ValueError):
+                        pass
                 raise exc
             if require_write:
                 ledger.stage(run, "high_risk_guard", "AUDIT_READY", action=str(action)[:100])
@@ -317,11 +361,22 @@ def traced_request(ledger: RequestRunLedger, require_write: bool = False, action
                 # A successful terminal append is the only basis for SUCCESS.
                 if status == "SUCCESS" and terminal_status == "DB_WRITE_FAILED":
                     status = "DB_WRITE_FAILED"
+                if root_span is not None:
+                    try:
+                        span_status = "OK" if status == "SUCCESS" else ("UNKNOWN" if status == "UNKNOWN" else "ERROR")
+                        ledger.trace_contract.finish(root_span, status=span_status, output_value=result)
+                    except (OSError, RuntimeError, TypeError, ValueError):
+                        pass
                 return ledger.attach(result, run, status, write_ok)
             except BaseException as exc:
                 status = ledger.classify_error(exc)
                 terminal_status, write_ok = ledger.finish(run, status, error=exc)
                 # Do not hide the original API exception; ledger exposes the failure.
+                if root_span is not None:
+                    try:
+                        ledger.trace_contract.finish(root_span, status="ERROR", error=exc)
+                    except (OSError, RuntimeError, TypeError, ValueError):
+                        pass
                 _ = terminal_status
                 _ = write_ok
                 raise

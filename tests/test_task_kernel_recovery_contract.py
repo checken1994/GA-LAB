@@ -1,8 +1,8 @@
 import multiprocessing
 import os
 import sqlite3
-import time
 import threading
+import time
 
 import pytest
 
@@ -57,9 +57,9 @@ def test_worker_process_crash_after_checkpoint_recovers_safely(tmp_path):
     kernel = TaskKernel(db)
     queue_task(kernel)
     kernel.close()
-    parent_pipe, child_pipe = multiprocessing.Pipe(duplex=False)
-    ready = multiprocessing.Event()
     context = multiprocessing.get_context("spawn")
+    parent_pipe, child_pipe = context.Pipe(duplex=False)
+    ready = context.Event()
     worker = context.Process(target=_crash_after_checkpoint, args=(str(db), child_pipe, ready))
     worker.start()
     assert ready.wait(20)
@@ -118,7 +118,7 @@ def test_concurrent_idempotency_claim_has_single_winner(tmp_path):
         barrier.wait()
         try:
             results.append(kernel.idempotency_claim("task", "read", "context.read", "same-input"))
-        except Exception as exc:
+        except (KernelError, sqlite3.Error) as exc:
             results.append(type(exc).__name__)
 
     threads = [threading.Thread(target=claim, args=(kernel,)) for kernel in kernels]
