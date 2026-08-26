@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T09:28:07.594387+00:00",
-  "captured_commit": "37aeb0e4849768add9cda98840043c90f76cbcc8",
-  "captured_parent": "dd6df2422302bdeb7c945a597a8c68f40b5f7bb1",
-  "captured_tree": "52548b6ec4288f586ad361e2f8e31ed0e0642b9e",
-  "tracked_count": 1293,
-  "inventory_sha256": "df01fb3f0947822ac69a65815622a10f4070a20114cf0160b696eacc6d28f74c",
+  "generated_at_utc": "2026-08-26T09:59:48.243891+00:00",
+  "captured_commit": "af6d15762e42d3755f8c1a2892530ec4c8368680",
+  "captured_parent": "598f4c8439591fd443a288606013b5c9ec3e8fee",
+  "captured_tree": "078757e2309669e7116dd293c85ccd06d5fcfd80",
+  "tracked_count": 1295,
+  "inventory_sha256": "fb4ebc692e44ba00060329e5f93b521cfb9fc354cc85ec746de55d02875c68f7",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2386,7 +2386,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ade524ee739dbe29d71d8a146e9db1da38d5b3e0",
+      "blob": "f5c56943edc93d0f4103d540736e97d6f5a5416c",
       "path": "reports/CURRENT_CODEGRAPH_429_RAG_AUDIT_V2.md"
     },
     {
@@ -2794,6 +2794,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "2a2fb19b283afe502af7b276110efd97d08d14a6",
+      "path": "reports/full_system_smoke_20260826_request_ledger_fix.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "5d0f30932e782d3b42c988820b2804f95516512e",
       "path": "reports/phase3_proof_gap_matrix_v1.json"
     },
@@ -3004,7 +3010,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "116b8d14ab6299499f0c8a7e0514f959926ed978",
+      "blob": "719bc9c6ff647c175144c116923248b37b106397",
       "path": "reports/scp_feature_completion_matrix_v2.json"
     },
     {
@@ -4318,7 +4324,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "368fa1261a378258007ff57b28604e3fc67a386f",
+      "blob": "1645675897cadd30384f056df9cc23dc0dc7d8a6",
       "path": "scp/core/request_run_ledger.py"
     },
     {
@@ -7374,6 +7380,12 @@
       "type": "blob",
       "blob": "9e24d013f994257ff42b3aba44a0532a807e1f30",
       "path": "tests/test_release_contracts.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ebda9bfd1d89e32165f8c39533c79f3353e4c827",
+      "path": "tests/test_request_ledger_result_classification.py"
     },
     {
       "mode": "100644",
