@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 from scp.pc_control.pc_controller import CapabilityLevel, PCController
+from scp.security.capability_epoch import CapabilityAuthority, CapabilityRevokedError, CapabilityToken
 from scp.web_control.web_navigator import WebNavigator
 
 from .action_registry import ActionDefinition, ActionRegistry
@@ -37,7 +38,7 @@ class _LinkParser(HTMLParser):
 class HandsExecutor:
     """Execute only registered actions and produce evidence for every result."""
 
-    def __init__(self, controller: PCController | None = None, navigator: WebNavigator | None = None) -> None:
+    def __init__(self, controller: PCController | None = None, navigator: WebNavigator | None = None, capability_authority: CapabilityAuthority | None = None) -> None:
         project_root = Path(__file__).resolve().parents[2]
         self.controller = controller or PCController()
         self.navigator = navigator or WebNavigator()
@@ -49,6 +50,7 @@ class HandsExecutor:
         self.backup_dir = self.data_dir / "backups"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self.capability_authority = capability_authority or CapabilityAuthority(self.data_dir / "capability_state.json")
 
     def _audit(self, event: str, payload: dict[str, Any]) -> None:
         record = {"timestamp": time.time(), "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "event": event, **payload}
@@ -63,7 +65,9 @@ class HandsExecutor:
         self._audit("CHECKPOINT_CREATED", record)
         return checkpoint_id
 
-    def _check_capability(self, definition: ActionDefinition, capability_level: int, approved: bool) -> tuple[bool, str]:
+    def _check_capability(self, definition: ActionDefinition, capability_level: int, approved: bool, capability_token: CapabilityToken | None) -> tuple[bool, str]:
+        if not self.capability_authority.validate(capability_token):
+            return False, "Capability token is revoked or stale"
         if self.controller.kill_switch_engaged():
             return False, "Kill switch is engaged"
         if capability_level < definition.capability_level:
@@ -100,26 +104,34 @@ class HandsExecutor:
         passed = bool(result.get("success"))
         return {"success": passed, "evidence": evidence, "verification": {"passed": passed, "rule": definition.verifier}, "error": result.get("error", "")}
 
-    async def execute(self, action: str, params: dict[str, Any] | None = None, capability_level: int = 0, approved: bool = False, dry_run: bool = False) -> dict[str, Any]:
+    async def execute(self, action: str, params: dict[str, Any] | None = None, capability_level: int = 0, approved: bool = False, dry_run: bool = False, capability_token: CapabilityToken | None = None) -> dict[str, Any]:
         params = params or {}
         started = time.perf_counter()
+        try:
+            capability_token = capability_token or self.capability_authority.issue(f"hands:{action}")
+        except CapabilityRevokedError as exc:
+            result = {"success": False, "action": action, "error": str(exc), "verification": {"passed": False}}
+            self._audit("ACTION_BLOCKED_CAPABILITY_REVOKED", result)
+            return result
         try:
             definition = self.registry.require(action)
         except KeyError as exc:
             result = {"success": False, "action": action, "error": str(exc), "verification": {"passed": False}}
             self._audit("ACTION_BLOCKED", result)
             return result
-        allowed, reason = self._check_capability(definition, capability_level, approved)
+        allowed, reason = self._check_capability(definition, capability_level, approved, capability_token)
         if not allowed:
             result = {"success": False, "action": action, "error": reason, "policy": definition.public(), "verification": {"passed": False}}
             self._audit("ACTION_BLOCKED", result)
             return result
         if dry_run:
-            result = {"success": True, "dryRun": True, "action": action, "policy": definition.public(), "verification": {"passed": True, "rule": "dry-run-only"}}
+            result = {"success": True, "dryRun": True, "action": action, "policy": definition.public(), "capabilityEpoch": capability_token.epoch, "verification": {"passed": True, "rule": "dry-run-only"}}
             self._audit("ACTION_DRY_RUN", result)
             return result
         try:
-            if action == "pc.status":
+            if not self.capability_authority.validate(capability_token):
+                result = {"success": False, "error": "Capability revoked before dispatch", "verification": {"passed": False}}
+            elif action == "pc.status":
                 status_data = self.controller.status()
                 result = {"success": True, "data": status_data, "evidence": {"controller": status_data.get("controller")}, "verification": {"passed": status_data.get("controller") == "online", "rule": definition.verifier}}
             elif action == "pc.read_file":
@@ -305,11 +317,17 @@ class HandsExecutor:
                 result = {"success": False, "error": "Action implementation missing"}
         except Exception as exc:
             result = {"success": False, "error": f"Executor error: {exc}", "verification": {"passed": False}}
-        result.update({"action": action, "durationMs": round((time.perf_counter() - started) * 1000), "policy": definition.public()})
+        result.update({"action": action, "durationMs": round((time.perf_counter() - started) * 1000), "policy": definition.public(), "capabilityEpoch": capability_token.epoch})
         self._audit("ACTION_EXECUTED" if result.get("success") else "ACTION_FAILED", result)
         return result
 
-    async def rollback(self, checkpoint_id: str, capability_level: int = 3, approved: bool = False) -> dict[str, Any]:
+    async def rollback(self, checkpoint_id: str, capability_level: int = 3, approved: bool = False, capability_token: CapabilityToken | None = None) -> dict[str, Any]:
+        try:
+            capability_token = capability_token or self.capability_authority.issue("hands:rollback")
+        except CapabilityRevokedError as exc:
+            return {"success": False, "error": str(exc)}
+        if not self.capability_authority.validate(capability_token):
+            return {"success": False, "error": "Capability token is revoked or stale"}
         if self.controller.kill_switch_engaged():
             return {"success": False, "error": "Kill switch is engaged"}
         if capability_level < CapabilityLevel.WORKSPACE or not approved:
@@ -347,6 +365,19 @@ class HandsExecutor:
             self._audit("ROLLBACK_FAILED", result)
             return result
 
+    def capability_status(self) -> dict[str, Any]:
+        return self.capability_authority.status()
+
+    def revoke_capabilities(self, reason: str = "operator_revoke", actor: str = "operator") -> dict[str, Any]:
+        result = self.capability_authority.revoke(reason=reason, actor=actor)
+        self._audit("CAPABILITIES_REVOKED", result)
+        return result
+
+    def restore_capabilities(self, reason: str = "operator_restore", actor: str = "operator") -> dict[str, Any]:
+        result = self.capability_authority.restore(reason=reason, actor=actor)
+        self._audit("CAPABILITIES_RESTORED", result)
+        return result
+
     def status(self) -> dict[str, Any]:
         audit_entries = 0
         checkpoint_entries = 0
@@ -355,4 +386,4 @@ class HandsExecutor:
         if self.checkpoint_path.exists():
             checkpoint_entries = sum(1 for _ in self.checkpoint_path.open("r", encoding="utf-8"))
         owned = self.processes.list_owned()
-        return {"version": "3.5", "hands": "online", "actionCount": len(self.registry.list()), "auditEntries": audit_entries, "checkpoints": checkpoint_entries, "managedProcessCount": owned.get("count", 0), "killSwitch": self.controller.kill_switch_engaged(), "policy": "explicit registry + capability + approval + ownership + DOM verifier + audit"}
+        return {"version": "3.5", "hands": "online", "actionCount": len(self.registry.list()), "auditEntries": audit_entries, "checkpoints": checkpoint_entries, "managedProcessCount": owned.get("count", 0), "killSwitch": self.controller.kill_switch_engaged(), "capability": self.capability_status(), "policy": "explicit registry + capability epoch + approval + ownership + DOM verifier + audit"}

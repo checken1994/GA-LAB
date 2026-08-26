@@ -21,6 +21,10 @@ _planner = HandsPlanner(_hands)
 _goal_parser = GoalParser(_planner)
 
 
+class CapabilityControlRequest(BaseModel):
+    reason: str = Field(default="operator_control", min_length=1, max_length=256)
+
+
 class HandsActionRequest(BaseModel):
     action: str = Field(min_length=3, max_length=64)
     params: dict[str, Any] = Field(default_factory=dict)
@@ -89,6 +93,27 @@ async def hands_status(request: Request, x_scp_pc_token: str | None = Header(def
     result["planner"] = _planner.status()
     result["plannerVersion"] = "3.7"
     return result
+
+
+@router.get("/capabilities")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="hands_capability_status")
+async def hands_capability_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+    _guard(request, x_scp_pc_token)
+    return {"success": True, "capability": _hands.capability_status()}
+
+
+@router.post("/capabilities/revoke")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_capability_revoke")
+async def hands_capability_revoke(payload: CapabilityControlRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+    _guard(request, x_scp_pc_token)
+    return {"success": True, "capability": _hands.revoke_capabilities(payload.reason, "operator")}
+
+
+@router.post("/capabilities/restore")
+@traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_capability_restore")
+async def hands_capability_restore(payload: CapabilityControlRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+    _guard(request, x_scp_pc_token)
+    return {"success": True, "capability": _hands.restore_capabilities(payload.reason, "operator")}
 
 
 @router.get("/actions")
