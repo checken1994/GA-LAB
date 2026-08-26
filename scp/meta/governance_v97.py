@@ -25,7 +25,7 @@ from .constitution import Constitution, PrincipleId, get_default_constitution
 # in reality both governance_v97.py and antibody_system.py hardcoded strings
 # "critical"/"high"/"medium". Now both modules import from severity.py so
 # severity strings cannot drift out of sync.
-from .severity import CRITICAL_SEVERITIES, Severity
+from .severity import CRITICAL_SEVERITIES, Severity, normalize_severity
 
 logger = logging.getLogger(__name__)
 
@@ -96,28 +96,32 @@ class Governance:
 
         # 1) collect antibody results (if passed in verdict).
         antibody_results: list[dict[str, Any]] = verdict.get("antibody_results", []) or []
-        severities = [r.get("severity", "info") for r in antibody_results if not r.get("passed", True)]
-        triggered_by = [r.get("antibody", "?") for r in antibody_results if not r.get("passed", True)]
+        failed_results = [r for r in antibody_results if not r.get("passed", True)]
+        raw_severities = [r.get("severity", "info") for r in failed_results]
+        # Normalize at the policy boundary. Unknown values stay visible as
+        # None and are handled fail-closed below; they must never mean INFO.
+        severities = [normalize_severity(raw) for raw in raw_severities]
+        unknown_severities = sorted({str(raw) for raw, normalized in zip(raw_severities, severities) if normalized is None})
+        triggered_by = [r.get("antibody", "?") for r in failed_results]
 
         principle_violations: list[str] = []
         action = GovernanceAction.UPHOLD
         reason = "All antibodies passed; council confidence acceptable."
         conf = float(verdict.get("confidence", council_confidence))
 
-        # [ROOT-FIX Task 38-A / Issue 1] Use Severity enum from scp.meta.severity
-        # instead of hardcoded strings. Severity is a `str, Enum` so
-        # `Severity.CRITICAL == "critical"` (True) — behavior preserved, but
-        # severity strings now have a single source of truth.
-        has_critical = any(s == Severity.CRITICAL for s in severities)
-        has_high = any(s == Severity.HIGH for s in severities)
-        has_medium = any(s == Severity.MEDIUM for s in severities)
-        # Defensive: any CRITICAL_SEVERITIES member (CRITICAL or HIGH) flags
-        # the "kill-capable" path. Currently used only for metadata — see
-        # decision branches below which still distinguish CRITICAL vs HIGH
-        # to preserve ESCALATE-on-HIGH semantics (DNA #5).
-        _has_kill_severity = any(  # noqa: F841 — metadata sentinel (see comment above: "currently used only for metadata")
-            s in CRITICAL_SEVERITIES for s in severities
-            if s in Severity._value2member_map_
+        # [ROOT-FIX Task 38-A / Issue 1] Use canonical Severity values at the
+        # policy boundary. A failed result is independently unsafe to uphold,
+        # even when its provider label is low/info/unknown.
+        has_critical = any(s == Severity.CRITICAL.value for s in severities)
+        has_high = any(s == Severity.HIGH.value for s in severities)
+        has_medium = any(s == Severity.MEDIUM.value for s in severities)
+        has_unknown_severity = any(s is None for s in severities)
+        has_unresolved_failure = bool(failed_results)
+        # Defensive metadata sentinel: CRITICAL/HIGH remain the kill-capable
+        # severity set, while branches below distinguish them explicitly.
+        _kill_severity_values = {member.value for member in CRITICAL_SEVERITIES}
+        _has_kill_severity = any(  # noqa: F841 — audit sentinel
+            s in _kill_severity_values for s in severities
         )
 
         # 2) principle violation mapping
@@ -151,7 +155,9 @@ class Governance:
                 final_verdict="UNKNOWN — insufficient evidence",
                 confidence=conf, principle_violations=principle_violations,
                 triggered_by=triggered_by,
-                metadata={"severities": severities, "council_confidence": council_confidence,
+                metadata={"severities": severities, "unknown_severities": unknown_severities,
+                          "failed_antibody_count": len(failed_results),
+                          "council_confidence": council_confidence,
                           "council_escalation": council_escalation, "plugin_flags": plugin_flags}
             )
         _constitution_kill = False
@@ -187,12 +193,21 @@ class Governance:
         elif has_high:
             action = GovernanceAction.ESCALATE
             reason = "HIGH severity failure — escalate for human review."
-        elif has_medium and council_confidence < self.council_conf_low:
+        elif has_medium:
             action = GovernanceAction.ESCALATE
-            reason = "MEDIUM severity with low council confidence."
+            reason = "MEDIUM severity failure — escalate for human review."
         elif conf < self.kill_conf_threshold:
             action = GovernanceAction.KILL
             reason = f"Confidence {conf:.2f} below kill threshold {self.kill_conf_threshold}."
+        # Any failed antibody without a recognized blocking severity must still
+        # be visible to a human. This closes the previous error/warning →
+        # UPHOLD fall-through while preserving CRITICAL/HIGH/MEDIUM precedence.
+        elif has_unknown_severity or has_unresolved_failure:
+            action = GovernanceAction.ESCALATE
+            if unknown_severities:
+                reason = f"Unknown antibody severity {unknown_severities!r} — escalate fail-closed."
+            else:
+                reason = "Antibody failure without a blocking severity — escalate fail-closed."
 
         # 4) final verdict string
         final_verdict = self._final_verdict(action, conf, principle_violations, verdict)
@@ -206,6 +221,8 @@ class Governance:
             triggered_by=triggered_by,
             metadata={
                 "severities": severities,
+                "unknown_severities": unknown_severities,
+                "failed_antibody_count": len(failed_results),
                 "council_confidence": round(float(council_confidence), 4),
                 "council_escalation": council_escalation,
                 "plugin_flags": plugin_flags,

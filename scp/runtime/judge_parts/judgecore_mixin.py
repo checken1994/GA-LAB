@@ -35,6 +35,7 @@ from scp.core.db_manager import (
 )
 from scp.core.evidence_filter import filter_slm_responses
 from scp.runtime.judge_parts.types import JudgeVerdict, _AllowedByWatchlist
+from scp.meta.severity import Severity
 
 # [Task 19-C] TYPE_CHECKING import — RealityJudge is the parent class that
 # mixes in JudgeCoreMixin. Referencing it directly (self._extract_value)
@@ -76,6 +77,28 @@ def _get_multi_llm_checker():
 
 
 # [V104.42 #AH] Internal signal — source passed watchlist check, proceed to INSERT
+
+def _build_governance_antibody_results(slm_responses: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Translate SLM response records into Governance's canonical format.
+
+    Provider records use ``error`` as a transport/status field, whereas
+    Governance consumes policy severities. The adapter must therefore emit a
+    canonical ``Severity`` value and keep failures as ``passed=False``.
+    """
+    results: list[dict[str, Any]] = []
+    for response in slm_responses or []:
+        has_error = "error" in response
+        confidence = response.get("confidence", 0.0)
+        results.append({
+            "passed": has_error is False and confidence >= 0.5,
+            "severity": Severity.MEDIUM.value if has_error else (
+                Severity.WARNING.value if confidence < 0.5 else Severity.INFO.value
+            ),
+            "antibody": response.get("antibody_name", response.get("slm_name", "unknown")),
+            "details": response.get("details", response.get("error", response.get("reasoning", ""))),
+        })
+    return results
+
 
 # ============================================================
 # JUDGE VERDICT
@@ -2100,23 +2123,10 @@ class JudgeCoreMixin:
         # [V97] Governance — apply UPHOLD/KILL/ESCALATE decision
         if self.governance:
             try:
-                # Build antibody_results format cho Governance
-                # [FIX #10] Empty SLM answer is NOT antibody failure
-                ab_results = []
-                # [FIX #4] Use REAL antibody results, not hardcoded passed=True
-                # [BUGFIX-FALSE-POS-FIX-3] fallback_risk: r.get("passed", True) was ALWAYS
-                # returning True because SLM response dicts (lines 601-615) never include
-                # "passed" or "severity" keys. This meant governance ALWAYS saw passed=True
-                # → KILL/ESCALATE was effectively bypassed. Now derive from available fields:
-                for r in verdict.slm_responses:
-                    _has_error = "error" in r
-                    _conf = r.get("confidence", 0.0)
-                    ab_results.append({
-                        "passed": _has_error is False and _conf >= 0.5,  # fail-closed: error/low-conf = NOT passed
-                        "severity": "error" if _has_error else ("warning" if _conf < 0.5 else "info"),
-                        "antibody": r.get("antibody_name", r.get("slm_name", "unknown")),
-                        "details": r.get("details", r.get("error", r.get("reasoning", ""))),
-                    })
+                # Build antibody_results from the actual SLM records. The
+                # adapter is a tested boundary; it never silently marks errors
+                # as passed and emits only canonical policy severities.
+                ab_results = _build_governance_antibody_results(verdict.slm_responses)
                 gov_decision = self.governance.decide(
                     ctx={"domain": verdict.domain, "session_id": ""},
                     verdict={
