@@ -458,6 +458,7 @@ try {
     }
 
     $restartHistory = @{}
+    $ollamaRestartHistory = @()
     $runtime = @{}
     foreach ($service in $services) {
         $runtime[$service.Name] = Start-ScpService $service
@@ -472,6 +473,26 @@ try {
             Write-Ledger -Event 'KILL_SWITCH' -Reason 'operator_file_present'
             foreach ($service in $services) { Stop-ScpService $runtime[$service.Name] 'kill_switch' }
             break
+        }
+        $ollamaHealthy = $DryRun -or (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))
+        if ($ollamaHealthy) {
+            if ($ollamaRestartHistory.Count -gt 0) {
+                Write-Ledger -Event 'CIRCUIT_CLOSED' -Service 'ollama' -Reason 'external_dependency_recovered' -Extra @{ cleared_restart_count = $ollamaRestartHistory.Count }
+                $ollamaRestartHistory = @()
+            }
+        } else {
+            $ollamaNow = [DateTime]::UtcNow
+            $ollamaRestartHistory = @($ollamaRestartHistory | Where-Object { ($ollamaNow - $_).TotalSeconds -lt $RestartWindowSeconds })
+            if ($ollamaRestartHistory.Count -ge $MaxRestartsPerWindow) {
+                Write-Ledger -Event 'CIRCUIT_OPEN' -Service 'ollama' -Reason 'external_dependency_restart_budget_exhausted' -Extra @{ restart_count = $ollamaRestartHistory.Count }
+            } else {
+                $ollamaRestartHistory += $ollamaNow
+                if (Start-ExternalOllamaIfNeeded) {
+                    Write-Ledger -Event 'OLLAMA_RECOVERED' -Service 'ollama' -Reason 'external_dependency_health_restored' -Extra @{ restart_count = $ollamaRestartHistory.Count }
+                } else {
+                    Write-Ledger -Event 'OLLAMA_RECOVERY_FAILED' -Service 'ollama' -Reason 'external_dependency_unhealthy' -Extra @{ restart_count = $ollamaRestartHistory.Count }
+                }
+            }
         }
         foreach ($service in $services) {
             $entry = $runtime[$service.Name]

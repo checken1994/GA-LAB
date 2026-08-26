@@ -23,3 +23,12 @@ def test_dashboard_receives_scheduler_admin_boundary():
     assert "'dashboard'))" in supervisor
     assert "$env:SCP_SCHEDULER_ADMIN_TOKEN = $adminToken" in supervisor
     assert "$env:SCP_SCHEDULER_ADMIN_TOKEN_FILE = $AdminTokenFile" in supervisor
+
+
+def test_supervisor_recovers_external_ollama_with_budget():
+    root = Path(__file__).resolve().parents[1]
+    supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
+    assert "$ollamaHealthy = $DryRun -or (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))" in supervisor
+    assert "'OLLAMA_RECOVERED'" in supervisor
+    assert "'OLLAMA_RECOVERY_FAILED'" in supervisor
+    assert "'external_dependency_restart_budget_exhausted'" in supervisor
