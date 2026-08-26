@@ -31,7 +31,7 @@ h11==0.16.0
 certifi==2025.8.3
 charset-normalizer==3.4.3
 idna==3.11
-urllib3==2.5.0  # [V4-AUDIT] fix 4 critical CVEs (2.5.4 was a typo — does not exist on PyPI)
+urllib3==2.7.0  # Security fixes for affected streaming/proxy redirect usages; see official advisories.
 
 # === Environment configuration (REQUIRED) ===
 # Verified: autofix/runner.py dùng `from dotenv import load_dotenv` (unconditional

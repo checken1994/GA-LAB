@@ -34,19 +34,19 @@ TẠI SAO this module exists:
 from __future__ import annotations
 
 import logging
-import os
 import secrets
 import time
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("scp.security.auth")
 from scp.security.auth_config import AuthConfigError, load_auth_config
 
-# [G5-FIX] Header import — verify_admin uses it in signature (FastAPI dep marker).
+# [G5-FIX] Header + Request imports — both are FastAPI dependency markers.
 try:
-    from fastapi import Header
+    from fastapi import Header, Request
 except ImportError:  # pragma: no cover — fastapi is a hard dep of the API server
     Header = None  # type: ignore
+    Request = Any  # type: ignore[misc,assignment]
 
 # [AUTOFIX-T2-SEC] Rate limiting for auth endpoints — prevents brute-force.
 # Simple in-memory sliding-window limiter: max 5 failed attempts per IP per 60s.
@@ -77,8 +77,9 @@ def _record_auth_failure(ip: str) -> None:
 
 def verify_admin(
     authorization: str = Header("", alias="Authorization"),  # noqa: B008 — FastAPI dependency injection idiom
-    token: Optional[str] = None,
-    request: Any = None,
+    token: str | None = None,
+    *,
+    request: Request,
 ):
     """Verify admin token — timing-safe, NO dev-mode bypass, RAISES on failure.
 
@@ -98,7 +99,8 @@ def verify_admin(
     """
     from fastapi import HTTPException
 
-    # Extract client IP for rate limiting
+    # Extract client IP for rate limiting. The Request annotation is essential:
+    # FastAPI injects the actual connection only for a Request-typed parameter.
     client_ip = "unknown"
     if request is not None and hasattr(request, "client") and request.client:
         client_ip = request.client.host or "unknown"

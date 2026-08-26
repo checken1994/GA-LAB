@@ -6,8 +6,8 @@ Before fix: any exe with '/' or '\\\\' passed (whitelist bypassed).
   which only raised when exe had NO path separator. Any path-based exe
   (/tmp/evil.sh, ./evil.cmd, /usr/bin/malicious) bypassed the whitelist.
 After fix: resolved path checked against _WHITELISTED_PATHS (sys.executable +
-  SCP_SAFE_PROCESS_EXTRA env var) AND basename checked against
-  _WHITELISTED_TOOLS; default-deny otherwise.
+  SCP_SAFE_PROCESS_EXTRA env var); basename alone is never sufficient for a
+  path-qualified executable; default-deny otherwise.
 
 DNA principles covered:
   #6 (Gốc tin cậy bên ngoài) — sys.executable is the only trusted external path.
@@ -87,28 +87,30 @@ window_match = re.search(r'resolved\b.*?raise\s+ValueError', src, re.DOTALL)
 assert window_match, (
     "FAIL: no `raise ValueError` near the resolved-path whitelist check"
 )
-print("PASS [3/4]: raises ValueError on non-whitelisted exe (default-deny)")
+print("PASS [3/5]: raises ValueError on non-whitelisted exe (default-deny)")
 
 # ---------------------------------------------------------------------------
-# TEST 4 (runtime, DNA #2/#26): safe_run(['/tmp/nonexistent-evil-...']) raises
+# TEST 4-5 (runtime, DNA #2/#26): malicious paths, including allowlisted basename,
+# must raise before subprocess execution.
 # ---------------------------------------------------------------------------
 try:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from scp.core.safe_process import safe_run  # type: ignore
-    try:
-        safe_run(["/tmp/nonexistent-evil-script-12345.sh"])
-        print("FAIL [4/4]: runtime — safe_run did NOT raise on malicious path")
-        sys.exit(1)
-    except (ValueError, PermissionError):
-        print("PASS [4/4]: runtime — safe_run raises on non-whitelisted path")
-    except Exception as e:  # noqa: BLE001 — DNA #23 honest limit
-        print(
-            f"SKIP [4/4]: runtime — {type(e).__name__}: {e} (DNA #23 — "
-            f"non-ValueError raised; whitelist did not silently allow)"
-        )
+    for number, candidate in enumerate(("/tmp/nonexistent-evil-script-12345.sh", "/tmp/git"), start=4):
+        try:
+            safe_run([candidate])
+            print(f"FAIL [{number}/5]: runtime — safe_run allowed {candidate}")
+            sys.exit(1)
+        except (ValueError, PermissionError):
+            print(f"PASS [{number}/5]: runtime — path blocked: {candidate}")
+        except Exception as e:  # noqa: BLE001 — DNA #23 honest limit
+            print(
+                f"SKIP [{number}/5]: runtime — {type(e).__name__}: {e} (DNA #23 — "
+                f"non-ValueError raised; whitelist did not silently allow)"
+            )
 except Exception as e:  # noqa: BLE001 — DNA #23 honest limit
     print(
-        f"SKIP [4/4]: import failed — {type(e).__name__}: {e} (DNA #23)"
+        f"SKIP [4-5/5]: import failed — {type(e).__name__}: {e} (DNA #23)"
     )
 
 print("\n✓ Reality test 4-a-002 PASSED")

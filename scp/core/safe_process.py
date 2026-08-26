@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re as _re
 import shutil
 import subprocess
 import sys
@@ -56,9 +55,6 @@ _WHITELISTED_TOOLS = frozenset({
 # Previously the bypass `if "/" not in str(exe) and "\\" not in str(exe): raise`
 # let ANY path-based exe through — including "/tmp/evil.sh" or "./evil.cmd".
 # That was a P0 RCE vector (DNA #6 Gốc tin cậy bên ngoài, #9 No harm).
-_PYTHON_BASENAME_RE = _re.compile(r"^python\d*(\.\d+)*(\.exe)?$", _re.IGNORECASE)
-
-
 def _build_whitelisted_paths() -> frozenset[str]:
     """Build the set of whitelisted absolute paths.
 
@@ -131,31 +127,20 @@ def safe_run(
     # exe (/tmp/evil.sh, ./evil.cmd, /usr/bin/malicious) bypassed the
     # whitelist entirely. P0 RCE vector (DNA #6, #9).
     #
-    # New logic (default-deny):
-    #   1. If exe is a bare name in _WHITELISTED_TOOLS (e.g. "ruff") → pass.
-    #   2. Otherwise resolve via shutil.which (returns abs path on $PATH) or
-    #      os.path.realpath (for explicit relative/absolute paths).
-    #   3. Pass if resolved path is in _WHITELISTED_PATHS (sys.executable +
-    #      operator-supplied SCP_SAFE_PROCESS_EXTRA).
-    #   4. Pass if basename(resolved) is in _WHITELISTED_TOOLS
-    #      (e.g. /usr/bin/python3 → "python3" in whitelist).
-    #   5. Pass if basename(resolved) matches python\d*(\.\d+)* (covers
-    #      python3.11, python3.12 etc. without enumerating every version).
-    #   6. Otherwise raise ValueError — operator must explicitly extend
-    #      _WHITELISTED_TOOLS or set SCP_SAFE_PROCESS_EXTRA.
-    if exe in _WHITELISTED_TOOLS:
-        pass  # bare whitelisted name (e.g. "ruff", "python3")
-    else:
-        resolved = shutil.which(str(exe)) or os.path.realpath(str(exe))
-        base = os.path.basename(resolved)
-        base_name = base[:-4] if base.lower().endswith(".exe") else base
-        if (resolved not in _WHITELISTED_PATHS
-                and base not in _WHITELISTED_TOOLS
-                and base_name not in _WHITELISTED_TOOLS
-                and not _PYTHON_BASENAME_RE.match(base)):
+    # Default-deny path invariant:
+    #   1. A bare executable name is allowed only when its exact spelling is
+    #      in _WHITELISTED_TOOLS (legacy callers use names such as "ruff").
+    #   2. A path-qualified executable is resolved and MUST match an exact path
+    #      in _WHITELISTED_PATHS. Its basename is never sufficient: /tmp/evil/git
+    #      must not become trusted merely because "git" is a tool name.
+    #   3. Operators can add an exact trusted path via
+    #      SCP_SAFE_PROCESS_EXTRA=<abs_path>.
+    if exe not in _WHITELISTED_TOOLS:
+        resolved = os.path.realpath(shutil.which(str(exe)) or str(exe))
+        if resolved not in _WHITELISTED_PATHS:
             raise ValueError(
                 f"safe_run: executable '{exe}' (resolved: {resolved}) is not "
-                f"whitelisted. Add basename to _WHITELISTED_TOOLS, or set env "
+                f"whitelisted by exact path. Set env "
                 f"SCP_SAFE_PROCESS_EXTRA=<abs_path> (os.pathsep-separated) "
                 f"to extend _WHITELISTED_PATHS. Default-deny (DNA #6/#9)."
             )

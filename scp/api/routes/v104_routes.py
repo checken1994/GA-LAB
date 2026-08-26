@@ -26,6 +26,8 @@ Routes:
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 
 from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
@@ -46,22 +48,37 @@ from scp.api._shared import (
     logger,
     verify_admin,
 )
-
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
 _V104_ROUTES_LEDGER = RequestRunLedger()
 
 router = APIRouter(tags=["v104"])
 
+_MAX_IMAGE_BASE64_BYTES = 10 * 1024 * 1024
+_MAX_AUDIO_BASE64_BYTES = 25 * 1024 * 1024
+
+
+class _PayloadTooLarge(ValueError):
+    """Raised before decoding an over-budget Base64 media payload."""
+
+
 class VoiceCheckRequest(BaseModel):
     audio_url: str = ""
     audio_base64: str = ""
 
 
-
-class VoiceCheckRequest(BaseModel):
-    audio_url: str = ""
-    audio_base64: str = ""
+def _decode_bounded_base64(payload: str, *, max_bytes: int, label: str) -> bytes:
+    """Decode strict Base64 only after enforcing encoded and decoded limits."""
+    max_chars = ((max_bytes + 2) // 3) * 4
+    if len(payload) > max_chars:
+        raise _PayloadTooLarge(f"{label} base64 exceeds encoded size budget")
+    try:
+        decoded = base64.b64decode(payload, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError(f"invalid {label} base64") from exc
+    if len(decoded) > max_bytes:
+        raise _PayloadTooLarge(f"{label} exceeds decoded size budget")
+    return decoded
 
 
 @router.get("/v104/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
@@ -99,8 +116,14 @@ async def v104_image_check(
 ):
     """V104: Check image for jailbreak via OCR."""
     if image_base64:
-        import base64
-        image_bytes = base64.b64decode(image_base64)
+        try:
+            image_bytes = _decode_bounded_base64(
+                image_base64, max_bytes=_MAX_IMAGE_BASE64_BYTES, label="image"
+            )
+        except _PayloadTooLarge:
+            return JSONResponse(status_code=413, content={"error": "Image payload too large"})
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "Invalid image_base64"})
         # [Fix 4-a-015] detect() runs OCR (Tesseract) Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â blocking CPU work.
         # Wrap in asyncio.to_thread so the event loop is not blocked while
         # OCR runs (DNA #9 no harm Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â slow /v104/image/check would stall all
@@ -137,7 +160,7 @@ async def v104_image_check(
 async def v104_voice_check(
     audio_url: str = "",
     audio_base64: str = "",
-    payload: VoiceCheckRequest | None = Body(default=None),
+    payload: VoiceCheckRequest | None = Body(default=None),  # noqa: B008 — FastAPI body dependency idiom
     _admin: bool = Depends(verify_admin),
 ):
     """V104: Check audio for jailbreak via Whisper ASR."""
@@ -145,8 +168,14 @@ async def v104_voice_check(
         audio_url = audio_url or payload.audio_url
         audio_base64 = audio_base64 or payload.audio_base64
     if audio_base64:
-        import base64
-        audio_bytes = base64.b64decode(audio_base64)
+        try:
+            audio_bytes = _decode_bounded_base64(
+                audio_base64, max_bytes=_MAX_AUDIO_BASE64_BYTES, label="audio"
+            )
+        except _PayloadTooLarge:
+            return JSONResponse(status_code=413, content={"error": "Audio payload too large"})
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "Invalid audio_base64"})
         # [Fix 4-a-015] detect() runs Whisper ASR Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â blocking CPU work.
         # Wrap in asyncio.to_thread so the event loop is not blocked while
         # Whisper transcribes (DNA #9 no harm Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â slow /v104/voice/check would

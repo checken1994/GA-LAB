@@ -41,6 +41,7 @@ catch ValueError and treat as a blocked fetch (NOT a server failure).
 """
 from __future__ import annotations
 
+import http.client
 import ipaddress
 import logging
 import os
@@ -75,6 +76,107 @@ def _is_disallowed_ip(ip) -> bool:
     )
 
 
+def _resolve_public_ips(hostname: str) -> tuple[str, ...]:
+    """Resolve and validate every address, returning IPs for pinned connects."""
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as exc:
+        raise ValueError(f"DNS resolution failed: {exc}") from exc
+    if not infos:
+        raise ValueError("no DNS records")
+    safe_ips: list[str] = []
+    for _family, _stype, _proto, _canon, sockaddr in infos:
+        if not sockaddr or not sockaddr[0]:
+            continue
+        ip_str = sockaddr[0]
+        if "%" in ip_str:
+            ip_str = ip_str.split("%", 1)[0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            raise ValueError(f"unparseable IP: {ip_str}") from None
+        if _is_disallowed_ip(ip):
+            raise ValueError("host resolves to disallowed IP range")
+        if ip_str not in safe_ips:
+            safe_ips.append(ip_str)
+    if not safe_ips:
+        raise ValueError("no usable DNS records")
+    return tuple(safe_ips)
+
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    """HTTP connection that uses a previously validated destination IP."""
+
+    def __init__(self, host, *args, resolved_ip: str, **kwargs):
+        super().__init__(host, *args, **kwargs)
+        self._resolved_ip = resolved_ip
+
+    def connect(self):
+        self.sock = self._create_connection(
+            (self._resolved_ip, self.port), self.timeout, self.source_address
+        )
+        try:
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError as exc:
+            if exc.errno != getattr(socket, "ENOPROTOOPT", 92):
+                raise
+        if self._tunnel_host:
+            self._tunnel()
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection pinned to a validated IP while retaining hostname SNI."""
+
+    def __init__(self, host, *args, resolved_ip: str, **kwargs):
+        super().__init__(host, *args, **kwargs)
+        self._resolved_ip = resolved_ip
+
+    def connect(self):
+        _PinnedHTTPConnection.connect(self)
+        server_hostname = self._tunnel_host or self.host
+        self.sock = self._context.wrap_socket(
+            self.sock, server_hostname=server_hostname
+        )
+
+
+class _PinnedHTTPHandler(urllib.request.HTTPHandler):
+    def __init__(self, resolved_ip: str):
+        super().__init__()
+        self._resolved_ip = resolved_ip
+
+    def http_open(self, req):
+        from functools import partial
+        return self.do_open(
+            partial(_PinnedHTTPConnection, resolved_ip=self._resolved_ip), req
+        )
+
+
+class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, resolved_ip: str):
+        super().__init__()
+        self._resolved_ip = resolved_ip
+
+    def https_open(self, req):
+        from functools import partial
+        return self.do_open(
+            partial(_PinnedHTTPSConnection, resolved_ip=self._resolved_ip),
+            req,
+            context=self._context,
+        )
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Return redirect responses to the caller for per-hop pinned handling."""
+
+    def http_error_301(self, req, fp, code, msg, headers):
+        return fp
+
+    http_error_302 = http_error_301
+    http_error_303 = http_error_301
+    http_error_307 = http_error_301
+    http_error_308 = http_error_301
+
+
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Follow HTTP 3xx redirects safely — ≤5 hops, each hop re-validates IP.
 
@@ -99,25 +201,8 @@ class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
             raise ValueError(f"redirect scheme not allowed: {parsed.scheme!r}")
         if not parsed.hostname:
             raise ValueError("redirect target missing hostname")
-        # Resolve + check IP range (same logic as _safe_fetch_url initial check)
-        try:
-            infos = socket.getaddrinfo(parsed.hostname, None)
-        except socket.gaierror as exc:
-            raise ValueError(f"redirect DNS resolution failed: {exc}") from exc
-        if not infos:
-            raise ValueError("redirect target has no DNS records")
-        for _family, _stype, _proto, _canon, sockaddr in infos:
-            if not sockaddr or not sockaddr[0]:
-                continue
-            ip_str = sockaddr[0]
-            if "%" in ip_str:
-                ip_str = ip_str.split("%", 1)[0]
-            try:
-                ip = ipaddress.ip_address(ip_str)
-            except ValueError:
-                raise ValueError(f"redirect target unparseable IP: {ip_str}") from None
-            if _is_disallowed_ip(ip):
-                raise ValueError("redirect target resolves to disallowed IP range")
+        # Resolve + check every address before following the redirect.
+        _resolve_public_ips(parsed.hostname)
         # Target is safe — delegate to parent to construct the redirect request
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
@@ -144,60 +229,59 @@ def _safe_fetch_url(
         raise ValueError(f"scheme not allowed: {parsed.scheme!r}")
     if not parsed.hostname:
         raise ValueError("missing hostname")
-    hostname = parsed.hostname
-    # Explicit test/staging egress policy. Production defaults to allow here,
-    # while a hardened environment can set SCP_EGRESS_MODE=deny/offline.
-    egress_mode = os.environ.get("SCP_EGRESS_MODE", "allow").strip().lower()
-    if egress_mode in {"deny", "offline", "disabled"} and hostname not in {"localhost", "127.0.0.1", "::1"}:
-        raise ValueError("external egress disabled by SCP_EGRESS_MODE")
-    # Resolve hostname and reject if ANY resolved IP is disallowed.
-    # (Checks all getaddrinfo results to mitigate DNS rebinding.)
-    try:
-        infos = socket.getaddrinfo(hostname, None)
-    except socket.gaierror as exc:
-        raise ValueError(f"DNS resolution failed: {exc}") from exc
-    if not infos:
-        raise ValueError("no DNS records")
-    for _family, _stype, _proto, _canon, sockaddr in infos:
-        if not sockaddr or not sockaddr[0]:
-            continue
-        ip_str = sockaddr[0]
-        # Strip IPv6 zone id (e.g. fe80::1%eth0) before parsing.
-        if "%" in ip_str:
-            ip_str = ip_str.split("%", 1)[0]
+    current_url = url.strip()
+    for hop in range(6):
+        current = urllib.parse.urlsplit(current_url)
+        if current.scheme not in ("http", "https") or not current.hostname:
+            raise ValueError("redirect target is not a valid HTTP(S) URL")
+        # Explicit test/staging egress policy applies to every redirect hop.
+        egress_mode = os.environ.get("SCP_EGRESS_MODE", "allow").strip().lower()
+        if egress_mode in {"deny", "offline", "disabled"} and current.hostname not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError("external egress disabled by SCP_EGRESS_MODE")
+        # Resolve every address and pin this hop to the validated destination.
+        # A new hostname gets a new validation+connection pair; the original
+        # hostname's IP is never reused for a redirect target.
+        destination_ip = _resolve_public_ips(current.hostname)[0]
+        handler = (
+            _PinnedHTTPSHandler(destination_ip)
+            if current.scheme == "https"
+            else _PinnedHTTPHandler(destination_ip)
+        )
+        opener = urllib.request.build_opener(
+            handler,
+            _NoRedirectHandler,
+            urllib.request.ProxyHandler({}),
+        )
+        req = urllib.request.Request(current_url, headers={"User-Agent": _SCP_SAFE_FETCH_UA})  # noqa: S310 — scheme validated above
         try:
-            ip = ipaddress.ip_address(ip_str)
+            with opener.open(req, timeout=timeout) as resp:
+                status = getattr(resp, "status", None) or resp.getcode()
+                if status in {301, 302, 303, 307, 308}:
+                    location = resp.headers.get("Location")
+                    if not location:
+                        raise ValueError("redirect response missing Location")
+                    if hop == 5:
+                        raise ValueError("too many redirects (maximum 5)")
+                    current_url = urllib.parse.urljoin(current_url, location)
+                    continue
+                chunks: list[bytes] = []
+                total = 0
+                while True:
+                    chunk = resp.read(64 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise ValueError(f"response exceeds max_bytes={max_bytes}")
+                    chunks.append(chunk)
+                return b"".join(chunks)
         except ValueError:
-            raise ValueError(f"unparseable IP: {ip_str}") from None
-        if _is_disallowed_ip(ip):
-            raise ValueError("host resolves to disallowed IP range")
-    # Safe-redirect + no-proxy opener. [AUDIT-3 FIX] was _NoRedirectHandler
-    # (blocked ALL redirects, broke legitimate image CDNs). Now follows ≤5
-    # redirects with per-hop IP re-validation.
-    opener = urllib.request.build_opener(
-        _SafeRedirectHandler,
-        urllib.request.ProxyHandler({}),
-    )
-    req = urllib.request.Request(url, headers={"User-Agent": _SCP_SAFE_FETCH_UA})  # noqa: S310 — scheme validated above
-    try:
-        with opener.open(req, timeout=timeout) as resp:
-            chunks: list[bytes] = []
-            total = 0
-            while True:
-                chunk = resp.read(64 * 1024)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > max_bytes:
-                    raise ValueError(f"response exceeds max_bytes={max_bytes}")
-                chunks.append(chunk)
-            return b"".join(chunks)
-    except ValueError:
-        raise
-    except urllib.error.HTTPError as exc:
-        raise ValueError(f"HTTP error: {exc.code}") from exc
-    except (urllib.error.URLError, OSError) as exc:  # [FALSE-POS-FIX] B014: TimeoutError IS OSError in Python 3 — redundant
-        raise ValueError(f"fetch error: {exc}") from exc
+            raise
+        except urllib.error.HTTPError as exc:
+            raise ValueError(f"HTTP error: {exc.code}") from exc
+        except (urllib.error.URLError, OSError) as exc:  # [FALSE-POS-FIX] B014: TimeoutError IS OSError in Python 3 — redundant
+            raise ValueError(f"fetch error: {exc}") from exc
+    raise ValueError("too many redirects (maximum 5)")
 
 
 __all__ = [

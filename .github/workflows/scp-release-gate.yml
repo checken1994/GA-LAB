@@ -38,6 +38,17 @@ jobs:
           if ($banditExit -gt 1) { exit $banditExit }
       - shell: pwsh
         run: py run_reality_tests_portable.py
+      - name: bounded full-system runtime smoke (loopback 8002)
+        shell: pwsh
+        run: py -3 tools\run_bounded_system_smoke.py --output-dir reports\bounded_system_smoke_ci
+      - name: upload bounded runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scp-bounded-system-smoke-${{ github.run_id }}
+          path: reports/bounded_system_smoke_ci/
+          if-no-files-found: warn
+          retention-days: 7
       - shell: pwsh
         working-directory: dashboard
         run: npm ci --ignore-scripts

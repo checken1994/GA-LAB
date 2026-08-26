@@ -1,30 +1,14 @@
 import json
 import logging
+import os
 import threading
 from pathlib import Path
 
-# [SCP-DNA-FIX R5-3] Wire scp.security.playbooks into the escalation path.
-# Previously playbooks.py was NEVER imported anywhere → FORBIDDEN_ACTIONS
-# (hack_back, data_destruction, preemptive_strike, counter_attack,
-# reverse_exploit) were defined but never enforced. Now every action
-# executed by EscalationManager is validated against the guardrail.
-# Lazy import (inside method) would also work but top-level import here
-# makes the dependency explicit + lets `import scp.security.escalation`
-# also pull playbooks into the security namespace.
-from scp.security.playbooks import PlaybookRegistry, FORBIDDEN_ACTIONS  # noqa: F401
-
-# [SCP-DNA-FIX R13-3 BUG-006] Wire scp.security.circuit_breaker into the
-# security namespace. Previously this entire 119-LOC module was never
-# imported anywhere (real breaker used in production was scp.core.circuit_breaker
-# — a different layer: per-API failure tracking with fail_threshold).
-# The security variant is a DIFFERENT LAYER: RPS-based DoS protection
-# (auto-trips after 3 consecutive seconds above threshold_rps, half-open
-# recovery via random sampling). It is NOT a duplicate of core/circuit_breaker.
-# Importing here makes the DoS breaker reachable from any code path that
-# already imports scp.security.escalation (judgecore_mixin, predictor, etc.)
-# and is the safest wire-in path since scp/security/__init__.py is owned by
-# the parent (kept empty by convention).
 from scp.security.circuit_breaker import CircuitBreaker as DosCircuitBreaker  # noqa: F401
+from scp.security.playbooks import FORBIDDEN_ACTIONS, PlaybookRegistry  # noqa: F401
+
+# Security playbooks and the RPS DoS breaker are intentionally imported here so
+# all escalation callers reach one visible guardrail namespace.
 
 logger = logging.getLogger("scp.security.escalation")
 
@@ -51,14 +35,73 @@ class EscalationManager:
 
     def __init__(self, data_dir: str = "data"):
         self.escalation_log_path = Path(data_dir) / "escalation_log.jsonl"
+        self.escalation_state_path = Path(data_dir) / "escalation_state.json"
         self.escalation_log_path.parent.mkdir(parents=True, exist_ok=True)
         self._active: dict = {}
         self._history: list = []
         # Track live Timer objects so on_human_approval/rejection can cancel them.
         self._timers: dict[str, threading.Timer] = {}
-        # Dedicated append lock: protects JSONL write atomicity without holding
-        # the escalation state lock. This closes concurrent lost-write races.
+        # Dedicated lock protects JSONL and atomic state writes without holding
+        # the escalation state lock during filesystem I/O.
         self._write_lock = threading.Lock()
+        self._restore_state()
+
+    def _persist_state(self) -> None:
+        """Atomically persist authoritative escalation state."""
+        with lock:
+            payload = {
+                "schema_version": 1,
+                "active": self._active,
+                "history": self._history,
+            }
+        temporary = self.escalation_state_path.with_suffix(".tmp")
+        with self._write_lock:
+            temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+            os.replace(temporary, self.escalation_state_path)
+
+    def _restore_state(self) -> None:
+        """Restore state and re-arm non-terminal deadlines after restart."""
+        try:
+            raw = self.escalation_state_path.read_text(encoding="utf-8")
+            payload = json.loads(raw)
+        except FileNotFoundError:
+            return
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("[escalation] state restore skipped: %s", exc)
+            return
+        if not isinstance(payload, dict):
+            logger.warning("[escalation] state restore skipped: invalid root")
+            return
+        active = payload.get("active", {})
+        history = payload.get("history", [])
+        if not isinstance(active, dict) or not isinstance(history, list):
+            logger.warning("[escalation] state restore skipped: invalid collections")
+            return
+        with lock:
+            self._active = {
+                str(key): value for key, value in active.items() if isinstance(value, dict)
+            }
+            self._history = [value for value in history if isinstance(value, dict)]
+            armed = [value for value in self._active.values() if value.get("status") == "armed"]
+        dropped = False
+        for entry in armed:
+            threat_id = str(entry.get("threat_id") or self._threat_id(entry.get("threat", {})))
+            try:
+                deadline = float(entry["deadline_at"])
+            except (KeyError, TypeError, ValueError):
+                logger.warning("[escalation] dropping armed entry without valid deadline: %s", threat_id)
+                with lock:
+                    self._active.pop(threat_id, None)
+                dropped = True
+                continue
+            delay = max(0.0, deadline - self._now())
+            timer = threading.Timer(delay, self.on_timeout, args=(entry.get("threat", {}),))
+            timer.daemon = True
+            with lock:
+                self._timers[threat_id] = timer
+            timer.start()
+        if armed or dropped:
+            self._persist_state()
 
     def on_threat_detected(self, threat: dict):
         """[SCP-DNA-FIX R5-3] Entry point — called by judgecore_mixin:417.
@@ -79,6 +122,7 @@ class EscalationManager:
                 "armed_at": self._now(),
                 "status": "armed" if severity in self.AUTO_ARM_SEVERITIES else "monitoring",
             }
+        self._persist_state()
         # [SCP-DNA-FIX 4-b-018] log_action does file I/O — must NOT happen
         # while holding the escalation `lock`. Pre-fix: log_action was called
         # INSIDE the `with lock:` block above → all escalation decisions
@@ -202,11 +246,11 @@ class EscalationManager:
         return "medium"
 
     def start_countdown(self, threat: dict, timeout_min: int = 30):
-        # Start a countdown timer
+        # Start a countdown timer and persist its absolute deadline before it runs.
         threat_id = self._threat_id(threat)
+        deadline_at = self._now() + (timeout_min * 60)
         timer = threading.Timer(timeout_min * 60, self.on_timeout, args=(threat,))
         timer.daemon = True  # don't block process exit
-        timer.start()
         with lock:
             # Cancel any prior timer for the same threat (re-arm case).
             prior = self._timers.get(threat_id)
@@ -219,6 +263,9 @@ class EscalationManager:
             if threat_id in self._active:
                 self._active[threat_id]["status"] = "armed"
                 self._active[threat_id]["timeout_min"] = timeout_min
+                self._active[threat_id]["deadline_at"] = deadline_at
+        self._persist_state()
+        timer.start()
         # [SCP-DNA-FIX 4-b-018] log_action (file I/O) OUTSIDE the escalation
         # lock — pre-fix held the lock during disk write → serialized all
         # escalation decisions on disk I/O; on disk-full, lock was held
@@ -226,10 +273,21 @@ class EscalationManager:
         self.log_action(f"Countdown started for threat: {threat}, timeout: {timeout_min} minutes", "countdown_started")
 
     def on_timeout(self, threat: dict):
-        # [SCP-DNA-FIX 4-b-018] log_action (file I/O) — no state mutation
-        # needed under the escalation lock here, so call log_action directly
-        # without acquiring `lock`. Pre-fix: `with lock: self.log_action(...)`
-        # held the lock during disk write for no reason.
+        threat_id = self._threat_id(threat)
+        with lock:
+            timer = self._timers.pop(threat_id, None)
+            state = self._active.pop(threat_id, None)
+            if state is not None:
+                self._history.append({
+                    "threat_id": threat_id,
+                    "action": "timeout",
+                    "timestamp": self._now(),
+                })
+        if timer is not None:
+            timer.cancel()
+        self._persist_state()
+        # [SCP-DNA-FIX 4-b-018] log_action (file I/O) — state has already been
+        # terminalized above, so dashboard cannot retain stale armed/timer data.
         self.log_action(
             f"Timeout occurred for threat: {threat}, evaluating defensive playbook",
             "timeout_occurred",
@@ -392,6 +450,7 @@ class EscalationManager:
                 timer.cancel()
             except Exception:  # noqa: BLE001 — timer.cancel() best-effort
                 logger.exception("[escalation.py:239] silenced exception")
+        self._persist_state()
         self.log_action(f"Human approved {threat_id}: {action}", "human_approval")
 
     def on_human_rejection(self, threat_id: str):
@@ -405,6 +464,7 @@ class EscalationManager:
                 timer.cancel()
             except Exception:  # noqa: BLE001 — timer.cancel() best-effort
                 logger.exception("[escalation.py:252] silenced exception")
+        self._persist_state()
         self.log_action(f"Human rejected {threat_id}", "human_rejection")
 
     # ---- [SCP-DNA-FIX R13-3 BUG-004] Public admin API ----
