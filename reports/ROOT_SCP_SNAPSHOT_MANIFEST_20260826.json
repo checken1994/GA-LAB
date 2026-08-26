@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T09:04:59.017873+00:00",
-  "captured_commit": "b39911443e6eaed21a970e75b54ad44b8ddfa92c",
-  "captured_parent": "8aa09386f53dd330339eb18ce3952a4bb34d9f2f",
-  "captured_tree": "02ae9430e2d65e9bb92cc10e5c0ab341f5306687",
-  "tracked_count": 1291,
-  "inventory_sha256": "3e0087cb4ca7cb542cd45383ffbc427b74e44b371f2cbcd99b8e58133046f85c",
+  "generated_at_utc": "2026-08-26T09:16:09.575993+00:00",
+  "captured_commit": "7d450d60ade45a47bc17b711282b639b2e0a61fe",
+  "captured_parent": "48c836adc73270cc8e60d927fca59db096f52b5c",
+  "captured_tree": "62700ad57dafa1783acdcf43086616edaa16e907",
+  "tracked_count": 1293,
+  "inventory_sha256": "9f8e95e661bad06880e0e97548e0d8ad79ffa5779933e3ab47fae8a88c7263e0",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2374,7 +2374,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "341ab95870dfe8862cf3a0b222b3cc10d927fa7e",
+      "blob": "ca4bc7f55c28c9ec80fb0c412a420f4ebc93c1e5",
       "path": "reports/CODEGRAPH_FEATURE_COMPLETION_V2.md"
     },
     {
@@ -2662,7 +2662,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7a10bec6ed81ad7ecd8b52c698bff2a79b5b11a5",
+      "blob": "33a696e11699af5ad1504530dcbd95d00dfc82d0",
       "path": "reports/codegraph_20260826/codegraph.json"
     },
     {
@@ -2674,7 +2674,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f6682250078ef966b1c936e832b2f915d854ee8f",
+      "blob": "de782889e4fdedf9d4e61b1ec5bfc358548452f4",
       "path": "reports/codegraph_20260826/codegraph_focused.mmd"
     },
     {
@@ -2686,31 +2686,31 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "301afa3f00aeced2b048b9ee14daae99ace19d47",
+      "blob": "3937e135b663945cc3c936443ee329b4b147f02e",
       "path": "reports/codegraph_20260826/codegraph_full.mmd"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9df5c9ee8d47181c311688126efe6c84e043e270",
+      "blob": "c7d9a7bbc02a886c0ee07494b90b9181ead72a51",
       "path": "reports/codegraph_20260826/codegraph_summary.json"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "99136b4f726237a59bc644ebadb16a47b9646003",
+      "blob": "1b46b7f55cac15d287a3d201c6e828b357edcb35",
       "path": "reports/codegraph_20260826/feature_evidence_coverage.png"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "964ee12902085985620a0bdd4c56198c508b9be0",
+      "blob": "5032cb5808c9f20280cb20ebc73274b1e7f66239",
       "path": "reports/codegraph_20260826/feature_maturity_counts.png"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bdbfd90170468fc59cdc3c76d2d7107f023b7a13",
+      "blob": "f534c5867e5d0c6b6d2955452e972d135efbce8b",
       "path": "reports/codegraph_20260826/nodes_by_segment.png"
     },
     {
@@ -2796,6 +2796,12 @@
       "type": "blob",
       "blob": "5d0f30932e782d3b42c988820b2804f95516512e",
       "path": "reports/phase3_proof_gap_matrix_v1.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e691b127354798955522ce0b589d82011a364203",
+      "path": "reports/provider_timeout_recovery_proof_20260826.json"
     },
     {
       "mode": "100644",
@@ -2998,7 +3004,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a7a2aa4dc849855a756bb2abc2c65c3c137e6468",
+      "blob": "751ea3a2785371eea724d8b75fb08427015c7607",
       "path": "reports/scp_feature_completion_matrix_v2.json"
     },
     {
@@ -7350,6 +7356,12 @@
       "type": "blob",
       "blob": "7795cc782d6dcdd11dd00cc4a98d583df4dfb4a7",
       "path": "tests/test_provider_keys.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fe726e0f555c2f1701dae979f1a98b90c7993d41",
+      "path": "tests/test_provider_timeout_recovery.py"
     },
     {
       "mode": "100644",
