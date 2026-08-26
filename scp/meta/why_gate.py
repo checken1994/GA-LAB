@@ -305,6 +305,69 @@ class WhyGate:
         self._audit(result)
         return result
 
+    @staticmethod
+    def _parse_llm_necessity(response: str) -> bool | None:
+        """Parse an LLM necessity response without treating any text as approval.
+
+        The WHY prompt asks for a natural-language explanation, so a truthy
+        response is not evidence that an action is necessary. Negative phrases
+        are checked first to avoid a response such as "not necessary" being
+        misclassified by a positive substring match. Ambiguous responses remain
+        unresolved and must follow the existing UPHOLD path.
+        """
+        import unicodedata
+
+        normalized = unicodedata.normalize("NFKD", response.lower())
+        normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+        normalized = " ".join(normalized.split())
+
+        # Contradictory wording is not strong enough evidence to approve.
+        if "not unnecessary" in normalized or "not unneeded" in normalized:
+            return None
+
+        negative_phrases = (
+            "khong can thiet",
+            "khong can",
+            "khong co ly do chinh dang",
+            "khong nen thuc hien",
+            "khong nhat thiet",
+            "not necessary",
+            "not necessarily",
+            "unnecessary",
+            "not needed",
+            "no need",
+            "not required",
+            "not justified",
+            "not warranted",
+            "should not proceed",
+            "do not proceed",
+            "does not need",
+            "doesn't need",
+            "no justification",
+            "no valid reason",
+        )
+        if any(phrase in normalized for phrase in negative_phrases):
+            return False
+
+        positive_phrases = (
+            "can thiet",
+            "co ly do chinh dang",
+            "nen thuc hien",
+            "necessary",
+            "required",
+            "must proceed",
+            "should proceed",
+            "justified",
+            "warranted",
+            "valid reason",
+        )
+        if any(phrase in normalized for phrase in positive_phrases):
+            return True
+        if re.search(r"\byes\b", normalized):
+            return True
+
+        return None
+
     def _check_necessity(self, action_type: str, action_desc: str, context: str) -> tuple[str, bool]:
         """WHY Layer 1: 'Tại sao action này cần thiết?'
 
@@ -349,7 +412,13 @@ class WhyGate:
         if os.environ.get("SCP_WHY_LLM_ENABLED", "0") == "1":
             llm_reason = self._llm_necessity(action_type, action_desc, context)
             if llm_reason:
-                return llm_reason, True
+                parsed_necessity = self._parse_llm_necessity(llm_reason)
+                if parsed_necessity is not None:
+                    return llm_reason, parsed_necessity
+                # An unexplained/ambiguous LLM response is not proof of need.
+                # Keep the existing conservative UPHOLD route instead of
+                # converting any non-empty text into ALLOW.
+                return f"{llm_reason} — necessity ambiguous; UPHOLD for review", False
 
         # [SCP-DNA-FIX R14-KB1] Fallback: necessity UNKNOWN → return False
         # so gate routes to UPHOLD (allow but flag). Was: return True → ALLOW
@@ -417,7 +486,6 @@ class WhyGate:
     def _llm_necessity(self, action_type: str, action_desc: str, context: str) -> str | None:
         """LLM-based necessity check."""
         try:
-            from scp.autofix.llm_fix import _call_openrouter
             prompt = f"""Bạn là WHY engine của SCP. Hỏi: "Tại sao action này cần thiết?"
 
 Action type: {action_type}
@@ -438,7 +506,6 @@ WHY:"""
     def _llm_falsification(self, action_type: str, action_desc: str, context: str) -> tuple[str | None, bool]:
         """LLM-based falsification check."""
         try:
-            from scp.autofix.llm_fix import _call_openrouter
             # [SCP-DNA-FIX R12-24] Clearer prompt — distinguish BUG vs FIX.
             # Tại sao: LLM trước không biết action_desc là BUG description hay FIX.
             # Nó thấy "except Exception: pass" → bác bỏ. Nhưng đó là BUG, fix đang sửa.

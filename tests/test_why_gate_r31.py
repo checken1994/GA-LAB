@@ -31,6 +31,69 @@ def test_why_provider_auto_keeps_openrouter_compatibility(monkeypatch):
     assert seen == {"prompt": "compat prompt", "max_tokens": 200}
 
 
+def test_llm_necessity_negative_response_routes_to_uphold(tmp_path, monkeypatch):
+    monkeypatch.setenv("SCP_WHY_LLM_ENABLED", "1")
+
+    def fake_provider(prompt):
+        if "Tại sao action này cần thiết?" in prompt:
+            return "Không cần thiết. Hành động này không có lý do chính đáng."
+        return "FALSIFICATION: no issue | SELF_FALSIFIED: no"
+
+    monkeypatch.setattr(why_gate, "_call_why_provider", fake_provider)
+    gate = why_gate.WhyGate(data_dir=str(tmp_path))
+    reason, necessary = gate._check_necessity("unknown", "nonsense", "")
+    result = gate.gate("unknown", "nonsense", "")
+
+    assert "Không cần thiết" in reason
+    assert necessary is False
+    assert result.decision is why_gate.WhyDecision.UPHOLD
+    assert result.allowed is True
+
+
+def test_llm_necessity_negative_variants_never_approve():
+    assert why_gate.WhyGate._parse_llm_necessity("This is not necessarily required") is False
+    assert why_gate.WhyGate._parse_llm_necessity("Không nhất thiết phải thực hiện") is False
+
+
+def test_llm_necessity_ambiguous_response_routes_to_uphold(tmp_path, monkeypatch):
+    monkeypatch.setenv("SCP_WHY_LLM_ENABLED", "1")
+
+    def fake_provider(prompt):
+        if "Tại sao action này cần thiết?" in prompt:
+            return "Tôi chưa đủ thông tin để kết luận."
+        return "FALSIFICATION: no issue | SELF_FALSIFIED: no"
+
+    monkeypatch.setattr(why_gate, "_call_why_provider", fake_provider)
+    gate = why_gate.WhyGate(data_dir=str(tmp_path))
+    reason, necessary = gate._check_necessity("unknown", "nonsense", "")
+    ambiguous_reason, ambiguous_necessary = gate._check_necessity("unknown", "nonsense", "")
+    result = gate.gate("unknown", "nonsense", "")
+
+    assert "chưa đủ thông tin" in reason
+    assert necessary is False
+    assert "necessity ambiguous" in ambiguous_reason.lower()
+    assert ambiguous_necessary is False
+    assert result.decision is why_gate.WhyDecision.UPHOLD
+
+
+def test_llm_necessity_positive_response_routes_to_allow(tmp_path, monkeypatch):
+    monkeypatch.setenv("SCP_WHY_LLM_ENABLED", "1")
+
+    def fake_provider(prompt):
+        if "Tại sao action này cần thiết?" in prompt:
+            return "Hành động này cần thiết để khôi phục dịch vụ bị lỗi."
+        return "FALSIFICATION: no issue | SELF_FALSIFIED: no"
+
+    monkeypatch.setattr(why_gate, "_call_why_provider", fake_provider)
+    gate = why_gate.WhyGate(data_dir=str(tmp_path))
+    reason, necessary = gate._check_necessity("unknown", "nonsense", "")
+    result = gate.gate("unknown", "nonsense", "")
+
+    assert "cần thiết" in reason
+    assert necessary is True
+    assert result.decision is why_gate.WhyDecision.ALLOW
+
+
 def test_bare_except_deterministic_fix_accepts_trailing_noqa_comment(tmp_path):
     from scp.autofix.llm_fix import _generate_bare_except_fix
 
