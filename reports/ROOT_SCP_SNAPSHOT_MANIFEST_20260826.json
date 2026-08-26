@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T08:51:51.067823+00:00",
-  "captured_commit": "937633af50bdeedb582ecc4556791e753b993d75",
-  "captured_parent": "10296595f5cb24dce9cb3127334fb879199a91d1",
-  "captured_tree": "80528bfa2f593d1fdfd485f6e688b6a15c0d1b59",
-  "tracked_count": 1289,
-  "inventory_sha256": "399f556d90925dab7f21bdc01ed688ffa4d2c225448b8aaf53a99685372a4908",
+  "generated_at_utc": "2026-08-26T09:04:59.017873+00:00",
+  "captured_commit": "b39911443e6eaed21a970e75b54ad44b8ddfa92c",
+  "captured_parent": "8aa09386f53dd330339eb18ce3952a4bb34d9f2f",
+  "captured_tree": "02ae9430e2d65e9bb92cc10e5c0ab341f5306687",
+  "tracked_count": 1291,
+  "inventory_sha256": "3e0087cb4ca7cb542cd45383ffbc427b74e44b371f2cbcd99b8e58133046f85c",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -19,9 +19,9 @@
       "sha256": "fda6dc4917778167d1e4981746ced3b68992a9f7c8ec14f4050dc9bc70de8479"
     },
     "scp/task_kernel.py": {
-      "blob": "f09de50e6859fa3d44326cef8338272ca09f3102",
-      "bytes": 41242,
-      "sha256": "716f59aae5c0aeb50f3943e55d890649774c61005e7ede601bbd956821f5ad98"
+      "blob": "7ba182a849bc4f739cb98a054c8ee2dc63233892",
+      "bytes": 47662,
+      "sha256": "7e8c57159dd340415916dc82a2c691466e72339011507f5da15181c70eb6e41a"
     },
     "scp/ask_kernel_adapter.py": {
       "blob": "267eae7ea7d9bdc055a3445ca28885fc58597015",
@@ -3004,6 +3004,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "4403f3f5e8f598fe264004a0ec8a287b20bfb6fe",
+      "path": "reports/task_kernel_queue_policy_proof_20260826.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "891cd629a73c204984715901d8bd3853d0d17198",
       "path": "run_reality_tests_portable.py"
     },
@@ -5956,7 +5962,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f09de50e6859fa3d44326cef8338272ca09f3102",
+      "blob": "7ba182a849bc4f739cb98a054c8ee2dc63233892",
       "path": "scp/task_kernel.py"
     },
     {
@@ -7386,6 +7392,12 @@
       "type": "blob",
       "blob": "ab53072865b29b08c7070407b8247c3d7fb512e7",
       "path": "tests/test_task_kernel_acceptance.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7758cf38e06c58ec72482e80e5a5f793a7ad3577",
+      "path": "tests/test_task_kernel_queue_policy.py"
     },
     {
       "mode": "100644",
