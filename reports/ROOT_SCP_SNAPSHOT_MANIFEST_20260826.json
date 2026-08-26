@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T14:54:54.031421+00:00",
-  "captured_commit": "049075ce502d678704a71d4cd9a4727d86d77023",
-  "captured_parent": "4a3dc3e5acc4e29fee2ed572ed6d82723c6af646",
-  "captured_tree": "1d291cb904b139c621caed2c0238381cd835862a",
+  "generated_at_utc": "2026-08-26T16:27:42.523693+00:00",
+  "captured_commit": "e816c2d90a608d620bfe3087fb15c224a54f3278",
+  "captured_parent": "f3efaf9d31d06e3097d35315b9184edf2a559851",
+  "captured_tree": "df55409d2c6e220bfacc8d34e69eacbeb34e5771",
   "tracked_count": 1319,
-  "inventory_sha256": "13bd528080e3897e7a0a275b719971f718afb9d120e7da3d316ee3b6b3fc83c5",
+  "inventory_sha256": "4745d71f5a020b07221d0b4177d5029d8cb1b8369349a8b075f1e6d76479c9ae",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -5956,7 +5956,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "1cef89190e91cfa473a08821da63bb76872c8076",
+      "blob": "26bf2c8e7e43dbab729488f00143e79e54652321",
       "path": "scp/security/dos_protection.py"
     },
     {
@@ -7234,7 +7234,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5ee91e6fd2123a503ae8693edf57e83e9d77c692",
+      "blob": "6240e9a7daa6715fa9305d45aae1873e684103b5",
       "path": "tests/test_429_fallback_contract.py"
     },
     {
