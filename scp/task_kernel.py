@@ -437,6 +437,240 @@ class TaskKernel:
         except Exception:
             self.conn.execute("ROLLBACK");raise
 
+    def record_action_dispatched(
+        self,
+        task_id: str,
+        lease_id: str,
+        step_id: str,
+        planned_action: Any,
+        capability_epoch: int,
+        idempotency_key: str,
+        provider_request_id: str,
+        pre_observation_ref: str | None = None,
+    ) -> dict[str, Any]:
+        """Persist the side-effect boundary before a provider response is trusted."""
+        if not step_id or not idempotency_key or not str(provider_request_id).strip():
+            raise KernelError("dispatch requires step, idempotency key and provider request")
+        _assert_checkpoint_safe(
+            {
+                "planned_action": planned_action,
+                "pre_observation_ref": pre_observation_ref,
+                "provider_request_id": provider_request_id,
+            }
+        )
+        self._begin()
+        try:
+            lease = self._assert_lease(lease_id, task_id)
+            task = self._task(task_id)
+            if task["state"] not in {"RUNNING", "WAITING_TOOL"}:
+                raise InvalidTransition(f"{task['state']}->UNKNOWN")
+            existing = self.conn.execute(
+                "SELECT * FROM checkpoints WHERE task_id=? AND attempt_id=? AND step_id=? AND idempotency_key=? AND state='UNKNOWN' ORDER BY created_at DESC LIMIT 1",
+                (task_id, lease["attempt_id"], step_id, idempotency_key),
+            ).fetchone()
+            if existing:
+                existing_result = json.loads(existing["tool_result_json"] or "{}")
+                if existing_result.get("provider_request_id") != str(provider_request_id):
+                    raise KernelError("idempotency key reused with different provider request")
+                self.conn.execute("COMMIT")
+                result = dict(existing)
+                result["dispatch_status"] = "UNKNOWN"
+                result["provider_request_id"] = existing_result.get("provider_request_id")
+                return result
+            tool_result = {
+                "dispatch_status": "UNKNOWN",
+                "provider_request_id": str(provider_request_id),
+                "planned_action": planned_action,
+            }
+            payload = {
+                "task_id": task_id,
+                "attempt_id": lease["attempt_id"],
+                "step_id": step_id,
+                "state": "UNKNOWN",
+                "planned_action": planned_action,
+                "capability_epoch": capability_epoch,
+                "idempotency_key": idempotency_key,
+                "pre_observation_ref": pre_observation_ref,
+                "post_observation_ref": None,
+                "tool_result": tool_result,
+                "verifier_verdict": None,
+            }
+            checkpoint_id = "cp_" + secrets.token_hex(10)
+            payload_hash = stable_hash(payload)
+            self.conn.execute(
+                "INSERT INTO checkpoints(checkpoint_id,task_id,attempt_id,step_id,state,planned_action_hash,capability_epoch,idempotency_key,pre_observation_ref,post_observation_ref,tool_result_json,verifier_verdict,payload_hash,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    checkpoint_id,
+                    task_id,
+                    lease["attempt_id"],
+                    step_id,
+                    "UNKNOWN",
+                    stable_hash(planned_action),
+                    capability_epoch,
+                    idempotency_key,
+                    pre_observation_ref,
+                    None,
+                    json.dumps(tool_result, ensure_ascii=False, sort_keys=True),
+                    None,
+                    payload_hash,
+                    now_iso(),
+                ),
+            )
+            old_state = task["state"]
+            self.conn.execute(
+                "UPDATE tasks SET state='UNKNOWN',version=version+1,updated_at=? WHERE task_id=?",
+                (now_iso(), task_id),
+            )
+            self._append_event(
+                task_id,
+                "ACTION_DISPATCHED",
+                old_state,
+                "UNKNOWN",
+                "worker",
+                "side_effect_response_unknown",
+                {
+                    "checkpoint_id": checkpoint_id,
+                    "step_id": step_id,
+                    "idempotency_key": idempotency_key,
+                    "provider_request_id": str(provider_request_id),
+                },
+            )
+            self.conn.execute("COMMIT")
+            result = self.get_checkpoint(checkpoint_id)
+            result["dispatch_status"] = "UNKNOWN"
+            result["provider_request_id"] = str(provider_request_id)
+            return result
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
+
+    def _load_reconcile_checkpoint(self, task_id: str, checkpoint_id: str) -> dict[str, Any]:
+        checkpoint = self.conn.execute(
+            "SELECT * FROM checkpoints WHERE checkpoint_id=?", (checkpoint_id,)
+        ).fetchone()
+        if not checkpoint or checkpoint["task_id"] != task_id:
+            raise KernelError("checkpoint task mismatch")
+        if checkpoint["state"] != "UNKNOWN":
+            raise KernelError("reconcile requires UNKNOWN checkpoint")
+        try:
+            tool_result = json.loads(checkpoint["tool_result_json"] or "{}")
+        except (TypeError, ValueError) as exc:
+            raise KernelError("checkpoint integrity: invalid tool result JSON") from exc
+        if "planned_action" not in tool_result:
+            raise KernelError("checkpoint integrity: planned action unavailable")
+        try:
+            self.validate_checkpoint(checkpoint_id, tool_result["planned_action"])
+        except CheckpointCorrupt as exc:
+            raise KernelError(f"checkpoint integrity: {exc}") from exc
+        return dict(checkpoint)
+
+    def enter_reconciling(
+        self, task_id: str, checkpoint_id: str, reason: str = "reconcile_required"
+    ) -> dict[str, Any]:
+        self._begin()
+        try:
+            task = self._task(task_id)
+            self._load_reconcile_checkpoint(task_id, checkpoint_id)
+            if task["state"] == "RECONCILING":
+                self.conn.execute("COMMIT")
+                return dict(task)
+            if task["state"] != "UNKNOWN":
+                raise InvalidTransition(f"{task['state']}->RECONCILING")
+            self.conn.execute(
+                "UPDATE tasks SET state='RECONCILING',version=version+1,updated_at=? WHERE task_id=?",
+                (now_iso(), task_id),
+            )
+            self._append_event(
+                task_id,
+                "RECONCILE_STARTED",
+                "UNKNOWN",
+                "RECONCILING",
+                "kernel",
+                reason or "reconcile_required",
+                {"checkpoint_id": checkpoint_id},
+            )
+            self.conn.execute("COMMIT")
+            return self.get_task(task_id)
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
+
+    def reconcile_unknown(
+        self,
+        task_id: str,
+        checkpoint_id: str,
+        outcome: str,
+        evidence_ref: str,
+        verifier_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Reconcile an uncertain side effect without auto-completing the task."""
+        if outcome not in {"NOT_APPLIED", "APPLIED", "UNKNOWN"}:
+            raise KernelError("invalid reconcile outcome")
+        if not evidence_ref or not str(evidence_ref).strip():
+            raise KernelError("reconcile evidence is required")
+        if outcome in {"APPLIED", "UNKNOWN"} and not verifier_id:
+            raise KernelError("reconcile verifier is required")
+        _assert_checkpoint_safe({"evidence_ref": evidence_ref, "verifier_id": verifier_id})
+        self._begin()
+        try:
+            task = self._task(task_id)
+            checkpoint = self._load_reconcile_checkpoint(task_id, checkpoint_id)
+            if task["state"] != "RECONCILING":
+                raise InvalidTransition(f"{task['state']}->reconcile_outcome")
+            idem = self.conn.execute(
+                "SELECT * FROM idempotency WHERE logical_key=?",
+                (checkpoint["idempotency_key"],),
+            ).fetchone()
+            if not idem:
+                raise KernelError("reconcile idempotency key not found")
+            old_state = task["state"]
+            if outcome == "NOT_APPLIED":
+                if idem["status"] != "CLAIMED":
+                    raise KernelError("reconcile idempotency status is not CLAIMED")
+                self.conn.execute(
+                    "UPDATE idempotency SET status='RETRYABLE',result_ref=? WHERE logical_key=?",
+                    (evidence_ref, checkpoint["idempotency_key"]),
+                )
+                next_state = "QUEUED"
+                event_type = "RECONCILE_NOT_APPLIED"
+            elif outcome == "APPLIED":
+                self.conn.execute(
+                    "UPDATE idempotency SET status='RECONCILED_APPLIED',result_ref=? WHERE logical_key=?",
+                    (evidence_ref, checkpoint["idempotency_key"]),
+                )
+                next_state = "HUMAN_REVIEW"
+                event_type = "RECONCILE_APPLIED"
+            else:
+                self.conn.execute(
+                    "UPDATE idempotency SET status='RECONCILED_UNKNOWN',result_ref=? WHERE logical_key=?",
+                    (evidence_ref, checkpoint["idempotency_key"]),
+                )
+                next_state = "HUMAN_REVIEW"
+                event_type = "RECONCILE_UNKNOWN"
+            self.conn.execute(
+                "UPDATE tasks SET state=?,version=version+1,updated_at=? WHERE task_id=?",
+                (next_state, now_iso(), task_id),
+            )
+            self._append_event(
+                task_id,
+                event_type,
+                old_state,
+                next_state,
+                verifier_id or "provider-state-reader",
+                "reconcile_outcome_recorded",
+                {
+                    "checkpoint_id": checkpoint_id,
+                    "outcome": outcome,
+                    "evidence_ref": evidence_ref,
+                    "verifier_id": verifier_id,
+                },
+            )
+            self.conn.execute("COMMIT")
+            return self.get_task(task_id)
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
+
     def validate_checkpoint(self, checkpoint_id: str, planned_action: Any) -> dict[str, Any]:
         row = self.conn.execute("SELECT * FROM checkpoints WHERE checkpoint_id=?", (checkpoint_id,)).fetchone()
         if not row:
@@ -469,7 +703,16 @@ class TaskKernel:
         self._begin()
         try:
             row=self.conn.execute("SELECT * FROM idempotency WHERE logical_key=?",(logical_key,)).fetchone()
-            if row: self.conn.execute("COMMIT");return logical_key,False
+            if row:
+                if row["status"] == "RETRYABLE":
+                    self.conn.execute(
+                        "UPDATE idempotency SET status='CLAIMED',result_ref=NULL WHERE logical_key=?",
+                        (logical_key,),
+                    )
+                    self.conn.execute("COMMIT")
+                    return logical_key, True
+                self.conn.execute("COMMIT")
+                return logical_key,False
             self.conn.execute("INSERT INTO idempotency(logical_key,task_id,step_id,action_type,resource_identity,status,created_at) VALUES (?,?,?,?,?,?,?)",(logical_key,task_id,step_id,action_type,resource_identity,"CLAIMED",now_iso()));self.conn.execute("COMMIT");return logical_key,True
         except Exception:
             self.conn.execute("ROLLBACK");raise
