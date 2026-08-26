@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T09:16:09.575993+00:00",
-  "captured_commit": "7d450d60ade45a47bc17b711282b639b2e0a61fe",
-  "captured_parent": "48c836adc73270cc8e60d927fca59db096f52b5c",
-  "captured_tree": "62700ad57dafa1783acdcf43086616edaa16e907",
+  "generated_at_utc": "2026-08-26T09:28:07.594387+00:00",
+  "captured_commit": "37aeb0e4849768add9cda98840043c90f76cbcc8",
+  "captured_parent": "dd6df2422302bdeb7c945a597a8c68f40b5f7bb1",
+  "captured_tree": "52548b6ec4288f586ad361e2f8e31ed0e0642b9e",
   "tracked_count": 1293,
-  "inventory_sha256": "9f8e95e661bad06880e0e97548e0d8ad79ffa5779933e3ab47fae8a88c7263e0",
+  "inventory_sha256": "df01fb3f0947822ac69a65815622a10f4070a20114cf0160b696eacc6d28f74c",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2374,7 +2374,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ca4bc7f55c28c9ec80fb0c412a420f4ebc93c1e5",
+      "blob": "f966c44106773335d135ecfefced28d440e29de7",
       "path": "reports/CODEGRAPH_FEATURE_COMPLETION_V2.md"
     },
     {
@@ -2386,7 +2386,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "99b1f9a801cfcae0affd821ee9351987f5ce3d19",
+      "blob": "ade524ee739dbe29d71d8a146e9db1da38d5b3e0",
       "path": "reports/CURRENT_CODEGRAPH_429_RAG_AUDIT_V2.md"
     },
     {
@@ -2662,7 +2662,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "33a696e11699af5ad1504530dcbd95d00dfc82d0",
+      "blob": "35ef8f7c65d9686e3611e1eeb1c2f28a77004068",
       "path": "reports/codegraph_20260826/codegraph.json"
     },
     {
@@ -2692,7 +2692,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c7d9a7bbc02a886c0ee07494b90b9181ead72a51",
+      "blob": "263f9a9c32241c18dda0425f897778386171da51",
       "path": "reports/codegraph_20260826/codegraph_summary.json"
     },
     {
@@ -3004,7 +3004,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "751ea3a2785371eea724d8b75fb08427015c7607",
+      "blob": "116b8d14ab6299499f0c8a7e0514f959926ed978",
       "path": "reports/scp_feature_completion_matrix_v2.json"
     },
     {
