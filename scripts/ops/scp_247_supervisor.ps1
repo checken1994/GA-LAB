@@ -302,8 +302,13 @@ try {
             Write-Ledger -Event 'START_REJECTED' -Service $Service.Name -Reason 'working_directory_missing'
             return $null
         }
-        $stdout = Join-Path $LogDir "$($Service.Name).out.log"
-        $stderr = Join-Path $LogDir "$($Service.Name).err.log"
+        # Use immutable per-start log files. Reusing one path would let a later
+        # healthy restart truncate the previous process's stderr and erase the
+        # only evidence of a transient crash. The supervisor ledger records the
+        # basenames for provenance without exposing private absolute paths.
+        $logRunId = "$(Get-Date -AsUTC -Format 'yyyyMMddTHHmmssfffffffZ').$([Guid]::NewGuid().ToString('N').Substring(0, 12))"
+        $stdout = Join-Path $LogDir "$($Service.Name).$logRunId.out.log"
+        $stderr = Join-Path $LogDir "$($Service.Name).$logRunId.err.log"
         $oldLoopLog = $env:LOOP_LOG_PATH
         $oldScpBaseUrl = $env:SCP_BASE_URL
         # LLM_BRIDGE_URL remains a compatibility alias for older callers; the
@@ -388,7 +393,7 @@ try {
                 & taskkill.exe /PID $process.Id /T /F *> $null
                 throw
             }
-            Write-Ledger -Event 'START' -Service $Service.Name -Reason 'supervisor_start' -Extra @{ child_pid = $process.Id; port = $Service.Port; contained_by_job = (-not $DryRun) }
+            Write-Ledger -Event 'START' -Service $Service.Name -Reason 'supervisor_start' -Extra @{ child_pid = $process.Id; port = $Service.Port; contained_by_job = (-not $DryRun); stdout_log = [IO.Path]::GetFileName($stdout); stderr_log = [IO.Path]::GetFileName($stderr) }
             return [pscustomobject]@{ Id = $process.Id; Name = $Service.Name; Process = $process; StdoutStream = $null; StderrStream = $null; StdoutCopyTask = $null; StderrCopyTask = $null; StartedAt = [DateTime]::UtcNow }
         } finally {
             $env:LOOP_LOG_PATH = $oldLoopLog
