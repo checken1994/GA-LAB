@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T07:04:51.105689+00:00",
-  "captured_commit": "222793867e456d8f82931b29e9e0e38f1f4625d9",
-  "captured_parent": "a92776ffc7da1c70cc209428cb224494c816471e",
-  "captured_tree": "3912b0dbcfeb7b29d03da181fe877cd0cb3804dd",
-  "tracked_count": 1263,
-  "inventory_sha256": "fb73764d079a8b07a9be2c23f43216e34948a4e06d2340ce881b37fb158989e8",
+  "generated_at_utc": "2026-08-26T07:44:21.777348+00:00",
+  "captured_commit": "dc0113fe4cf0fc8c7430122735d10d97d0dd3b38",
+  "captured_parent": "1131e4219b09e6bc4f0fe55330679809fbc44c55",
+  "captured_tree": "086aedc9bd4c09c2a35513793f214cb48e362d52",
+  "tracked_count": 1274,
+  "inventory_sha256": "cf8ef226914b5e9906b96e9fc4dde7b76d606a26b695ce710b1dbb20ab20fe0d",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -14,9 +14,9 @@
       "sha256": "48d9b846be628ed715b62a67953de230940e129763afecd3b17c3bd54463ef6a"
     },
     "scp/api_server.py": {
-      "blob": "516e10f104f420a14562d417a62224028ab7597d",
-      "bytes": 99318,
-      "sha256": "33274a784cd76f9a2b0db5d05c7dd8113493c13bb2fa02d62f509b60ea26367c"
+      "blob": "7a6a6f21ab6f401ced7af0e7d5c97b39e880e347",
+      "bytes": 99527,
+      "sha256": "fda6dc4917778167d1e4981746ced3b68992a9f7c8ec14f4050dc9bc70de8479"
     },
     "scp/task_kernel.py": {
       "blob": "f09de50e6859fa3d44326cef8338272ca09f3102",
@@ -2374,6 +2374,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "e381375f0d259aff2c4e357bc56f869f53c8edcd",
+      "path": "reports/CURRENT_CODEGRAPH_429_RAG_AUDIT_V1.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "4dfd08c67e1521f5c6b3e7860bff8f1736256b18",
       "path": "reports/PHASE3_PUBLICATION_EN.md"
     },
@@ -2640,6 +2646,42 @@
       "type": "blob",
       "blob": "a6f83025dc4b9c9f39d1802ffef5dc687e389ef7",
       "path": "reports/SCP_TEST_RUNTIME_RESTART_2026-08-17_stdout.txt"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "02af93bfeee6433f0fec3f9d8a2a15908df304e7",
+      "path": "reports/codegraph_20260826/codegraph.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e596d815e79acf1b3b1961cfc9abfd85772cfbc0",
+      "path": "reports/codegraph_20260826/codegraph_edges.csv"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "91bf0d19da5b1749dd861caaf81d35353dbe5155",
+      "path": "reports/codegraph_20260826/codegraph_focused.mmd"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9f767db95503bc6b1623ebdb1fbbafa84ac00bb6",
+      "path": "reports/codegraph_20260826/codegraph_focused.png"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "29cf97df6948c2cb9c2de4c58a76f4ae12964b09",
+      "path": "reports/codegraph_20260826/codegraph_full.mmd"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "465323a8a8141ea344f990da41e73ea5512193ab",
+      "path": "reports/codegraph_20260826/codegraph_summary.json"
     },
     {
       "mode": "100644",
@@ -3118,7 +3160,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "516e10f104f420a14562d417a62224028ab7597d",
+      "blob": "7a6a6f21ab6f401ced7af0e7d5c97b39e880e347",
       "path": "scp/api_server.py"
     },
     {
@@ -5740,7 +5782,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "770134ce9786a3e5c59f2454f05547c417b7ee72",
+      "blob": "1cef89190e91cfa473a08821da63bb76872c8076",
       "path": "scp/security/dos_protection.py"
     },
     {
@@ -6484,6 +6526,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "c92438a8bd37d34c72b7cde47960543b788db5dd",
+      "path": "tests/diagnostics/reproduce_429_paths.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "b83688652c0c2d385e76e833d6c8aeefe8e2198a",
       "path": "tests/diagnostics/run_gateway_probe_r31.ps1"
     },
@@ -7012,6 +7060,18 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "aac6a0d4e3bc4925428889d437d083b11160acf5",
+      "path": "tests/test_429_api_boundary.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5ee91e6fd2123a503ae8693edf57e83e9d77c692",
+      "path": "tests/test_429_fallback_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "4a38be845512d6f429471c7ae1e446e4452b9535",
       "path": "tests/test_ask_kernel_integration.py"
     },
@@ -7284,6 +7344,12 @@
       "type": "blob",
       "blob": "0e3fcc8fb67aeaa94e552ffc5fe94526465ec9a4",
       "path": "tools/build_canonical_text_corpus_v1.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f01cf6170fadcec4d77651f145b3cc7520c8120c",
+      "path": "tools/build_codegraph_current.py"
     },
     {
       "mode": "100644",
