@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T01:59:06.110180+00:00",
-  "captured_commit": "5a10bc7a46a91de3495864b338e73fd29cf86af2",
-  "captured_parent": "219b380f4e4b4dbefc73f8a3ff3659d2ba94987f",
-  "captured_tree": "b2039e8db89bc812764c92eefe9fb483568cf902",
-  "tracked_count": 1241,
-  "inventory_sha256": "4400660314dba9c74eced359aacbb1e73ad098e2f083bda84d3ba6547c861da4",
+  "generated_at_utc": "2026-08-26T06:52:58.490804+00:00",
+  "captured_commit": "99af3425d0bed2d4651f04f81535a25785f1d412",
+  "captured_parent": "e97bd879988913179ed3393276ee7217811b03a3",
+  "captured_tree": "e84f8f6b7703b7dd68fcad0be16f60adaae68f5f",
+  "tracked_count": 1261,
+  "inventory_sha256": "27deca61b3049056100b62de44a3854d22693fa1c6485e031ac029128c33b03d",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -148,7 +148,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f470fa58190be15c38d1ae7bf595f8236e0904a5",
+      "blob": "ebacb3dcefc333a2c3d5b003a9b6bc80282df93d",
       "path": "README.md"
     },
     {
@@ -424,8 +424,92 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "37455f37250c5482a4898b6f1c6d341feeee6a08",
+      "path": "benchmark/ares_preconditions_v2.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "59236e440ab145c4abb589ababa8e2b0b78f3813",
+      "path": "benchmark/ares_preconditions_v2.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9e85711bca89f96e89b046bf9bfc36c8a320374c",
+      "path": "benchmark/build_gold_anchor_50_v2.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "54e6fad7540df3a64b1b2c4ed09a65b73bd96676",
+      "path": "benchmark/extract_gold_anchor_50.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2d22c608b8fc2a8ff33cc87aa83ddfbddeb37ed4",
+      "path": "benchmark/extract_gold_anchor_v2.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0d7c76d73208bf17bdbbc0a14bdbecd6c03b869c",
+      "path": "benchmark/gold_anchor_50_v1.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "be53c3232df1172b791ba59d1436c4610abd0cc3",
+      "path": "benchmark/gold_anchor_50_v1_report.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c0745746d3b522ad58f85a972bd678a905b0e405",
+      "path": "benchmark/gold_anchor_50_v2_candidates.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2fd0195027524d74d5054f56215b50c9d1b80720",
+      "path": "benchmark/gold_anchor_50_v2_review_ledger.csv"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bb8b041d95e7c230db19e0fd25fa0b527490285c",
+      "path": "benchmark/gold_anchor_50_v2_review_ledger.xlsx"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a7350eaba8a065042437dfec22e8d8edff928f58",
+      "path": "benchmark/gold_anchor_50_v2_validation.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "aef35cd4ec75d51e76a431c0ce3a7e0854906605",
+      "path": "benchmark/gold_anchor_50_v2_validator_report.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "51bd5ff7a45f7700aa4d075c67ef5984c017e585",
+      "path": "benchmark/phase3_gold_50_manifest_v1.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "32368d6eda9a92fa10947f80db53f575205cfb71",
       "path": "benchmark/question_generator.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "72bff7dcbd73b0606a701af8dd4eff0ece0dbc10",
+      "path": "benchmark/ragas_results_v1.json"
     },
     {
       "mode": "100644",
@@ -438,6 +522,18 @@
       "type": "blob",
       "blob": "6a3f33a147e7e41a219db012dba07af035f2e1e6",
       "path": "benchmark/run_benchmark_v2_parallel.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6e218f8b7cc3ea461be4040b54983d9616692fed",
+      "path": "benchmark/run_ragas_v1.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3740c58e5107f07bee6b19f8cc978c3d05a69f53",
+      "path": "benchmark/run_ragas_v2.py"
     },
     {
       "mode": "100644",
@@ -2610,6 +2706,12 @@
       "type": "blob",
       "blob": "e9596e6aec3c378fe6939154d36f71bb63a714d1",
       "path": "reports/ddg_short_review_final_summary_20260825.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5d0f30932e782d3b42c988820b2804f95516512e",
+      "path": "reports/phase3_proof_gap_matrix_v1.json"
     },
     {
       "mode": "100644",
@@ -7066,6 +7168,18 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "1da459fb9876d1d412d93885588b4c1fbd01536c",
+      "path": "tests/test_phase3_gold_v2.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f0e2cd7462e44e106833e98c81abbddfca4472aa",
+      "path": "tests/test_phase3_ragas_runner.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "a32408afa62131df896db1304ab8362bced4d391",
       "path": "tests/test_provider_fallback.py"
     },
@@ -7512,6 +7626,12 @@
       "type": "blob",
       "blob": "b30b70608b043c835b03034bc4e4cd72670eefb3",
       "path": "tools/test_scp_dashboard_bridge.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9cb946e3c825986091be636386c5c8ed20892c0a",
+      "path": "tools/validate_phase3_gold_v2.py"
     },
     {
       "mode": "100644",
