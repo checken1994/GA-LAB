@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T16:27:42.523693+00:00",
-  "captured_commit": "e816c2d90a608d620bfe3087fb15c224a54f3278",
-  "captured_parent": "f3efaf9d31d06e3097d35315b9184edf2a559851",
-  "captured_tree": "df55409d2c6e220bfacc8d34e69eacbeb34e5771",
+  "generated_at_utc": "2026-08-26T16:47:42.286333+00:00",
+  "captured_commit": "cdd327dee38c3e7d48bfebc600b8cf80bc09aa40",
+  "captured_parent": "d0d0257fca1c9e9e300d81cc2b6e0531e8b1da46",
+  "captured_tree": "5a198b56ebe6a6d8da6eba194fe4218dfafc0314",
   "tracked_count": 1319,
-  "inventory_sha256": "4745d71f5a020b07221d0b4177d5029d8cb1b8369349a8b075f1e6d76479c9ae",
+  "inventory_sha256": "f4324108710fc0823e28dd647d028b042d036920f729bfdc903472f832d5869a",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -6736,7 +6736,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4733f313b451200ee1a68bdde8a63b0d70b08c29",
+      "blob": "b93b5e3dab7af6d028ce888f13285f6f4b422177",
       "path": "tests/reality-check.sh"
     },
     {
