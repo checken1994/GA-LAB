@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import secrets
 import sqlite3
 import time
@@ -33,7 +34,6 @@ ALLOWED_TRANSITIONS = {
     "RECOVERING": {"RECONCILING", "CHECKPOINTED", "QUEUED", "HUMAN_REVIEW", "FAILED"},
     "RECONCILING": {"RECOVERING", "CHECKPOINTED", "QUEUED", "HUMAN_REVIEW", "FAILED", "CANCELLED"},
     "RETRY_SCHEDULED": {"QUEUED", "FAILED", "CANCELLED"},
-    "WAITING_APPROVAL": {"READY", "CANCELLED"},
     "COMPLETED": set(), "FAILED": set(), "CANCELLED": set(),
 }
 
@@ -93,6 +93,44 @@ def stable_hash(value: Any) -> str:
     else:
         raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
+_SENSITIVE_KEY_MARKERS = (
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "authorization",
+    "cookie",
+    "private_key",
+)
+_SENSITIVE_VALUE_PATTERNS = (
+    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}"),
+    re.compile(r"(?i)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)=\S+"),
+)
+
+
+def _checkpoint_contains_secret(value: Any, path: str = "checkpoint") -> bool:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_text = str(key).lower().replace("-", "_")
+            if any(marker in key_text for marker in _SENSITIVE_KEY_MARKERS):
+                return True
+            if _checkpoint_contains_secret(child, f"{path}.{key}"):
+                return True
+        return False
+    if isinstance(value, (list, tuple, set)):
+        return any(_checkpoint_contains_secret(child, f"{path}[]") for child in value)
+    if isinstance(value, str):
+        return any(pattern.search(value) for pattern in _SENSITIVE_VALUE_PATTERNS)
+    return False
+
+
+def _assert_checkpoint_safe(value: Any) -> None:
+    if _checkpoint_contains_secret(value):
+        raise KernelError("checkpoint contains secret material")
 
 
 class TaskKernel:
@@ -372,7 +410,7 @@ class TaskKernel:
     def release(self, task_id: str, lease_id: str) -> None:
         self._begin()
         try:
-            lease=self._assert_lease(lease_id,task_id);self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?",(lease_id,));self._append_event(task_id,"LEASE_RELEASED",None,None,"kernel","worker_release",{"lease_id":lease_id});self.conn.execute("COMMIT")
+            self._assert_lease(lease_id,task_id);self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?",(lease_id,));self._append_event(task_id,"LEASE_RELEASED",None,None,"kernel","worker_release",{"lease_id":lease_id});self.conn.execute("COMMIT")
         except Exception:
             self.conn.execute("ROLLBACK");raise
 
@@ -380,7 +418,16 @@ class TaskKernel:
                    capability_epoch: int, idempotency_key: str, pre_observation_ref: str | None = None,
                    post_observation_ref: str | None = None, tool_result: Any | None = None,
                    verifier_verdict: str | None = None) -> str:
-        if state not in STATES: raise CheckpointCorrupt("invalid checkpoint state")
+        if state not in STATES:
+            raise CheckpointCorrupt("invalid checkpoint state")
+        _assert_checkpoint_safe(
+            {
+                "planned_action": planned_action,
+                "pre_observation_ref": pre_observation_ref,
+                "post_observation_ref": post_observation_ref,
+                "tool_result": tool_result,
+            }
+        )
         self._begin()
         try:
             lease=self._assert_lease(lease_id,task_id); payload={"task_id":task_id,"attempt_id":lease["attempt_id"],"step_id":step_id,"state":state,"planned_action":planned_action,"capability_epoch":capability_epoch,"idempotency_key":idempotency_key,"pre_observation_ref":pre_observation_ref,"post_observation_ref":post_observation_ref,"tool_result":tool_result,"verifier_verdict":verifier_verdict};cp_id="cp_"+secrets.token_hex(10);payload_hash=stable_hash(payload)
@@ -391,9 +438,30 @@ class TaskKernel:
             self.conn.execute("ROLLBACK");raise
 
     def validate_checkpoint(self, checkpoint_id: str, planned_action: Any) -> dict[str, Any]:
-        row=self.conn.execute("SELECT * FROM checkpoints WHERE checkpoint_id=?",(checkpoint_id,)).fetchone()
-        if not row: raise CheckpointCorrupt(checkpoint_id)
-        if row["planned_action_hash"] != stable_hash(planned_action): raise CheckpointCorrupt("planned action hash mismatch")
+        row = self.conn.execute("SELECT * FROM checkpoints WHERE checkpoint_id=?", (checkpoint_id,)).fetchone()
+        if not row:
+            raise CheckpointCorrupt(checkpoint_id)
+        if row["planned_action_hash"] != stable_hash(planned_action):
+            raise CheckpointCorrupt("planned action hash mismatch")
+        try:
+            tool_result = json.loads(row["tool_result_json"]) if row["tool_result_json"] is not None else None
+        except (TypeError, ValueError) as exc:
+            raise CheckpointCorrupt("checkpoint tool result is not valid JSON") from exc
+        payload = {
+            "task_id": row["task_id"],
+            "attempt_id": row["attempt_id"],
+            "step_id": row["step_id"],
+            "state": row["state"],
+            "planned_action": planned_action,
+            "capability_epoch": row["capability_epoch"],
+            "idempotency_key": row["idempotency_key"],
+            "pre_observation_ref": row["pre_observation_ref"],
+            "post_observation_ref": row["post_observation_ref"],
+            "tool_result": tool_result,
+            "verifier_verdict": row["verifier_verdict"],
+        }
+        if row["payload_hash"] != stable_hash(payload):
+            raise CheckpointCorrupt("checkpoint payload hash mismatch")
         return dict(row)
 
     def idempotency_claim(self, task_id: str, step_id: str, action_type: str, resource_identity: str) -> tuple[str, bool]:
@@ -407,7 +475,31 @@ class TaskKernel:
             self.conn.execute("ROLLBACK");raise
 
     def idempotency_complete(self, logical_key: str, result_ref: str) -> None:
-        self.conn.execute("UPDATE idempotency SET status='COMPLETED',result_ref=? WHERE logical_key=?",(result_ref,logical_key))
+        if not logical_key or not result_ref:
+            raise KernelError("invalid idempotency completion")
+        self._begin()
+        try:
+            row = self.conn.execute(
+                "SELECT * FROM idempotency WHERE logical_key=?",
+                (logical_key,),
+            ).fetchone()
+            if not row:
+                raise KernelError("idempotency key not found")
+            if row["status"] == "COMPLETED":
+                if row["result_ref"] != result_ref:
+                    raise KernelError("idempotency result mismatch")
+                self.conn.execute("COMMIT")
+                return
+            if row["status"] != "CLAIMED":
+                raise KernelError(f"invalid idempotency status: {row['status']}")
+            self.conn.execute(
+                "UPDATE idempotency SET status='COMPLETED',result_ref=? WHERE logical_key=?",
+                (result_ref, logical_key),
+            )
+            self.conn.execute("COMMIT")
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
 
     def commit_verification_result(self, task_id: str, lease_id: str, verification_result: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(verification_result, dict) or verification_result.get("verdict") != "VERIFIED":
@@ -454,18 +546,34 @@ class TaskKernel:
         for i,e in enumerate(events,1):
             if e["seq"]!=i: errors.append(f"sequence:{e['seq']} expected {i}")
             if e["prev_event_hash"]!=prev: errors.append(f"prev_hash:{e['seq']}")
-            body={"event_id":e["event_id"],"task_id":e["task_id"],"seq":e["seq"],"type":e["type"],"from_state":e["from_state"],"to_state":e["to_state"],"actor":e["actor"],"reason":e["reason"],"payload":json.loads(e["payload_json"]),"policy_hash":e["policy_hash"],"prev_event_hash":e["prev_event_hash"]}
+            try:
+                payload = json.loads(e["payload_json"])
+            except (TypeError, ValueError):
+                errors.append(f"payload_json:{e['seq']}")
+                prev = e["event_hash"]
+                continue
+            body={"event_id":e["event_id"],"task_id":e["task_id"],"seq":e["seq"],"type":e["type"],"from_state":e["from_state"],"to_state":e["to_state"],"actor":e["actor"],"reason":e["reason"],"payload":payload,"policy_hash":e["policy_hash"],"prev_event_hash":e["prev_event_hash"]}
             if stable_hash(body)!=e["event_hash"]: errors.append(f"event_hash:{e['seq']}")
             prev=e["event_hash"]
         return {"task_id":task_id,"event_count":len(events),"hash_chain_valid":not errors,"errors":errors}
 
     def rebuild_projection(self, task_id: str) -> dict[str, Any]:
-        events=self.get_events(task_id)
-        if not events: raise NotFound(task_id)
-        state=events[0]["to_state"]
-        for e in events[1:]:
-            if e["to_state"]: state=e["to_state"]
-        self.conn.execute("UPDATE tasks SET state=?,updated_at=? WHERE task_id=?",(state,now_iso(),task_id));return self.get_task(task_id)
+        journal = self.verify_journal(task_id)
+        if not journal["hash_chain_valid"]:
+            details = ";".join(journal["errors"])
+            raise KernelError(f"journal integrity invalid: {details}")
+        events = self.get_events(task_id)
+        if not events:
+            raise NotFound(task_id)
+        state = events[0]["to_state"]
+        for event in events[1:]:
+            if event["to_state"]:
+                state = event["to_state"]
+        self.conn.execute(
+            "UPDATE tasks SET state=?,updated_at=? WHERE task_id=?",
+            (state, now_iso(), task_id),
+        )
+        return self.get_task(task_id)
 
     @staticmethod
     def recovery_decision(reason: str, action_dispatched: bool = False, side_effect_risk: str = "R0") -> RecoveryDecision:
