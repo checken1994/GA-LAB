@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T13:06:32.813820+00:00",
-  "captured_commit": "8ecc062e2b7a82753446273537cd30233bf4a67e",
-  "captured_parent": "8b24261c8ce78579d0b72e7d2a2be41f37e16781",
-  "captured_tree": "19d833dcca371d2802ad3fa20a59562300bbaa14",
-  "tracked_count": 1326,
-  "inventory_sha256": "1d99655b2f550e7dfee88c040a6721e6d62a283b4cfabf1909d01d9b6d6733bf",
+  "generated_at_utc": "2026-08-26T14:54:54.031421+00:00",
+  "captured_commit": "049075ce502d678704a71d4cd9a4727d86d77023",
+  "captured_parent": "4a3dc3e5acc4e29fee2ed572ed6d82723c6af646",
+  "captured_tree": "1d291cb904b139c621caed2c0238381cd835862a",
+  "tracked_count": 1319,
+  "inventory_sha256": "13bd528080e3897e7a0a275b719971f718afb9d120e7da3d316ee3b6b3fc83c5",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -14,9 +14,9 @@
       "sha256": "16d709e0916b4a6c0dabfcea5e05504a78686cfaeb3df471f7c487da3e679a83"
     },
     "scp/api_server.py": {
-      "blob": "7a6a6f21ab6f401ced7af0e7d5c97b39e880e347",
+      "blob": "e174814c710658f690ba817a719f43a2677bdee7",
       "bytes": 99527,
-      "sha256": "fda6dc4917778167d1e4981746ced3b68992a9f7c8ec14f4050dc9bc70de8479"
+      "sha256": "ad1c9e13a16e437f53e5eb42331da834b658f94937555bec918599c97ec21f35"
     },
     "scp/task_kernel.py": {
       "blob": "7ba182a849bc4f739cb98a054c8ee2dc63233892",
@@ -88,7 +88,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5fe361e36ac6505d9f29817ceedf1560e24499e1",
+      "blob": "55ac30dd20f2c05600c7815629a45fb33f5ee7ac",
       "path": ".env.example"
     },
     {
@@ -154,7 +154,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ebacb3dcefc333a2c3d5b003a9b6bc80282df93d",
+      "blob": "dc1511d9881e10fab7cc17083591177690bad34b",
       "path": "README.md"
     },
     {
@@ -328,7 +328,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4c2307dd526ba88a7b71db8cc9173dbb2e828af6",
+      "blob": "6e1552d207f5735ffed8e45361304e190cfd80e0",
       "path": "SCP_V31_AI_LOGIN_GUIDE.md"
     },
     {
@@ -418,7 +418,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bba28536d4784edf8af020e90900cc635beb0072",
+      "blob": "bd77eaebe12395ee11225c396b84a056ebe39698",
       "path": "WINDOWS-README.md"
     },
     {
@@ -628,25 +628,25 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "66528fd8022aaa33625642399641e39bd1e6dc83",
+      "blob": "8e5e86071d576b98ae35fc5cdd04f54b62208977",
       "path": "dashboard/src/app/api/autofix/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "490b397bdd4d3f46eddbd657257eded1a4be8285",
+      "blob": "0ce02b176122f10395cbafca154d87e1b477d408",
       "path": "dashboard/src/app/api/scanners/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "178764411b74ac5d58d504c2f48e1abb2729a142",
+      "blob": "98900120bbb32b4a7c7408402aed9aa4516ce798",
       "path": "dashboard/src/app/api/scp/ask/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8403fccebeaea135081bb13b20de5dbc20aab856",
+      "blob": "4e7ba7c2d6cadd542ed2129d7ddf898cc9ada236",
       "path": "dashboard/src/app/api/scp/call/session/route.ts"
     },
     {
@@ -682,43 +682,43 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0eba18512b45dfaf2dbc47712d4bbad0a5ec3eb7",
+      "blob": "d0a9846e57b84f9a59fd7c6a2f1fa99f0b9626e2",
       "path": "dashboard/src/app/api/scp/status/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3d62f4ab5134b1e4dc2a9d63bd0d35b999f55a6b",
+      "blob": "6d4d4de6125d2577228805454864082dd4379248",
       "path": "dashboard/src/app/api/scp/v3/hands/planner/status/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "1442ce52e219d7708d8ccf0e75a0f2d00053c352",
+      "blob": "5b06453eeb65d9c21845add370adc30e19b584b5",
       "path": "dashboard/src/app/api/scp/v3/hands/status/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "52269eb75c12b1acc591865bd223462f66bd1f35",
+      "blob": "7981bee3e2bfec8f108c0dfc241be9132b909676",
       "path": "dashboard/src/app/api/scp/v3/pc/status/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d3cdcc201eccef3c7f53d68dbda5ded19dceae58",
+      "blob": "0e986c230e5627736d930b3a80ee1e992923ed3a",
       "path": "dashboard/src/app/api/scp/v3/web/search/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "dc98a06aa8c073418d22e95cfbb9db904a0f6e93",
+      "blob": "15f0337faa7e153f43837087870cd8f83888467c",
       "path": "dashboard/src/app/api/scp/v3/web/status/route.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7553f93637004abb00da468d3feb4561ce6fdbc5",
+      "blob": "920071d95197920ec9d61cd773a7150cf913eb65",
       "path": "dashboard/src/app/api/scp/voice/route.ts"
     },
     {
@@ -874,7 +874,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "421d18ca06cb5d04802b4b3252fb3e5a1cd58c5d",
+      "blob": "8a6213b9f45af2d6690ed69d981264d3bcd0b9c0",
       "path": "dashboard/src/components/dashboard/closing-section.tsx"
     },
     {
@@ -1426,7 +1426,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f92eea267bd614b4c4c66877a0e045060e23074c",
+      "blob": "fc7c15a2c7d45bfbadf565268da47699407d572a",
       "path": "desktop/README.md"
     },
     {
@@ -2050,7 +2050,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "49297a4462bef3eb9a205556259ebc1b91f4e280",
+      "blob": "79aebdeecd2bb796e0801dcf8490fa1672e851bf",
       "path": "fullstack_http_ready_harness.ps1"
     },
     {
@@ -2080,7 +2080,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "469782cc3b45f2491b582318ad2763c7dac82d7e",
+      "blob": "f3ddcbf85af46f8114d2a11b5cf0db43dfb91cd0",
       "path": "manual_fullstack_probe.ps1"
     },
     {
@@ -2092,19 +2092,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "60e4044daf3e1704b08263e630908e1642d68dc7",
+      "blob": "f86b92504115f80d90640af724449525faf1f6a8",
       "path": "mini-services/README.md"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "54010ea661892e44a6da91771e32c79b25fbb681",
+      "blob": "a198847aca2e48bdcde064f69802089236ebf15e",
       "path": "mini-services/llm-bridge/README.md"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ab5350142f75d7e2ebca7e410d127cebd6735db6",
+      "blob": "4edaf7d63e9b364d79302749e1bf54d278ffdbff",
       "path": "mini-services/llm-bridge/index.ts"
     },
     {
@@ -2116,7 +2116,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "83aff2639439e171fe7664edfdf1c944a0c72de5",
+      "blob": "cea84fa71acf37f95fa993275855f010fdfca0c6",
       "path": "mini-services/loop-scheduler/README.md"
     },
     {
@@ -2128,7 +2128,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9b7e09f2eca0db4545fdcba6ef9ce20fc893d24b",
+      "blob": "f5be022738d15509904ae267bdb93ac3e88fcbd2",
       "path": "mini-services/loop-scheduler/index.ts"
     },
     {
@@ -2194,12 +2194,6 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8b2ecd31691e625e7b21ee038704a89c8b5799a6",
-      "path": "patch_reality_portability.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "9cab6a3f893a6544c2839df36c4960707c9bd0f7",
       "path": "patch_reality_runner_portable.py"
     },
@@ -2236,7 +2230,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7d5df392167606866b689a078aba11c222451e5e",
+      "blob": "26647f781cd4b0374023a65ce1b8195369dc9886",
       "path": "pending_fixes/README.md"
     },
     {
@@ -3172,7 +3166,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "28414f76215332e50bee624921d300b86dd5081f",
+      "blob": "e83064608f3562a68dcc6351e1df2f5db7e505b8",
       "path": "scp/GATEWAY.md"
     },
     {
@@ -3184,7 +3178,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "cc041e16338afd19ad87fc94424861811df6d482",
+      "blob": "3d837efb3f92ec269d6f967bb2f69c1b58b88214",
       "path": "scp/__main__.py"
     },
     {
@@ -3226,7 +3220,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "2e7081b400d54f4c148518a81311d7f27ab53d8d",
+      "blob": "7a2b2892d8603e09f0107ddab8a34b3dc35a2e7a",
       "path": "scp/api/routes/README.md"
     },
     {
@@ -3262,7 +3256,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5aefe67d211691cc0ceaa4d2905fb2bc3fec86d5",
+      "blob": "344219c07e6377721226890871c7f9a14af57e72",
       "path": "scp/api/routes/batch_benchmark_routes.py"
     },
     {
@@ -3352,7 +3346,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7a6a6f21ab6f401ced7af0e7d5c97b39e880e347",
+      "blob": "e174814c710658f690ba817a719f43a2677bdee7",
       "path": "scp/api_server.py"
     },
     {
@@ -3910,7 +3904,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "42743f13b7bd05c2f3c4ec27a7f572a447aa7d19",
+      "blob": "e47beff6dc6714ee5564eb31c5ee276f4665dad5",
       "path": "scp/autofix/type_flow_verifier.py"
     },
     {
@@ -5578,12 +5572,6 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "564cd9df2eca6f199a267de6a3094e775c56ad9d",
-      "path": "scp/runtime/judge.py.bak-domain-async-20260817"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "a527d7971580f7a0504bdc3f48c1efa1f1c63455",
       "path": "scp/runtime/judge_parts/__init__.py"
     },
@@ -5614,32 +5602,8 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e144074ccd9661a1484765ac04bd33f5d03287ff",
-      "path": "scp/runtime/judge_parts/judgecore_mixin.py.bak-domain-override-20260817"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "4164117fa51833bcd8c1e918aa3ee05d2ce976ba",
-      "path": "scp/runtime/judge_parts/judgecore_mixin.py.bak-domain-signature-20260817"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "f0b3856d173ef90e970c2c83ae4d2bd1904cdd72",
-      "path": "scp/runtime/judge_parts/judgecore_mixin.py.pre_web_fallback.bak"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "787ed04df62ceb5cd7f4aeead57c54a4bd7eab8f",
       "path": "scp/runtime/judge_parts/judgeroute_mixin.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "46008ad9cf6d1fa738d4039669eded555f728ecd",
-      "path": "scp/runtime/judge_parts/judgeroute_mixin.py.bak-domain-override-20260817"
     },
     {
       "mode": "100644",
@@ -6220,13 +6184,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c691f71f7c70790a81d1f878d778aa41cf9de8ba",
+      "blob": "2771aaa05f23e83472cfd0d606671bbe3ff8bb3f",
       "path": "scp_247_supervisor.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "55326397b7637b61edcc827a3ba4fac5861416b0",
+      "blob": "192696f64b61fea7fb987f8d9d58404ac15fec4f",
       "path": "scp_bridge.py"
     },
     {
@@ -6418,12 +6382,6 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8b2ecd31691e625e7b21ee038704a89c8b5799a6",
-      "path": "scripts/maintenance/legacy/patch_reality_portability.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "9cab6a3f893a6544c2839df36c4960707c9bd0f7",
       "path": "scripts/maintenance/legacy/patch_reality_runner_portable.py"
     },
@@ -6508,25 +6466,25 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9fcea9267a96f417179cace635715fd4769f785d",
+      "blob": "f1840894f9e926942431dc9e29b5af2141c636ae",
       "path": "scripts/ops/create_production_candidate.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "49297a4462bef3eb9a205556259ebc1b91f4e280",
+      "blob": "7880d983e7f8cf0f7f0431f547e00a9362e750b6",
       "path": "scripts/ops/fullstack_http_ready_harness.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "469782cc3b45f2491b582318ad2763c7dac82d7e",
+      "blob": "04649247d68ecbdb4e12c4ae017884e6ec4ba702",
       "path": "scripts/ops/manual_fullstack_probe.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6e1df36080eac56c767870e787916abedcad7852",
+      "blob": "a73e134a54e8a0eac71b80191b782e0052fa71c3",
       "path": "scripts/ops/scp_247_bounded_outage_test.ps1"
     },
     {
@@ -6550,7 +6508,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "10ddc99b2b3d0d6fc8505aaff14c586061fe958f",
+      "blob": "7cf2185cc9094967cf6c6d3f08d04896ab7dd8bf",
       "path": "scripts/ops/scp_247_supervisor.ps1"
     },
     {
@@ -6568,7 +6526,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ba6f8170485b58bd56d5a5f1de901006e241379d",
+      "blob": "d42e50b0eac13c39f7d44ac2bbc45e93ccb9f312",
       "path": "scripts/ops/start-scp-test.ps1"
     },
     {
@@ -6598,7 +6556,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "299e183ea9a07f0f9f5c64572a3ea6c647a55dda",
+      "blob": "ef9be27c186cb4628380d4534dfbbfcb5d853151",
       "path": "scripts/scp_local_bridge.py"
     },
     {
@@ -6610,13 +6568,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0b90dd0f3a9b5ff3969dfc8dd9567aa6f1856ed3",
+      "blob": "37174ec28d4b67aa57f9ae01838a9c05c3dc773d",
       "path": "scripts/test_resilient_browser.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "64bd1d487d27f4687711b732b1f4c19b86fe0221",
+      "blob": "deb66435a4d62fd9d3638a8772ade1456cbfc155",
       "path": "scripts/test_resilient_full.ps1"
     },
     {
@@ -6628,31 +6586,31 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3003fd8f37c3573bbeb15c8c2e7a60e6b8150f53",
+      "blob": "e81c4b6a02040436dc371e72634c1b306184b5f5",
       "path": "start-scp-test.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "39790d9d63af67d961c3c7fc708e293e6e092b66",
+      "blob": "e166a28bd979d81a7c87d1bd8b850c8bf5dc438a",
       "path": "start-scp.bat"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "77b41cc23f7f369c148cd5ac4900a0c2e3d50064",
+      "blob": "aa006be947329b60ec242631e5c6ee4228d26e92",
       "path": "start-scp.sh"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9ec0dc1011af4f63e4adc90778a7ff115cead602",
+      "blob": "d0b8e213623645f95a3f8d81fa1a369dd178893f",
       "path": "stop-scp.bat"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "158b6a920420c5d723722a6ff7bdea833c74cb89",
+      "blob": "c6b76ae26669850179829373e2dd9cfc808ba996",
       "path": "stop-scp.sh"
     },
     {
@@ -6676,7 +6634,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ff9494e841e37d3733cbad0674d30b0f0463cd5b",
+      "blob": "7f2275d4f14e9cd2fbc9f8764ac5ba5ee2bdc09d",
       "path": "tests/benchmark_hands_v35.py"
     },
     {
@@ -6688,7 +6646,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "17b6d026cb4eba64e69097c0640bf9abefefb529",
+      "blob": "5ba9cd56467467599cf494e1e3d57126de6cc134",
       "path": "tests/benchmark_hands_v36_planner.py"
     },
     {
@@ -6778,7 +6736,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "970c90e5b383d08692e97e84e576cc5411a3a308",
+      "blob": "4733f313b451200ee1a68bdde8a63b0d70b08c29",
       "path": "tests/reality-check.sh"
     },
     {
@@ -7006,7 +6964,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "039a4ce8fd941654ae9692728ea842c794173eb3",
+      "blob": "8f61d2fa32ddb9083898cdf695151d619be16f9a",
       "path": "tests/reality-tests/reality_4-c-007.py"
     },
     {
@@ -7096,7 +7054,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "76e4b9ba961733d4922bfd381412ffe5abc6a327",
+      "blob": "95d237e41472cbc1d707ca6408d9cb4d940a8b5d",
       "path": "tests/reality-tests/reality_4-d-007.py"
     },
     {
@@ -7138,7 +7096,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9138be561565e60151c2e6d94e0718725183b585",
+      "blob": "4b66b0bc93a464b57381c81ae5023a672dfe9436",
       "path": "tests/reality-tests/reality_4-d-015.py"
     },
     {
@@ -7168,7 +7126,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d4f7a8a08f686fa2532b0d5ba18e34d9ef526c7d",
+      "blob": "5e006ef9535cd0caaa7c81fde69b76e627a8ffb9",
       "path": "tests/reality-tests/reality_4-d-020.py"
     },
     {
@@ -7240,13 +7198,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "36332d7302c1f6dddd86cba1a259e88cb8b2cb6a",
+      "blob": "4b63c01480eae8c92056c153fb07a0523adf4c7f",
       "path": "tests/run_reality_tests_portable.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "039c4e8bd05fca3bdd7716b93df8a846c16315a4",
+      "blob": "e495b41f1cc5f7db4ce8917e5a979a61178440c7",
       "path": "tests/smoke_hands_v35.py"
     },
     {
@@ -7396,13 +7354,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "db60c0a8244072e6149a105d03d55eb4bde27469",
+      "blob": "b44555a69dafdf45e46151494886d2109774f37e",
       "path": "tests/test_hands_v32.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "da5f2f3089d07d05b26dd136eab1d0f1d22dd0ad",
+      "blob": "7808838d8e34dca34e3acabddcb8ccde47a78c2e",
       "path": "tests/test_hands_v33.py"
     },
     {
@@ -7414,13 +7372,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8eb4d75d41ea4f4a805a0b52bf765a0d3a09f53a",
+      "blob": "7d5c13aff1cb17c5faf1823b938724ab57b6bd85",
       "path": "tests/test_hands_v34_api.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "28edeff592a8c5a9d1dda7e87940303ba4f91c09",
+      "blob": "33040c6c6ec5a10c25e422075a07b0a2e72eb236",
       "path": "tests/test_hands_v34_process.py"
     },
     {
@@ -7432,7 +7390,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "01115fb25c2540c56659a73a3fbd5586e2ade18a",
+      "blob": "5dcfeca00f9a2f86a567f4c7010cec2ce80a7511",
       "path": "tests/test_hands_v36_api.py"
     },
     {
@@ -7444,7 +7402,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b03178eacdfd33610d0ab915bbd08d6d9589830f",
+      "blob": "a74edc5b56611d76371b1ecca86984b8d6e304d4",
       "path": "tests/test_hands_v37_api.py"
     },
     {
@@ -7618,7 +7576,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9298012579b67a3e139c1389f69cdf961a4fda9a",
+      "blob": "c203ab75984f1946e22305734fd42407b0d0a791",
       "path": "tests/v31_boundary_simulation.py"
     },
     {
@@ -7648,7 +7606,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b2ecad9ad12a7a613b3134759d907736960ce106",
+      "blob": "1e29245068257eeb6b42b4d11f34355e93d238ab",
       "path": "tools/build_core_repo_matrix.ps1"
     },
     {
@@ -7912,7 +7870,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d722c4dc04943b0693cd351d58a86820315859aa",
+      "blob": "f8880535710af752f7a3841c02b2c1c4c53d19ff",
       "path": "tools/run_canonical_1000_abstain_pipeline.py"
     },
     {
@@ -7930,49 +7888,49 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c49fd1c423e544b1f36d0655a43e296352828493",
+      "blob": "522a8773461192828f24b204c2029eacadd4d92f",
       "path": "tools/run_scp_auto_rag_smoke_v7.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "15bc01008586c3a38f441badf4669dc13984ed01",
+      "blob": "ee518c6ccccbcc4d0b0c2e87f18e25f0057e3ad8",
       "path": "tools/run_scp_full_runtime_rag_1000_resilient_v2.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5c04e148819ca895d45005a2c5a471a11ef52f4f",
+      "blob": "52a27535944cab1a19e32e4334744a58c936b959",
       "path": "tools/run_scp_full_runtime_rag_1000_resilient_v3.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f715f0ac2d965d273fd768da50bf150be60fe0a1",
+      "blob": "b5672a9e6affafe53ff4c47e834e264e054779e4",
       "path": "tools/run_scp_full_runtime_rag_1000_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5a81ad5eda540261f5569f0fe36d9cddab8cdad4",
+      "blob": "1c8fecef630938ecdfd8d497f60b480abd922576",
       "path": "tools/run_scp_multidomain_smoke.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "85b314f12aceb38ad7f6e1e4b72d887ffe717183",
+      "blob": "e58608182fa7c9580e63966e65df22a27c1c258e",
       "path": "tools/run_scp_rag_grounded_smoke.ps1"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "71f3107a54867f8289ce9c0f012bbfe1d9f83fd7",
+      "blob": "857b784984f2c823156095f1fadc1e0803d0fcb8",
       "path": "tools/run_standard_rag_pipeline.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0415208111987fe40556d4a7cbbcc81d48f178cf",
+      "blob": "662e55184b6b66a069db8b19ee4a15496cd664e3",
       "path": "tools/run_standard_rag_pipeline_parallel.py"
     },
     {
@@ -7990,7 +7948,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "cc9cd0d348235f24c0f52cc3f0258588506945de",
+      "blob": "28216c8626dfed7ba0896d47393b6b2aaa9b62ea",
       "path": "tools/scp_dashboard_bridge.py"
     },
     {
