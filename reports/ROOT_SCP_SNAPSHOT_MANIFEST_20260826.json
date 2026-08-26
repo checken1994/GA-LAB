@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T12:07:47.662688+00:00",
-  "captured_commit": "8a8d094a31e20cf7dc31947efbfb2206c0406d2e",
-  "captured_parent": "7c4507cf54f6c0420e438d71d65f001b3c57ae2d",
-  "captured_tree": "98cff18a4f8b54dc99d669ba77917aa99640d300",
-  "tracked_count": 1321,
-  "inventory_sha256": "60b364698204f11129e5bf15ed699324a9b0d66af921fc08755452951f0ab0d4",
+  "generated_at_utc": "2026-08-26T13:03:34.133440+00:00",
+  "captured_commit": "b8d600ca1bf1b4b83982541ed129450d7d732aef",
+  "captured_parent": "0ed26c07478ef20d279e37a45bf725d356a40323",
+  "captured_tree": "2766c2d337c588cee71d64ea284073bea022f148",
+  "tracked_count": 1326,
+  "inventory_sha256": "425b9c32e4f854930afd8fa7231e6dae016abb7ddf82c4d686b3fb102a2619c5",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
-      "blob": "34c6e1726e8312b05234a6ad81ee5276fcda5257",
-      "bytes": 2415,
-      "sha256": "48d9b846be628ed715b62a67953de230940e129763afecd3b17c3bd54463ef6a"
+      "blob": "8847f80327a4df96ae9a12e6740799c290271113",
+      "bytes": 2892,
+      "sha256": "16d709e0916b4a6c0dabfcea5e05504a78686cfaeb3df471f7c487da3e679a83"
     },
     "scp/api_server.py": {
       "blob": "7a6a6f21ab6f401ced7af0e7d5c97b39e880e347",
@@ -94,7 +94,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "34c6e1726e8312b05234a6ad81ee5276fcda5257",
+      "blob": "8847f80327a4df96ae9a12e6740799c290271113",
       "path": ".github/workflows/scp-release-gate.yml"
     },
     {
@@ -3328,7 +3328,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "57cbd448b795e1c0e73cdb252f3d400bcb164404",
+      "blob": "745c5dd2b059f40238445b1b4f3efdeae7745904",
       "path": "scp/api/routes/v104_routes.py"
     },
     {
@@ -4462,7 +4462,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a0a72cc22a4e18534f1e347327280117d5336a45",
+      "blob": "15a3fd1ed6d568ef4f4b9d9764e0902fc8515a86",
       "path": "scp/core/safe_process.py"
     },
     {
@@ -4516,7 +4516,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "16ffdc1f471e33b8469536fa7674114281ebfae7",
+      "blob": "1f75f17bda420cd258ada563f7b5592c9a19e477",
       "path": "scp/core/url_fetcher.py"
     },
     {
@@ -5518,7 +5518,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "51e1c7bd30e61f639bcf4e89422ee095f26ff9d0",
+      "blob": "3af0e0d98dda2640f5c99f624d495a7b3a5bea0c",
       "path": "scp/requirements.txt"
     },
     {
@@ -5932,7 +5932,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "86f92959becc4ef12d51e116fc1711b476fb96a8",
+      "blob": "615eafadc324270c4e789b502c961ee1c8891a2e",
       "path": "scp/security/auth.py"
     },
     {
@@ -6004,7 +6004,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ebfc59bf63aa070019f89cf0e707aac47fddd5a6",
+      "blob": "cd1cd3ff2a74971825c0adf942e8c07f1f9d57ab",
       "path": "scp/security/escalation.py"
     },
     {
@@ -6784,7 +6784,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7e18c15695f184807e33a321a69730784e33f9f9",
+      "blob": "bf155072167e309a6f35e60a78c9596b7fd4dc6a",
       "path": "tests/reality-tests/reality_4-a-002.py"
     },
     {
@@ -7294,6 +7294,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "0c0e2d3c028e069e7f77b75a5f06a6a034d50b12",
+      "path": "tests/test_auth_request_injection.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "238ba84e4d312306a145169a7342c7a247c6273b",
       "path": "tests/test_bare_except_ab_r44.py"
     },
@@ -7338,6 +7344,12 @@
       "type": "blob",
       "blob": "1ad45e56e9ea23421bca8c6ac5da72596dfdc4ab",
       "path": "tests/test_deterministic_worker.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6f6fd509fbe5670ea9e9bf0f1ddcd1f553f15f99",
+      "path": "tests/test_escalation_durable_state.py"
     },
     {
       "mode": "100644",
@@ -7584,6 +7596,18 @@
       "type": "blob",
       "blob": "12b176d4a02b4127f54119245aaa8dfbeb895868",
       "path": "tests/test_trace_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ddf3656f1d68cefa6fe8dedbc0958111dd6b1ac7",
+      "path": "tests/test_url_fetcher_pinned_connect.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dd5db0ae6d5044ff9106566f076c7888907db2cb",
+      "path": "tests/test_v104_media_bounds.py"
     },
     {
       "mode": "100644",
@@ -7878,6 +7902,12 @@
       "type": "blob",
       "blob": "943896a5b388c9058125c777c444edcf5abeb0b9",
       "path": "tools/refine_independent_ground_truth.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "560159a5fc9c57dbac0df4e677d938d9804a5215",
+      "path": "tools/run_bounded_system_smoke.py"
     },
     {
       "mode": "100644",
