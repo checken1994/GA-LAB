@@ -15,6 +15,7 @@ Naming convention: <Purpose>Engine (world standard).
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from collections import defaultdict, deque
@@ -132,7 +133,7 @@ class DoSProtectionEngine:
                 minute_requests.popleft()
             if len(minute_requests) >= self.MAX_REQUESTS_PER_MINUTE:
                 self._stats["total_blocked_rate"] += 1
-                retry_after = max(1, int(60 - (now - minute_requests[0])) + 1)
+                retry_after = min(60, max(1, math.ceil(60 - (now - minute_requests[0]))))
                 return DoSAlert(
                     alert_type="rate_limit",
                     severity="critical",
@@ -151,7 +152,7 @@ class DoSProtectionEngine:
                 hour_requests.popleft()
             if len(hour_requests) >= self.MAX_REQUESTS_PER_HOUR:
                 self._stats["total_blocked_rate"] += 1
-                retry_after = max(1, int(3600 - (now - hour_requests[0])) + 1)
+                retry_after = min(3600, max(1, math.ceil(3600 - (now - hour_requests[0]))))
                 return DoSAlert(
                     alert_type="rate_limit",
                     severity="critical",
