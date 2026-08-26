@@ -1,0 +1,47 @@
+{
+  "schema_version": "phase3-ares-preconditions-v2",
+  "generated_at": "2026-08-26T06:41:21.641454+00:00",
+  "method": "precondition_audit_only",
+  "preconditions": {
+    "human_annotated_set_at_least_50": false,
+    "few_shot_examples_available": false,
+    "unlabeled_query_document_answer_set_available": false,
+    "verified_gold_non_abstain_rows_available": false,
+    "candidate_rows": 50,
+    "verified_rows": 0,
+    "package_importable": false,
+    "annotation_candidate_paths_observed": [
+      "C:\\Users\\check\\Downloads\\scp\\_agent_gold_anchor_50_v2_validation.json",
+      "C:\\Users\\check\\Downloads\\scp\\data\\autofix_validation_feedback.jsonl",
+      "C:\\Users\\check\\Downloads\\scp\\data\\rag_input_gold_validation_v1_20260817.json",
+      "C:\\Users\\check\\Downloads\\scp\\data\\rag_input_gold_validation_v1_20260817.jsonl",
+      "C:\\Users\\check\\Downloads\\scp\\.mypy_cache\\3.12\\hypothesis\\internal\\validation.data.json",
+      "C:\\Users\\check\\Downloads\\scp\\.mypy_cache\\3.12\\hypothesis\\internal\\validation.meta.json",
+      "C:\\Users\\check\\Downloads\\scp\\.mypy_cache\\3.12\\scp\\autofix\\runner_phases\\lineage_cross_validation.data.json",
+      "C:\\Users\\check\\Downloads\\scp\\.mypy_cache\\3.12\\scp\\autofix\\runner_phases\\lineage_cross_validation.meta.json",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\compiled\\zod-validation-error",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\revalidation-utils.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\app-render\\dev-validation-error-delivery.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\app-render\\dev-validation-events.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\app-render\\dev-validation-scheduler.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\app-render\\dev-validation-worker-globals.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\app-render\\dev-validation-worker-snapshot.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\app-render\\instant-validation",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\dev\\dev-validation-worker-pool.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\dev\\dev-validation-worker.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\app-render\\instant-validation\\instant-validation-error.js",
+      "C:\\Users\\check\\Downloads\\scp\\dashboard\\.next\\standalone\\node_modules\\next\\dist\\server\\app-render\\instant-validation\\instant-validation.js"
+    ]
+  },
+  "failed_preconditions": [
+    "human_annotated_set_at_least_50",
+    "few_shot_examples_available",
+    "unlabeled_query_document_answer_set_available",
+    "verified_gold_non_abstain_rows_available",
+    "package_importable"
+  ],
+  "execution_status": "BLOCKED_PRECONDITIONS",
+  "score": null,
+  "score_release_allowed": false,
+  "note": "No ARES score was produced. Package presence alone is insufficient; ARES requires human-annotated calibration/validation data and appropriate unlabeled query-document-answer inputs."
+}

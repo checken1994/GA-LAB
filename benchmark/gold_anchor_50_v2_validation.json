@@ -1,0 +1,23 @@
+{
+  "schema_version": "phase3-gold-v2-validation",
+  "generated_at": "2026-08-26T06:37:52.893146+00:00",
+  "rows": 50,
+  "input_sha256": "sha256:4dacd4f05768bec7f3271de36c3c7f91022a097f38332720fb68af98984c3acd",
+  "output_hashes": {
+    "jsonl": "sha256:6b19dff49e4b2f2c031de19a534a241b398f1a02f5107a68526b0330082450fa",
+    "csv": "sha256:8bdd9faf992d6b20f90e8ab0416eece31344ac480290dab303b019c13d3c2ac2",
+    "xlsx": "sha256:e5668a5d1f4d706fe8a8af591773a44882ee28537a21dbcde17489c816158600"
+  },
+  "status_counts": {
+    "CANDIDATE_SOURCE_FETCH_VERIFIED": 9,
+    "HUMAN_REVIEW_REQUIRED_CURRENT_OR_HIGH_STAKES": 18,
+    "SOURCE_MISMATCH_NEEDS_REBUILD": 22,
+    "HUMAN_REVIEW_REQUIRED": 1
+  },
+  "quote_contained_count": 9,
+  "eligible_for_ragas_count": 0,
+  "human_review_required_count": 50,
+  "gate_status": "BLOCKED_PENDING_INDEPENDENT_REVIEW",
+  "legacy_gold_preserved": true,
+  "provenance_note": "Candidate answer was never used as evidence quote; human review identity was not fabricated."
+}

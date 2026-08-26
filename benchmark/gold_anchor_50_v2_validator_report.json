@@ -1,0 +1,21 @@
+{
+  "schema_version": "phase3-gold-v2-validator",
+  "generated_at": "2026-08-26T06:40:33.424033+00:00",
+  "jsonl": "benchmark\\gold_anchor_50_v2_candidates.jsonl",
+  "csv": "benchmark\\gold_anchor_50_v2_review_ledger.csv",
+  "xlsx": "benchmark\\gold_anchor_50_v2_review_ledger.xlsx",
+  "jsonl_sha256": "sha256:6b19dff49e4b2f2c031de19a534a241b398f1a02f5107a68526b0330082450fa",
+  "rows": 50,
+  "status_counts": {
+    "CANDIDATE_SOURCE_FETCH_VERIFIED": 9,
+    "HUMAN_REVIEW_REQUIRED_CURRENT_OR_HIGH_STAKES": 18,
+    "SOURCE_MISMATCH_NEEDS_REBUILD": 22,
+    "HUMAN_REVIEW_REQUIRED": 1
+  },
+  "quote_contained_count": 9,
+  "eligible_for_ragas_count": 0,
+  "issues": [],
+  "schema_validation": "PASS_WITHIN_SCOPE",
+  "gold_promotion_gate": "BLOCKED_PENDING_INDEPENDENT_REVIEW",
+  "note": "Structural validation PASS does not promote candidate rows to verified Gold."
+}
