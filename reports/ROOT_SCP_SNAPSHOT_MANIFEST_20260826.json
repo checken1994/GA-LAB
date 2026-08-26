@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T08:46:43.845606+00:00",
-  "captured_commit": "e93ec5a4b51bcb8ee3eed8774dc1ff00b39a1002",
-  "captured_parent": "46187e74e7199f715556c3279d9eb7d745981e83",
-  "captured_tree": "9420241133a8fe1f911017b5f237b1d44871ce8f",
-  "tracked_count": 1288,
-  "inventory_sha256": "98c5003e9290fa89f08d522889486a44c2b65e27c177234a06891ee4fdf86fe9",
+  "generated_at_utc": "2026-08-26T08:51:51.067823+00:00",
+  "captured_commit": "937633af50bdeedb582ecc4556791e753b993d75",
+  "captured_parent": "10296595f5cb24dce9cb3127334fb879199a91d1",
+  "captured_tree": "80528bfa2f593d1fdfd485f6e688b6a15c0d1b59",
+  "tracked_count": 1289,
+  "inventory_sha256": "399f556d90925dab7f21bdc01ed688ffa4d2c225448b8aaf53a99685372a4908",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2374,7 +2374,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e79aa657a5f01dca747242597c4e41a1c3e35df3",
+      "blob": "341ab95870dfe8862cf3a0b222b3cc10d927fa7e",
       "path": "reports/CODEGRAPH_FEATURE_COMPLETION_V2.md"
     },
     {
@@ -2382,6 +2382,12 @@
       "type": "blob",
       "blob": "e381375f0d259aff2c4e357bc56f869f53c8edcd",
       "path": "reports/CURRENT_CODEGRAPH_429_RAG_AUDIT_V1.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "99b1f9a801cfcae0affd821ee9351987f5ce3d19",
+      "path": "reports/CURRENT_CODEGRAPH_429_RAG_AUDIT_V2.md"
     },
     {
       "mode": "100644",
@@ -2656,19 +2662,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "131c8b9d4b6fcdd65f27e47490b54673a0fc7b1b",
+      "blob": "7a10bec6ed81ad7ecd8b52c698bff2a79b5b11a5",
       "path": "reports/codegraph_20260826/codegraph.json"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6d89a5dfbf054f4a51234adcb71f5bc44bceb087",
+      "blob": "91ba0b5576deacc24b2abcd06506b57ded8942fa",
       "path": "reports/codegraph_20260826/codegraph_edges.csv"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3b7dbb9e488bf3280266c443cb6a7d75c86619ed",
+      "blob": "f6682250078ef966b1c936e832b2f915d854ee8f",
       "path": "reports/codegraph_20260826/codegraph_focused.mmd"
     },
     {
@@ -2680,31 +2686,31 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "73b8c768890c0fb68d1b453e61ff095222769b32",
+      "blob": "301afa3f00aeced2b048b9ee14daae99ace19d47",
       "path": "reports/codegraph_20260826/codegraph_full.mmd"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9c9bdab5c76cd0c5a5ee55a7d061b551403de9da",
+      "blob": "9df5c9ee8d47181c311688126efe6c84e043e270",
       "path": "reports/codegraph_20260826/codegraph_summary.json"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3aee1c0d1299bdf74e9ca7d5ddbe21e333317ff2",
+      "blob": "99136b4f726237a59bc644ebadb16a47b9646003",
       "path": "reports/codegraph_20260826/feature_evidence_coverage.png"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "54cc0838c9a371f6517db13d4ee11da64703ee21",
+      "blob": "964ee12902085985620a0bdd4c56198c508b9be0",
       "path": "reports/codegraph_20260826/feature_maturity_counts.png"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "78f58550c330221bfce2809e80ce6a148d7ca28b",
+      "blob": "bdbfd90170468fc59cdc3c76d2d7107f023b7a13",
       "path": "reports/codegraph_20260826/nodes_by_segment.png"
     },
     {
@@ -2992,7 +2998,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f5becb928a00ae3e37ac728491d8781df118f683",
+      "blob": "a7a2aa4dc849855a756bb2abc2c65c3c137e6468",
       "path": "reports/scp_feature_completion_matrix_v2.json"
     },
     {
