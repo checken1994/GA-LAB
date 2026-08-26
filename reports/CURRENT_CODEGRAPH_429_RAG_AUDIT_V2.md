@@ -54,6 +54,14 @@ Runtime proof trên **`127.0.0.1:8002`** đã quan sát được: managed proces
 
 Giới hạn: đây là bounded local managed-process path, chưa chứng minh mọi connector/provider bên ngoài và không thể retroactively cancel một side-effect đã chạy.
 
+### 4.4 Full-system smoke và lỗi ledger đã được sửa
+
+Full-system smoke trên snapshot `598f4c8` chạy service cô lập bằng `SCP_EGRESS_MODE=deny` trên `127.0.0.1:8002`, với DB/trace tạm ngoài repository. Chuỗi đã kiểm tra 9 endpoint: health, health/detailed, models, Hands status, capabilities, actions, `/ask` RAG có context được cung cấp, Hands policy preview và Hands dry-run read-only. Trước khi sửa, các endpoint trả JSON thành công nhưng decorator `traced_request` phân loại mọi dict không có `verdict` thành `INTERNAL_FAILED`; đây là lỗi quan sát cross-cutting, làm trạng thái request nói sai về kết quả handler.
+
+Đã sửa `RequestRunLedger.classify_result()` để nhận diện explicit `success/ok`, `status`, payload dict không có trường `error`, đồng thời giữ fail-closed cho policy denial, HTTP error, verdict FAIL/UNKNOWN và lỗi nội bộ. Sau sửa, **9/9 endpoint HTTP 200**, `/ask` có `verdict=PASS` và `run_status=SUCCESS`, Hands policy có `allowed=true`, Hands dry-run có verification pass và `run_status=SUCCESS`; port 8000 không dùng, port 8002 được giải phóng. Regression suite liên quan gồm **11 tests pass** và Ruff/py_compile pass.
+
+Giới hạn: smoke này chứng minh đường request/router/ledger/kernel/RAG/Hands read-only trong một process cô lập; chưa chứng minh mọi connector, external provider, PC side-effect thật, distributed deployment hoặc RAG factual 1.000 câu.
+
 ## 5. Ma trận trạng thái hiện tại
 
 | Capability | Trạng thái evidence | Khoảng trống còn lại |

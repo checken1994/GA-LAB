@@ -1,6 +1,6 @@
 {
   "schema_version": "scp-feature-completion-matrix-v2",
-  "snapshot_commit": "dd6df2422302bdeb7c945a597a8c68f40b5f7bb1",
+  "snapshot_commit": "598f4c8439591fd443a288606013b5c9ec3e8fee",
   "interpretation": "Evidence maturity, not percentage of code implemented",
   "weights": {
     "RUNTIME_PROVEN": 1.0,
@@ -11,10 +11,10 @@
     "BLOCKED": 0.0
   },
   "features": [
-    {"id":"F01","name":"API health/startup on 8002","status":"RUNTIME_PROVEN","evidence":"health response on 127.0.0.1:8002 at commit 1131e42"},
+    {"id":"F01","name":"API health/startup on 8002","status":"RUNTIME_PROVEN","evidence":"reports/full_system_smoke_20260826_request_ledger_fix.json; 9/9 HTTP endpoints pass on 127.0.0.1:8002 with port cleanup; commit 598f4c8"},
     {"id":"F02","name":"API DoS rate-limit boundary","status":"RUNTIME_PROVEN","evidence":"12/12 live /ask responses HTTP 429 with Retry-After: 5; port 8002 isolated"},
     {"id":"F03","name":"OpenRouter provider 429 fallback","status":"INTEGRATION_PROVEN","evidence":"controlled 429 reproduction: paid model -> openai/gpt-oss-20b:free"},
-    {"id":"F04","name":"Codegraph generation","status":"RELEASE_PROVEN","evidence":"AST graph committed with 453 nodes and 852 internal import edges at snapshot 1029659"},
+    {"id":"F04","name":"Codegraph generation","status":"RELEASE_PROVEN","evidence":"AST graph committed with 453 nodes and 852 internal import edges at snapshot dd6df24"},
     {"id":"F05","name":"Gold JSONL/CSV/XLSX schema alignment","status":"INTEGRATION_PROVEN","evidence":"Phase 3 validator and 50-row contract tests"},
     {"id":"F06","name":"TaskKernel checkpoint/recovery contracts","status":"INTEGRATION_PROVEN","evidence":"existing kernel recovery/reconcile tests and CI"},
     {"id":"F07","name":"Bounded local Hands side-effect -> UNKNOWN/reconcile wiring","status":"RUNTIME_PROVEN","evidence":"reports/runtime_proof_20260826_hands_bridge.json; HTTP 8002 start/stop + non-owned-stop UNKNOWN + explicit NOT_APPLIED reconcile; CI 32949517028"},

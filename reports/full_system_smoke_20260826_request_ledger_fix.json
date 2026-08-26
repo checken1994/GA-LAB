@@ -1,0 +1,39 @@
+{
+  "schema_version": "scp-full-system-smoke-v1",
+  "snapshot_commit": "598f4c8439591fd443a288606013b5c9ec3e8fee",
+  "runtime": {
+    "host": "127.0.0.1",
+    "port": 8002,
+    "port_8000_used": false,
+    "port_8002_free_after_test": true,
+    "egress_mode": "deny",
+    "database_and_trace": "temporary_outside_repository"
+  },
+  "endpoints": {
+    "health": 200,
+    "health_detailed": 200,
+    "models": 200,
+    "hands_status": 200,
+    "hands_capabilities": 200,
+    "hands_actions": 200,
+    "ask_rag": 200,
+    "hands_plan": 200,
+    "hands_execute": 200
+  },
+  "postconditions": {
+    "ask_verdict": "PASS",
+    "ask_run_status": "SUCCESS",
+    "hands_plan_allowed": true,
+    "hands_execute_dry_run_verified": true,
+    "dict_route_run_status": "SUCCESS",
+    "service_stopped": true
+  },
+  "bug_found_and_fixed": {
+    "before": "traced_request classified ordinary successful dict responses without verdict as INTERNAL_FAILED",
+    "after": "classifier accepts explicit success/ok/status and successful dict payloads while preserving fail-closed error and policy-denial behavior",
+    "regression_tests": 11,
+    "ruff": "PASS",
+    "py_compile": "PASS"
+  },
+  "scope_boundary": "Read-only full-system HTTP smoke covering app startup, routers, request ledger, AskKernel/RAG path, Hands policy and dry-run. It does not prove external connector side effects, live provider outage recovery, distributed deployment, OS-level sandboxing, or factual RAG quality for 1,000 questions."
+}

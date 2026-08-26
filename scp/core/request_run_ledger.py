@@ -14,11 +14,12 @@ import os
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 try:
     from fastapi import HTTPException
@@ -183,24 +184,43 @@ class RequestRunLedger:
         return (status if ok else "DB_WRITE_FAILED"), ok
 
     @staticmethod
-    @staticmethod
     def classify_result(result: Any) -> str:
-        """Map either a model response object or a JSON/dict response to a terminal run status."""
+        """Map model and ordinary JSON API responses to terminal run status.
+
+        Not every API route returns a verdict. A normal HTTP handler may return a
+        health, capability, model-list or policy-preview payload, so absence of
+        ``verdict`` must not be treated as an internal failure. Explicit errors
+        and policy denials still fail closed.
+        """
         if isinstance(result, dict):
             status_code = result.get("status_code")
             verdict = str(result.get("verdict", "")).upper()
             governance = str(result.get("governance_decision", result.get("governance", ""))).upper()
+            explicit_status = str(result.get("run_status", result.get("status", ""))).upper()
+            explicit_success = result.get("success", result.get("ok"))
         else:
             status_code = getattr(result, "status_code", None)
             verdict = str(getattr(result, "verdict", "")).upper()
             governance = str(getattr(result, "governance_decision", "")).upper()
+            explicit_status = str(getattr(result, "run_status", getattr(result, "status", ""))).upper()
+            explicit_success = getattr(result, "success", getattr(result, "ok", None))
         if isinstance(status_code, int) and status_code >= 400:
             return "REJECTED" if status_code < 500 else "INTERNAL_FAILED"
-        if governance == "KILL" or verdict in {"FAIL", "FLAGGED"}:
+        if explicit_status in TERMINAL_STATUSES:
+            return explicit_status
+        if explicit_status in {"ERROR", "FAILED", "FAIL"}:
+            return "INTERNAL_FAILED"
+        if governance in {"KILL", "REJECT", "DENY"} or verdict in {"FAIL", "FLAGGED"}:
             return "REJECTED"
         if verdict == "UNKNOWN":
             return "UNKNOWN"
         if verdict == "PASS":
+            return "SUCCESS"
+        if explicit_success is False:
+            return "REJECTED" if isinstance(result, dict) and result.get("allowed") is False else "INTERNAL_FAILED"
+        if explicit_success is True:
+            return "SUCCESS"
+        if isinstance(result, dict) and "error" not in result:
             return "SUCCESS"
         return "INTERNAL_FAILED"
 
