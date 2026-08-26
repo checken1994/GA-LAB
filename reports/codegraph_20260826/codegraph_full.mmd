@@ -15,7 +15,7 @@ flowchart LR
     n13["scp.api.routes.batch_benchmark_routes<br/>329 lines"]
     n14["scp.api.routes.call_routes<br/>55 lines"]
     n15["scp.api.routes.control_routes<br/>141 lines"]
-    n16["scp.api.routes.hands_routes<br/>193 lines"]
+    n16["scp.api.routes.hands_routes<br/>218 lines"]
     n17["scp.api.routes.import_routes<br/>191 lines"]
     n18["scp.api.routes.openai_compat<br/>140 lines"]
     n19["scp.api.routes.pc_controller_routes<br/>112 lines"]
@@ -262,7 +262,7 @@ flowchart LR
     n260["scp.hands<br/>8 lines"]
     n261["scp.hands.action_registry<br/>84 lines"]
     n262["scp.hands.goal_parser<br/>171 lines"]
-    n263["scp.hands.hands_executor<br/>359 lines"]
+    n263["scp.hands.hands_executor<br/>390 lines"]
     n264["scp.hands.planner<br/>871 lines"]
     n265["scp.hands.process_manager<br/>111 lines"]
     n266["scp.hands.process_probe<br/>7 lines"]
@@ -409,49 +409,50 @@ flowchart LR
     n407["scp.security.auto_payload_generator<br/>251 lines"]
     n408["scp.security.bypass_encrypt<br/>275 lines"]
     n409["scp.security.canary_monitor<br/>277 lines"]
-    n410["scp.security.circuit_breaker<br/>161 lines"]
-    n411["scp.security.cisa_kev<br/>207 lines"]
-    n412["scp.security.counter_response<br/>686 lines"]
-    n413["scp.security.cross_language_learner<br/>247 lines"]
-    n414["scp.security.dos_protection<br/>291 lines"]
-    n415["scp.security.env_loader<br/>41 lines"]
-    n416["scp.security.escalation<br/>497 lines"]
-    n417["scp.security.gcg_attack<br/>197 lines"]
-    n418["scp.security.h8_redteam_bridge<br/>656 lines"]
-    n419["scp.security.image_voice_detector<br/>344 lines"]
-    n420["scp.security.memory_guard<br/>230 lines"]
-    n421["scp.security.multi_turn_tracker<br/>280 lines"]
-    n422["scp.security.playbooks<br/>100 lines"]
-    n423["scp.security.predictor<br/>557 lines"]
-    n424["scp.security.production_guard<br/>48 lines"]
-    n425["scp.security.provider_keys<br/>71 lines"]
-    n426["scp.security.response_monitor<br/>403 lines"]
-    n427["scp.security.rogue_ai_detector<br/>228 lines"]
-    n428["scp.security.secret_loader<br/>17 lines"]
-    n429["scp.security.threat_detector<br/>609 lines"]
-    n430["scp.security.threat_intel<br/>354 lines"]
-    n431["scp.security.threat_simulator<br/>519 lines"]
-    n432["scp.security.unified_detector<br/>483 lines"]
-    n433["scp.security.url_safety<br/>85 lines"]
-    n434["scp.task_kernel<br/>834 lines"]
-    n435["scp.tests<br/>2 lines"]
-    n436["scp.tests.external_audit<br/>16 lines"]
-    n437["scp.tests.external_audit.conftest<br/>35 lines"]
-    n438["scp.tests.external_audit.test_cascade<br/>231 lines"]
-    n439["scp.tests.external_audit.test_security<br/>216 lines"]
-    n440["scp.tests.property<br/>1 lines"]
-    n441["scp.tests.property.test_none_safety<br/>252 lines"]
-    n442["scp.tests.test_judge_characterization<br/>167 lines"]
-    n443["scp.trace_ledger<br/>48 lines"]
-    n444["scp.verifier<br/>69 lines"]
-    n445["scp.web_control<br/>8 lines"]
-    n446["scp.web_control.ai_orchestrator<br/>110 lines"]
-    n447["scp.web_control.browser_session<br/>158 lines"]
-    n448["scp.web_control.internet_search<br/>141 lines"]
-    n449["scp.web_control.multi_source_orchestrator<br/>76 lines"]
-    n450["scp.web_control.web_navigator<br/>44 lines"]
+    n410["scp.security.capability_epoch<br/>145 lines"]
+    n411["scp.security.circuit_breaker<br/>161 lines"]
+    n412["scp.security.cisa_kev<br/>207 lines"]
+    n413["scp.security.counter_response<br/>686 lines"]
+    n414["scp.security.cross_language_learner<br/>247 lines"]
+    n415["scp.security.dos_protection<br/>291 lines"]
+    n416["scp.security.env_loader<br/>41 lines"]
+    n417["scp.security.escalation<br/>497 lines"]
+    n418["scp.security.gcg_attack<br/>197 lines"]
+    n419["scp.security.h8_redteam_bridge<br/>656 lines"]
+    n420["scp.security.image_voice_detector<br/>344 lines"]
+    n421["scp.security.memory_guard<br/>230 lines"]
+    n422["scp.security.multi_turn_tracker<br/>280 lines"]
+    n423["scp.security.playbooks<br/>100 lines"]
+    n424["scp.security.predictor<br/>557 lines"]
+    n425["scp.security.production_guard<br/>48 lines"]
+    n426["scp.security.provider_keys<br/>71 lines"]
+    n427["scp.security.response_monitor<br/>403 lines"]
+    n428["scp.security.rogue_ai_detector<br/>228 lines"]
+    n429["scp.security.secret_loader<br/>17 lines"]
+    n430["scp.security.threat_detector<br/>609 lines"]
+    n431["scp.security.threat_intel<br/>354 lines"]
+    n432["scp.security.threat_simulator<br/>519 lines"]
+    n433["scp.security.unified_detector<br/>483 lines"]
+    n434["scp.security.url_safety<br/>85 lines"]
+    n435["scp.task_kernel<br/>834 lines"]
+    n436["scp.tests<br/>2 lines"]
+    n437["scp.tests.external_audit<br/>16 lines"]
+    n438["scp.tests.external_audit.conftest<br/>35 lines"]
+    n439["scp.tests.external_audit.test_cascade<br/>231 lines"]
+    n440["scp.tests.external_audit.test_security<br/>216 lines"]
+    n441["scp.tests.property<br/>1 lines"]
+    n442["scp.tests.property.test_none_safety<br/>252 lines"]
+    n443["scp.tests.test_judge_characterization<br/>167 lines"]
+    n444["scp.trace_ledger<br/>48 lines"]
+    n445["scp.verifier<br/>69 lines"]
+    n446["scp.web_control<br/>8 lines"]
+    n447["scp.web_control.ai_orchestrator<br/>110 lines"]
+    n448["scp.web_control.browser_session<br/>158 lines"]
+    n449["scp.web_control.internet_search<br/>141 lines"]
+    n450["scp.web_control.multi_source_orchestrator<br/>76 lines"]
+    n451["scp.web_control.web_navigator<br/>44 lines"]
     n0 --> n173
-    n1 --> n424
+    n1 --> n425
     n4 --> n181
     n4 --> n173
     n4 --> n132
@@ -514,7 +515,7 @@ flowchart LR
     n23 --> n174
     n23 --> n359
     n23 --> n398
-    n23 --> n417
+    n23 --> n418
     n24 --> n5
     n24 --> n174
     n24 --> n170
@@ -527,14 +528,14 @@ flowchart LR
     n25 --> n57
     n25 --> n177
     n25 --> n67
-    n26 --> n446
-    n26 --> n449
+    n26 --> n447
     n26 --> n450
+    n26 --> n451
     n26 --> n174
     n27 --> n174
     n27 --> n5
-    n28 --> n415
-    n28 --> n448
+    n28 --> n416
+    n28 --> n449
     n28 --> n30
     n28 --> n174
     n28 --> n0
@@ -543,9 +544,9 @@ flowchart LR
     n28 --> n319
     n28 --> n350
     n28 --> n402
-    n28 --> n413
-    n28 --> n419
-    n28 --> n421
+    n28 --> n414
+    n28 --> n420
+    n28 --> n422
     n28 --> n170
     n28 --> n341
     n28 --> n6
@@ -589,12 +590,12 @@ flowchart LR
     n30 --> n145
     n30 --> n179
     n30 --> n142
-    n30 --> n413
+    n30 --> n414
     n30 --> n350
     n30 --> n341
     n30 --> n160
-    n31 --> n434
-    n31 --> n443
+    n31 --> n435
+    n31 --> n444
     n31 --> n30
     n31 --> n125
     n32 --> n37
@@ -658,7 +659,7 @@ flowchart LR
     n52 --> n322
     n52 --> n325
     n53 --> n37
-    n55 --> n425
+    n55 --> n426
     n55 --> n37
     n55 --> n283
     n55 --> n56
@@ -783,7 +784,7 @@ flowchart LR
     n127 --> n262
     n127 --> n263
     n127 --> n264
-    n128 --> n412
+    n128 --> n413
     n129 --> n143
     n131 --> n182
     n131 --> n137
@@ -807,7 +808,7 @@ flowchart LR
     n145 --> n325
     n145 --> n280
     n145 --> n281
-    n148 --> n412
+    n148 --> n413
     n149 --> n143
     n151 --> n143
     n155 --> n177
@@ -825,7 +826,7 @@ flowchart LR
     n160 --> n325
     n160 --> n408
     n161 --> n143
-    n164 --> n433
+    n164 --> n434
     n164 --> n143
     n165 --> n164
     n166 --> n164
@@ -932,7 +933,8 @@ flowchart LR
     n260 --> n0
     n262 --> n264
     n263 --> n339
-    n263 --> n450
+    n263 --> n410
+    n263 --> n451
     n263 --> n261
     n263 --> n265
     n264 --> n263
@@ -943,7 +945,7 @@ flowchart LR
     n278 --> n282
     n281 --> n280
     n283 --> n284
-    n284 --> n425
+    n284 --> n426
     n287 --> n139
     n287 --> n131
     n287 --> n141
@@ -1005,15 +1007,15 @@ flowchart LR
     n325 --> n283
     n325 --> n289
     n325 --> n305
-    n327 --> n433
-    n328 --> n433
-    n329 --> n433
-    n330 --> n433
-    n331 --> n433
-    n332 --> n433
-    n333 --> n433
+    n327 --> n434
+    n328 --> n434
+    n329 --> n434
+    n330 --> n434
+    n331 --> n434
+    n332 --> n434
+    n333 --> n434
     n334 --> n183
-    n334 --> n433
+    n334 --> n434
     n336 --> n0
     n338 --> n0
     n341 --> n131
@@ -1054,8 +1056,8 @@ flowchart LR
     n350 --> n357
     n350 --> n358
     n350 --> n138
-    n350 --> n416
-    n350 --> n423
+    n350 --> n417
+    n350 --> n424
     n350 --> n178
     n350 --> n253
     n350 --> n321
@@ -1072,28 +1074,28 @@ flowchart LR
     n350 --> n398
     n350 --> n300
     n350 --> n304
-    n350 --> n429
+    n350 --> n430
     n350 --> n401
-    n350 --> n420
-    n350 --> n427
+    n350 --> n421
+    n350 --> n428
     n350 --> n404
-    n350 --> n412
+    n350 --> n413
     n350 --> n409
     n350 --> n403
+    n350 --> n432
     n350 --> n431
-    n350 --> n430
-    n350 --> n426
+    n350 --> n427
     n350 --> n278
     n350 --> n276
-    n350 --> n418
+    n350 --> n419
     n350 --> n279
     n350 --> n307
     n350 --> n317
-    n350 --> n414
+    n350 --> n415
     n350 --> n283
     n350 --> n169
     n350 --> n275
-    n350 --> n432
+    n350 --> n433
     n350 --> n360
     n350 --> n359
     n350 --> n349
@@ -1103,7 +1105,7 @@ flowchart LR
     n350 --> n361
     n350 --> n353
     n350 --> n311
-    n353 --> n432
+    n353 --> n433
     n354 --> n311
     n354 --> n143
     n354 --> n407
@@ -1146,26 +1148,26 @@ flowchart LR
     n369 --> n211
     n370 --> n363
     n371 --> n363
-    n371 --> n433
+    n371 --> n434
     n371 --> n177
     n371 --> n131
     n372 --> n363
     n372 --> n223
     n373 --> n363
-    n373 --> n433
+    n373 --> n434
     n373 --> n172
     n373 --> n140
     n374 --> n363
     n374 --> n220
     n375 --> n363
     n376 --> n363
-    n376 --> n433
+    n376 --> n434
     n376 --> n154
     n376 --> n177
     n377 --> n363
     n377 --> n229
     n378 --> n363
-    n378 --> n433
+    n378 --> n434
     n378 --> n177
     n378 --> n172
     n378 --> n197
@@ -1280,22 +1282,22 @@ flowchart LR
     n397 --> n143
     n397 --> n177
     n397 --> n156
-    n401 --> n429
+    n401 --> n430
     n405 --> n406
-    n412 --> n404
-    n416 --> n422
-    n416 --> n410
-    n418 --> n403
-    n423 --> n325
-    n424 --> n428
-    n431 --> n30
-    n431 --> n403
-    n438 --> n175
+    n413 --> n404
+    n417 --> n423
+    n417 --> n411
+    n419 --> n403
+    n424 --> n325
+    n425 --> n429
+    n432 --> n30
+    n432 --> n403
     n439 --> n175
-    n442 --> n350
-    n445 --> n0
-    n446 --> n447
-    n449 --> n446
-    n449 --> n450
+    n440 --> n175
+    n443 --> n350
+    n446 --> n0
+    n447 --> n448
     n450 --> n447
-    n450 --> n448
+    n450 --> n451
+    n451 --> n448
+    n451 --> n449

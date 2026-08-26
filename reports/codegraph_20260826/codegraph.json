@@ -1,10 +1,10 @@
 {
   "schema_version": "scp-codegraph-v1",
-  "generated_at": "2026-08-26T07:59:43.079688+00:00",
-  "commit": "cd3b97c22d1b3731f987a0c4a1427f2762262eb1",
+  "generated_at": "2026-08-26T08:23:06.383140+00:00",
+  "commit": "4426a38c32b938d70340c2a7d3b9d200500d17a8",
   "source_root": "scp",
-  "node_count": 451,
-  "edge_count": 849,
+  "node_count": 452,
+  "edge_count": 850,
   "nodes": [
     {
       "id": "scp",
@@ -154,8 +154,8 @@
       "id": "scp.api.routes.hands_routes",
       "path": "scp/api/routes/hands_routes.py",
       "layer": "api",
-      "lines": 193,
-      "sha256": "sha256:0439e9998bc091f266cbd6b830881f2f0ad0153fb4ca558d4495f2dfd28adc1b",
+      "lines": 218,
+      "sha256": "sha256:0f0c571e439c597058719f0ebff03a01957ddd3d24d7d599e25560c36adba276",
       "parse_status": "parsed",
       "import_count": 8
     },
@@ -2377,10 +2377,10 @@
       "id": "scp.hands.hands_executor",
       "path": "scp/hands/hands_executor.py",
       "layer": "hands",
-      "lines": 359,
-      "sha256": "sha256:aa3e84da796a808099b423158e622bd573ad8cfd6b272561f51d2ec1879672a4",
+      "lines": 390,
+      "sha256": "sha256:86e6a5c1a8b2fe0fb0a4d9e63a555f50c7b3ff7dbdfa66cbc8645b4f469827db",
       "parse_status": "parsed",
-      "import_count": 9
+      "import_count": 10
     },
     {
       "id": "scp.hands.planner",
@@ -3693,6 +3693,15 @@
       "layer": "security",
       "lines": 277,
       "sha256": "sha256:5ce62db1f09b5746dcce520e616b8e51895ef2421bcfb1a367ff59afe34ef407",
+      "parse_status": "parsed",
+      "import_count": 4
+    },
+    {
+      "id": "scp.security.capability_epoch",
+      "path": "scp/security/capability_epoch.py",
+      "layer": "security",
+      "lines": 145,
+      "sha256": "sha256:1e0ca15a1f8669f68340a39ecea3d4ed091a15d795bc7a696aaecf8120e61fba",
       "parse_status": "parsed",
       "import_count": 4
     },
@@ -6479,6 +6488,11 @@
     },
     {
       "source": "scp.hands.hands_executor",
+      "target": "scp.security.capability_epoch",
+      "kind": "import"
+    },
+    {
+      "source": "scp.hands.hands_executor",
       "target": "scp.web_control.web_navigator",
       "kind": "import"
     },
@@ -8313,15 +8327,15 @@
       "kind": "import"
     }
   ],
-  "focused_node_count": 51,
-  "focused_edge_count": 227,
+  "focused_node_count": 52,
+  "focused_edge_count": 228,
   "focused_nodes": [
     {
       "id": "scp.api.routes.hands_routes",
       "path": "scp/api/routes/hands_routes.py",
       "layer": "api",
-      "lines": 193,
-      "sha256": "sha256:0439e9998bc091f266cbd6b830881f2f0ad0153fb4ca558d4495f2dfd28adc1b",
+      "lines": 218,
+      "sha256": "sha256:0f0c571e439c597058719f0ebff03a01957ddd3d24d7d599e25560c36adba276",
       "parse_status": "parsed",
       "import_count": 8
     },
@@ -8536,10 +8550,10 @@
       "id": "scp.hands.hands_executor",
       "path": "scp/hands/hands_executor.py",
       "layer": "hands",
-      "lines": 359,
-      "sha256": "sha256:aa3e84da796a808099b423158e622bd573ad8cfd6b272561f51d2ec1879672a4",
+      "lines": 390,
+      "sha256": "sha256:86e6a5c1a8b2fe0fb0a4d9e63a555f50c7b3ff7dbdfa66cbc8645b4f469827db",
       "parse_status": "parsed",
-      "import_count": 9
+      "import_count": 10
     },
     {
       "id": "scp.hands.planner",
@@ -8729,6 +8743,15 @@
       "sha256": "sha256:f38d79c91400121c1ea0e28571b18ece5a2579465e03660d8a8e60d537e536e6",
       "parse_status": "parsed",
       "import_count": 3
+    },
+    {
+      "id": "scp.security.capability_epoch",
+      "path": "scp/security/capability_epoch.py",
+      "layer": "security",
+      "lines": 145,
+      "sha256": "sha256:1e0ca15a1f8669f68340a39ecea3d4ed091a15d795bc7a696aaecf8120e61fba",
+      "parse_status": "parsed",
+      "import_count": 4
     },
     {
       "id": "scp.security.provider_keys",
@@ -9334,6 +9357,11 @@
     },
     {
       "source": "scp.hands.hands_executor",
+      "target": "scp.security.capability_epoch",
+      "kind": "import"
+    },
+    {
+      "source": "scp.hands.hands_executor",
       "target": "scp.web_control.web_navigator",
       "kind": "import"
     },
@@ -9916,19 +9944,19 @@
   "top_import_targets": [
     [
       "__future__",
-      287
+      288
     ],
     [
       "typing",
-      265
+      266
     ],
     [
       "pathlib",
-      142
+      143
     ],
     [
       "dataclasses",
-      122
+      123
     ],
     [
       "scp.core.db_manager",

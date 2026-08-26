@@ -1,5 +1,5 @@
 flowchart LR
-    n0["scp.api.routes.hands_routes<br/>193 lines"]
+    n0["scp.api.routes.hands_routes<br/>218 lines"]
     n1["scp.api_server<br/>1954 lines"]
     n2["scp.api_server_parts<br/>2 lines"]
     n3["scp.api_server_parts.helpers<br/>406 lines"]
@@ -23,7 +23,7 @@ flowchart LR
     n21["scp.hands<br/>8 lines"]
     n22["scp.hands.action_registry<br/>84 lines"]
     n23["scp.hands.goal_parser<br/>171 lines"]
-    n24["scp.hands.hands_executor<br/>359 lines"]
+    n24["scp.hands.hands_executor<br/>390 lines"]
     n25["scp.hands.planner<br/>871 lines"]
     n26["scp.hands.process_manager<br/>111 lines"]
     n27["scp.hands.process_probe<br/>7 lines"]
@@ -45,11 +45,12 @@ flowchart LR
     n43["scp.runtime.judge_parts.judgeutil_mixin<br/>177 lines"]
     n44["scp.runtime.judge_parts.types<br/>42 lines"]
     n45["scp.security.attack_policy<br/>172 lines"]
-    n46["scp.security.provider_keys<br/>71 lines"]
-    n47["scp.task_kernel<br/>834 lines"]
-    n48["scp.tests.test_judge_characterization<br/>167 lines"]
-    n49["scp.trace_ledger<br/>48 lines"]
-    n50["scp.verifier<br/>69 lines"]
+    n46["scp.security.capability_epoch<br/>145 lines"]
+    n47["scp.security.provider_keys<br/>71 lines"]
+    n48["scp.task_kernel<br/>834 lines"]
+    n49["scp.tests.test_judge_characterization<br/>167 lines"]
+    n50["scp.trace_ledger<br/>48 lines"]
+    n51["scp.verifier<br/>69 lines"]
     n0 --> n23
     n0 --> n24
     n0 --> n25
@@ -59,11 +60,12 @@ flowchart LR
     n1 --> n4
     n1 --> n19
     n3 --> n36
-    n4 --> n47
-    n4 --> n49
+    n4 --> n48
+    n4 --> n50
     n4 --> n3
     n12 --> n13
     n23 --> n25
+    n24 --> n46
     n24 --> n22
     n24 --> n26
     n25 --> n24
@@ -82,4 +84,4 @@ flowchart LR
     n36 --> n39
     n41 --> n18
     n41 --> n44
-    n48 --> n36
+    n49 --> n36

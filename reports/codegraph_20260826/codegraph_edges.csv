@@ -481,6 +481,7 @@ scp.foundation,scp,import
 scp.hands,scp,import
 scp.hands.goal_parser,scp.hands.planner,import
 scp.hands.hands_executor,scp.pc_control.pc_controller,import
+scp.hands.hands_executor,scp.security.capability_epoch,import
 scp.hands.hands_executor,scp.web_control.web_navigator,import
 scp.hands.hands_executor,scp.hands.action_registry,import
 scp.hands.hands_executor,scp.hands.process_manager,import
