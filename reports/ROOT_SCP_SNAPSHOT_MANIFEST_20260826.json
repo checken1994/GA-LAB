@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T10:41:28.011628+00:00",
-  "captured_commit": "fa4769f44ff545bdfc6e807facc2a18e4e54aa47",
-  "captured_parent": "fb629aead5c3332422980ab4facfc2b31900f466",
-  "captured_tree": "6c4e2b05c68cba7482d99b6331f10d5179e75439",
-  "tracked_count": 1310,
-  "inventory_sha256": "4675a741556640b40db9e87e6fa7e2b7d657c3ccfc2b33e7d87121635d99c9f1",
+  "generated_at_utc": "2026-08-26T11:38:08.603716+00:00",
+  "captured_commit": "787ef75172f792e2e24d6eb93b725db195c98a1a",
+  "captured_parent": "e815e1ce6edcbb1bf9d4192f0d670f4eb624d959",
+  "captured_tree": "c25266ba6444d2a92f56af23d6c067da4ad62e86",
+  "tracked_count": 1316,
+  "inventory_sha256": "69cc7c5d4f16b6c8c6dec8c154198f2a8ef08d20123146c2c140a52087ad170e",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -108,6 +108,12 @@
       "type": "blob",
       "blob": "a0ce53a167ddeeba4150668358f68a19f08a788c",
       "path": "APPLY_CHECKLIST_VI.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d170607d04469f6696d6995dd24b34109b66acd0",
+      "path": "ARCHITECTURE_CANONICAL_ROOT.md"
     },
     {
       "mode": "100644",
@@ -1900,6 +1906,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "abf236a43cadd81b9c8cd3ca51c8bece65ceb9f0",
+      "path": "docs/TOP_AGENT_LESSONS_20260826.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "1bc5b93d4e8847c31135ca276ec4ceb88e115c8b",
       "path": "docs/WORKLOG.md"
     },
@@ -2406,6 +2418,12 @@
       "type": "blob",
       "blob": "ae7da1807a2afbf01d8e949c865742db44b6e86e",
       "path": "reports/PHASE3_RAG_GATE_STATUS_V3_20260826.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f7eed30a6935fc1f78e2533bb9aea9802f76e002",
+      "path": "reports/PORT_BACKLOG_SCP_AGENT_TO_GA_LAB_20260826.json"
     },
     {
       "mode": "100644",
@@ -4414,7 +4432,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "1645675897cadd30384f056df9cc23dc0dc7d8a6",
+      "blob": "9cf62b0dd300cbedc31f0b8f64c7e4db3e055b62",
       "path": "scp/core/request_run_ledger.py"
     },
     {
@@ -4464,6 +4482,12 @@
       "type": "blob",
       "blob": "f90eddd8badff9f3ef62172dab7611530adadf3c",
       "path": "scp/core/subsystem_telemetry.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ae825529716604c23c2f9ef1899172f09b9256e8",
+      "path": "scp/core/trace_contract.py"
     },
     {
       "mode": "100644",
@@ -7522,8 +7546,14 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "42977e842161a67192705fd337caef23ab4d91cf",
+      "blob": "59d9d85b623abb4d9c39f93450315a0e32445d8a",
       "path": "tests/test_task_kernel_recovery_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "12b176d4a02b4127f54119245aaa8dfbeb895868",
+      "path": "tests/test_trace_contract.py"
     },
     {
       "mode": "100644",
@@ -7938,6 +7968,12 @@
       "type": "blob",
       "blob": "199be0a90038e5f5e87a64de2953e109496e6a09",
       "path": "tools/validate_rag_input_gold_v1.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ffb6562208a8100005fa05feea7b5ad7324dc115",
+      "path": "tools/verify_canonical_root.py"
     },
     {
       "mode": "100644",
