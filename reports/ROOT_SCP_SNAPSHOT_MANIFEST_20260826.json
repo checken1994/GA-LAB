@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T09:59:48.243891+00:00",
-  "captured_commit": "af6d15762e42d3755f8c1a2892530ec4c8368680",
-  "captured_parent": "598f4c8439591fd443a288606013b5c9ec3e8fee",
-  "captured_tree": "078757e2309669e7116dd293c85ccd06d5fcfd80",
-  "tracked_count": 1295,
-  "inventory_sha256": "fb4ebc692e44ba00060329e5f93b521cfb9fc354cc85ec746de55d02875c68f7",
+  "generated_at_utc": "2026-08-26T10:41:28.011628+00:00",
+  "captured_commit": "fa4769f44ff545bdfc6e807facc2a18e4e54aa47",
+  "captured_parent": "fb629aead5c3332422980ab4facfc2b31900f466",
+  "captured_tree": "6c4e2b05c68cba7482d99b6331f10d5179e75439",
+  "tracked_count": 1310,
+  "inventory_sha256": "4675a741556640b40db9e87e6fa7e2b7d657c3ccfc2b33e7d87121635d99c9f1",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2404,6 +2404,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "ae7da1807a2afbf01d8e949c865742db44b6e86e",
+      "path": "reports/PHASE3_RAG_GATE_STATUS_V3_20260826.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "6333ea1bf586fe0fe0471b29ca26182e54b2a63f",
       "path": "reports/SCP_BUILD_PHASE0_20260818-005436/file-hashes.json"
     },
@@ -2662,6 +2668,54 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "759d04db5472964bd45b03b1873071aed0a3df47",
+      "path": "reports/archived_workspaces_20260826/PC_FOLDER_ARCHIVE_INDEX.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "53c248c2954f0d9cbdf407a46e22bc081daf3eed",
+      "path": "reports/archived_workspaces_20260826/scp-structure-debt-worktree/manifest.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "47fb0c48c384c1b23c0c103893f0122c9bc5d2a7",
+      "path": "reports/archived_workspaces_20260826/scp-structure-debt-worktree/reports/core_repo_matrix_20260825/CORE_REPO_MATRIX.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ee13fba2b745c4dac168e5e8c5fab83b913385c7",
+      "path": "reports/archived_workspaces_20260826/scp-structure-debt-worktree/reports/core_repo_matrix_20260825/common_paths.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6b0793e5f7756fc6260d4ae050d11a905e9ad5b9",
+      "path": "reports/archived_workspaces_20260826/scp-structure-debt-worktree/reports/core_repo_matrix_20260825/only_ga_lab.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e5ebaffb02f01efcf4f1db870c57afc58936fa23",
+      "path": "reports/archived_workspaces_20260826/scp-structure-debt-worktree/reports/core_repo_matrix_20260825/only_scp_agent.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0535585726fe211216f76180da2bd08ded70d6bd",
+      "path": "reports/archived_workspaces_20260826/scp-structure-debt-worktree/reports/core_repo_matrix_20260825/summary.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b2ecad9ad12a7a613b3134759d907736960ce106",
+      "path": "reports/archived_workspaces_20260826/scp-structure-debt-worktree/tools/build_core_repo_matrix_worktree.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "35ef8f7c65d9686e3611e1eeb1c2f28a77004068",
       "path": "reports/codegraph_20260826/codegraph.json"
     },
@@ -2802,6 +2856,42 @@
       "type": "blob",
       "blob": "5d0f30932e782d3b42c988820b2804f95516512e",
       "path": "reports/phase3_proof_gap_matrix_v1.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4bdae42e72eb7746fe59d3d948e176c320182aa7",
+      "path": "reports/phase3_rag_evidence_20260826/gold_independent_llm_pilot.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fa2e26e884563db40c355ea09d0c11f7802ba9ec",
+      "path": "reports/phase3_rag_evidence_20260826/independent_gold_review_50.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "30edddb39fab3a669dd9a07be96c63f3ac91b898",
+      "path": "reports/phase3_rag_evidence_20260826/independent_gold_review_summary.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "70a826c93ba4cd8bd9d34f4f03b239a9b0135002",
+      "path": "reports/phase3_rag_evidence_20260826/ragas_1000_admission_audit.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6fafa4664813c691054c443245902facbae01821",
+      "path": "reports/phase3_rag_evidence_20260826/ragas_independent_pilot_result.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2d02417241a732f7c77dcd36630806fbdcae995c",
+      "path": "reports/phase3_rag_evidence_20260826/ragas_independent_pilot_runtime.jsonl"
     },
     {
       "mode": "100644",
