@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-25T21:41:30.942428+00:00",
-  "captured_commit": "8da8ff25b1c960da820a3405a26c469944679761",
-  "captured_parent": "4f65160d90a2f43e896ef9d736934c2e283f5b1b",
-  "captured_tree": "23bc3be8ad190012ed14eab570cf8d85403a6aab",
-  "tracked_count": 1239,
-  "inventory_sha256": "4f2b269e3e27b12451b00ab320f110a2300dc6176cb5154f4d1a052161fa32f1",
+  "generated_at_utc": "2026-08-26T01:13:26.619543+00:00",
+  "captured_commit": "08897fd746b50071934837835f683fb88f496f1f",
+  "captured_parent": "8eba1313e3069703eb4b798ebdc818dbc3ee337a",
+  "captured_tree": "37125f8ec43cb3e0d7f029fce505b6b934f502fd",
+  "tracked_count": 1240,
+  "inventory_sha256": "e4078c8b8b089735f9e3c95307fc0bb81f28c074d0c80fa2b8c0f92851bdcf02",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -19,9 +19,9 @@
       "sha256": "33274a784cd76f9a2b0db5d05c7dd8113493c13bb2fa02d62f509b60ea26367c"
     },
     "scp/task_kernel.py": {
-      "blob": "63847ee57e6791fad3547c422d060c5dc3a18dab",
-      "bytes": 26626,
-      "sha256": "52dddecc61ea84b732ac5a8aad4384575806b3a09c21b8f05b61a01c182adf6e"
+      "blob": "d070ed883e7d30f96313c309f44fac3bbb0e343f",
+      "bytes": 30529,
+      "sha256": "e072eeb51cf089cc5875ff3d51ae0302e3b5c16c5ac951472c48d69bd6126429"
     },
     "scp/ask_kernel_adapter.py": {
       "blob": "267eae7ea7d9bdc055a3445ca28885fc58597015",
@@ -5746,7 +5746,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "63847ee57e6791fad3547c422d060c5dc3a18dab",
+      "blob": "d070ed883e7d30f96313c309f44fac3bbb0e343f",
       "path": "scp/task_kernel.py"
     },
     {
@@ -7116,6 +7116,12 @@
       "type": "blob",
       "blob": "ab53072865b29b08c7070407b8247c3d7fb512e7",
       "path": "tests/test_task_kernel_acceptance.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "42977e842161a67192705fd337caef23ab4d91cf",
+      "path": "tests/test_task_kernel_recovery_contract.py"
     },
     {
       "mode": "100644",
