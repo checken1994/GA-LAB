@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 PYTHON_BIN="${SCP_PYTHON_BIN:-python3}"
+REALITY_TEST_TIMEOUT_SECONDS="${SCP_REALITY_TEST_TIMEOUT_SECONDS:-90}"
 export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 # ============================================================
 # SCP-DNA Phase 1 — CI Reality-Test Layer
@@ -84,6 +85,15 @@ assert_bash_syntax() {
   else
     echo -e "  ${RED}✗ $id${NC} $desc (bash -n failed)"
     FAIL=$((FAIL + 1))
+  fi
+}
+
+run_python_script() {
+  local script="$1"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout --foreground "${REALITY_TEST_TIMEOUT_SECONDS}s" "$PYTHON_BIN" "$script"
+  else
+    "$PYTHON_BIN" "$script"
   fi
 }
 
@@ -195,7 +205,7 @@ run_reality_test() {
   if [ ! -f "$script" ]; then
     return
   fi
-  if "$PYTHON_BIN" "$script" >/dev/null 2>&1; then
+  if run_python_script "$script" >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓ $name${NC}"
     PHASE2_PASS=$((PHASE2_PASS + 1))
   else
