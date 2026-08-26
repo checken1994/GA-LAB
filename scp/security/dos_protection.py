@@ -132,6 +132,7 @@ class DoSProtectionEngine:
                 minute_requests.popleft()
             if len(minute_requests) >= self.MAX_REQUESTS_PER_MINUTE:
                 self._stats["total_blocked_rate"] += 1
+                retry_after = max(1, int(60 - (now - minute_requests[0])) + 1)
                 return DoSAlert(
                     alert_type="rate_limit",
                     severity="critical",
@@ -140,6 +141,8 @@ class DoSProtectionEngine:
                     current_rate=float(len(minute_requests)),
                     threshold=float(self.MAX_REQUESTS_PER_MINUTE),
                     action_taken="block",
+                    status_code=429,
+                    recommended_headers={"Retry-After": str(retry_after)},
                 )
 
             # Per-hour
@@ -148,6 +151,7 @@ class DoSProtectionEngine:
                 hour_requests.popleft()
             if len(hour_requests) >= self.MAX_REQUESTS_PER_HOUR:
                 self._stats["total_blocked_rate"] += 1
+                retry_after = max(1, int(3600 - (now - hour_requests[0])) + 1)
                 return DoSAlert(
                     alert_type="rate_limit",
                     severity="critical",
@@ -156,6 +160,8 @@ class DoSProtectionEngine:
                     current_rate=float(len(hour_requests)),
                     threshold=float(self.MAX_REQUESTS_PER_HOUR),
                     action_taken="block",
+                    status_code=429,
+                    recommended_headers={"Retry-After": str(retry_after)},
                 )
 
             # Record request

@@ -1,0 +1,1301 @@
+flowchart LR
+    n0["scp<br/>7 lines"]
+    n1["scp.__main__<br/>120 lines"]
+    n2["scp.ai_patterns<br/>453 lines"]
+    n3["scp.api<br/>1 lines"]
+    n4["scp.api._lifespan<br/>757 lines"]
+    n5["scp.api._shared<br/>131 lines"]
+    n6["scp.api.chat<br/>338 lines"]
+    n7["scp.api.dashboard_html<br/>541 lines"]
+    n8["scp.api.routes<br/>11 lines"]
+    n9["scp.api.routes.admin_v100<br/>150 lines"]
+    n10["scp.api.routes.admin_v98<br/>122 lines"]
+    n11["scp.api.routes.agent_routes<br/>153 lines"]
+    n12["scp.api.routes.audit_routes<br/>54 lines"]
+    n13["scp.api.routes.batch_benchmark_routes<br/>329 lines"]
+    n14["scp.api.routes.call_routes<br/>55 lines"]
+    n15["scp.api.routes.control_routes<br/>141 lines"]
+    n16["scp.api.routes.hands_routes<br/>193 lines"]
+    n17["scp.api.routes.import_routes<br/>191 lines"]
+    n18["scp.api.routes.openai_compat<br/>140 lines"]
+    n19["scp.api.routes.pc_controller_routes<br/>112 lines"]
+    n20["scp.api.routes.prediction_routes<br/>115 lines"]
+    n21["scp.api.routes.stream_routes<br/>97 lines"]
+    n22["scp.api.routes.threat_routes<br/>72 lines"]
+    n23["scp.api.routes.v102_v103_routes<br/>141 lines"]
+    n24["scp.api.routes.v104_routes<br/>374 lines"]
+    n25["scp.api.routes.v105_routes<br/>701 lines"]
+    n26["scp.api.routes.web_control_routes<br/>120 lines"]
+    n27["scp.api.webhook<br/>234 lines"]
+    n28["scp.api_server<br/>1954 lines"]
+    n29["scp.api_server_parts<br/>2 lines"]
+    n30["scp.api_server_parts.helpers<br/>406 lines"]
+    n31["scp.ask_kernel_adapter<br/>365 lines"]
+    n32["scp.autofix<br/>32 lines"]
+    n33["scp.autofix.ast_diff_cache<br/>413 lines"]
+    n34["scp.autofix.audit_log<br/>344 lines"]
+    n35["scp.autofix.bug_report_validator<br/>478 lines"]
+    n36["scp.autofix.callgraph_delta<br/>735 lines"]
+    n37["scp.autofix.classifier<br/>307 lines"]
+    n38["scp.autofix.concurrent_runner<br/>285 lines"]
+    n39["scp.autofix.confidence_ranker<br/>412 lines"]
+    n40["scp.autofix.deterministic_patches<br/>374 lines"]
+    n41["scp.autofix.deterministic_worker<br/>538 lines"]
+    n42["scp.autofix.diagnostic<br/>131 lines"]
+    n43["scp.autofix.engine<br/>2715 lines"]
+    n44["scp.autofix.engine_extensions<br/>599 lines"]
+    n45["scp.autofix.enterprise_scanners<br/>710 lines"]
+    n46["scp.autofix.evidence_replay<br/>649 lines"]
+    n47["scp.autofix.evolution<br/>605 lines"]
+    n48["scp.autofix.evolution_modes<br/>189 lines"]
+    n49["scp.autofix.evolution_modes.pattern_fixers<br/>219 lines"]
+    n50["scp.autofix.evolution_parts<br/>2 lines"]
+    n51["scp.autofix.evolution_parts.buildmixin<br/>378 lines"]
+    n52["scp.autofix.evolution_parts.reflectmixin<br/>606 lines"]
+    n53["scp.autofix.evolution_parts.wiremixin<br/>141 lines"]
+    n54["scp.autofix.intent_inference_engine<br/>512 lines"]
+    n55["scp.autofix.llm_fix<br/>1045 lines"]
+    n56["scp.autofix.llm_fix_cache<br/>504 lines"]
+    n57["scp.autofix.monitor<br/>187 lines"]
+    n58["scp.autofix.parallel_scanner<br/>429 lines"]
+    n59["scp.autofix.permission<br/>357 lines"]
+    n60["scp.autofix.policy_gate<br/>851 lines"]
+    n61["scp.autofix.property_validator<br/>914 lines"]
+    n62["scp.autofix.realtime_verifier<br/>403 lines"]
+    n63["scp.autofix.restricted_exec<br/>71 lines"]
+    n64["scp.autofix.rollback_registry<br/>118 lines"]
+    n65["scp.autofix.runner<br/>728 lines"]
+    n66["scp.autofix.runner_phases<br/>101 lines"]
+    n67["scp.autofix.runner_phases.ast_scan<br/>766 lines"]
+    n68["scp.autofix.runner_phases.auto_rollback<br/>576 lines"]
+    n69["scp.autofix.runner_phases.blast_radius<br/>373 lines"]
+    n70["scp.autofix.runner_phases.completeness_check<br/>252 lines"]
+    n71["scp.autofix.runner_phases.diff_rescan<br/>261 lines"]
+    n72["scp.autofix.runner_phases.lineage_cross_validation<br/>237 lines"]
+    n73["scp.autofix.runner_phases.permission_check<br/>125 lines"]
+    n74["scp.autofix.runner_phases.post_fix_verify<br/>584 lines"]
+    n75["scp.autofix.runner_phases.pre_startup<br/>177 lines"]
+    n76["scp.autofix.runner_phases.reality_test<br/>345 lines"]
+    n77["scp.autofix.runner_phases.report<br/>272 lines"]
+    n78["scp.autofix.runner_phases.semantic_equiv<br/>398 lines"]
+    n79["scp.autofix.runner_phases.shadow_canary<br/>756 lines"]
+    n80["scp.autofix.scanners<br/>151 lines"]
+    n81["scp.autofix.scanners._self_audit<br/>534 lines"]
+    n82["scp.autofix.scanners.api_wiring_scanner<br/>230 lines"]
+    n83["scp.autofix.scanners.cross_func_taint_scanner<br/>1254 lines"]
+    n84["scp.autofix.scanners.dead_code_scanner<br/>427 lines"]
+    n85["scp.autofix.scanners.dead_slm_scanner<br/>220 lines"]
+    n86["scp.autofix.scanners.hypothesis_scanner<br/>403 lines"]
+    n87["scp.autofix.scanners.logic_flow_scanner<br/>214 lines"]
+    n88["scp.autofix.scanners.null_safety_scanner<br/>334 lines"]
+    n89["scp.autofix.scanners.performance_scanner<br/>331 lines"]
+    n90["scp.autofix.scanners.race_condition_scanner<br/>511 lines"]
+    n91["scp.autofix.scanners.resource_leak_scanner<br/>295 lines"]
+    n92["scp.autofix.scanners.routing_gap_scanner<br/>229 lines"]
+    n93["scp.autofix.scanners.schema_scanner<br/>235 lines"]
+    n94["scp.autofix.scanners.security_scanner<br/>338 lines"]
+    n95["scp.autofix.scanners.semantic_intent_scanner<br/>640 lines"]
+    n96["scp.autofix.scanners.sql_injection_scanner<br/>286 lines"]
+    n97["scp.autofix.scanners.staticmethod_self_scanner<br/>150 lines"]
+    n98["scp.autofix.scanners.taint_flow_scanner<br/>830 lines"]
+    n99["scp.autofix.scanners.type_contract_scanner<br/>337 lines"]
+    n100["scp.autofix.scanners.xss_scanner<br/>579 lines"]
+    n101["scp.autofix.speculative_prefixer<br/>839 lines"]
+    n102["scp.autofix.type_flow_verifier<br/>802 lines"]
+    n103["scp.autofix.validate_patch<br/>179 lines"]
+    n104["scp.benchmark.compare_results<br/>189 lines"]
+    n105["scp.benchmark.question_generator<br/>360 lines"]
+    n106["scp.benchmark.run_baseline<br/>272 lines"]
+    n107["scp.benchmark.run_benchmark<br/>260 lines"]
+    n108["scp.benchmark.run_benchmark_enhanced<br/>520 lines"]
+    n109["scp.benchmark.run_benchmark_v2<br/>1010 lines"]
+    n110["scp.brain<br/>21 lines"]
+    n111["scp.brain.brain<br/>39 lines"]
+    n112["scp.brain.error_store<br/>548 lines"]
+    n113["scp.brain.error_store_index<br/>535 lines"]
+    n114["scp.brain.index_parts<br/>85 lines"]
+    n115["scp.brain.index_parts.clustering<br/>239 lines"]
+    n116["scp.brain.index_parts.retrieval<br/>419 lines"]
+    n117["scp.brain.index_parts.similarity<br/>241 lines"]
+    n118["scp.capabilities<br/>19 lines"]
+    n119["scp.capabilities.rag<br/>48 lines"]
+    n120["scp.capabilities.vector_db<br/>88 lines"]
+    n121["scp.capabilities.vision<br/>47 lines"]
+    n122["scp.capabilities.voice<br/>80 lines"]
+    n123["scp.consolidator<br/>6 lines"]
+    n124["scp.consolidator.consolidator<br/>155 lines"]
+    n125["scp.core<br/>55 lines"]
+    n126["scp.core.agent_autofix_adapter<br/>315 lines"]
+    n127["scp.core.agent_orchestrator<br/>272 lines"]
+    n128["scp.core.ai_threat_scanner<br/>294 lines"]
+    n129["scp.core.anchor<br/>210 lines"]
+    n130["scp.core.antibody<br/>146 lines"]
+    n131["scp.core.api_utils<br/>221 lines"]
+    n132["scp.core.audit_fetcher<br/>230 lines"]
+    n133["scp.core.auto_backup<br/>294 lines"]
+    n134["scp.core.bounded_evolution<br/>219 lines"]
+    n135["scp.core.call_session_hub<br/>159 lines"]
+    n136["scp.core.chat_memory_store<br/>140 lines"]
+    n137["scp.core.circuit_breaker<br/>432 lines"]
+    n138["scp.core.code_evolution_agent<br/>586 lines"]
+    n139["scp.core.conflict_resolver<br/>528 lines"]
+    n140["scp.core.cross_verify<br/>401 lines"]
+    n141["scp.core.crypto_verifier<br/>471 lines"]
+    n142["scp.core.data_partitioner<br/>238 lines"]
+    n143["scp.core.db_manager<br/>1127 lines"]
+    n144["scp.core.evidence_filter<br/>155 lines"]
+    n145["scp.core.fast_learning_engine<br/>1507 lines"]
+    n146["scp.core.generator<br/>58 lines"]
+    n147["scp.core.github_backup<br/>198 lines"]
+    n148["scp.core.harm_detector<br/>239 lines"]
+    n149["scp.core.healing_engine<br/>138 lines"]
+    n150["scp.core.hypothesis_zone<br/>301 lines"]
+    n151["scp.core.kham_pha_logger<br/>177 lines"]
+    n152["scp.core.knowledge_io<br/>73 lines"]
+    n153["scp.core.learning_run_ledger<br/>188 lines"]
+    n154["scp.core.math_evaluator<br/>521 lines"]
+    n155["scp.core.memory_manager<br/>74 lines"]
+    n156["scp.core.multi_source_verifier<br/>668 lines"]
+    n157["scp.core.partition<br/>60 lines"]
+    n158["scp.core.partition.archive<br/>425 lines"]
+    n159["scp.core.partition.rotate<br/>310 lines"]
+    n160["scp.core.partition.shard<br/>521 lines"]
+    n161["scp.core.phase0<br/>693 lines"]
+    n162["scp.core.policy_materializer<br/>295 lines"]
+    n163["scp.core.question_fetchers<br/>16 lines"]
+    n164["scp.core.question_fetchers._common<br/>264 lines"]
+    n165["scp.core.question_fetchers.data_fetchers<br/>536 lines"]
+    n166["scp.core.question_fetchers.knowledge_fetchers<br/>254 lines"]
+    n167["scp.core.question_fetchers.trivia_fetchers<br/>282 lines"]
+    n168["scp.core.question_normalizer<br/>426 lines"]
+    n169["scp.core.react_agent<br/>215 lines"]
+    n170["scp.core.real_learning_engine<br/>102 lines"]
+    n171["scp.core.real_question_fetcher<br/>325 lines"]
+    n172["scp.core.reality_engine<br/>325 lines"]
+    n173["scp.core.release_identity<br/>48 lines"]
+    n174["scp.core.request_run_ledger<br/>314 lines"]
+    n175["scp.core.safe_process<br/>209 lines"]
+    n176["scp.core.scp_v14<br/>39 lines"]
+    n177["scp.core.smart_cache<br/>607 lines"]
+    n178["scp.core.smart_classifier<br/>439 lines"]
+    n179["scp.core.startup_optimizer<br/>319 lines"]
+    n180["scp.core.streaming_factcheck<br/>264 lines"]
+    n181["scp.core.subsystem_telemetry<br/>403 lines"]
+    n182["scp.core.url_fetcher<br/>209 lines"]
+    n183["scp.core.wikipedia_client<br/>287 lines"]
+    n184["scp.data_sources<br/>200 lines"]
+    n185["scp.data_sources._matching<br/>35 lines"]
+    n186["scp.data_sources.aerospace<br/>76 lines"]
+    n187["scp.data_sources.agriculture<br/>226 lines"]
+    n188["scp.data_sources.alphavantage<br/>157 lines"]
+    n189["scp.data_sources.architecture<br/>57 lines"]
+    n190["scp.data_sources.arts<br/>214 lines"]
+    n191["scp.data_sources.astronomy<br/>486 lines"]
+    n192["scp.data_sources.audiovideo<br/>57 lines"]
+    n193["scp.data_sources.biology<br/>245 lines"]
+    n194["scp.data_sources.blockchain<br/>108 lines"]
+    n195["scp.data_sources.cartography<br/>70 lines"]
+    n196["scp.data_sources.chemistry<br/>621 lines"]
+    n197["scp.data_sources.conversion<br/>303 lines"]
+    n198["scp.data_sources.cornell_lii<br/>140 lines"]
+    n199["scp.data_sources.courtlistener<br/>118 lines"]
+    n200["scp.data_sources.crafts<br/>56 lines"]
+    n201["scp.data_sources.cybersecurity<br/>260 lines"]
+    n202["scp.data_sources.digitalmarketing<br/>56 lines"]
+    n203["scp.data_sources.diplomacy<br/>59 lines"]
+    n204["scp.data_sources.domain_classifier<br/>285 lines"]
+    n205["scp.data_sources.domain_registry<br/>1075 lines"]
+    n206["scp.data_sources.dtic<br/>137 lines"]
+    n207["scp.data_sources.ecommerce<br/>56 lines"]
+    n208["scp.data_sources.education<br/>130 lines"]
+    n209["scp.data_sources.energy<br/>201 lines"]
+    n210["scp.data_sources.environment<br/>141 lines"]
+    n211["scp.data_sources.eric<br/>136 lines"]
+    n212["scp.data_sources.finance<br/>247 lines"]
+    n213["scp.data_sources.foodtech<br/>55 lines"]
+    n214["scp.data_sources.fred<br/>124 lines"]
+    n215["scp.data_sources.genai<br/>125 lines"]
+    n216["scp.data_sources.geography<br/>202 lines"]
+    n217["scp.data_sources.geology<br/>135 lines"]
+    n218["scp.data_sources.glottolog<br/>187 lines"]
+    n219["scp.data_sources.google_factcheck<br/>124 lines"]
+    n220["scp.data_sources.gutenberg<br/>140 lines"]
+    n221["scp.data_sources.heritage<br/>150 lines"]
+    n222["scp.data_sources.history<br/>263 lines"]
+    n223["scp.data_sources.legal<br/>300 lines"]
+    n224["scp.data_sources.live_knowledge<br/>696 lines"]
+    n225["scp.data_sources.logic<br/>150 lines"]
+    n226["scp.data_sources.math<br/>102 lines"]
+    n227["scp.data_sources.medical<br/>418 lines"]
+    n228["scp.data_sources.metmuseum<br/>143 lines"]
+    n229["scp.data_sources.military<br/>157 lines"]
+    n230["scp.data_sources.newsapi<br/>95 lines"]
+    n231["scp.data_sources.noaa<br/>166 lines"]
+    n232["scp.data_sources.oceanography<br/>56 lines"]
+    n233["scp.data_sources.physics<br/>171 lines"]
+    n234["scp.data_sources.psychology<br/>116 lines"]
+    n235["scp.data_sources.reality<br/>240 lines"]
+    n236["scp.data_sources.registry<br/>168 lines"]
+    n237["scp.data_sources.religion<br/>67 lines"]
+    n238["scp.data_sources.social<br/>58 lines"]
+    n239["scp.data_sources.spacemedicine<br/>80 lines"]
+    n240["scp.data_sources.sports<br/>243 lines"]
+    n241["scp.data_sources.statistics<br/>165 lines"]
+    n242["scp.data_sources.technology<br/>249 lines"]
+    n243["scp.data_sources.tourism<br/>78 lines"]
+    n244["scp.data_sources.transport<br/>56 lines"]
+    n245["scp.data_sources.undata<br/>144 lines"]
+    n246["scp.data_sources.unesco<br/>170 lines"]
+    n247["scp.data_sources.usgs<br/>190 lines"]
+    n248["scp.data_sources.uxui<br/>55 lines"]
+    n249["scp.data_sources.weather<br/>191 lines"]
+    n250["scp.data_sources.wikiart<br/>206 lines"]
+    n251["scp.data_sources.worldbank<br/>151 lines"]
+    n252["scp.experience<br/>6 lines"]
+    n253["scp.experience.experience<br/>820 lines"]
+    n254["scp.forecast<br/>20 lines"]
+    n255["scp.forecast.ledger<br/>296 lines"]
+    n256["scp.forecast.scoring<br/>88 lines"]
+    n257["scp.foundation<br/>9 lines"]
+    n258["scp.foundation.batch<br/>248 lines"]
+    n259["scp.foundation.parser<br/>205 lines"]
+    n260["scp.hands<br/>8 lines"]
+    n261["scp.hands.action_registry<br/>84 lines"]
+    n262["scp.hands.goal_parser<br/>171 lines"]
+    n263["scp.hands.hands_executor<br/>359 lines"]
+    n264["scp.hands.planner<br/>871 lines"]
+    n265["scp.hands.process_manager<br/>111 lines"]
+    n266["scp.hands.process_probe<br/>7 lines"]
+    n267["scp.history<br/>14 lines"]
+    n268["scp.history.evidence_ledger<br/>96 lines"]
+    n269["scp.history.migration<br/>283 lines"]
+    n270["scp.history.regression_corpus<br/>169 lines"]
+    n271["scp.history.semantic_gate<br/>96 lines"]
+    n272["scp.interfaces<br/>9 lines"]
+    n273["scp.interfaces.data_source<br/>76 lines"]
+    n274["scp.knowledge<br/>1 lines"]
+    n275["scp.knowledge.antibody_system<br/>1767 lines"]
+    n276["scp.knowledge.claim_extractor<br/>434 lines"]
+    n277["scp.knowledge.cwe_exploit_store<br/>299 lines"]
+    n278["scp.knowledge.domain_store<br/>494 lines"]
+    n279["scp.knowledge.scheduled_crawler<br/>336 lines"]
+    n280["scp.knowledge.source_reputation<br/>696 lines"]
+    n281["scp.knowledge.source_watchlist<br/>296 lines"]
+    n282["scp.knowledge.trust_hierarchy<br/>219 lines"]
+    n283["scp.llm_gateway<br/>23 lines"]
+    n284["scp.llm_gateway.client<br/>737 lines"]
+    n285["scp.meta<br/>8 lines"]
+    n286["scp.meta._number_utils<br/>112 lines"]
+    n287["scp.meta.adversary_verifier<br/>550 lines"]
+    n288["scp.meta.anti_closure_meta<br/>128 lines"]
+    n289["scp.meta.behavior_monitor<br/>451 lines"]
+    n290["scp.meta.calibration_engine<br/>606 lines"]
+    n291["scp.meta.capability_levels<br/>222 lines"]
+    n292["scp.meta.cognitive_engine<br/>335 lines"]
+    n293["scp.meta.cognitive_gate<br/>413 lines"]
+    n294["scp.meta.cognitive_layers<br/>55 lines"]
+    n295["scp.meta.cognitive_layers.counter_question<br/>185 lines"]
+    n296["scp.meta.cognitive_layers.meta_falsifier<br/>308 lines"]
+    n297["scp.meta.cognitive_layers.proof_graph<br/>210 lines"]
+    n298["scp.meta.cognitive_layers.recursive_why<br/>378 lines"]
+    n299["scp.meta.cognitive_layers.unknown_state<br/>188 lines"]
+    n300["scp.meta.constitution<br/>186 lines"]
+    n301["scp.meta.curiosity_asker<br/>74 lines"]
+    n302["scp.meta.external_trust<br/>313 lines"]
+    n303["scp.meta.falsification_engine<br/>982 lines"]
+    n304["scp.meta.governance_v97<br/>255 lines"]
+    n305["scp.meta.kb_evolve<br/>459 lines"]
+    n306["scp.meta.knowledge_arbiter<br/>260 lines"]
+    n307["scp.meta.logical_auditor<br/>319 lines"]
+    n308["scp.meta.meta<br/>954 lines"]
+    n309["scp.meta.meta_schema<br/>120 lines"]
+    n310["scp.meta.metawhy_monitor<br/>209 lines"]
+    n311["scp.meta.multi_llm_check<br/>230 lines"]
+    n312["scp.meta.policy_applier<br/>494 lines"]
+    n313["scp.meta.principle_rules<br/>489 lines"]
+    n314["scp.meta.question_tracker<br/>459 lines"]
+    n315["scp.meta.reverify_scheduler<br/>315 lines"]
+    n316["scp.meta.scp_meta<br/>73 lines"]
+    n317["scp.meta.self_questioning<br/>396 lines"]
+    n318["scp.meta.severity<br/>23 lines"]
+    n319["scp.meta.simple_explainer<br/>154 lines"]
+    n320["scp.meta.understanding_check<br/>107 lines"]
+    n321["scp.meta.verdict_predictor<br/>397 lines"]
+    n322["scp.meta.why_engine<br/>1087 lines"]
+    n323["scp.meta.why_engine_cli<br/>73 lines"]
+    n324["scp.meta.why_execute_plan<br/>210 lines"]
+    n325["scp.meta.why_gate<br/>562 lines"]
+    n326["scp.meta.why_sources<br/>20 lines"]
+    n327["scp.meta.why_sources.crypto<br/>37 lines"]
+    n328["scp.meta.why_sources.frankfurter<br/>37 lines"]
+    n329["scp.meta.why_sources.nasa<br/>30 lines"]
+    n330["scp.meta.why_sources.open_meteo<br/>42 lines"]
+    n331["scp.meta.why_sources.pubchem<br/>32 lines"]
+    n332["scp.meta.why_sources.rest_countries<br/>48 lines"]
+    n333["scp.meta.why_sources.wikidata<br/>34 lines"]
+    n334["scp.meta.why_sources.wikipedia<br/>293 lines"]
+    n335["scp.meta.why_v80_modes<br/>370 lines"]
+    n336["scp.observability<br/>6 lines"]
+    n337["scp.observability.otel<br/>51 lines"]
+    n338["scp.pc_control<br/>6 lines"]
+    n339["scp.pc_control.pc_controller<br/>295 lines"]
+    n340["scp.prediction<br/>6 lines"]
+    n341["scp.prediction.predictive<br/>951 lines"]
+    n342["scp.rag<br/>2 lines"]
+    n343["scp.rag.canonical_retriever<br/>72 lines"]
+    n344["scp.runtime<br/>49 lines"]
+    n345["scp.runtime.engine<br/>575 lines"]
+    n346["scp.runtime.engine_parts<br/>2 lines"]
+    n347["scp.runtime.engine_parts.direct_api_verifier<br/>401 lines"]
+    n348["scp.runtime.engine_parts.scpv14_process_mixin<br/>651 lines"]
+    n349["scp.runtime.healing_v14<br/>391 lines"]
+    n350["scp.runtime.judge<br/>1384 lines"]
+    n351["scp.runtime.judge_parts<br/>2 lines"]
+    n352["scp.runtime.judge_parts.judge_phase_4_governance<br/>1 lines"]
+    n353["scp.runtime.judge_parts.judge_phases<br/>362 lines"]
+    n354["scp.runtime.judge_parts.judgebg_mixin<br/>176 lines"]
+    n355["scp.runtime.judge_parts.judgecore_mixin<br/>3523 lines"]
+    n356["scp.runtime.judge_parts.judgeroute_mixin<br/>542 lines"]
+    n357["scp.runtime.judge_parts.judgeutil_mixin<br/>177 lines"]
+    n358["scp.runtime.judge_parts.types<br/>42 lines"]
+    n359["scp.runtime.notifications<br/>324 lines"]
+    n360["scp.runtime.orchestrator<br/>24 lines"]
+    n361["scp.runtime.parallel_pipeline<br/>165 lines"]
+    n362["scp.runtime.safe_math<br/>52 lines"]
+    n363["scp.runtime.slm_base<br/>230 lines"]
+    n364["scp.runtime.slm_impls<br/>17 lines"]
+    n365["scp.runtime.slm_impls.agriculture_slm<br/>140 lines"]
+    n366["scp.runtime.slm_impls.art_slm<br/>143 lines"]
+    n367["scp.runtime.slm_impls.chem_reality_astro_slm<br/>818 lines"]
+    n368["scp.runtime.slm_impls.economics_slm<br/>145 lines"]
+    n369["scp.runtime.slm_impls.education_slm<br/>142 lines"]
+    n370["scp.runtime.slm_impls.engineering_slm<br/>163 lines"]
+    n371["scp.runtime.slm_impls.humanities_slm<br/>821 lines"]
+    n372["scp.runtime.slm_impls.law_slm<br/>146 lines"]
+    n373["scp.runtime.slm_impls.lifestyle_slm<br/>656 lines"]
+    n374["scp.runtime.slm_impls.literature_slm<br/>173 lines"]
+    n375["scp.runtime.slm_impls.management_slm<br/>137 lines"]
+    n376["scp.runtime.slm_impls.math_biology_slm<br/>393 lines"]
+    n377["scp.runtime.slm_impls.military_slm<br/>144 lines"]
+    n378["scp.runtime.slm_impls.misc_slm<br/>667 lines"]
+    n379["scp.runtime.slm_impls.numeric_data_slm<br/>453 lines"]
+    n380["scp.runtime.slm_impls.philosophy_slm<br/>142 lines"]
+    n381["scp.runtime.slms<br/>556 lines"]
+    n382["scp.runtime.slms_parts<br/>2 lines"]
+    n383["scp.runtime.slms_parts._domainslm<br/>332 lines"]
+    n384["scp.runtime.slms_parts.astronomyslm<br/>295 lines"]
+    n385["scp.runtime.slms_parts.biologyslm<br/>371 lines"]
+    n386["scp.runtime.slms_parts.chemistryslm<br/>333 lines"]
+    n387["scp.runtime.slms_parts.conversionslm<br/>371 lines"]
+    n388["scp.runtime.slms_parts.entertainmentslm<br/>381 lines"]
+    n389["scp.runtime.slms_parts.foodslm<br/>271 lines"]
+    n390["scp.runtime.slms_parts.generalslm<br/>268 lines"]
+    n391["scp.runtime.slms_parts.geographyslm<br/>635 lines"]
+    n392["scp.runtime.slms_parts.historyslm<br/>528 lines"]
+    n393["scp.runtime.slms_parts.mathslm<br/>279 lines"]
+    n394["scp.runtime.slms_parts.misc_slms2<br/>889 lines"]
+    n395["scp.runtime.slms_parts.realityslm<br/>434 lines"]
+    n396["scp.runtime.slms_parts.universalslm<br/>343 lines"]
+    n397["scp.runtime.slms_parts.weatherslm<br/>276 lines"]
+    n398["scp.runtime.storage_manager<br/>517 lines"]
+    n399["scp.runtime.timing_and_restart<br/>127 lines"]
+    n400["scp.security<br/>1 lines"]
+    n401["scp.security.attack_classifier<br/>173 lines"]
+    n402["scp.security.attack_crawler<br/>459 lines"]
+    n403["scp.security.attack_memory<br/>511 lines"]
+    n404["scp.security.attack_policy<br/>172 lines"]
+    n405["scp.security.auth<br/>178 lines"]
+    n406["scp.security.auth_config<br/>107 lines"]
+    n407["scp.security.auto_payload_generator<br/>251 lines"]
+    n408["scp.security.bypass_encrypt<br/>275 lines"]
+    n409["scp.security.canary_monitor<br/>277 lines"]
+    n410["scp.security.circuit_breaker<br/>161 lines"]
+    n411["scp.security.cisa_kev<br/>207 lines"]
+    n412["scp.security.counter_response<br/>686 lines"]
+    n413["scp.security.cross_language_learner<br/>247 lines"]
+    n414["scp.security.dos_protection<br/>291 lines"]
+    n415["scp.security.env_loader<br/>41 lines"]
+    n416["scp.security.escalation<br/>497 lines"]
+    n417["scp.security.gcg_attack<br/>197 lines"]
+    n418["scp.security.h8_redteam_bridge<br/>656 lines"]
+    n419["scp.security.image_voice_detector<br/>344 lines"]
+    n420["scp.security.memory_guard<br/>230 lines"]
+    n421["scp.security.multi_turn_tracker<br/>280 lines"]
+    n422["scp.security.playbooks<br/>100 lines"]
+    n423["scp.security.predictor<br/>557 lines"]
+    n424["scp.security.production_guard<br/>48 lines"]
+    n425["scp.security.provider_keys<br/>71 lines"]
+    n426["scp.security.response_monitor<br/>403 lines"]
+    n427["scp.security.rogue_ai_detector<br/>228 lines"]
+    n428["scp.security.secret_loader<br/>17 lines"]
+    n429["scp.security.threat_detector<br/>609 lines"]
+    n430["scp.security.threat_intel<br/>354 lines"]
+    n431["scp.security.threat_simulator<br/>519 lines"]
+    n432["scp.security.unified_detector<br/>483 lines"]
+    n433["scp.security.url_safety<br/>85 lines"]
+    n434["scp.task_kernel<br/>834 lines"]
+    n435["scp.tests<br/>2 lines"]
+    n436["scp.tests.external_audit<br/>16 lines"]
+    n437["scp.tests.external_audit.conftest<br/>35 lines"]
+    n438["scp.tests.external_audit.test_cascade<br/>231 lines"]
+    n439["scp.tests.external_audit.test_security<br/>216 lines"]
+    n440["scp.tests.property<br/>1 lines"]
+    n441["scp.tests.property.test_none_safety<br/>252 lines"]
+    n442["scp.tests.test_judge_characterization<br/>167 lines"]
+    n443["scp.trace_ledger<br/>48 lines"]
+    n444["scp.verifier<br/>69 lines"]
+    n445["scp.web_control<br/>8 lines"]
+    n446["scp.web_control.ai_orchestrator<br/>110 lines"]
+    n447["scp.web_control.browser_session<br/>158 lines"]
+    n448["scp.web_control.internet_search<br/>141 lines"]
+    n449["scp.web_control.multi_source_orchestrator<br/>76 lines"]
+    n450["scp.web_control.web_navigator<br/>44 lines"]
+    n0 --> n173
+    n1 --> n424
+    n4 --> n181
+    n4 --> n173
+    n4 --> n132
+    n4 --> n128
+    n4 --> n148
+    n4 --> n30
+    n4 --> n65
+    n4 --> n302
+    n4 --> n43
+    n4 --> n138
+    n5 --> n405
+    n5 --> n350
+    n5 --> n0
+    n6 --> n174
+    n6 --> n136
+    n6 --> n5
+    n6 --> n173
+    n6 --> n28
+    n6 --> n127
+    n6 --> n138
+    n9 --> n5
+    n9 --> n174
+    n9 --> n275
+    n10 --> n5
+    n10 --> n174
+    n11 --> n174
+    n11 --> n127
+    n12 --> n5
+    n12 --> n174
+    n12 --> n132
+    n13 --> n16
+    n13 --> n174
+    n14 --> n135
+    n14 --> n174
+    n15 --> n5
+    n15 --> n291
+    n15 --> n30
+    n16 --> n174
+    n16 --> n262
+    n16 --> n263
+    n16 --> n264
+    n17 --> n5
+    n17 --> n174
+    n18 --> n5
+    n18 --> n173
+    n18 --> n174
+    n19 --> n339
+    n19 --> n174
+    n20 --> n5
+    n20 --> n174
+    n20 --> n28
+    n21 --> n5
+    n21 --> n174
+    n21 --> n178
+    n22 --> n5
+    n22 --> n174
+    n22 --> n128
+    n22 --> n148
+    n23 --> n5
+    n23 --> n174
+    n23 --> n359
+    n23 --> n398
+    n23 --> n417
+    n24 --> n5
+    n24 --> n174
+    n24 --> n170
+    n25 --> n5
+    n25 --> n181
+    n25 --> n174
+    n25 --> n43
+    n25 --> n65
+    n25 --> n41
+    n25 --> n57
+    n25 --> n177
+    n25 --> n67
+    n26 --> n446
+    n26 --> n449
+    n26 --> n450
+    n26 --> n174
+    n27 --> n174
+    n27 --> n5
+    n28 --> n415
+    n28 --> n448
+    n28 --> n30
+    n28 --> n174
+    n28 --> n0
+    n28 --> n173
+    n28 --> n180
+    n28 --> n319
+    n28 --> n350
+    n28 --> n402
+    n28 --> n413
+    n28 --> n419
+    n28 --> n421
+    n28 --> n170
+    n28 --> n341
+    n28 --> n6
+    n28 --> n145
+    n28 --> n179
+    n28 --> n142
+    n28 --> n10
+    n28 --> n9
+    n28 --> n7
+    n28 --> n17
+    n28 --> n18
+    n28 --> n23
+    n28 --> n24
+    n28 --> n25
+    n28 --> n15
+    n28 --> n21
+    n28 --> n22
+    n28 --> n12
+    n28 --> n20
+    n28 --> n27
+    n28 --> n19
+    n28 --> n26
+    n28 --> n16
+    n28 --> n13
+    n28 --> n11
+    n28 --> n14
+    n28 --> n337
+    n28 --> n65
+    n28 --> n181
+    n28 --> n43
+    n28 --> n302
+    n28 --> n31
+    n28 --> n47
+    n28 --> n283
+    n28 --> n156
+    n28 --> n184
+    n30 --> n182
+    n30 --> n405
+    n30 --> n402
+    n30 --> n170
+    n30 --> n145
+    n30 --> n179
+    n30 --> n142
+    n30 --> n413
+    n30 --> n350
+    n30 --> n341
+    n30 --> n160
+    n31 --> n434
+    n31 --> n443
+    n31 --> n30
+    n31 --> n125
+    n32 --> n37
+    n32 --> n43
+    n32 --> n59
+    n35 --> n37
+    n35 --> n54
+    n38 --> n67
+    n41 --> n34
+    n41 --> n37
+    n41 --> n40
+    n41 --> n44
+    n41 --> n60
+    n41 --> n67
+    n43 --> n37
+    n43 --> n59
+    n43 --> n44
+    n43 --> n67
+    n43 --> n57
+    n43 --> n291
+    n43 --> n325
+    n43 --> n60
+    n43 --> n138
+    n43 --> n34
+    n43 --> n65
+    n43 --> n45
+    n43 --> n61
+    n43 --> n55
+    n43 --> n39
+    n43 --> n69
+    n43 --> n79
+    n43 --> n62
+    n43 --> n42
+    n43 --> n68
+    n43 --> n47
+    n43 --> n103
+    n43 --> n56
+    n43 --> n74
+    n43 --> n102
+    n45 --> n37
+    n45 --> n175
+    n47 --> n37
+    n47 --> n43
+    n47 --> n181
+    n47 --> n51
+    n47 --> n52
+    n47 --> n53
+    n47 --> n49
+    n47 --> n65
+    n51 --> n47
+    n51 --> n291
+    n51 --> n55
+    n52 --> n153
+    n52 --> n181
+    n52 --> n37
+    n52 --> n47
+    n52 --> n65
+    n52 --> n55
+    n52 --> n305
+    n52 --> n291
+    n52 --> n322
+    n52 --> n325
+    n53 --> n37
+    n55 --> n425
+    n55 --> n37
+    n55 --> n283
+    n55 --> n56
+    n55 --> n40
+    n55 --> n101
+    n55 --> n47
+    n59 --> n37
+    n59 --> n320
+    n61 --> n63
+    n62 --> n63
+    n64 --> n44
+    n65 --> n37
+    n65 --> n43
+    n65 --> n34
+    n65 --> n67
+    n65 --> n73
+    n65 --> n75
+    n65 --> n77
+    n65 --> n55
+    n65 --> n325
+    n65 --> n36
+    n65 --> n47
+    n65 --> n38
+    n65 --> n134
+    n66 --> n67
+    n66 --> n73
+    n66 --> n75
+    n66 --> n77
+    n66 --> n74
+    n66 --> n76
+    n66 --> n70
+    n66 --> n72
+    n66 --> n71
+    n67 --> n37
+    n67 --> n33
+    n67 --> n58
+    n67 --> n45
+    n68 --> n76
+    n68 --> n44
+    n74 --> n66
+    n74 --> n76
+    n74 --> n70
+    n74 --> n32
+    n76 --> n74
+    n77 --> n37
+    n77 --> n43
+    n77 --> n67
+    n77 --> n80
+    n77 --> n55
+    n77 --> n35
+    n79 --> n76
+    n79 --> n61
+    n80 --> n82
+    n80 --> n84
+    n80 --> n85
+    n80 --> n87
+    n80 --> n88
+    n80 --> n89
+    n80 --> n90
+    n80 --> n91
+    n80 --> n92
+    n80 --> n93
+    n80 --> n94
+    n80 --> n96
+    n80 --> n99
+    n80 --> n100
+    n80 --> n86
+    n80 --> n81
+    n80 --> n83
+    n80 --> n98
+    n80 --> n95
+    n80 --> n97
+    n81 --> n37
+    n82 --> n37
+    n83 --> n37
+    n83 --> n98
+    n84 --> n37
+    n85 --> n37
+    n86 --> n37
+    n87 --> n37
+    n88 --> n37
+    n89 --> n37
+    n90 --> n37
+    n91 --> n37
+    n92 --> n37
+    n92 --> n85
+    n93 --> n37
+    n94 --> n37
+    n95 --> n37
+    n95 --> n55
+    n95 --> n45
+    n95 --> n67
+    n96 --> n37
+    n97 --> n37
+    n98 --> n37
+    n99 --> n37
+    n100 --> n37
+    n109 --> n105
+    n109 --> n276
+    n110 --> n0
+    n111 --> n112
+    n113 --> n115
+    n113 --> n116
+    n113 --> n117
+    n114 --> n115
+    n114 --> n116
+    n114 --> n117
+    n115 --> n117
+    n116 --> n115
+    n116 --> n117
+    n117 --> n115
+    n119 --> n120
+    n119 --> n283
+    n121 --> n283
+    n125 --> n0
+    n126 --> n37
+    n126 --> n174
+    n126 --> n43
+    n126 --> n55
+    n127 --> n174
+    n127 --> n126
+    n127 --> n262
+    n127 --> n263
+    n127 --> n264
+    n128 --> n412
+    n129 --> n143
+    n131 --> n182
+    n131 --> n137
+    n133 --> n143
+    n134 --> n153
+    n134 --> n181
+    n134 --> n47
+    n138 --> n175
+    n138 --> n77
+    n139 --> n143
+    n140 --> n131
+    n141 --> n131
+    n141 --> n139
+    n142 --> n158
+    n142 --> n159
+    n142 --> n160
+    n145 --> n143
+    n145 --> n153
+    n145 --> n181
+    n145 --> n283
+    n145 --> n325
+    n145 --> n280
+    n145 --> n281
+    n148 --> n412
+    n149 --> n143
+    n151 --> n143
+    n155 --> n177
+    n156 --> n131
+    n156 --> n139
+    n156 --> n177
+    n157 --> n158
+    n157 --> n159
+    n157 --> n160
+    n158 --> n160
+    n158 --> n159
+    n158 --> n143
+    n159 --> n160
+    n159 --> n143
+    n160 --> n325
+    n160 --> n408
+    n161 --> n143
+    n164 --> n433
+    n164 --> n143
+    n165 --> n164
+    n166 --> n164
+    n167 --> n164
+    n170 --> n145
+    n171 --> n164
+    n171 --> n165
+    n171 --> n166
+    n171 --> n167
+    n171 --> n143
+    n172 --> n183
+    n177 --> n143
+    n177 --> n363
+    n178 --> n205
+    n184 --> n0
+    n184 --> n267
+    n186 --> n273
+    n187 --> n131
+    n187 --> n273
+    n188 --> n273
+    n189 --> n273
+    n190 --> n185
+    n190 --> n273
+    n191 --> n183
+    n191 --> n185
+    n191 --> n273
+    n192 --> n273
+    n193 --> n131
+    n193 --> n273
+    n194 --> n273
+    n195 --> n273
+    n196 --> n273
+    n197 --> n273
+    n198 --> n273
+    n199 --> n273
+    n200 --> n273
+    n201 --> n131
+    n201 --> n273
+    n202 --> n273
+    n203 --> n273
+    n204 --> n205
+    n206 --> n273
+    n207 --> n273
+    n208 --> n273
+    n209 --> n131
+    n209 --> n273
+    n210 --> n273
+    n211 --> n273
+    n212 --> n273
+    n213 --> n273
+    n214 --> n273
+    n215 --> n273
+    n216 --> n273
+    n217 --> n131
+    n217 --> n273
+    n218 --> n273
+    n219 --> n273
+    n220 --> n273
+    n221 --> n273
+    n222 --> n183
+    n222 --> n185
+    n222 --> n273
+    n223 --> n131
+    n223 --> n185
+    n223 --> n273
+    n224 --> n143
+    n224 --> n183
+    n224 --> n205
+    n225 --> n273
+    n226 --> n273
+    n227 --> n131
+    n227 --> n273
+    n228 --> n273
+    n229 --> n273
+    n230 --> n273
+    n231 --> n273
+    n232 --> n273
+    n233 --> n273
+    n234 --> n273
+    n235 --> n273
+    n236 --> n273
+    n237 --> n273
+    n238 --> n273
+    n239 --> n273
+    n240 --> n273
+    n241 --> n273
+    n242 --> n273
+    n243 --> n273
+    n244 --> n273
+    n245 --> n273
+    n246 --> n273
+    n247 --> n273
+    n248 --> n273
+    n249 --> n273
+    n250 --> n183
+    n250 --> n273
+    n251 --> n273
+    n253 --> n143
+    n253 --> n176
+    n253 --> n162
+    n254 --> n0
+    n256 --> n255
+    n257 --> n0
+    n260 --> n0
+    n262 --> n264
+    n263 --> n339
+    n263 --> n450
+    n263 --> n261
+    n263 --> n265
+    n264 --> n263
+    n267 --> n0
+    n269 --> n152
+    n272 --> n0
+    n275 --> n318
+    n278 --> n282
+    n281 --> n280
+    n283 --> n284
+    n284 --> n425
+    n287 --> n139
+    n287 --> n131
+    n287 --> n141
+    n287 --> n172
+    n287 --> n156
+    n290 --> n143
+    n292 --> n295
+    n292 --> n296
+    n292 --> n297
+    n292 --> n298
+    n292 --> n299
+    n292 --> n322
+    n293 --> n143
+    n294 --> n295
+    n294 --> n296
+    n294 --> n297
+    n294 --> n298
+    n294 --> n299
+    n295 --> n143
+    n297 --> n143
+    n299 --> n143
+    n303 --> n286
+    n304 --> n288
+    n304 --> n300
+    n304 --> n318
+    n308 --> n143
+    n308 --> n176
+    n308 --> n309
+    n308 --> n313
+    n309 --> n143
+    n312 --> n143
+    n313 --> n143
+    n314 --> n143
+    n315 --> n143
+    n315 --> n137
+    n315 --> n345
+    n321 --> n143
+    n321 --> n154
+    n322 --> n143
+    n322 --> n327
+    n322 --> n328
+    n322 --> n329
+    n322 --> n330
+    n322 --> n331
+    n322 --> n332
+    n322 --> n333
+    n322 --> n334
+    n322 --> n323
+    n322 --> n324
+    n322 --> n335
+    n322 --> n283
+    n322 --> n381
+    n322 --> n185
+    n322 --> n310
+    n323 --> n322
+    n324 --> n143
+    n324 --> n322
+    n325 --> n55
+    n325 --> n283
+    n325 --> n289
+    n325 --> n305
+    n327 --> n433
+    n328 --> n433
+    n329 --> n433
+    n330 --> n433
+    n331 --> n433
+    n332 --> n433
+    n333 --> n433
+    n334 --> n183
+    n334 --> n433
+    n336 --> n0
+    n338 --> n0
+    n341 --> n131
+    n341 --> n143
+    n341 --> n176
+    n341 --> n146
+    n341 --> n172
+    n344 --> n0
+    n345 --> n149
+    n345 --> n176
+    n345 --> n347
+    n345 --> n349
+    n345 --> n350
+    n345 --> n348
+    n345 --> n111
+    n345 --> n125
+    n345 --> n129
+    n345 --> n130
+    n345 --> n253
+    n345 --> n124
+    n345 --> n341
+    n345 --> n161
+    n345 --> n308
+    n345 --> n259
+    n345 --> n258
+    n345 --> n184
+    n348 --> n143
+    n348 --> n350
+    n348 --> n151
+    n348 --> n131
+    n348 --> n308
+    n349 --> n143
+    n350 --> n176
+    n350 --> n381
+    n350 --> n354
+    n350 --> n355
+    n350 --> n356
+    n350 --> n357
+    n350 --> n358
+    n350 --> n138
+    n350 --> n416
+    n350 --> n423
+    n350 --> n178
+    n350 --> n253
+    n350 --> n321
+    n350 --> n312
+    n350 --> n287
+    n350 --> n290
+    n350 --> n322
+    n350 --> n341
+    n350 --> n303
+    n350 --> n112
+    n350 --> n113
+    n350 --> n280
+    n350 --> n281
+    n350 --> n398
+    n350 --> n300
+    n350 --> n304
+    n350 --> n429
+    n350 --> n401
+    n350 --> n420
+    n350 --> n427
+    n350 --> n404
+    n350 --> n412
+    n350 --> n409
+    n350 --> n403
+    n350 --> n431
+    n350 --> n430
+    n350 --> n426
+    n350 --> n278
+    n350 --> n276
+    n350 --> n418
+    n350 --> n279
+    n350 --> n307
+    n350 --> n317
+    n350 --> n414
+    n350 --> n283
+    n350 --> n169
+    n350 --> n275
+    n350 --> n432
+    n350 --> n360
+    n350 --> n359
+    n350 --> n349
+    n350 --> n315
+    n350 --> n292
+    n350 --> n306
+    n350 --> n361
+    n350 --> n353
+    n350 --> n311
+    n353 --> n432
+    n354 --> n311
+    n354 --> n143
+    n354 --> n407
+    n355 --> n143
+    n355 --> n144
+    n355 --> n358
+    n355 --> n316
+    n355 --> n399
+    n355 --> n154
+    n355 --> n325
+    n355 --> n314
+    n355 --> n277
+    n355 --> n139
+    n355 --> n2
+    n355 --> n280
+    n355 --> n293
+    n355 --> n311
+    n355 --> n303
+    n355 --> n362
+    n356 --> n205
+    n356 --> n204
+    n356 --> n311
+    n359 --> n318
+    n363 --> n168
+    n363 --> n143
+    n365 --> n363
+    n365 --> n187
+    n366 --> n363
+    n366 --> n190
+    n367 --> n143
+    n367 --> n363
+    n367 --> n177
+    n367 --> n191
+    n367 --> n196
+    n367 --> n156
+    n368 --> n363
+    n368 --> n214
+    n368 --> n251
+    n369 --> n363
+    n369 --> n211
+    n370 --> n363
+    n371 --> n363
+    n371 --> n433
+    n371 --> n177
+    n371 --> n131
+    n372 --> n363
+    n372 --> n223
+    n373 --> n363
+    n373 --> n433
+    n373 --> n172
+    n373 --> n140
+    n374 --> n363
+    n374 --> n220
+    n375 --> n363
+    n376 --> n363
+    n376 --> n433
+    n376 --> n154
+    n376 --> n177
+    n377 --> n363
+    n377 --> n229
+    n378 --> n363
+    n378 --> n433
+    n378 --> n177
+    n378 --> n172
+    n378 --> n197
+    n378 --> n140
+    n378 --> n141
+    n378 --> n216
+    n379 --> n131
+    n379 --> n363
+    n379 --> n154
+    n379 --> n177
+    n379 --> n141
+    n379 --> n156
+    n380 --> n363
+    n381 --> n383
+    n381 --> n389
+    n381 --> n394
+    n381 --> n365
+    n381 --> n366
+    n381 --> n367
+    n381 --> n368
+    n381 --> n369
+    n381 --> n370
+    n381 --> n371
+    n381 --> n372
+    n381 --> n373
+    n381 --> n374
+    n381 --> n375
+    n381 --> n376
+    n381 --> n377
+    n381 --> n378
+    n381 --> n379
+    n381 --> n380
+    n381 --> n186
+    n381 --> n189
+    n381 --> n190
+    n381 --> n192
+    n381 --> n193
+    n381 --> n194
+    n381 --> n195
+    n381 --> n200
+    n381 --> n201
+    n381 --> n202
+    n381 --> n203
+    n381 --> n207
+    n381 --> n208
+    n381 --> n209
+    n381 --> n210
+    n381 --> n213
+    n381 --> n215
+    n381 --> n217
+    n381 --> n221
+    n381 --> n223
+    n381 --> n225
+    n381 --> n227
+    n381 --> n229
+    n381 --> n232
+    n381 --> n233
+    n381 --> n234
+    n381 --> n237
+    n381 --> n238
+    n381 --> n239
+    n381 --> n240
+    n381 --> n241
+    n381 --> n242
+    n381 --> n243
+    n381 --> n244
+    n381 --> n248
+    n381 --> n143
+    n383 --> n143
+    n383 --> n177
+    n383 --> n224
+    n384 --> n143
+    n384 --> n191
+    n384 --> n177
+    n385 --> n143
+    n385 --> n177
+    n386 --> n143
+    n386 --> n177
+    n386 --> n196
+    n386 --> n156
+    n387 --> n143
+    n387 --> n177
+    n387 --> n197
+    n387 --> n141
+    n388 --> n143
+    n388 --> n172
+    n388 --> n140
+    n389 --> n143
+    n390 --> n143
+    n390 --> n172
+    n390 --> n140
+    n391 --> n143
+    n391 --> n177
+    n391 --> n131
+    n392 --> n183
+    n392 --> n143
+    n392 --> n177
+    n393 --> n154
+    n393 --> n143
+    n393 --> n177
+    n394 --> n154
+    n394 --> n143
+    n394 --> n177
+    n394 --> n141
+    n395 --> n183
+    n395 --> n143
+    n395 --> n177
+    n396 --> n143
+    n396 --> n172
+    n396 --> n140
+    n397 --> n131
+    n397 --> n143
+    n397 --> n177
+    n397 --> n156
+    n401 --> n429
+    n405 --> n406
+    n412 --> n404
+    n416 --> n422
+    n416 --> n410
+    n418 --> n403
+    n423 --> n325
+    n424 --> n428
+    n431 --> n30
+    n431 --> n403
+    n438 --> n175
+    n439 --> n175
+    n442 --> n350
+    n445 --> n0
+    n446 --> n447
+    n449 --> n446
+    n449 --> n450
+    n450 --> n447
+    n450 --> n448

@@ -1157,9 +1157,12 @@ async def _ask_impl(req: AskRequest, request: Request):
                 or (isinstance(dos_alert, dict) and dos_alert.get("should_block"))
             )
             if should_block:
+                status_code = int(getattr(dos_alert, "status_code", 0) or 429)
+                headers = dict(getattr(dos_alert, "recommended_headers", {}) or {})
                 return JSONResponse(
                     {"error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}},
-                    status_code=429
+                    status_code=status_code,
+                    headers=headers,
                 )
         except Exception as e:
             logger.debug(f"[V104.17] DoS check error: {e}")
