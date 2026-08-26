@@ -21,8 +21,8 @@ switch ($Action) {
         [ordered]@{
             task_exists = [bool]$task
             task_state = if ($task) { [string]$task.State } else { 'MISSING' }
-            last_run = if ($info) { $info.LastRunTime.ToUniversalTime().ToString('o') } else { $null }
-            next_run = if ($info) { $info.NextRunTime.ToUniversalTime().ToString('o') } else { $null }
+            last_run = if ($info -and $info.LastRunTime -and $info.LastRunTime.Year -gt 1) { $info.LastRunTime.ToUniversalTime().ToString('o') } else { $null }
+            next_run = if ($info -and $info.NextRunTime -and $info.NextRunTime.Year -gt 1) { $info.NextRunTime.ToUniversalTime().ToString('o') } else { $null }
             kill_switch = Test-Path $KillSwitch
             ledger_exists = Test-Path $Ledger
             root = $Root
