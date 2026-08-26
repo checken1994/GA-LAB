@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T11:44:34.903251+00:00",
-  "captured_commit": "2cfefc0ca9a93959855068cd42ace89ed1302d96",
-  "captured_parent": "dbaf046b1e31f00dffd33c03bcd034a32482edd5",
-  "captured_tree": "a75cc6539b438a6229e2f95194357928813c9382",
-  "tracked_count": 1318,
-  "inventory_sha256": "3dd6a30302e31d774dcb3484dfca13a7eb56c44bc6f23a64b877a10dbe60b7cf",
+  "generated_at_utc": "2026-08-26T12:07:47.662688+00:00",
+  "captured_commit": "8a8d094a31e20cf7dc31947efbfb2206c0406d2e",
+  "captured_parent": "7c4507cf54f6c0420e438d71d65f001b3c57ae2d",
+  "captured_tree": "98cff18a4f8b54dc99d669ba77917aa99640d300",
+  "tracked_count": 1321,
+  "inventory_sha256": "60b364698204f11129e5bf15ed699324a9b0d66af921fc08755452951f0ab0d4",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -430,6 +430,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "18d816af4b56930302acf01377837dc67a0ab00d",
+      "path": "benchmark/HUMAN_REVIEW_WORKFLOW.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "37455f37250c5482a4898b6f1c6d341feeee6a08",
       "path": "benchmark/ares_preconditions_v2.json"
     },
@@ -516,6 +522,12 @@
       "type": "blob",
       "blob": "72bff7dcbd73b0606a701af8dd4eff0ece0dbc10",
       "path": "benchmark/ragas_results_v1.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a00cc9b7f1a526c27915762afe45b613838ce187",
+      "path": "benchmark/review_workflow.py"
     },
     {
       "mode": "100644",
@@ -7512,6 +7524,12 @@
       "type": "blob",
       "blob": "ebda9bfd1d89e32165f8c39533c79f3353e4c827",
       "path": "tests/test_request_ledger_result_classification.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1236af01b65d3955c4df7effbd63c77631184d44",
+      "path": "tests/test_review_workflow.py"
     },
     {
       "mode": "100644",
