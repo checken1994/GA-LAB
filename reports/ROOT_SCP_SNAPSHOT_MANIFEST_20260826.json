@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T08:23:58.895782+00:00",
-  "captured_commit": "788e60798cdced4f5f7479b2ee65080d178d0d06",
-  "captured_parent": "4426a38c32b938d70340c2a7d3b9d200500d17a8",
-  "captured_tree": "fffa1563bddc8c4b024ea9c6f3098ca7bec4f4f7",
-  "tracked_count": 1284,
-  "inventory_sha256": "e224252944355ce709b45f35ea3b5d27c34063b9082653e2aafac3ea0b88a429",
+  "generated_at_utc": "2026-08-26T08:46:43.845606+00:00",
+  "captured_commit": "e93ec5a4b51bcb8ee3eed8774dc1ff00b39a1002",
+  "captured_parent": "46187e74e7199f715556c3279d9eb7d745981e83",
+  "captured_tree": "9420241133a8fe1f911017b5f237b1d44871ce8f",
+  "tracked_count": 1288,
+  "inventory_sha256": "98c5003e9290fa89f08d522889486a44c2b65e27c177234a06891ee4fdf86fe9",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2986,6 +2986,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "b674c737f0d17d8a8a2d28519fd03d7d8a2d26e1",
+      "path": "reports/runtime_proof_20260826_hands_bridge.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "f5becb928a00ae3e37ac728491d8781df118f683",
       "path": "reports/scp_feature_completion_matrix_v2.json"
     },
@@ -3118,7 +3124,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "638c1bf88e84e5513e3cebd888915c183484e80d",
+      "blob": "bed599492151cccb2f51ec8cebeb7cb607b3ca5e",
       "path": "scp/api/routes/hands_routes.py"
     },
     {
@@ -4854,6 +4860,12 @@
       "type": "blob",
       "blob": "b7318e3f8be023110809663bdc2505d31258d6bc",
       "path": "scp/hands/process_probe.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a31219db38c529c86cc055b9224ae919491564ce",
+      "path": "scp/hands/task_kernel_bridge.py"
     },
     {
       "mode": "100644",
@@ -7194,6 +7206,18 @@
       "type": "blob",
       "blob": "69d527d993ae4ee2e9d66febdb261f43942ef515",
       "path": "tests/test_golden_task_chain_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7de20ac5f7fb9a4f59eaa98d68aca471ba74f17e",
+      "path": "tests/test_hands_task_kernel_bridge.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4d8afe4e0201232ef70fe6c244455e1a3e4ecc4d",
+      "path": "tests/test_hands_task_kernel_bridge_api.py"
     },
     {
       "mode": "100644",
