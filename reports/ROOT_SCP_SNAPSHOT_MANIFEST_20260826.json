@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-26T17:17:14.035128+00:00",
-  "captured_commit": "19e0fbf46c6fa074edb2527b00d50cb3997711c2",
-  "captured_parent": "9fee4f8dbc2fd3879bc56c8b7b3f36192cb4dac3",
-  "captured_tree": "cdb5f221443c955f64ff0bfca2cf2ae4b6acce4c",
-  "tracked_count": 1319,
-  "inventory_sha256": "a5a5aecff354f2b934ea138e3df591e79d6614e08c33381c6defdbf3c822fc24",
+  "generated_at_utc": "2026-08-26T18:40:21.796125+00:00",
+  "captured_commit": "38d8198709ade1655e271950ff4abce03b20a86f",
+  "captured_parent": "fb12015a164777636d1540a4589382cdbe6a5a49",
+  "captured_tree": "56bee1132b9680a41b30a5afc0646a4f2960fe71",
+  "tracked_count": 1321,
+  "inventory_sha256": "da17bf48a9dc1ddabf06a394e5a6eb4bf358b72d51773de0b5a32edb462ea69e",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -6524,6 +6524,12 @@
       "path": "scripts/ops/scp_db_readonly_audit.py"
     },
     {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "f4045e7e3920241bf939db9534d21c790e52289a",
+      "path": "scripts/ops/scp_hourly_monitor.py"
+    },
+    {
       "mode": "100644",
       "type": "blob",
       "blob": "d42e50b0eac13c39f7d44ac2bbc45e93ccb9f312",
@@ -7500,6 +7506,12 @@
       "type": "blob",
       "blob": "1236af01b65d3955c4df7effbd63c77631184d44",
       "path": "tests/test_review_workflow.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "806b677fe221af69b4dd7fbcc9b717e670274c56",
+      "path": "tests/test_scp_hourly_monitor.py"
     },
     {
       "mode": "100644",
