@@ -38,7 +38,8 @@ function Port-Listening([int]$Port) {
 
 function Http-Ok([string]$Url) {
     try {
-        $reply = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 4 -SkipHttpErrorCheck
+        # Keep this compatible with both Windows PowerShell 5.1 and pwsh 7.
+        $reply = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 4
         return ([int]$reply.StatusCode -lt 500)
     } catch { return $false }
 }
