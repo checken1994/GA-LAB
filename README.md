@@ -12,6 +12,12 @@ SCP không phải là một mô hình ngôn ngữ lớn hơn. SCP là một code
 
 Trạng thái hiện tại của repository là **Agent Runtime Candidate / CANDIDATE_NOT_PROVEN**. Một số control, contract test, bounded runtime smoke và recovery path đã được kiểm chứng trong phạm vi cụ thể. Điều đó **không** có nghĩa SCP đã chứng minh được uptime 24/7 không gián đoạn, production readiness, OS-level sandbox, complete security, official Ragas/ARES pass hoặc vị trí TOP 1.
 
+## Bộ Skill SCP
+
+SCP có một bộ 9 Skill chuyên biệt cho việc suy luận bằng evidence, cấp quyền an toàn, recovery sau lỗi computer-use, reality verification, release gate, runtime audit, tối ưu latency có bảo toàn safety, startup troubleshooting và Task Kernel review. Đây là các workflow dùng để **kiểm soát và chứng minh** agent/runtime, không phải model AI hoặc giấy chứng nhận bảo mật.
+
+Xem toàn bộ gói tại [`skills/README.md`](skills/README.md). Các skill riêng lẻ gồm [`scp-dna`](skills/scp-dna/SKILL.md), [`capability-security-review`](skills/scp-capability-security-review/SKILL.md), [`computer-use-recovery`](skills/scp-computer-use-recovery/SKILL.md), [`reality-verifier`](skills/scp-reality-verifier/SKILL.md), [`release-evidence-gate`](skills/scp-release-evidence-gate/SKILL.md), [`runtime-audit`](skills/scp-runtime-audit/SKILL.md), [`safe-latency-optimizer`](skills/scp-safe-latency-optimizer/SKILL.md), [`startup-troubleshooter`](skills/scp-startup-troubleshooter/SKILL.md) và [`task-kernel-review`](skills/scp-task-kernel-review/SKILL.md).
+
 ## Vấn đề SCP đang nghiên cứu
 
 Một agent thông thường có thể xử lý timeout như sau:
