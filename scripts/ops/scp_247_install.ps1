@@ -21,13 +21,14 @@ if (-not (Test-Path $RecoveryWatchdog)) { throw "Recovery watchdog missing: $Rec
 
 $pwsh = (Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue).Source
 if (-not $pwsh) { throw 'PowerShell 7 (pwsh.exe) is required for SCP-247 supervisor' }
-$action = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Supervisor`""
+$action = New-ScheduledTaskAction -Execute $pwsh -Argument "-WindowStyle Hidden -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Supervisor`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 # Background reliability: restart only after an abnormal non-zero/termination result.
 # The supervisor exits normally for KILL, so an intentional kill switch is not
 # turned into a restart loop. MultipleInstances=IgnoreNew prevents duplicate
 # supervisors when AtLogOn and recovery overlap.
 $settings = New-ScheduledTaskSettingsSet `
+    -Hidden `
     -StartWhenAvailable `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
@@ -42,9 +43,9 @@ $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings 
 # minute, so a hung watchdog cannot accumulate resident processes. It uses the
 # same user session because registering SYSTEM requires an elevated service
 # installation boundary that is not available to this user-level installer.
-$watchdogAction = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$RecoveryWatchdog`""
+$watchdogAction = New-ScheduledTaskAction -Execute $pwsh -Argument "-WindowStyle Hidden -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$RecoveryWatchdog`""
 $watchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
-$watchdogSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Seconds 30) -MultipleInstances IgnoreNew
+$watchdogSettings = New-ScheduledTaskSettingsSet -Hidden -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Seconds 30) -MultipleInstances IgnoreNew
 $watchdogPrincipal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 $watchdogTask = New-ScheduledTask -Action $watchdogAction -Trigger $watchdogTrigger -Settings $watchdogSettings -Principal $watchdogPrincipal -Description 'SCP fail-closed recovery watchdog; honors KILL switch'
 
