@@ -19,13 +19,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 # Import shared deps from api_server (same pattern as api/chat.py)
-from scp.api._shared import (
-    _SCP_VERSION,
-    SessionAnalyzeRequest,
-    SimulationRequest,
-    get_judge,
-    verify_admin,
-)
+from scp.api import _shared
+from scp.api._shared import SessionAnalyzeRequest, SimulationRequest, get_judge, verify_admin
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
@@ -71,7 +66,7 @@ async def v98_status():
     """Get status of all V98 security modules."""
     judge = get_judge()
     return {
-        "version": _SCP_VERSION,  # [FIX-12] single source
+        "version": _shared._SCP_VERSION,  # [FIX-12] single source
         "domain_experts": len(judge.domain_experts),
         "slms": len(judge.domain_experts),
         "v98_modules": judge.get_v98_status(),

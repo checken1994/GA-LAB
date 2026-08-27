@@ -112,10 +112,9 @@ async def v105_approve_permission(request_id: str, note: str = ""):
             # the human note didn't demonstrate understanding of the fix.
             raise HTTPException(
                 400,
-                "Approval rejected Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â note does not demonstrate understanding "
-                "(GÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Â§11). Re-approve with a real explanation in your own "
-                "words: explain what the fix does, not just repeat the "
-                "suggested_fix text."
+                "Approval rejected — note does not demonstrate understanding. "
+                "Re-approve with a real explanation in your own words: "
+                "explain what the fix does, not just repeat the suggested_fix text."
             )
         # [Phase 5-A / 4-a-009] Apply the approved fix Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â TRANSACTIONAL.
         # On success: mark_apply_status(request_id, "applied") Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â terminal.
@@ -136,8 +135,8 @@ async def v105_approve_permission(request_id: str, note: str = ""):
             raise HTTPException(
                 500,
                 f"Approved but fix apply FAILED: {apply_exc}. Request "
-                f"marked apply_failed Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â operator can re-approve via this "
-                f"endpoint (transactional recovery, DNA #8/#9)."
+                f"marked apply_failed — operator can re-approve via this "
+                f"endpoint (transactional recovery)."
             ) from apply_exc
         # Apply succeeded Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â mark as applied (terminal). This distinguishes
         # from the pre-fix limbo where "approved" meant "approved-but-maybe-
@@ -183,7 +182,7 @@ async def v105_toggle_attack_mode(enabled: bool):
         eng.set_attack_mode(enabled)
         return {
             "attack_mode": enabled,
-            "message": f"Attack mode {'ENABLED Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â SCP auto-applies restraints' if enabled else 'DISABLED Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â normal permission flow'}",
+            "message": f"Attack mode {'ENABLED — SCP auto-applies restraints' if enabled else 'DISABLED — normal permission flow'}",
         }
     except Exception as e:
         raise HTTPException(500, f"Error: {e}") from e

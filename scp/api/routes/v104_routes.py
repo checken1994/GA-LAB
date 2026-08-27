@@ -34,20 +34,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
-from scp.api._shared import (
-    _V1042_AVAILABLE,
-    _cross_language_learner,
-    _fact_checker,
-    _fast_learning,
-    _image_detector,
-    _multi_turn_tracker,
-    _real_learning,
-    _safe_fetch_url,
-    _simple_explainer,
-    _voice_detector,
-    logger,
-    verify_admin,
-)
+from scp.api import _shared
+from scp.api._shared import logger, verify_admin
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
 _V104_ROUTES_LEDGER = RequestRunLedger()
@@ -86,11 +74,11 @@ def _decode_bounded_base64(payload: str, *, max_bytes: int, label: str) -> bytes
 async def v104_status():
     """V104: Status of all new modules."""
     return {
-        "multi_turn_tracker": _multi_turn_tracker.stats(),
-        "image_detector": _image_detector.stats(),
-        "voice_detector": _voice_detector.stats(),
-        "cross_language": _cross_language_learner.stats(),
-        "fact_checker": _fact_checker.stats(),
+        "multi_turn_tracker": _shared._multi_turn_tracker.stats(),
+        "image_detector": _shared._image_detector.stats(),
+        "voice_detector": _shared._voice_detector.stats(),
+        "cross_language": _shared._cross_language_learner.stats(),
+        "fact_checker": _shared._fact_checker.stats(),
     }
 
 
@@ -103,7 +91,7 @@ async def v104_multi_turn_check(
     _admin: bool = Depends(verify_admin),
 ):
     """V104: Check multi-turn attack pattern."""
-    result = _multi_turn_tracker.track(session_id, question, verdict)
+    result = _shared._multi_turn_tracker.track(session_id, question, verdict)
     return result.__dict__
 
 
@@ -128,18 +116,18 @@ async def v104_image_check(
         # Wrap in asyncio.to_thread so the event loop is not blocked while
         # OCR runs (DNA #9 no harm Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â slow /v104/image/check would stall all
         # other async requests, including /health).
-        result = await asyncio.to_thread(_image_detector.detect, image_bytes=image_bytes)
+        result = await asyncio.to_thread(_shared._image_detector.detect, image_bytes=image_bytes)
     elif image_url:
         # [FIX-A P0-2] Was urllib.request.urlopen(image_url) Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â accepted
         # file:// (LFI), http://169.254.169.254/ (SSRF), internal IPs, followed
-        # redirects, no size cap, blocked event loop. Now: _safe_fetch_url +
+        # redirects, no size cap, blocked event loop. Now: _shared._safe_fetch_url +
         # asyncio.to_thread + generic 400 on policy violation (no URL echo).
         try:
-            image_bytes = await asyncio.to_thread(_safe_fetch_url, image_url)
+            image_bytes = await asyncio.to_thread(_shared._safe_fetch_url, image_url)
             # [Fix 4-a-015] same fix Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
-            result = await asyncio.to_thread(_image_detector.detect, image_bytes=image_bytes)
+            result = await asyncio.to_thread(_shared._image_detector.detect, image_bytes=image_bytes)
         except ValueError:
-            logger.warning("/v104/image/check image_url rejected by _safe_fetch_url policy")
+            logger.warning("/v104/image/check image_url rejected by _shared._safe_fetch_url policy")
             return JSONResponse(
                 status_code=400,
                 content={"error": "Invalid or disallowed image_url"},
@@ -180,18 +168,18 @@ async def v104_voice_check(
         # Wrap in asyncio.to_thread so the event loop is not blocked while
         # Whisper transcribes (DNA #9 no harm Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â slow /v104/voice/check would
         # stall all other async requests, including /health).
-        result = await asyncio.to_thread(_voice_detector.detect, audio_bytes=audio_bytes)
+        result = await asyncio.to_thread(_shared._voice_detector.detect, audio_bytes=audio_bytes)
     elif audio_url:
         # [FIX-A P0-2] Was passing audio_url as a local file path to the
         # detector Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â failed silently AND allowed SSRF (detector may have
-        # fetched internally). Now: fetch via _safe_fetch_url (scheme/IP/
+        # fetched internally). Now: fetch via _shared._safe_fetch_url (scheme/IP/
         # redirect/size defenses, non-blocking) then pass audio_bytes=...
         try:
-            audio_bytes = await asyncio.to_thread(_safe_fetch_url, audio_url)
+            audio_bytes = await asyncio.to_thread(_shared._safe_fetch_url, audio_url)
             # [Fix 4-a-015] same fix Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
-            result = await asyncio.to_thread(_voice_detector.detect, audio_bytes=audio_bytes)
+            result = await asyncio.to_thread(_shared._voice_detector.detect, audio_bytes=audio_bytes)
         except ValueError:
-            logger.warning("/v104/voice/check audio_url rejected by _safe_fetch_url policy")
+            logger.warning("/v104/voice/check audio_url rejected by _shared._safe_fetch_url policy")
             return JSONResponse(
                 status_code=400,
                 content={"error": "Invalid or disallowed audio_url"},
@@ -212,10 +200,10 @@ async def v104_voice_check(
 async def v104_cross_language_transfer(target_lang: str = "all"):
     """V104: Transfer Vietnamese patterns to target language(s)."""
     if target_lang == "all":
-        patterns = _cross_language_learner.transfer_existing_vietnamese_patterns()
+        patterns = _shared._cross_language_learner.transfer_existing_vietnamese_patterns()
         return {"count": len(patterns), "patterns": patterns}
     else:
-        patterns = _cross_language_learner.transfer_existing_vietnamese_patterns()
+        patterns = _shared._cross_language_learner.transfer_existing_vietnamese_patterns()
         filtered = [p for p in patterns if p["target_lang"] == target_lang]
         return {"count": len(filtered), "patterns": filtered}
 
@@ -234,7 +222,7 @@ async def v104_explain(
     reliability_factor: float = 1.0,
 ):
     """V104: Explain verdict in simple Vietnamese for non-experts."""
-    result = _simple_explainer.explain(
+    result = _shared._simple_explainer.explain(
         verdict=verdict, confidence=confidence, domain=domain, sources=sources,
         has_attack=has_attack, has_bypass=has_bypass, has_human_review=has_human_review,
         lineage_overlap=lineage_overlap, reliability_factor=reliability_factor,
@@ -246,11 +234,11 @@ async def v104_explain(
 @traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_fact_check")
 async def v104_fact_check(text: str, question: str = "", _admin: bool = Depends(verify_admin)):
     """V104: Real-time fact check Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extract claims + verify."""
-    results = await _fact_checker.check_text(text, question)
+    results = await _shared._fact_checker.check_text(text, question)
     return {
         "claims_found": len(results),
         "results": [r.__dict__ for r in results],
-        "stats": _fact_checker.stats(),
+        "stats": _shared._fact_checker.stats(),
     }
 
 
@@ -258,7 +246,7 @@ async def v104_fact_check(text: str, question: str = "", _admin: bool = Depends(
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_ollama")
 async def v104_learn_ollama(count: int = 10, _admin: bool = Depends(verify_admin)):
     """V104.1 FIX: Trigger Ollama learning loop Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c."""
-    results = await _real_learning.ollama_learning_cycle(count=count)
+    results = await _shared._real_learning.ollama_learning_cycle(count=count)
     return results
 
 
@@ -266,7 +254,7 @@ async def v104_learn_ollama(count: int = 10, _admin: bool = Depends(verify_admin
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_local")
 async def v104_learn_local(_admin: bool = Depends(verify_admin)):
     """V104 FIX: Trigger local file learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â scan data/ → verify → KB."""
-    results = await _real_learning.local_learning_cycle()
+    results = await _shared._real_learning.local_learning_cycle()
     return results
 
 
@@ -274,7 +262,7 @@ async def v104_learn_local(_admin: bool = Depends(verify_admin)):
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_news")
 async def v104_learn_news(_admin: bool = Depends(verify_admin)):
     """V104 FIX: Trigger news learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â fetch RSS → verify → KB."""
-    results = await _real_learning.news_learning_cycle()
+    results = await _shared._real_learning.news_learning_cycle()
     return results
 
 
@@ -282,7 +270,7 @@ async def v104_learn_news(_admin: bool = Depends(verify_admin)):
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_all")
 async def v104_learn_all(_admin: bool = Depends(verify_admin)):
     """V104 FIX: Trigger all 3 learning loops."""
-    results = await _real_learning.run_all_cycles()
+    results = await _shared._real_learning.run_all_cycles()
     return results
 
 
@@ -290,7 +278,7 @@ async def v104_learn_all(_admin: bool = Depends(verify_admin)):
 @traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_learn_status")
 async def v104_learn_status():
     """V104 FIX: Status of Real Learning Engine."""
-    return _real_learning.stats()
+    return _shared._real_learning.stats()
 
 
 @router.get("/v104/learn/matrix", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
@@ -311,7 +299,7 @@ async def v104_learn_matrix():
     matrix = get_country_domain_matrix()
     total = get_total_combinations()
     return {
-        "matrix_size": "14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c = 70 cells",
+        "matrix_size": "14 quốc gia x 5 lĩnh vực = 70 ô",
         "total_country_specific_combinations": total,
         "countries_count": len(COUNTRIES),
         "domains_count": len(DOMAINS),
@@ -322,11 +310,11 @@ async def v104_learn_matrix():
             len(hints) for hints in COUNTRY_DOMAIN_HINTS.values()
         ),
         "summary": {
-            "geography": "14 Ă„â€Ă¢â‚¬â€ 5 = 70 (country-specific)",
-            "history": "14 Ă„â€Ă¢â‚¬â€ 3 = 42 (country-specific)",
-            "chemistry": "14 Ă„â€Ă¢â‚¬â€ 3 = 42 (country) + 6 Ă„â€Ă¢â‚¬â€ 3 = 18 (compound) = 60",
-            "physics": "14 Ă„â€Ă¢â‚¬â€ 3 = 42 (country) + 3 (generic) = 45",
-            "biology": "14 Ă„â€Ă¢â‚¬â€ 3 = 42 (country) + 3 (generic) = 45",
+            "geography": "14 x 5 = 70 (theo quốc gia)",
+            "history": "14 x 3 = 42 (theo quốc gia)",
+            "chemistry": "14 x 3 = 42 (theo quốc gia) + 6 x 3 = 18 (theo hợp chất) = 60",
+            "physics": "14 x 3 = 42 (theo quốc gia) + 3 (tổng quát) = 45",
+            "biology": "14 x 3 = 42 (theo quốc gia) + 3 (tổng quát) = 45",
         },
     }
 
@@ -338,7 +326,7 @@ async def v104_learn_ollama_matrix(_admin: bool = Depends(verify_admin)):
 
     MÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i (country, domain) Ä‚â€Ă¢â‚¬ËœÄ‚â€ Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â£c hÄ‚Â¡Ă‚Â»Ă‚Âi 1 lÄ‚Â¡Ă‚ÂºĂ‚Â§n → Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â£m bÄ‚Â¡Ă‚ÂºĂ‚Â£o coverage 14 Ă„â€Ă¢â‚¬â€ 5 = 70.
     """
-    results = await _real_learning.ollama_learning_cycle(count=70)
+    results = await _shared._real_learning.ollama_learning_cycle(count=70)
     return results
 
 
@@ -355,9 +343,9 @@ async def v1042_learn_fast(count: int = 50, _admin: bool = Depends(verify_admin)
     Adaptive interval 1-30 min tĂ„â€Ă‚Â¹y throughput.
     Returns: asked, skipped_known, verified, stored, compounding_L2, time_ms, adaptive_mode.
     """
-    if not _V1042_AVAILABLE or _fast_learning is None:
+    if not _shared._V1042_AVAILABLE or _shared._fast_learning is None:
         return {"error": "V104.2 FastLearningEngine not available"}
-    results = await _fast_learning.fast_learning_cycle(count=count)
+    results = await _shared._fast_learning.fast_learning_cycle(count=count)
     return results
 
 
@@ -369,9 +357,9 @@ async def v1042_learn_fast_status():
     TrÄ‚Â¡Ă‚ÂºĂ‚Â£ vÄ‚Â¡Ă‚Â»Ă‚Â: cycles_completed, asked, skipped, verified, stored,
     compounding_L2/L3, avg_cycle_time_ms, fastest/slowest, adaptive_interval.
     """
-    if not _V1042_AVAILABLE or _fast_learning is None:
+    if not _shared._V1042_AVAILABLE or _shared._fast_learning is None:
         return {"error": "V104.2 FastLearningEngine not available"}
-    return _fast_learning.stats()
+    return _shared._fast_learning.stats()
 
 
 @router.get("/v104/learn/fast/benchmark", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
@@ -381,9 +369,9 @@ async def v1042_learn_fast_benchmark():
 
     Returns: speedup factor, sequential_ms vs parallel_ms, concurrency.
     """
-    if not _V1042_AVAILABLE or _fast_learning is None:
+    if not _shared._V1042_AVAILABLE or _shared._fast_learning is None:
         return {"error": "V104.2 FastLearningEngine not available"}
-    stats = _fast_learning.stats()
+    stats = _shared._fast_learning.stats()
     avg_ms = stats.get("avg_cycle_time_ms", 0)
     asked_avg = 50  # default count
     sequential_estimated_ms = asked_avg * 700  # 700ms per question sequential

@@ -22,11 +22,8 @@ import os
 from fastapi import APIRouter, Depends
 
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
-from scp.api._shared import (
-    _attack_crawler,
-    get_judge,
-    verify_admin,
-)
+from scp.api import _shared
+from scp.api._shared import get_judge, verify_admin
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
@@ -106,9 +103,9 @@ async def gcg_test(count: int = 10, _admin: bool = Depends(verify_admin)):
 @traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="v103_crawled_attacks")
 async def v103_crawled_attacks(limit: int = 50):
     """V103 NEW: List tÄ‚Â¡Ă‚ÂºĂ‚Â¥n cĂ„â€Ă‚Â´ng tÄ‚Â¡Ă‚ÂºĂ‚Â£i tÄ‚Â¡Ă‚Â»Ă‚Â« internet (GitHub + Reddit)."""
-    if _attack_crawler is None:
+    if _shared._attack_crawler is None:
         return {"count": 0, "attacks": []}
-    attacks = _attack_crawler.get_new_attacks()[:limit]
+    attacks = _shared._attack_crawler.get_new_attacks()[:limit]
     return {"count": len(attacks), "attacks": attacks}
 
 
@@ -116,15 +113,15 @@ async def v103_crawled_attacks(limit: int = 50):
 @traced_request(_V102_V103_ROUTES_LEDGER, require_write=True, action="v103_force_crawl")
 async def v103_force_crawl(_admin: bool = Depends(verify_admin)):
     """V103 NEW: Force crawl tÄ‚Â¡Ă‚ÂºĂ‚Â¥n cĂ„â€Ă‚Â´ng mÄ‚Â¡Ă‚Â»Ă¢â‚¬Âºi ngay lÄ‚Â¡Ă‚ÂºĂ‚Â­p tÄ‚Â¡Ă‚Â»Ă‚Â©c. Requires auth if SCP_AUTH_PASSWORD set."""
-    if _attack_crawler is None:
+    if _shared._attack_crawler is None:
         return {"error": "AttackCrawler not initialized"}
     # R9-3: crawl_all() makes HTTP requests to GitHub + HuggingFace + Reddit
     # (15-45s). Calling inline from `async def` blocks the event loop.
     # Run in a worker thread (non-blocking).
-    new_attacks = await asyncio.to_thread(_attack_crawler.crawl_all)
+    new_attacks = await asyncio.to_thread(_shared._attack_crawler.crawl_all)
     return {
         "new_attacks": len(new_attacks),
-        "stats": _attack_crawler.stats(),
+        "stats": _shared._attack_crawler.stats(),
     }
 
 
@@ -133,7 +130,7 @@ async def v103_force_crawl(_admin: bool = Depends(verify_admin)):
 async def v103_status():
     """V103 NEW: Status cÄ‚Â¡Ă‚Â»Ă‚Â§a AttackCrawler + ThreatSimulator tÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă¢â€Â¢."""
     return {
-        "attack_crawler_stats": _attack_crawler.stats() if _attack_crawler else None,
+        "attack_crawler_stats": _shared._attack_crawler.stats() if _shared._attack_crawler else None,
         "threat_simulator_interval": os.environ.get("SCP_THREAT_SIMULATOR_INTERVAL", "10"),
         "threat_simulator_count": os.environ.get("SCP_THREAT_SIMULATOR_COUNT", "200"),
         "attack_crawl_interval": os.environ.get("SCP_ATTACK_CRAWL_INTERVAL", "600"),
