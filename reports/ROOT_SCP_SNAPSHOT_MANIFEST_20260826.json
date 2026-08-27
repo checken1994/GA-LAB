@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T06:28:45.096661+00:00",
-  "captured_commit": "8140771578c8f710920ff9e7a7545f7a786a3d2f",
-  "captured_parent": "2c1c61314cf0322557840942c9cb07c355731430",
-  "captured_tree": "06f2c6674656d6e5fec7451202190f9e6c2a0ebd",
-  "tracked_count": 1318,
-  "inventory_sha256": "43a17bae9442cd74f88fb39629a8f04a29e279ed554fb5b957f904e02b8205ac",
+  "generated_at_utc": "2026-08-27T07:20:39.919554+00:00",
+  "captured_commit": "1034abd4909020f355dfa6cfa426f4545e5ae5d5",
+  "captured_parent": "b44ca3a2e8be4097df4ba46d6a06a7a0fe2dad63",
+  "captured_tree": "dc7f9f1333a4d5c489c2730010e9f8c65b387971",
+  "tracked_count": 1324,
+  "inventory_sha256": "3d453c2b59bedf7948f2d62267b547e93c01605c29802962ebf37beec7bc438b",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -88,7 +88,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "55ac30dd20f2c05600c7815629a45fb33f5ee7ac",
+      "blob": "d5c06d8cdc9df93cdd1cef1093687687ca4faaaa",
       "path": ".env.example"
     },
     {
@@ -1348,7 +1348,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b3355bcac93f53e7817a2fc7edbfc9d83ae0da65",
+      "blob": "3d5a748fd07b6dc6d1fe5dae47fdd6f7d695acec",
       "path": "desktop/main.cjs"
     },
     {
@@ -2824,6 +2824,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "d2f0f6ff0eb6b6bfe2bda5ba839ce5a46346dae5",
+      "path": "reports/recovery_benchmark_evidence.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "30e5d248962facbc48a4f13e5061a03d1d5919be",
       "path": "reports/release_evidence_gate.html"
     },
@@ -3706,7 +3712,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e1f9154ec3ac31310a997f0a78c3f15ba25ad2df",
+      "blob": "c155568fa0b0bcf2be946595079768d6bb3b3d44",
       "path": "scp/autofix/scanners/routing_gap_scanner.py"
     },
     {
@@ -4258,7 +4264,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "593d6c6c44f43d8cfd7269210dcfde4b7945a717",
+      "blob": "b19ecf50cf7554198c7ecd4b22068ee4ea89f671",
       "path": "scp/core/question_fetchers/data_fetchers.py"
     },
     {
@@ -4312,7 +4318,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9cf62b0dd300cbedc31f0b8f64c7e4db3e055b62",
+      "blob": "a59454c0f93654de1e2e27b46ec9c5c3ea85ed73",
       "path": "scp/core/request_run_ledger.py"
     },
     {
@@ -4882,7 +4888,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a31219db38c529c86cc055b9224ae919491564ce",
+      "blob": "7a98ad2664e22093d3d9b3420f369785b9cb05ee",
       "path": "scp/hands/task_kernel_bridge.py"
     },
     {
@@ -5260,7 +5266,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "642354f74471da6b540d976b67478a38e13489c7",
+      "blob": "64ad38316ac4236cda8bcd1d00dece48183855d4",
       "path": "scp/meta/why_sources/nasa.py"
     },
     {
@@ -5440,7 +5446,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "blob": "e45e58c3560e6e1065a4752e480dcc845942feaa",
       "path": "scp/runtime/judge_parts/judge_phase_4_governance.py"
     },
     {
@@ -7572,6 +7578,36 @@
       "type": "blob",
       "blob": "c203ab75984f1946e22305734fd42407b0d0a791",
       "path": "tests/v31_boundary_simulation.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3d7bd99a657e7b01cb85f9f3f153db2398d55682",
+      "path": "tools/audit/_audit_hourly_json_safe.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8988e3b4c6e71d02d97c25cf6654a882cbaaa5a9",
+      "path": "tools/audit/_audit_hourly_safe.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "210a74d4f077e828d64e014f9e529136340d6de3",
+      "path": "tools/audit/_audit_hourly_safe.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "da9b48c31681271844f92630ce1647bf6e6dad12",
+      "path": "tools/audit/_audit_hourly_summary.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9f2be4cff8ac46722c6e56b9a54d3fc80c71bdf9",
+      "path": "tools/audit/_probe_dashboard_health_safe.ps1"
     },
     {
       "mode": "100644",
