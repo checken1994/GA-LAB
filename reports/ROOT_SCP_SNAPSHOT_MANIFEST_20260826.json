@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T04:25:49.470778+00:00",
-  "captured_commit": "2cad0c020ad3bbf1597480c846b39d9bf71cb219",
-  "captured_parent": "bcee95ead430762f437f6c526ace717a5265a5a0",
-  "captured_tree": "74c2e72788568b49a85d7d8df397d0f416ed28f2",
-  "tracked_count": 1302,
-  "inventory_sha256": "aa9a89812af7c6a8d35b28323842bd804a41cea0dec41631dc8d5b66f4b04a21",
+  "generated_at_utc": "2026-08-27T05:52:32.573236+00:00",
+  "captured_commit": "e0194479152ba1871331ed958aac65916a2891cc",
+  "captured_parent": "3e85800d87494b18323facca9b6e8abbfb203f48",
+  "captured_tree": "d59bc3e5ca8e5aa5ee6726ba0a0979c90fb04d23",
+  "tracked_count": 1314,
+  "inventory_sha256": "cfce98a6aff19f14afbfdbe541d1dd683bc9a91fc9177aea9bb18b7c7f8d75ab",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -118,7 +118,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "346b94c9e6f7991716d467fd0bcae140fa194fb5",
+      "blob": "6b85755d3d6a323345c3a9c8aa93e6126476b7b8",
       "path": "README.md"
     },
     {
@@ -1752,6 +1752,12 @@
       "type": "blob",
       "blob": "1052392ebe3cf7bb56c843a5958f3bf15713f577",
       "path": "docs/SCP_SEMANTIC_EXTERNAL_TRUTH_R44.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4ee84bc8cb0e8ba7d6f43b4067f3644e4ece4f71",
+      "path": "docs/SCP_SKILLS_ANNOUNCEMENT.md"
     },
     {
       "mode": "100644",
@@ -6480,6 +6486,72 @@
       "type": "blob",
       "blob": "deb66435a4d62fd9d3638a8772ade1456cbfc155",
       "path": "scripts/test_resilient_full.ps1"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0fef1cee86d12c51492b42b7d2b6203ef7477dde",
+      "path": "skills/README.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f1f7965133189db7e9ce3dd7e2932d9eef617bb4",
+      "path": "skills/scp-capability-security-review/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2a3a4b862f50893fd0ac114952f6904ca458d3d1",
+      "path": "skills/scp-computer-use-recovery/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "73d3b684553d68d039ab60d015f1d2f3782df1a6",
+      "path": "skills/scp-dna/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c9b63ea319946275f7c12452194668f0a578d243",
+      "path": "skills/scp-dna/references/dna-principles.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "319851d28d7b54b6b886650b12dfba8760101f87",
+      "path": "skills/scp-reality-verifier/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "97567053f9b2756e92d3f218d4424a085435c449",
+      "path": "skills/scp-release-evidence-gate/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "20f158f3f82f311b903cf4d89d5a6a9b6ffae60c",
+      "path": "skills/scp-runtime-audit/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "643c7591c4ad521cb59bed9a399a984ef8f2e460",
+      "path": "skills/scp-safe-latency-optimizer/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3eed02505bd878dc5c7d34c8bfd5b37e17460938",
+      "path": "skills/scp-startup-troubleshooter/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7e0619a332f8cf24a3ec99ba585504e551d5c7e9",
+      "path": "skills/scp-task-kernel-review/SKILL.md"
     },
     {
       "mode": "100644",
