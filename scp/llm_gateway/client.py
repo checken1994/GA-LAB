@@ -345,7 +345,7 @@ class OpenRouterProvider:
           3. openrouter/free (auto-router, picks any available FREE model)
         """
         if not self.enabled:
-            return None, f"openrouter:{self.model}"
+            return None, "none"
 
         messages = []
         if system_prompt:
@@ -384,7 +384,10 @@ class OpenRouterProvider:
                 return answer, "openrouter:openrouter/free"
             logger.debug(f"OpenRouter auto-router failed: {err}")
 
-        return None, f"openrouter:{self.model}"
+        # No answer was produced by any configured model. Do not return the
+        # primary model label here: callers use the provider field as an
+        # evidence signal, so a failed chain must be explicit.
+        return None, "none"
 
     def stats(self) -> dict:
         self._init_keys()

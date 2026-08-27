@@ -1,0 +1,76 @@
+# Local reproducibility candidate for SCP API.
+# Safe default: only the API starts. The optional loop profile is not started
+# by `docker compose up` and must be enabled deliberately.
+
+services:
+  scp-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: scp-api:local
+    environment:
+      SCP_HOST: 0.0.0.0
+      SCP_PORT: 8002
+      SCP_MODE: isolated
+      # Local candidate default. Set to 1 only with a real secret supplied
+      # outside git and an external TLS gateway.
+      SCP_PRODUCTION_MODE: ${SCP_PRODUCTION_MODE:-0}
+      SCP_EGRESS_MODE: deny
+      SCP_FORCE_HTTPS: "1"
+      SCP_SKIP_STARTUP_GATE: "0"
+      SCP_AUTO_APPROVE_TIER3: "0"
+      SCP_DATA_DIR: /var/lib/scp/data
+      # Optional provider/bridge URL. Keep credentials out of this file.
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+    ports:
+      # Loopback-only host exposure; put a separately configured TLS gateway in
+      # front if external access is ever required.
+      - "127.0.0.1:8002:8002"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - scp-data:/var/lib/scp/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  # The scheduler performs POST /v105/autofix/run-audit. It is deliberately
+  # opt-in and observe-only here; do not enable it for unattended mutation.
+  loop-scheduler:
+    profiles: ["loop"]
+    image: oven/bun:1.3.4-slim
+    working_dir: /workspace/mini-services/loop-scheduler
+    command: ["bun", "index.ts"]
+    environment:
+      SCP_BASE_URL: http://scp-api:8002
+      LLM_BRIDGE_URL: ${LLM_BRIDGE_URL:-http://host.docker.internal:11434}
+      LOOP_SCHEDULER_PORT: 3030
+      LOOP_INTERVAL_SEC: ${LOOP_INTERVAL_SEC:-300}
+      SCP_AUTOFIX_MODE: observe
+      SCP_AUTOFIX_DETERMINISTIC_ONLY: "1"
+      SCP_AUTOFIX_WORKER_MODE: deterministic
+      LOOP_LOG_PATH: /var/lib/scp/data/loop_runs.jsonl
+      LOOP_STATE_PATH: /var/lib/scp/data/scheduler-state.json
+    volumes:
+      - ./mini-services/loop-scheduler:/workspace/mini-services/loop-scheduler:ro
+      - scp-data:/var/lib/scp/data
+    ports:
+      - "127.0.0.1:3030:3030"
+    depends_on:
+      scp-api:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  scp-data:

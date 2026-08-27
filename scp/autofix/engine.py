@@ -2017,6 +2017,24 @@ class AutoFixEngine:
                                 f"[R12-6] post_fix_verify escalate_to_tier3 for "
                                 f"{bug.file}:{bug.line}: {_pfv_reason}"
                             )
+                        # A non-true post-fix result is never promotable. The
+                        # rollback above restores the exact pre-fix bytes; return
+                        # now so the caller cannot receive `action=fixed` after
+                        # the patch has already been rejected.
+                        return {
+                            "action": "skipped",
+                            "tier": int(bug.tier),
+                            "reason": (
+                                f"post-fix verification rejected/unverified "
+                                f"(rolled back): {_pfv_reason}"
+                            ),
+                            "patched": False,
+                            "verification_status": "UNVERIFIED",
+                            "post_fix_verification": _pfv_result,
+                            "escalate_to_tier3": bool(
+                                _pfv_result.get("escalate_to_tier3", True)
+                            ),
+                        }
                     else:
                         logger.info(
                             f"[R12-6] post_fix_verify OK for {bug.file}:{bug.line} "
