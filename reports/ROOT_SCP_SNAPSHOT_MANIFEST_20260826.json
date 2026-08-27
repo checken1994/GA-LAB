@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T11:15:01.441727+00:00",
-  "captured_commit": "af28687945487f8b775db763da33ee8bca2546e2",
-  "captured_parent": "3d97bfd67f4c68aab276f4c0a5e7927098b5f54e",
-  "captured_tree": "7f6ed2bbfa2ca814d08ccd6697614500f15fc4cf",
+  "generated_at_utc": "2026-08-27T11:24:51.581318+00:00",
+  "captured_commit": "52594fd673a94a382b52ecec6be13e628c30cf49",
+  "captured_parent": "de537486adf2f211b91c9b0bc8a645e8c744db6b",
+  "captured_tree": "f7ab8152d1dd96ffe593ad3df206cf2757eea64e",
   "tracked_count": 1351,
-  "inventory_sha256": "5fe0f7ec75f49894614bf545486f0b3497a6d5125b7dfd44d02d39a60be5e7aa",
+  "inventory_sha256": "26eb6f3377341fa1de1efa698772c9dea19596928c5a905ed51eac2db4241528",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -14,9 +14,9 @@
       "sha256": "c6d3f576dbe33c83730eb28baf535e73bfd20878cbe694ebbd1f1824e05120bd"
     },
     "scp/api_server.py": {
-      "blob": "9d4476b15098207acd31024d9a49ea617bb87f74",
-      "bytes": 101480,
-      "sha256": "e0443bc043ed03da5b692eaee530a5e26ae0c25912b6a7e6df4c78dae49da01d"
+      "blob": "bec13105f8d21fa41c8ce19965149edd495d7219",
+      "bytes": 100395,
+      "sha256": "0c71e5b059723da1fef526cae06af43edff235940a5c4c4b276de07d222764f0"
     },
     "scp/task_kernel.py": {
       "blob": "a63c5c8adf8465f4dc4f3b9cdc603339a6205dc5",
@@ -160,7 +160,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d5c06d8cdc9df93cdd1cef1093687687ca4faaaa",
+      "blob": "3e7b6a4747b1be36b7f77198dbd0345cdf1e0174",
       "path": ".env.example"
     },
     {
@@ -3148,7 +3148,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3d837efb3f92ec269d6f967bb2f69c1b58b88214",
+      "blob": "ffa92c54a65599929fb3f75711b792bd61d5de12",
       "path": "scp/__main__.py"
     },
     {
@@ -3292,7 +3292,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "745c5dd2b059f40238445b1b4f3efdeae7745904",
+      "blob": "d042cee38839efd7095dd3410f25beee84599d9e",
       "path": "scp/api/routes/v104_routes.py"
     },
     {
@@ -3316,7 +3316,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9d4476b15098207acd31024d9a49ea617bb87f74",
+      "blob": "bec13105f8d21fa41c8ce19965149edd495d7219",
       "path": "scp/api_server.py"
     },
     {
@@ -3538,7 +3538,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "2e2fec277a9e519427722cb56a005d4213895cc1",
+      "blob": "de48d578e97df44248962d8b916b59ca014f6003",
       "path": "scp/autofix/evidence_replay.py"
     },
     {
@@ -3706,7 +3706,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a81d62949b4f884b5d73ad6bf3a4ce6f9ce5ba69",
+      "blob": "1f1bd99eb29032900ee86c3edfc98437aef86f04",
       "path": "scp/autofix/runner_phases/post_fix_verify.py"
     },
     {
@@ -4210,7 +4210,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "27a6b935b9d75fba9b20b5d29e8e570631a79766",
+      "blob": "6572e49b80b98f8cb0fa2a3bcb6f9d833f435704",
       "path": "scp/core/conflict_resolver.py"
     },
     {
@@ -4426,7 +4426,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "15a3fd1ed6d568ef4f4b9d9764e0902fc8515a86",
+      "blob": "51bb1c346d5deffa7ca2c02c289d0a0b83cfaf7c",
       "path": "scp/core/safe_process.py"
     },
     {
@@ -4978,7 +4978,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3f147a9abff50e9ece8a1ed2b00c0432a9b74123",
+      "blob": "96e0ba27385ca60af4f2a5a0678f3be9879d76f9",
       "path": "scp/hands/process_manager.py"
     },
     {
@@ -6538,7 +6538,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f23aae95e31b9a65a0cb135cf2b654083b9c31f6",
+      "blob": "b1786a72403dca9c805eb7d9aa5077a695448150",
       "path": "scripts/ops/scp_247_install.ps1"
     },
     {
@@ -6700,7 +6700,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b0955eb7fe1edbe40380f79c738b15e43c62930d",
+      "blob": "0967ee3d90dc2e4a6769067aefe002cd776eb38f",
       "path": "start-scp.bat"
     },
     {
@@ -7192,7 +7192,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4b66b0bc93a464b57381c81ae5023a672dfe9436",
+      "blob": "d8265bc23565a33ee75e888e71751b3cbae7c5b1",
       "path": "tests/reality-tests/reality_4-d-015.py"
     },
     {
@@ -7666,7 +7666,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4d54b4a61e79518a3df496032591bf19ebe2bc1e",
+      "blob": "8522dbced002ba57c8b085b85f952f940e959c90",
       "path": "tests/test_startup_launcher_contract.py"
     },
     {
