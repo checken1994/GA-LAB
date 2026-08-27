@@ -58,3 +58,19 @@ def test_supervisor_sets_dashboard_proxy_contract_explicitly():
     assert "$env:LOOP_SCHEDULER_URL = 'http://127.0.0.1:3030'" in supervisor
     assert "$oldScpInternalUrl = $env:SCP_INTERNAL_URL" in supervisor
     assert "$oldLoopSchedulerUrl = $env:LOOP_SCHEDULER_URL" in supervisor
+
+
+def test_supervisor_runtime_map_matches_dashboard_proxy_and_uses_production_start():
+    root = Path(__file__).resolve().parents[1]
+    supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
+    assert "Args = @('-m', 'scp', '8002')" in supervisor
+    assert "Port = 8002; Url = 'http://127.0.0.1:8002/health'" in supervisor
+    assert "Name = 'dashboard'; File = $bun; Args = @('run', 'start')" in supervisor
+    assert "Args = @('run', 'dev')" in supervisor
+
+
+def test_supervisor_health_probe_requires_success_status_not_any_non_5xx():
+    root = Path(__file__).resolve().parents[1]
+    supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
+    assert "return ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300)" in supervisor
+    assert "return ($response.StatusCode -lt 500)" not in supervisor

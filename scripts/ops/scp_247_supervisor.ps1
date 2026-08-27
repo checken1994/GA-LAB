@@ -248,9 +248,9 @@ try {
     $OllamaBaseUrl = 'http://127.0.0.1:11434'
     $services = @(
         [ordered]@{ Name = 'loop-scheduler'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\loop-scheduler'); Port = 3030; Url = 'http://127.0.0.1:3030/' },
-        [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8000'); Dir = $Root; Port = 8000; Url = 'http://127.0.0.1:8000/health' },
+        [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8002'); Dir = $Root; Port = 8002; Url = 'http://127.0.0.1:8002/health' },
         [ordered]@{ Name = 'autofix-worker'; File = $python; Args = @('-m', 'scp.autofix.deterministic_worker', '--max-jobs', '1', '--watch'); Dir = $Root; Port = 0; Url = '' },
-        [ordered]@{ Name = 'dashboard'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'dashboard'); Port = 3000; Url = 'http://127.0.0.1:3000/' }
+        [ordered]@{ Name = 'dashboard'; File = $bun; Args = @('run', 'start'); Dir = (Join-Path $Root 'dashboard'); Port = 3000; Url = 'http://127.0.0.1:3000/' }
     )
 
     function Test-PortInUse {
@@ -264,7 +264,7 @@ try {
         if ([string]::IsNullOrWhiteSpace($Url)) { return $true }
         try {
             $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 4 -SkipHttpErrorCheck
-            return ($response.StatusCode -lt 500)
+            return ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300)
         } catch {
             return $false
         }
@@ -330,46 +330,38 @@ try {
         return $true
     }
 
-
-    function Get-DashboardBuildState {
-        # Returns 'missing', 'stale', or 'fresh' based on BUILD_ID and standalone server.js
-        if (-not (Test-Path $DashboardBuildId) -or -not (Test-Path $DashboardStandaloneServer)) {
-            return 'missing'
-        }
-        $buildAge = (Get-Date) - (Get-Item $DashboardBuildId).LastWriteTime
-        $srcAge = (Get-ChildItem -Path $DashboardDir -Recurse -Include '*.ts','*.tsx','*.js','*.jsx','*.json' -Exclude 'node_modules','.next' -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
-        if ($null -ne $srcAge -and $srcAge -gt (Get-Item $DashboardBuildId).LastWriteTime) {
-            return 'stale'
-        }
-        return 'fresh'
-    }
-
     function Ensure-DashboardBuild {
         if (-not (Ensure-DashboardDependencies)) {
             return $false
         }
-        $buildState = Get-DashboardBuildState
-        if ($buildState -eq 'fresh') {
-            Write-Ledger -Event 'DASHBOARD_BUILD_FRESH' -Service 'dashboard' -Reason 'build_id_and_server_current'
+        $state = Get-DashboardBuildState
+        if ($state.Fresh) {
+            Write-Ledger -Event 'DASHBOARD_BUILD_FRESH' -Service 'dashboard' -Reason $state.Reason -Extra @{ source_utc = $state.SourceUtc; artifact_utc = $state.ArtifactUtc }
             return $true
         }
-        Write-Ledger -Event 'DASHBOARD_BUILD_REFRESH_BLOCKED' -Service 'dashboard' -Reason "build_state_$buildState" -Extra @{ build_state = $buildState }
-        # Run next build to refresh
+        if (Test-PortInUse 3000) {
+            Write-Ledger -Event 'DASHBOARD_BUILD_REFRESH_BLOCKED' -Service 'dashboard' -Reason 'stale_or_missing_build_but_port_3000_occupied'
+            return $false
+        }
+        $logRunId = "$(Get-Date -AsUTC -Format 'yyyyMMddTHHmmssfffffffZ').$([Guid]::NewGuid().ToString('N').Substring(0, 12))"
+        $stdout = Join-Path $LogDir "dashboard-build.$logRunId.out.log"
+        $stderr = Join-Path $LogDir "dashboard-build.$logRunId.err.log"
         try {
-            $buildArgs = @('run', 'build')
-            $proc = Start-Process -FilePath (Join-Path $DashboardDir 'node_modules\.bin\bun.cmd') `
-                -ArgumentList $buildArgs -WorkingDirectory $DashboardDir `
-                -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
-            if ($proc.ExitCode -ne 0) {
-                Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason "build_exit_$($proc.ExitCode)"
+            $build = Start-Process -FilePath $bun -ArgumentList @('run', 'build') -WorkingDirectory $DashboardDir -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -Wait
+            if ($build.ExitCode -ne 0) {
+                Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason 'bun_build_nonzero' -Extra @{ exit_code = $build.ExitCode }
                 return $false
             }
         } catch {
             Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason $_.Exception.GetType().Name
             return $false
         }
-        Write-Ledger -Event 'DASHBOARD_BUILD_REFRESHED' -Service 'dashboard' -Reason 'build_completed_successfully'
+        $state = Get-DashboardBuildState
+        if (-not $state.Fresh) {
+            Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason 'build_artifact_still_stale_or_missing'
+            return $false
+        }
+        Write-Ledger -Event 'DASHBOARD_BUILD_REFRESHED' -Service 'dashboard' -Reason $state.Reason -Extra @{ source_utc = $state.SourceUtc; artifact_utc = $state.ArtifactUtc }
         return $true
     }
 

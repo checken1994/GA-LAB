@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T11:53:20.515676+00:00",
-  "captured_commit": "692f38ab6c8afadadbb213f538fdfaf26c883712",
-  "captured_parent": "6fdfeb4a64e903d4d147e501b51630ba59a37776",
-  "captured_tree": "ce78a40c9a1ed519691866465b64309358f3ac28",
+  "generated_at_utc": "2026-08-27T12:22:40.976432+00:00",
+  "captured_commit": "071cb1331deacd716b92757912aa8cf7975a75db",
+  "captured_parent": "7538084aac7bd82b1a2c5253167b6b5681bf2600",
+  "captured_tree": "b163602fc28b5bc5ac8843cfcd6399764e74c80e",
   "tracked_count": 1354,
-  "inventory_sha256": "28e5c9f08bbba0024723ac127c26dd718b3d649ba077e88645d45dd2d2111c42",
+  "inventory_sha256": "de7125a911bcf069577e18cccef3ae32ecfce056793566cdfee99d636dbdbd9b",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -634,7 +634,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b181c5269376afe28ee9044f99876b8868fe18b2",
+      "blob": "948ca93cfdbd2f73a18edd1f4b55e511b47c6bc0",
       "path": "dashboard/src/app/api/scp/health/route.ts"
     },
     {
@@ -6562,7 +6562,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ffe2f9fa9df0a871c4a6c2388e5966e6439844e3",
+      "blob": "e5df2ecfea0159c936086184dca05857526bad73",
       "path": "scripts/ops/scp_247_supervisor.ps1"
     },
     {
@@ -6730,7 +6730,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d0b8e213623645f95a3f8d81fa1a369dd178893f",
+      "blob": "f862be128a2702d6c44dbd343c222da26c4993b0",
       "path": "stop-scp.bat"
     },
     {
@@ -7684,7 +7684,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8522dbced002ba57c8b085b85f952f940e959c90",
+      "blob": "bd31b3b226b41c87ba5f81cd644b08c84c8434d4",
       "path": "tests/test_startup_launcher_contract.py"
     },
     {
@@ -7696,7 +7696,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4c2bcc83fa165bd6c78ce9bbc0e10dec1d1fbab2",
+      "blob": "10ad92c6366fb7345e060d7249860e507f20f1c0",
       "path": "tests/test_supervisor_child_env.py"
     },
     {

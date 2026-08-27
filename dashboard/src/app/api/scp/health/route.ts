@@ -31,7 +31,7 @@ const LLM_BRIDGE_URL =
   process.env.LLM_BRIDGE_URL ?? "http://127.0.0.1:11434"
 
 const START_HINTS = {
-  fastapi: "Run: SCP_PORT=8000 python -m scp (in your scp folder)",
+  fastapi: "Run: SCP_PORT=8002 python -m scp (in your scp folder)",
   loopScheduler: "Run: bun run mini-services/loop-scheduler (in project root)",
   llmBridge: "Run: bun run mini-services/llm-bridge (in project root)",
 }
