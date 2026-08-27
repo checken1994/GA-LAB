@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T11:52:44.765062+00:00",
-  "captured_commit": "6fdfeb4a64e903d4d147e501b51630ba59a37776",
-  "captured_parent": "c7f5159c0be16c274b5a6ece260f146201fa078b",
-  "captured_tree": "132a3b12e3564aec93b919fb34c860f6dc207565",
+  "generated_at_utc": "2026-08-27T11:53:20.515676+00:00",
+  "captured_commit": "692f38ab6c8afadadbb213f538fdfaf26c883712",
+  "captured_parent": "6fdfeb4a64e903d4d147e501b51630ba59a37776",
+  "captured_tree": "ce78a40c9a1ed519691866465b64309358f3ac28",
   "tracked_count": 1354,
   "inventory_sha256": "28e5c9f08bbba0024723ac127c26dd718b3d649ba077e88645d45dd2d2111c42",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
