@@ -376,3 +376,13 @@ def test_active_lifespan_does_not_autostart_ungated_external_producers():
     lifespan_src = src[lifespan_start:app_marker]
     for start_call in ("start_audit_fetcher", "start_scanner", "start_detector"):
         assert start_call not in lifespan_src  # noqa: S101
+
+
+
+def test_stream_route_contract_is_live_and_offloads_sync_judge():
+    """The registered stream route must not advertise the old dead-route state."""
+    stream_src = (ROUTES_DIR / "stream_routes.py").read_text(encoding="utf-8")
+    assert "LIVE ROUTE" in stream_src  # noqa: S101
+    assert "DEAD ROUTE" not in stream_src  # noqa: S101
+    assert "await asyncio.to_thread(" in stream_src  # noqa: S101
+    assert '"/v105/ask/stream"' in stream_src  # noqa: S101
