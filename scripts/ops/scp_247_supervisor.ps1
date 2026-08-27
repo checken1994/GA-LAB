@@ -330,11 +330,46 @@ try {
         return $true
     }
 
+
+    function Get-DashboardBuildState {
+        # Returns 'missing', 'stale', or 'fresh' based on BUILD_ID and standalone server.js
+        if (-not (Test-Path $DashboardBuildId) -or -not (Test-Path $DashboardStandaloneServer)) {
+            return 'missing'
+        }
+        $buildAge = (Get-Date) - (Get-Item $DashboardBuildId).LastWriteTime
+        $srcAge = (Get-ChildItem -Path $DashboardDir -Recurse -Include '*.ts','*.tsx','*.js','*.jsx','*.json' -Exclude 'node_modules','.next' -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
+        if ($null -ne $srcAge -and $srcAge -gt (Get-Item $DashboardBuildId).LastWriteTime) {
+            return 'stale'
+        }
+        return 'fresh'
+    }
+
     function Ensure-DashboardBuild {
         if (-not (Ensure-DashboardDependencies)) {
             return $false
         }
-        Write-Ledger -Event 'DASHBOARD_BUILD_FRESH' -Service 'dashboard' -Reason 'dependencies_verified'
+        $buildState = Get-DashboardBuildState
+        if ($buildState -eq 'fresh') {
+            Write-Ledger -Event 'DASHBOARD_BUILD_FRESH' -Service 'dashboard' -Reason 'build_id_and_server_current'
+            return $true
+        }
+        Write-Ledger -Event 'DASHBOARD_BUILD_REFRESH_BLOCKED' -Service 'dashboard' -Reason "build_state_$buildState" -Extra @{ build_state = $buildState }
+        # Run next build to refresh
+        try {
+            $buildArgs = @('run', 'build')
+            $proc = Start-Process -FilePath (Join-Path $DashboardDir 'node_modules\.bin\bun.cmd') `
+                -ArgumentList $buildArgs -WorkingDirectory $DashboardDir `
+                -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
+            if ($proc.ExitCode -ne 0) {
+                Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason "build_exit_$($proc.ExitCode)"
+                return $false
+            }
+        } catch {
+            Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason $_.Exception.GetType().Name
+            return $false
+        }
+        Write-Ledger -Event 'DASHBOARD_BUILD_REFRESHED' -Service 'dashboard' -Reason 'build_completed_successfully'
         return $true
     }
 
