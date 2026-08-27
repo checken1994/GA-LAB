@@ -47,3 +47,5 @@ pending_fixes/
 !scp/runtime/**
 scp/runtime/**/__pycache__/
 scp/runtime/**/*.pyc
+
+tools/audit/local/
