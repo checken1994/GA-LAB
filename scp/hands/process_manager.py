@@ -54,7 +54,7 @@ class ManagedProcessManager:
                 "env": {**os.environ, "SCP_HANDS_OWNED": "1", "SCP_HANDS_COMMAND_ID": command_id},
             }
             if os.name == "nt":
-                kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
             process = subprocess.Popen(command, **kwargs)
             now = time.time()
             metadata = {"pid": process.pid, "commandId": command_id, "startedAt": now, "command": command}

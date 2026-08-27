@@ -49,10 +49,12 @@ def _run_vulture_cross_file(method_name: str) -> bool:
     Returns False if method is STILL dead (fix didn't wire).
     """
     try:
+        win_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
         result = subprocess.run(
             [sys.executable, "-m", "vulture", str(_SCP_ROOT),
              "--min-confidence", "60"],
-            capture_output=True, text=True, timeout=_MAX_VERIFY_TIME_S
+            capture_output=True, text=True, timeout=_MAX_VERIFY_TIME_S,
+            creationflags=win_flags,
         )
         # If method_name appears in vulture output → still dead
         return method_name not in result.stdout
@@ -102,9 +104,11 @@ def _try_hypothesis_test(file_path: str) -> tuple[bool, str]:
         test_file = _SCP_ROOT.parent / "tests" / "property" / f"test_{stem}.py"
         if not test_file.exists():
             return False, f"UNVERIFIED: no property test at {test_file}"
+        win_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
         result = subprocess.run(
             [sys.executable, "-m", "pytest", str(test_file), "-x", "--tb=short", "-q"],
-            capture_output=True, text=True, timeout=_MAX_VERIFY_TIME_S
+            capture_output=True, text=True, timeout=_MAX_VERIFY_TIME_S,
+            creationflags=win_flags,
         )
         if result.returncode == 0:
             return True, "hypothesis tests pass"

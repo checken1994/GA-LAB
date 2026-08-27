@@ -326,6 +326,7 @@ class EvidenceReplay:
                 argv = shlex.split(test_command)
             if not argv:
                 return False, "[empty test_command after shlex.split]"
+            win_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
             result = subprocess.run(
                 argv,
                 shell=False,
@@ -333,6 +334,7 @@ class EvidenceReplay:
                 capture_output=True,
                 text=True,
                 timeout=_MAX_TEST_TIME_S,
+                creationflags=win_flags,
             )
             output = (result.stdout or "") + (result.stderr or "")
             snippet = output[-_OUTPUT_SNIPPET_LEN:] if output else ""

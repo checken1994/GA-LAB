@@ -160,6 +160,7 @@ def safe_run(
             if k in os.environ and k not in merged_env and k.lower() not in [x.lower() for x in merged_env]:
                 merged_env[k] = os.environ[k]
 
+    win_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
     return subprocess.run(  # noqa: S603 — audited: shell=False, whitelist, timeout. See module docstring.
         args,
         shell=False,  # FORCED — no shell injection possible
@@ -171,6 +172,7 @@ def safe_run(
         cwd=cwd,
         env=merged_env,
         check=check,
+        creationflags=win_flags,
     )
 
 

@@ -33,8 +33,12 @@ import threading
 from typing import Any
 
 
+_CACHED_COMMIT: str | None = None
+_CACHED_CONFIG_HASH: str | None = None
+
 def _scp_service_identity() -> dict:
     """Expose bounded runtime identity for local service/port verification."""
+    global _CACHED_COMMIT, _CACHED_CONFIG_HASH
     import hashlib as _hashlib
     import subprocess as _subprocess
     from pathlib import Path as _Path
@@ -55,24 +59,32 @@ def _scp_service_identity() -> dict:
     _mode = os.environ.get("SCP_MODE")
     if not _mode:
         _mode = "production" if _port == 8000 else "test" if _port == 8001 else "isolated" if _port == 8002 else "unknown"
-    try:
-        _commit = _subprocess.check_output(
-            ["git", "-C", str(_Path(__file__).resolve().parent.parent), "rev-parse", "HEAD"],
-            text=True, stderr=_subprocess.DEVNULL, timeout=2,
-        ).strip()
-    except Exception:
-        _commit = "unknown"
-    _env_path = _Path(os.environ.get("SCP_ENV_FILE", _Path(__file__).resolve().parent.parent / ".env"))
-    _config_hash = os.environ.get("SCP_CONFIG_HASH")
-    if not _config_hash and _env_path.exists():
+    if _CACHED_COMMIT is None:
         try:
-            _cfg = "\n".join(
-                line for line in _env_path.read_text(encoding="utf-8-sig").splitlines()
-                if not line.startswith("SCP_CONFIG_HASH=")
-            )
-            _config_hash = "sha256:" + _hashlib.sha256(_cfg.encode("utf-8")).hexdigest()
+            _creationflags = getattr(_subprocess, "CREATE_NO_WINDOW", 0) if _sys.platform == "win32" else 0
+            _commit = _subprocess.check_output(
+                ["git", "-C", str(_Path(__file__).resolve().parent.parent), "rev-parse", "HEAD"],
+                text=True, stderr=_subprocess.DEVNULL, timeout=2,
+                creationflags=_creationflags,
+            ).strip()
         except Exception:
-            _config_hash = "unknown"
+            _commit = "unknown"
+        _CACHED_COMMIT = _commit or "unknown"
+    _commit = _CACHED_COMMIT
+    if _CACHED_CONFIG_HASH is None:
+        _env_path = _Path(os.environ.get("SCP_ENV_FILE", _Path(__file__).resolve().parent.parent / ".env"))
+        _config_hash = os.environ.get("SCP_CONFIG_HASH")
+        if not _config_hash and _env_path.exists():
+            try:
+                _cfg = "\n".join(
+                    line for line in _env_path.read_text(encoding="utf-8-sig").splitlines()
+                    if not line.startswith("SCP_CONFIG_HASH=")
+                )
+                _config_hash = "sha256:" + _hashlib.sha256(_cfg.encode("utf-8")).hexdigest()
+            except Exception:
+                _config_hash = "unknown"
+        _CACHED_CONFIG_HASH = _config_hash or "unknown"
+    _config_hash = _CACHED_CONFIG_HASH
     return {
         "service_name": os.environ.get("SCP_SERVICE_NAME", "scp-backend"),
         "mode": _mode,
