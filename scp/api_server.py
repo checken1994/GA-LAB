@@ -213,7 +213,6 @@ from typing import TYPE_CHECKING
 from scp import __version__ as _SCP_VERSION
 from scp.core.release_identity import (
     DOMAIN_EXPERT_ENSEMBLE_TERM,
-    DOMAIN_EXPERT_TERM,
     RELEASE_LABEL,
     public_release_metadata,
 )
@@ -1771,7 +1770,6 @@ async def health():
     #   available via /health/detailed (which CAN call get_judge).
     # DNA #7 (Autofix safe) + #26 (Reality > Model): server alive = 200, not
     #   "wait for all subsystems to be perfect".
-    import os as _os
     return {
         "status": "ok",
         "service_identity": _scp_service_identity(),

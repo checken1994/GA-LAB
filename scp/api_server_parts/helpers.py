@@ -18,14 +18,7 @@ silently skipped for ALL multimodal requests).
 # ruff: noqa: F821
 from __future__ import annotations
 
-import ipaddress
 import logging
-import os
-import secrets
-import socket
-import urllib.error
-import urllib.parse
-import urllib.request
 import uuid
 from typing import Any
 
@@ -43,15 +36,15 @@ from typing import Any
 #   (api_server.py line 42, _shared.py PEP 562 delegation, v104_routes.py)
 #   keep working unchanged. If you need a fetcher, extend url_fetcher.py —
 #   do NOT add a third impl here.
-from scp.core.url_fetcher import (  # noqa: E402 (after sys-path tweaks above)
+from scp.core.url_fetcher import (  # noqa: E402,F401 (compatibility re-exports)
     _SCP_SAFE_FETCH_UA,
     _SafeRedirectHandler,
     _is_disallowed_ip,
     _safe_fetch_url,
 )
 
-from fastapi import Depends, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Request
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("scp.api")
