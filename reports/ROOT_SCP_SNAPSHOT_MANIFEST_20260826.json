@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T14:40:26.824778+00:00",
-  "captured_commit": "2a06727e318abd279f4a79ce748ad88ca85324b7",
-  "captured_parent": "1cf933528c957af0c9c3c74c33138a9fcf345993",
-  "captured_tree": "dc71940047ff0e06d87d3c619bd9581185aad081",
-  "tracked_count": 1355,
-  "inventory_sha256": "a76ae2b109b81479e74b24f207354c65bdcdf7855c6fcbccc416da901a666013",
+  "generated_at_utc": "2026-08-27T16:45:13.116630+00:00",
+  "captured_commit": "539a9289ad1bd4e9670b253a0da45cf4ea631c23",
+  "captured_parent": "7378a7479f466f2509eba775c0f96428f03e6a96",
+  "captured_tree": "7913e7e749a4bed994f3aa67b2ed76847f334650",
+  "tracked_count": 1357,
+  "inventory_sha256": "0d3319b15021c826e914dcff0350f45b109435f57244f1989d31e747a07f9441",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -3208,7 +3208,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f2cc88086c533cb69bdb57344a7ab39bb8113a95",
+      "blob": "51df0d31f2d60ee78dbd7fe86e326b14a02fcb8c",
       "path": "scp/api/routes/admin_v98.py"
     },
     {
@@ -3286,19 +3286,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e60cee82e107244877f4eef9aa14581a8e33327b",
+      "blob": "41b9f8fe408b297dfa1d10598cdad4758acad864",
       "path": "scp/api/routes/v102_v103_routes.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d042cee38839efd7095dd3410f25beee84599d9e",
+      "blob": "7521dd4bdf26d24f1e6fd913ebc6ce5f7c81dd18",
       "path": "scp/api/routes/v104_routes.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "af0d1aeab65577a1f02c2fe2f68dea5960b92e51",
+      "blob": "f53d9e40b62c24e4a8658ef0d386be7ec7e763e5",
       "path": "scp/api/routes/v105_routes.py"
     },
     {
@@ -7354,6 +7354,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "9b9077d3b3d73b3b3f53f365a8cc62fa83fb0f85",
+      "path": "tests/test_api_import_order_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "4a38be845512d6f429471c7ae1e446e4452b9535",
       "path": "tests/test_ask_kernel_integration.py"
     },
@@ -7662,6 +7668,12 @@
       "type": "blob",
       "blob": "9c76d3ee21d69272a549f932fec2b0442bc7c357",
       "path": "tests/test_runtime_observability_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bd9647da409bb1d308782870d570d5c4ef9d81cd",
+      "path": "tests/test_runtime_text_contract.py"
     },
     {
       "mode": "100644",
