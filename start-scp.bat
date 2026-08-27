@@ -29,13 +29,39 @@ if not exist "scp\venv\Scripts\python.exe" (
     exit /b 1
 )
 
-REM --- Check deps installed ---
-if not exist "mini-services\llm-bridge\node_modules" (
-    echo [FAIL] Dependencies chua cai. Chay install-scp.bat truoc.
-    echo.
+REM --- Check dashboard dependencies ---
+if not exist "dashboard\node_modules\next\dist\bin\next" (
+    echo [INFO] Dashboard dependencies chua co - dang cai theo bun.lock...
+    pushd dashboard
+    bun install --frozen-lockfile
+    if errorlevel 1 (
+        echo [FAIL] Khong cai duoc dashboard dependencies.
+        popd
+        pause
+        exit /b 1
+    )
+    popd
+)
+
+REM --- Check local Ollama dependency (not a Bun llm-bridge child) ---
+powershell -NoProfile -NonInteractive -Command "try { Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:11434/api/tags' -TimeoutSec 3 | Out-Null; exit 0 } catch { exit 1 }"
+if errorlevel 1 (
+    echo [FAIL] Ollama khong phan hoi tai 127.0.0.1:11434.
+    echo    Khoi dong Ollama roi chay lai launcher.
     pause
     exit /b 1
 )
+
+REM --- Build dashboard from current source before any restart ---
+pushd dashboard
+bun run build
+if errorlevel 1 (
+    echo [FAIL] Dashboard build that bai - giu nguyen cac service dang chay.
+    popd
+    pause
+    exit /b 1
+)
+popd
 
 REM --- Ensure data dir exists (Windows fix) ---
 if not exist "data" mkdir data
@@ -60,13 +86,11 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 " ^| findstr "LISTENIN
 timeout /t 3 /nobreak >nul
 
 echo.
-echo [INFO] Khoi dong 4 services...
+echo [INFO] Khoi dong 3 child services + Ollama...
 echo.
 
-REM --- 1. LLM Bridge (port 11434) ---
-echo [1/4] LLM Bridge - port 11434
-start "SCP-LLM-Bridge" cmd /k "cd /d %~dp0mini-services\llm-bridge && bun run dev"
-timeout /t 3 /nobreak >nul
+REM --- 1. Ollama (external dependency, port 11434) ---
+echo [1/4] Ollama - port 11434 (da kiem tra, khong khoi dong child)
 
 REM --- 2. Loop Scheduler (port 3030) ---
 echo [2/4] Loop Scheduler - port 3030
@@ -78,8 +102,8 @@ echo [3/4] SCP Python - port 8002 (boot ~60s, vui long doi...)
 start "SCP-Python" cmd /k "cd /d %~dp0 && scp\venv\Scripts\python.exe -m scp 8002"
 
 REM --- 4. Dashboard Next.js (port 3000) ---
-echo [4/4] Dashboard Next.js - port 3000
-start "SCP-Dashboard" cmd /k "cd /d %~dp0dashboard && bun run dev"
+echo [4/4] Dashboard Next.js - port 3000 (standalone build)
+start "SCP-Dashboard" cmd /k "cd /d %~dp0dashboard && bun run start"
 
 REM --- Wait for SCP boot ---
 echo.
@@ -107,11 +131,11 @@ echo ============================================================
 echo.
 echo   Dashboard:       http://localhost:3000
 echo   SCP /health:     http://127.0.0.1:8002/health
-echo   LLM Bridge:      http://127.0.0.1:11434/api/tags
+echo   Ollama:          http://127.0.0.1:11434/api/tags
 echo   Loop Scheduler:  http://127.0.0.1:3030/
 echo.
-echo   4 cua so dang chay:
-echo     - SCP-LLM-Bridge
+echo   3 cua so child dang chay + Ollama:
+echo     - Ollama (external)
 echo     - SCP-Loop-Scheduler
 echo     - SCP-Python
 echo     - SCP-Dashboard

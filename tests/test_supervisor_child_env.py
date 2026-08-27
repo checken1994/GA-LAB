@@ -39,6 +39,10 @@ def test_supervisor_rebuilds_stale_dashboard_before_starting_standalone_server()
     supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
     assert "$DashboardStandaloneServer = Join-Path $DashboardDir '.next\\standalone\\server.js'" in supervisor
     assert "$DashboardBuildId = Join-Path $DashboardDir '.next\\BUILD_ID'" in supervisor
+    assert "$DashboardNextCli = Join-Path $DashboardDir 'node_modules\\next\\dist\\bin\\next'" in supervisor
+    assert "function Ensure-DashboardDependencies" in supervisor
+    assert "'DASHBOARD_DEPENDENCY_INSTALL_FAILED'" in supervisor
+    assert "@('install', '--frozen-lockfile')" in supervisor
     assert "function Get-DashboardBuildState" in supervisor
     assert "'DASHBOARD_BUILD_REFRESHED'" in supervisor
     assert "'DASHBOARD_BUILD_FAILED'" in supervisor

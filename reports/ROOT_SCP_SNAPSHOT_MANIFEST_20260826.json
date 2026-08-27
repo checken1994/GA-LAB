@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T10:37:51.533541+00:00",
-  "captured_commit": "e9d0dd507bf5e00ec8820f6dcf2b2cc2486baa99",
-  "captured_parent": "99a7a15308bc44e89946af13b6f54e64ab76c22c",
-  "captured_tree": "c598ec4fb943d2cbe3d2a5ce890bb4f9645c2b67",
-  "tracked_count": 1350,
-  "inventory_sha256": "84c1b2d658b4278c541816614521c6d0ed339c4913ae9bfb63a9e1533650e3eb",
+  "generated_at_utc": "2026-08-27T10:54:31.582300+00:00",
+  "captured_commit": "a7a3a928c4b40d5d0036ea4b1aea6c0d6497600e",
+  "captured_parent": "cca8f98c78bdac46dee8edd56dbd3f7fb9405ac7",
+  "captured_tree": "cb65fde5c3514ff2478cc3c4dc55e32eeda3bfc8",
+  "tracked_count": 1351,
+  "inventory_sha256": "296e80449f34464941c8124a73e26582122b962c62746ec7f7ddbc986dbecc59",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -502,7 +502,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c6319042ecfd4aadae8f741720013a4011d6300c",
+      "blob": "06802eef5a9d8956e36678cfd621ae64ce3e3e1c",
       "path": "benchmark/ragas_results_v1.json"
     },
     {
@@ -6550,7 +6550,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e239c0d59347c8cc08a0952869abc72778ae4882",
+      "blob": "9641ea1f593ee192a17fb5137ab9602b3206113c",
       "path": "scripts/ops/scp_247_supervisor.ps1"
     },
     {
@@ -6700,7 +6700,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e166a28bd979d81a7c87d1bd8b850c8bf5dc438a",
+      "blob": "b0955eb7fe1edbe40380f79c738b15e43c62930d",
       "path": "start-scp.bat"
     },
     {
@@ -7666,13 +7666,19 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "4d54b4a61e79518a3df496032591bf19ebe2bc1e",
+      "path": "tests/test_startup_launcher_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "1554474564ea5bc466ff5cf668dabde71f600ffd",
       "path": "tests/test_subsystem_telemetry.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7a0aae22458b824d49c835215114dcee808e66df",
+      "blob": "4c2bcc83fa165bd6c78ce9bbc0e10dec1d1fbab2",
       "path": "tests/test_supervisor_child_env.py"
     },
     {
