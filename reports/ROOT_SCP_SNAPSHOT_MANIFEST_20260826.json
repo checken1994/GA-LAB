@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T10:24:10.460129+00:00",
-  "captured_commit": "97a4b661192829be11677d690b859427a7b404f0",
-  "captured_parent": "179f2463f0aa5ca72d2b147d79650cdaacc4746c",
-  "captured_tree": "b11db17403028fba54ee820f3179b36d2f8c7645",
-  "tracked_count": 1337,
-  "inventory_sha256": "855ae817daf040c1b57adf7a14d27881350cea18cd4a3ec790f40dfe574528a7",
+  "generated_at_utc": "2026-08-27T10:37:51.533541+00:00",
+  "captured_commit": "e9d0dd507bf5e00ec8820f6dcf2b2cc2486baa99",
+  "captured_parent": "99a7a15308bc44e89946af13b6f54e64ab76c22c",
+  "captured_tree": "c598ec4fb943d2cbe3d2a5ce890bb4f9645c2b67",
+  "tracked_count": 1350,
+  "inventory_sha256": "84c1b2d658b4278c541816614521c6d0ed339c4913ae9bfb63a9e1533650e3eb",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -88,6 +88,72 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "0fef1cee86d12c51492b42b7d2b6203ef7477dde",
+      "path": ".agents/skills/README.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f1f7965133189db7e9ce3dd7e2932d9eef617bb4",
+      "path": ".agents/skills/scp-capability-security-review/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2a3a4b862f50893fd0ac114952f6904ca458d3d1",
+      "path": ".agents/skills/scp-computer-use-recovery/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "73d3b684553d68d039ab60d015f1d2f3782df1a6",
+      "path": ".agents/skills/scp-dna/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c9b63ea319946275f7c12452194668f0a578d243",
+      "path": ".agents/skills/scp-dna/references/dna-principles.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "319851d28d7b54b6b886650b12dfba8760101f87",
+      "path": ".agents/skills/scp-reality-verifier/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "97567053f9b2756e92d3f218d4424a085435c449",
+      "path": ".agents/skills/scp-release-evidence-gate/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "20f158f3f82f311b903cf4d89d5a6a9b6ffae60c",
+      "path": ".agents/skills/scp-runtime-audit/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "643c7591c4ad521cb59bed9a399a984ef8f2e460",
+      "path": ".agents/skills/scp-safe-latency-optimizer/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3eed02505bd878dc5c7d34c8bfd5b37e17460938",
+      "path": ".agents/skills/scp-startup-troubleshooter/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7e0619a332f8cf24a3ec99ba585504e551d5c7e9",
+      "path": ".agents/skills/scp-task-kernel-review/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "b95d136002706db9e0163dc9f56ab3bf7eeb03fa",
       "path": ".dockerignore"
     },
@@ -112,6 +178,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "7a01d8c68b93fbd274bdc39acc3d965cc7d2e177",
+      "path": "AGENTS.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "50790159ecbfafd3c5da9ac73bd216adde8d1fd9",
       "path": "CONTRIBUTING.md"
     },
@@ -120,6 +192,12 @@
       "type": "blob",
       "blob": "212625d6ccad4d437b4140ad1a396c984200ccca",
       "path": "Dockerfile"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7a01d8c68b93fbd274bdc39acc3d965cc7d2e177",
+      "path": "GEMINI.md"
     },
     {
       "mode": "100644",
@@ -346,7 +424,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "59236e440ab145c4abb589ababa8e2b0b78f3813",
+      "blob": "92929465597f7ba3a534001b7144c2621a4dc72d",
       "path": "benchmark/ares_preconditions_v2.py"
     },
     {
@@ -424,7 +502,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "72bff7dcbd73b0606a701af8dd4eff0ece0dbc10",
+      "blob": "c6319042ecfd4aadae8f741720013a4011d6300c",
       "path": "benchmark/ragas_results_v1.json"
     },
     {
@@ -436,7 +514,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "753e2f9c65a810810cd7d9d7cca767e8ab50be3a",
+      "blob": "dbc46f8783308192334e75f7e93d51cad790eded",
       "path": "benchmark/run_benchmark_v2.py"
     },
     {
@@ -3940,7 +4018,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "1ff4442f5ca3f428753d46f67b49e96de6bc911f",
+      "blob": "a8e7a7ca9e85d17109aadd4203655f54bfe356cb",
       "path": "scp/benchmark/run_benchmark.py"
     },
     {
@@ -5860,7 +5938,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "cd1cd3ff2a74971825c0adf942e8c07f1f9d57ab",
+      "blob": "9cf19a01756b587bc941e64969c97e95f4eb412b",
       "path": "scp/security/escalation.py"
     },
     {
@@ -7534,7 +7612,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6f803a52b8434b5f8257c3820e2e7216f0dd464d",
+      "blob": "cf7e309dd9652b96dd24583d29d52562937fe53f",
       "path": "tests/test_regression_corpus_r44.py"
     },
     {
@@ -7648,7 +7726,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c203ab75984f1946e22305734fd42407b0d0a791",
+      "blob": "6aecb1cbf5e470188617aa33485b3c807d75c5ca",
       "path": "tests/v31_boundary_simulation.py"
     },
     {
@@ -7690,19 +7768,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5d7fffe6c22fdae70aaa21ee0e8f99409eea0071",
+      "blob": "ac66848fd4f62212d800557d2922c803c8c194d5",
       "path": "tools/audit_rag_standardization.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "fff86cbfd106d0efe581e2764116e00889a2a712",
+      "blob": "213e6f9b917d85dcc29f4c8a372442d8f44c05b8",
       "path": "tools/build_canonical_text_corpus_all_v2.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0e3fcc8fb67aeaa94e552ffc5fe94526465ec9a4",
+      "blob": "15a71cf1fd59a84fc96769f0c3635f44c5538824",
       "path": "tools/build_canonical_text_corpus_v1.py"
     },
     {
@@ -7726,13 +7804,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6d3ba7a8485a4d10f0cecf1816ae43f28d04211f",
+      "blob": "f6091607c022db0518dd6779f768c681d8319f5c",
       "path": "tools/build_real_rag_1000.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c280eb893f3d0c37590bd59a6e0a8027ab0507c0",
+      "blob": "a07551afbc3dbca16ba0c4558ea08de24c751a4e",
       "path": "tools/build_standard_rag_corpus.py"
     },
     {
@@ -7744,19 +7822,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "05bf68049c102177fe519ec5906650aee3eae91c",
+      "blob": "f4684d6f9400f7bd8bbb42b897a49a060262370c",
       "path": "tools/collect_canonical_candidates.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "17f15ecc1813d74faa3a5fb4159cac30018a08ce",
+      "blob": "749e789f5c9e529aadcd1066099c203ae4e26dca",
       "path": "tools/create_and_run_standard_batch.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0731608f2246e936b7010a03b5a74e499cb332d8",
+      "blob": "f27f00984b8b4edbcf18b538080f8f9eb1deac7b",
       "path": "tools/create_gold_review_queue_v1.py"
     },
     {
@@ -7768,25 +7846,25 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "13ddae045bf65af6d2c7ead79921a5a817479404",
+      "blob": "ebb727b7a2876ba18aee5a2a79ed8ce226ee85f3",
       "path": "tools/create_verified_seed_corpus_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5c8f5f87606a17fd693d36c48c958e478334c15e",
+      "blob": "b704d1e9d4f7a7c9b197c718298cca849494f3a1",
       "path": "tools/eval_retrieval_standard.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a35de637a5a79dfa972a4949805595b06bd15e5d",
+      "blob": "6a40e395d466f55d782a479290ed38ae880e3ee6",
       "path": "tools/fetch_canonical_sources_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "2b61d138cb585a4874281327297b51e60e937d52",
+      "blob": "bb35a4cdf813f17d57bbb104b4ae62ba8693cb36",
       "path": "tools/finalize_canonical_corpus_with_abstain.py"
     },
     {
@@ -7798,19 +7876,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b7f998619a6e50c38f1c7d15fcde38141771152e",
+      "blob": "df81a3b9c7145d47e8f0ca79bc4f7e8a9ee91249",
       "path": "tools/fix_judgecore_domain_signature.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d2af3115456d14c98d261ba7de2275e30e4557b5",
+      "blob": "388b0a4d631ebd984cb285d3c76e1a88fe4f2dcf",
       "path": "tools/fix_same_gt_sources.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7c00ef13df3147d8f52a47e15f236c58e5d92757",
+      "blob": "86c9372f011e12d5752f0dd9dfd32a6aeac581e6",
       "path": "tools/normalize_bing_redirects_v1.py"
     },
     {
@@ -7822,91 +7900,91 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c938b693002425b01050e40a0591b175af7563f4",
+      "blob": "7ef2317f3c26734f7b4a2198a82b903d54b7027d",
       "path": "tools/patch-ask-domain-dispatch-v2.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "03b3192a2d594c635196e25231a8e9df87c37f07",
+      "blob": "eef196686dd9451eb7e5b65cfe441d46410f9135",
       "path": "tools/patch-ask-domain-dispatch.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7bedd9d5aa47f62bdcdc6afc0e4a01ffd389beb4",
+      "blob": "f17da84331846c141ab00edc4096536be52c4f42",
       "path": "tools/patch_auto_canonical_retrieval_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a471a8b8e4d9d0d3087f3f22d41f4848595becd5",
+      "blob": "e00d1dc0740d6984a01eda88a97724f16f155193",
       "path": "tools/patch_batch_domain_field.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b9d0ed850804c68768ffb80b248a90e4a9bbfd7c",
+      "blob": "8cc3719dfff92a730e4a432a52961790265130d3",
       "path": "tools/patch_domain_async.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "db063849cc9d908cf58802103f3b1b984aaafe66",
+      "blob": "195caab0c07155017717d576ef59810031b63a86",
       "path": "tools/patch_explicit_domain_override.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7d8bda024b6724cd98a9237fdffc97aacb9222fe",
+      "blob": "bd554bceef48ca7c1d29718b6ccbaf676101ac02",
       "path": "tools/patch_explicit_domain_override_v2.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "23d80b4b5877abdf495f111233fb80eb0b0fd9b3",
+      "blob": "4f4fc54d093875bb70fb3163d4816e1b7705df5a",
       "path": "tools/patch_extractive_rag_header_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e85cd295de4b92f47900184bc13af5f4f6823954",
+      "blob": "76fe7c6130c296d8926ac838107f7b07e3687201",
       "path": "tools/patch_rag_fail_closed_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "66e1878f40b5c0cce740f537dc9d675b7d07d3be",
+      "blob": "98154449ed6a1c1dd23516d47413ef1a44a4b84e",
       "path": "tools/patch_rag_local_grounded_generation_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "609387e0c3fe9525f993934dcd9422a7bd99b0ee",
+      "blob": "d10a2852aa0aaa259efaaab4810654bd0afa4850",
       "path": "tools/patch_rag_prompt_neutral.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8637b4d7c9e4676558eb3a60b150bf241c645776",
+      "blob": "a77a4fe76f0a92fff175583bdbb2e85bed8a08ed",
       "path": "tools/patch_rag_top_context_only_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a8c653c9a6f2803c5d0142b93febff86a800166a",
+      "blob": "a91e1cacc406cb36adaf3fcc05d9524d119fb8e6",
       "path": "tools/patch_rag_worker.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "1c2072bc9322dcdc4b25011f16e28b0cd0fc3e51",
+      "blob": "05bb3b465eb1ee1662ffcebb358474f47af420a3",
       "path": "tools/patch_retriever_coverage_threshold_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5fd8b42ed9fb3842e3f7bad7d252362704b7bd88",
+      "blob": "b39d50869660df258e27faf95530ae88eaedf2a8",
       "path": "tools/patch_retriever_quality_v1.py"
     },
     {
@@ -7924,49 +8002,49 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e1097481fb5b98e2c88b992bd9b00be4a1d61b21",
+      "blob": "ac37ad41a76e9383bb8133b1716dfff7e4278c93",
       "path": "tools/probe_retrieval_coverage_v5.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "736aa4eaafe3ed796ace4da36b619ea0b35a120a",
+      "blob": "267b624e87b9e58f6d831b9b382743546c40dd4a",
       "path": "tools/probe_retriever_v3.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b291c04cf3cb9cab1281c8377e012026a2edb54e",
+      "blob": "82b22307db414e8bdac8a2a4bcd1ab853990f3a6",
       "path": "tools/probe_scp_gateway_status.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bee665d8727da18113293d17c8db82fa5624221f",
+      "blob": "4295640ddf8c3dc0ca6e4130e92c09a5343aee64",
       "path": "tools/rebuild_canonical_corpus.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9bac5904272b53248a8f0032f7350aedd1f3bb2c",
+      "blob": "146818e0f64035f5641c80b24bfe8a207399a1cd",
       "path": "tools/rebuild_canonical_corpus_ddg_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0dddd454920d5380b76824c1fa6579ce1045d9bb",
+      "blob": "9f65b90e9876b0c24d124fc7adf4e61e9a2b9e51",
       "path": "tools/refill_bing_real_rag.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e1ddacadf6626c21db6f0d066537f2f78c0f0c7b",
+      "blob": "ecf6c873ffaa15b1c92bfe421bf585f7b1b76678",
       "path": "tools/refill_missing_real_rag.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "943896a5b388c9058125c777c444edcf5abeb0b9",
+      "blob": "5e17ff47c25c34d782c1b49d45c534c5c1da20ce",
       "path": "tools/refine_independent_ground_truth.py"
     },
     {
@@ -7984,13 +8062,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a20ce38067eb95cab6c353b34f5b197273532a29",
+      "blob": "a2d07653084f812cfe85b802b325ef0e6611cbd0",
       "path": "tools/run_independent_gold_review_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "2a6a18ac307940ed22e2b84f15ffd68f6ae8e51f",
+      "blob": "09390860353f5956004e97a996f45ba1823ae3f7",
       "path": "tools/run_local_rag_answer_drafts_v1.py"
     },
     {
@@ -8044,13 +8122,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "71d6c156b96cf0ecd77c9a12711dbb2f8f244643",
+      "blob": "3d7ead7a0e70a2201711082ad0bbb285498abcdf",
       "path": "tools/score_source_relevance_candidates_v1.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c693814eb7a8acb35a9b4ba3655ec8714a2dffed",
+      "blob": "ead9f8c153bc80e286e7c192dcb390eecdb2a6f5",
       "path": "tools/score_source_relevance_candidates_v2.py"
     },
     {
@@ -8062,7 +8140,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "41cc6c7fe1dbe97e2e3c5d216f71ce2e4867595e",
+      "blob": "2e963d3de53932002b53d95bc0d12f8dd1f58203",
       "path": "tools/strict_rag_evaluator.py"
     },
     {
@@ -8086,13 +8164,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "404320a4e940799feca2b2ac604c663ba11db0d5",
+      "blob": "d99e143c0f17132ce42f80470b44250b9cb4cbfe",
       "path": "tools/validate_rag_corpus_standard.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "199be0a90038e5f5e87a64de2953e109496e6a09",
+      "blob": "1a8a148f00c156842c064726f81e995f64d7647e",
       "path": "tools/validate_rag_input_gold_v1.py"
     },
     {
