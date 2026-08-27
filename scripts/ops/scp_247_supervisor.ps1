@@ -237,6 +237,9 @@ try {
     $bun = Resolve-Executable 'bun'
     $python = Join-Path $Root 'scp\venv\Scripts\python.exe'
     if (-not (Test-Path $python)) { throw "Python venv missing: $python" }
+    $DashboardDir = Join-Path $Root 'dashboard'
+    $DashboardStandaloneServer = Join-Path $DashboardDir '.next\standalone\server.js'
+    $DashboardBuildId = Join-Path $DashboardDir '.next\BUILD_ID'
 
     # Ollama is an external, pre-existing dependency on 127.0.0.1:11434.
     # It is deliberately NOT a child service: Supervisor must never try to
@@ -264,6 +267,73 @@ try {
         } catch {
             return $false
         }
+    }
+
+    function Get-DashboardBuildState {
+        $sourceFiles = @()
+        foreach ($path in @(
+            (Join-Path $DashboardDir 'package.json'),
+            (Join-Path $DashboardDir 'next.config.ts'),
+            (Join-Path $DashboardDir 'next.config.mjs'),
+            (Join-Path $DashboardDir 'tsconfig.json'),
+            (Join-Path $DashboardDir 'postcss.config.mjs')
+        )) {
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+                $sourceFiles += Get-Item -LiteralPath $path
+            }
+        }
+        $sourceFiles += @(Get-ChildItem -LiteralPath (Join-Path $DashboardDir 'src') -Recurse -File -Force -ErrorAction SilentlyContinue)
+        $sourceFiles += @(Get-ChildItem -LiteralPath (Join-Path $DashboardDir 'public') -Recurse -File -Force -ErrorAction SilentlyContinue)
+        $artifacts = @()
+        foreach ($path in @($DashboardStandaloneServer, $DashboardBuildId)) {
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+                $artifacts += Get-Item -LiteralPath $path
+            }
+        }
+        if ($sourceFiles.Count -eq 0 -or $artifacts.Count -lt 2) {
+            return [pscustomobject]@{ Fresh = $false; SourceUtc = ''; ArtifactUtc = ''; Reason = 'build_or_source_missing' }
+        }
+        $latestSource = $sourceFiles | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+        $oldestArtifact = $artifacts | Sort-Object LastWriteTimeUtc | Select-Object -First 1
+        $fresh = $oldestArtifact.LastWriteTimeUtc -ge $latestSource.LastWriteTimeUtc
+        return [pscustomobject]@{
+            Fresh = [bool]$fresh
+            SourceUtc = $latestSource.LastWriteTimeUtc.ToString('o')
+            ArtifactUtc = $oldestArtifact.LastWriteTimeUtc.ToString('o')
+            Reason = if ($fresh) { 'build_covers_current_dashboard_sources' } else { 'build_older_than_dashboard_sources' }
+        }
+    }
+
+    function Ensure-DashboardBuild {
+        $state = Get-DashboardBuildState
+        if ($state.Fresh) {
+            Write-Ledger -Event 'DASHBOARD_BUILD_FRESH' -Service 'dashboard' -Reason $state.Reason -Extra @{ source_utc = $state.SourceUtc; artifact_utc = $state.ArtifactUtc }
+            return $true
+        }
+        if (Test-PortInUse 3000) {
+            Write-Ledger -Event 'DASHBOARD_BUILD_REFRESH_BLOCKED' -Service 'dashboard' -Reason 'stale_or_missing_build_but_port_3000_occupied'
+            return $false
+        }
+        $logRunId = "$(Get-Date -AsUTC -Format 'yyyyMMddTHHmmssfffffffZ').$([Guid]::NewGuid().ToString('N').Substring(0, 12))"
+        $stdout = Join-Path $LogDir "dashboard-build.$logRunId.out.log"
+        $stderr = Join-Path $LogDir "dashboard-build.$logRunId.err.log"
+        try {
+            $build = Start-Process -FilePath $bun -ArgumentList @('run', 'build') -WorkingDirectory $DashboardDir -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -Wait
+            if ($build.ExitCode -ne 0) {
+                Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason 'bun_build_nonzero' -Extra @{ exit_code = $build.ExitCode }
+                return $false
+            }
+        } catch {
+            Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason $_.Exception.GetType().Name
+            return $false
+        }
+        $state = Get-DashboardBuildState
+        if (-not $state.Fresh) {
+            Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason 'build_artifact_still_stale_or_missing'
+            return $false
+        }
+        Write-Ledger -Event 'DASHBOARD_BUILD_REFRESHED' -Service 'dashboard' -Reason $state.Reason -Extra @{ source_utc = $state.SourceUtc; artifact_utc = $state.ArtifactUtc }
+        return $true
     }
 
     function Start-ExternalOllamaIfNeeded {
@@ -311,6 +381,8 @@ try {
         $stderr = Join-Path $LogDir "$($Service.Name).$logRunId.err.log"
         $oldLoopLog = $env:LOOP_LOG_PATH
         $oldScpBaseUrl = $env:SCP_BASE_URL
+        $oldScpInternalUrl = $env:SCP_INTERNAL_URL
+        $oldLoopSchedulerUrl = $env:LOOP_SCHEDULER_URL
         # LLM_BRIDGE_URL remains a compatibility alias for older callers; the
         # actual provider contract below is Ollama-only.
         $oldLlmBridgeUrl = $env:LLM_BRIDGE_URL
@@ -341,6 +413,11 @@ try {
             if ($Service.Name -in @('loop-scheduler','scp-python','autofix-worker','dashboard')) {
                 $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
                 $env:SCP_BASE_URL = 'http://127.0.0.1:8002'
+                # Dashboard proxy contract is explicit rather than relying on
+                # a stale build's localhost fallback. This keeps the running
+                # process aligned with the supervisor's service map.
+                $env:SCP_INTERNAL_URL = 'http://127.0.0.1:8002'
+                $env:LOOP_SCHEDULER_URL = 'http://127.0.0.1:3030'
                 # Use the real local Ollama service. Do not route through or
                 # start a Bun llm-bridge process.
                 $env:OLLAMA_HOST = $OllamaBaseUrl
@@ -398,6 +475,8 @@ try {
         } finally {
             $env:LOOP_LOG_PATH = $oldLoopLog
             $env:SCP_BASE_URL = $oldScpBaseUrl
+            if ($null -eq $oldScpInternalUrl) { Remove-Item Env:SCP_INTERNAL_URL -ErrorAction SilentlyContinue } else { $env:SCP_INTERNAL_URL = $oldScpInternalUrl }
+            if ($null -eq $oldLoopSchedulerUrl) { Remove-Item Env:LOOP_SCHEDULER_URL -ErrorAction SilentlyContinue } else { $env:LOOP_SCHEDULER_URL = $oldLoopSchedulerUrl }
             $env:LLM_BRIDGE_URL = $oldLlmBridgeUrl
             if ($null -eq $oldOllamaHost) { Remove-Item Env:OLLAMA_HOST -ErrorAction SilentlyContinue } else { $env:OLLAMA_HOST = $oldOllamaHost }
             if ($null -eq $oldOllamaEnabled) { Remove-Item Env:OLLAMA_ENABLED -ErrorAction SilentlyContinue } else { $env:OLLAMA_ENABLED = $oldOllamaEnabled }
@@ -461,6 +540,10 @@ try {
         Write-Ledger -Event 'KILL_SWITCH_PRESENT' -Reason 'startup_abort'
         exit 20
     }
+    if (-not (Ensure-DashboardBuild)) {
+        Write-Ledger -Event 'SUPERVISOR_ABORTED' -Service 'dashboard' -Reason 'dashboard_build_not_current_or_refresh_blocked'
+        exit 22
+    }
 
     $restartHistory = @{}
     $ollamaRestartHistory = @()
@@ -507,13 +590,21 @@ try {
             } elseif ($DryRun) {
                 $processAlive = $true
             }
-            $healthy = $processAlive -and (Test-HttpHealthy $service.Url)
+            $buildFresh = $true
+            if ($service.Name -eq 'dashboard') {
+                $dashboardBuildState = Get-DashboardBuildState
+                $buildFresh = $dashboardBuildState.Fresh
+                if (-not $buildFresh) {
+                    Write-Ledger -Event 'DASHBOARD_BUILD_STALE' -Service 'dashboard' -Reason $dashboardBuildState.Reason -Extra @{ source_utc = $dashboardBuildState.SourceUtc; artifact_utc = $dashboardBuildState.ArtifactUtc }
+                }
+            }
+            $healthy = $processAlive -and (Test-HttpHealthy $service.Url) -and $buildFresh
             # A listener can pre-date this Supervisor (for example after an
             # interrupted task restart). It cannot be safely adopted into this
             # Job Object, but a healthy listener must not consume restart budget
             # every interval. Distinguish it in the ledger and start a contained
             # child only after the listener actually disappears.
-            $unmanagedHealthy = ($null -eq $entry) -and ($service.Port -gt 0) -and (Test-HttpHealthy $service.Url)
+            $unmanagedHealthy = ($null -eq $entry) -and ($service.Port -gt 0) -and $buildFresh -and (Test-HttpHealthy $service.Url)
             if ($unmanagedHealthy) {
                 Write-Ledger -Event 'UNMANAGED_HEALTHY' -Service $service.Name -Reason 'healthy_listener_not_owned_by_supervisor'
                 continue
@@ -532,10 +623,15 @@ try {
                 Write-Ledger -Event 'CIRCUIT_OPEN' -Service $service.Name -Reason 'restart_budget_exhausted' -Extra @{ restart_count = $restartHistory[$service.Name].Count }
                 continue
             }
-            Stop-ScpService $entry 'health_failure'
+            $failureReason = if ($service.Name -eq 'dashboard' -and -not $buildFresh) { 'stale_dashboard_build' } else { 'health_failure' }
+            Stop-ScpService $entry $failureReason
             $restartHistory[$service.Name] += $now
+            if ($service.Name -eq 'dashboard' -and -not (Ensure-DashboardBuild)) {
+                Write-Ledger -Event 'RESTART_BLOCKED' -Service 'dashboard' -Reason 'dashboard_build_refresh_not_completed' -Extra @{ restart_count = $restartHistory[$service.Name].Count }
+                continue
+            }
             $runtime[$service.Name] = Start-ScpService $service
-            Write-Ledger -Event 'RESTART' -Service $service.Name -Reason 'health_failure' -Extra @{ restart_count = $restartHistory[$service.Name].Count }
+            Write-Ledger -Event 'RESTART' -Service $service.Name -Reason $failureReason -Extra @{ restart_count = $restartHistory[$service.Name].Count }
         }
     } while (-not $Once)
 

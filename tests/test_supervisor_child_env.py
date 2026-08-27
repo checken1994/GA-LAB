@@ -32,3 +32,25 @@ def test_supervisor_recovers_external_ollama_with_budget():
     assert "'OLLAMA_RECOVERED'" in supervisor
     assert "'OLLAMA_RECOVERY_FAILED'" in supervisor
     assert "'external_dependency_restart_budget_exhausted'" in supervisor
+
+
+def test_supervisor_rebuilds_stale_dashboard_before_starting_standalone_server():
+    root = Path(__file__).resolve().parents[1]
+    supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
+    assert "$DashboardStandaloneServer = Join-Path $DashboardDir '.next\\standalone\\server.js'" in supervisor
+    assert "$DashboardBuildId = Join-Path $DashboardDir '.next\\BUILD_ID'" in supervisor
+    assert "function Get-DashboardBuildState" in supervisor
+    assert "'DASHBOARD_BUILD_REFRESHED'" in supervisor
+    assert "'DASHBOARD_BUILD_FAILED'" in supervisor
+    assert "'DASHBOARD_BUILD_REFRESH_BLOCKED'" in supervisor
+    assert "@('run', 'build')" in supervisor
+    assert "-and $buildFresh -and (Test-HttpHealthy $service.Url)" in supervisor
+
+
+def test_supervisor_sets_dashboard_proxy_contract_explicitly():
+    root = Path(__file__).resolve().parents[1]
+    supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
+    assert "$env:SCP_INTERNAL_URL = 'http://127.0.0.1:8002'" in supervisor
+    assert "$env:LOOP_SCHEDULER_URL = 'http://127.0.0.1:3030'" in supervisor
+    assert "$oldScpInternalUrl = $env:SCP_INTERNAL_URL" in supervisor
+    assert "$oldLoopSchedulerUrl = $env:LOOP_SCHEDULER_URL" in supervisor
