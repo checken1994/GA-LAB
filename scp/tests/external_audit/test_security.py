@@ -296,3 +296,83 @@ async def test_webhook_handlers_pass_request_to_canonical_admin_auth(monkeypatch
     assert [token for token, _request in captured] == ["test-token"] * 5  # noqa: S101
     assert all(received_request is request for _token, received_request in captured)  # noqa: S101
     webhook._registered_systems.pop("test-system", None)
+
+
+@pytest.mark.asyncio
+async def test_webnavigator_revalidates_private_redirect_before_second_request(monkeypatch):
+    """A public 302 to a private host must stop before another HTTP request."""
+    from scp.web_control import web_navigator
+
+    public_url = "https://public.example.test/start"
+    private_url = "http://127.0.0.1:8002/internal"
+    requested_urls: list[str] = []
+
+    def fake_validate(url: str) -> str:
+        if url == private_url:
+            raise ValueError("internal/private target rejected")
+        return url
+
+    class FakeResponse:
+        status_code = 302
+        headers = {"location": private_url}
+        url = public_url
+        encoding = "utf-8"
+
+        def raise_for_status(self):
+            return None
+
+    class FakeStream:
+        async def __aenter__(self):
+            return FakeResponse()
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+        def stream(self, method: str, url: str):
+            assert method == "GET"  # noqa: S101
+            requested_urls.append(url)
+            return FakeStream()
+
+    monkeypatch.setattr(web_navigator.BrowserSession, "validate_url", staticmethod(fake_validate))
+    monkeypatch.setattr(web_navigator.httpx, "AsyncClient", FakeClient)
+
+    navigator = web_navigator.WebNavigator()
+    with pytest.raises(ValueError, match="internal/private"):
+        await navigator.browse_public(public_url)
+
+    assert requested_urls == [public_url]  # noqa: S101
+
+
+def test_detail_routes_share_producer_data_path_constants():
+    """Detail routes must read the same SCP_DATA_DIR-derived files as producers."""
+    from scp.api.routes.audit_routes import AUDIT_DB as route_audit_db
+    from scp.core.ai_threat_scanner import THREATS_DB as producer_threats_db
+    from scp.core.audit_fetcher import AUDIT_DB as producer_audit_db
+    from scp.core.harm_detector import HARM_DB as producer_harm_db
+
+    threat_route_src = (ROUTES_DIR / "threat_routes.py").read_text(encoding="utf-8")
+    assert route_audit_db == producer_audit_db  # noqa: S101
+    assert "from scp.core.ai_threat_scanner import THREATS_DB" in threat_route_src  # noqa: S101
+    assert "from scp.core.harm_detector import HARM_DB" in threat_route_src  # noqa: S101
+    assert str(producer_threats_db).endswith("ai_threats.jsonl")  # noqa: S101
+    assert str(producer_harm_db).endswith("ai_harm_incidents.jsonl")  # noqa: S101
+
+
+def test_active_lifespan_does_not_autostart_ungated_external_producers():
+    """Direct-request producers stay opt-in until a shared egress gate exists."""
+    src = API_SERVER.read_text(encoding="utf-8")
+    lifespan_start = src.index("async def lifespan")
+    app_marker = src.index("# FastAPI app", lifespan_start)
+    lifespan_src = src[lifespan_start:app_marker]
+    for start_call in ("start_audit_fetcher", "start_scanner", "start_detector"):
+        assert start_call not in lifespan_src  # noqa: S101

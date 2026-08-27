@@ -658,29 +658,6 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("[AUTO] Attack mode monitor failed to start: %s", exc)
 
-    # [WIRING-FIX] Start file-backed audit/threat/harm producers in the
-    # lifespan that FastAPI actually uses. The extracted `_lifespan.py` had
-    # these calls, but this app is bound to this function above. Keep handles
-    # so shutdown is explicit and each producer can be inspected independently.
-    _data_services_started: list[tuple[str, object]] = []
-    for _service_name in ("audit_fetcher", "ai_threat_scanner", "harm_detector"):
-        try:
-            if _service_name == "audit_fetcher":
-                from scp.core.audit_fetcher import start_audit_fetcher, stop_audit_fetcher
-                _start_fn, _stop_fn = start_audit_fetcher, stop_audit_fetcher
-            elif _service_name == "ai_threat_scanner":
-                from scp.core.ai_threat_scanner import start_scanner, stop_scanner
-                _start_fn, _stop_fn = start_scanner, stop_scanner
-            else:
-                from scp.core.harm_detector import start_detector, stop_detector
-                _start_fn, _stop_fn = start_detector, stop_detector
-            _start_fn()
-            _data_services_started.append((_service_name, _stop_fn))
-            logger.info("[WIRING-FIX] %s started in active api_server lifespan", _service_name)
-        except Exception as _service_err:
-            logger.warning("[WIRING-FIX] %s unavailable or failed to start: %s", _service_name, _service_err)
-    app.state.data_services_started = [name for name, _ in _data_services_started]
-
     yield
 
     # ============================================================
@@ -714,13 +691,6 @@ async def lifespan(app: FastAPI):
     logger.info(f"[STARTUP] WHY LLM + Evolution AUTO restored (why={_orig_why_llm}, evo={_orig_evo_auto})")
 
     # [R20-ROOT-FIX-REAL] Old yield was HERE (line 464) Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â moved to line 326 above.
-
-    for _service_name, _stop_fn in reversed(_data_services_started):
-        try:
-            _stop_fn()
-            logger.info("[WIRING-FIX] %s stopped during api_server shutdown", _service_name)
-        except Exception as _service_err:
-            logger.warning("[WIRING-FIX] %s shutdown failed: %s", _service_name, _service_err)
 
     for _stop_event in (getattr(app.state, "deep_audit_stop", None), getattr(app.state, "attack_monitor_stop", None)):
         if _stop_event is not None:
