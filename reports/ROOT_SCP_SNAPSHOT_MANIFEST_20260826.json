@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T09:40:44.210368+00:00",
-  "captured_commit": "19e1c07069e6bcb0b50f3db11690023a779fca29",
-  "captured_parent": "dc69085694e38522bbb27dc7669a698dacdfff98",
-  "captured_tree": "2c8a649028e3708d4cbc4ec466adb53d6fdbc685",
+  "generated_at_utc": "2026-08-27T09:48:27.805220+00:00",
+  "captured_commit": "bbb0f88879b21d18a1bab841dfe1d2565c1c3b6a",
+  "captured_parent": "78abaf70292507e1fc8ebf6b8b44a1e843139141",
+  "captured_tree": "4a21da4d4f8ea9f55e700ac42adce7fb651956c9",
   "tracked_count": 1337,
-  "inventory_sha256": "96aa8c1b5c5409422e3b1538c11d7f3043cc03202ff8f2a8c179edc5f19da10a",
+  "inventory_sha256": "d75e1b8df5dc979df7c67150f5b3caf66eaae40361180fd0b8c131027fb3d1e2",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -7276,7 +7276,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "cee871a48aa44730096b3f52289a782ac94b2048",
+      "blob": "4497c12322bdfc4f65e7616f8915223554a1205b",
       "path": "tests/test_autofix_engine_integration_contract.py"
     },
     {
