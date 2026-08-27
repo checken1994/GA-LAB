@@ -3,8 +3,7 @@
 Route modules import from here instead of api_server.py.
 """
 import logging
-import time
-from typing import Any, Optional
+from typing import Any
 
 # [G5-FIX] Header import at module level — verify_admin uses it in signature
 try:
@@ -40,9 +39,16 @@ from scp.security.auth import (  # noqa: E402,F401  (re-exported for backward-co
 
 
 def get_judge():
-    """Get RealityJudge singleton."""
-    from scp.runtime.judge import RealityJudge
-    return RealityJudge()
+    """Return the canonical process-local RealityJudge singleton.
+
+    Route modules import this compatibility helper, while the main API owns
+    the double-checked-locking singleton in ``api_server_parts.helpers``.
+    Delegating keeps every route on the same judge instance and avoids
+    reinitializing the full SLM/security stack per request.
+    """
+    from scp.api_server_parts.helpers import get_judge as _get_canonical_judge
+
+    return _get_canonical_judge()
 
 
 def _extract_v98_context(request) -> dict[str, Any]:

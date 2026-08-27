@@ -213,3 +213,34 @@ def test_bandit_no_new_high_severity_via_bandit():
         "RC-10 regression: new HIGH-severity bandit issues appeared:\n  "
         + "\n  ".join(f"{tid} in {fn}" for tid, fn in new_categories)
     )
+
+
+
+def test_pc_read_only_allowlist_rejects_command_chains():
+    """A read-only prefix must not permit a second shell command."""
+    from scp.pc_control.pc_controller import PCController
+
+    controller = PCController()
+    for command in (
+        "whoami; Start-Process calc",
+        "whoami ; Start-Process calc",
+        "whoami && Start-Process calc",
+        "whoami | Out-File probe.txt",
+        "whoami $(Start-Process calc)",
+    ):
+        decision = controller.evaluate(command, capability_level=0)
+        assert decision.allowed is False, command  # noqa: S101
+        assert "chain" in decision.reason.lower(), decision  # noqa: S101
+
+
+def test_browser_validator_rejects_private_network_targets():
+    """Public browsing must share the canonical private-IP SSRF policy."""
+    from scp.web_control.browser_session import BrowserSession
+
+    for url in (
+        "http://127.0.0.1:9222/json/list",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://[::1]/",
+    ):
+        with pytest.raises(ValueError, match="internal/private"):
+            BrowserSession.validate_url(url)

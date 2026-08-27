@@ -2857,9 +2857,16 @@ class JudgeCoreMixin:
         import re as _re
         try:
             _ans_str = str(answer or "").strip()
-            # Extract numeric value from answer (handles "42", "= 42", "The answer is 42.0")
-            _num_match = _re.search(r"-?\d+(?:\.\d+)?", _ans_str)
-            _ans_num = float(_num_match.group()) if _num_match else None
+            # Extract the RESULT, not the first operand. MathSLM formats
+            # answers as "2+2 = 4"; taking the first number would read 2 and
+            # falsely fail the independent reality check. Prefer the number
+            # immediately after '=' and fall back to the last numeric token.
+            _result_match = _re.search(r"=\s*(-?\d+(?:\.\d+)?)", _ans_str)
+            if _result_match:
+                _ans_num = float(_result_match.group(1))
+            else:
+                _numbers = _re.findall(r"-?\d+(?:\.\d+)?", _ans_str)
+                _ans_num = float(_numbers[-1]) if _numbers else None
 
             if "MathSLM" in slm_name:
                 # Extract math expression from question and re-evaluate

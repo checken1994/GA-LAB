@@ -164,3 +164,18 @@ def test_judge_unknown_question_returns_verdict(judge):
     assert result.verdict in ("FAIL", "UNKNOWN"), (  # noqa: S101
         f"unknown question verdict={result.verdict!r}"
     )
+
+
+
+def test_deterministic_reality_checker_reads_result_not_first_operand(judge):
+    """The checker must compare 4, not the first operand 2, in `2+2 = 4`."""
+    primary = {"evidence": {"value": 4, "source": "PythonAST"}}
+    ok, message = judge._reality_check_deterministic(
+        "MathSLM", "What is 2+2?", "2+2 = 4", primary
+    )
+    assert ok is True, message  # noqa: S101
+
+    wrong_ok, wrong_message = judge._reality_check_deterministic(
+        "MathSLM", "What is 2+2?", "2+2 = 5", primary
+    )
+    assert wrong_ok is False, wrong_message  # noqa: S101

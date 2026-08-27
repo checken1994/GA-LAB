@@ -13,14 +13,13 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 
 from fastapi import APIRouter, Depends
 
 from scp.api._shared import verify_admin
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
 logger = logging.getLogger("scp.api.threats")
-from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
 _THREAT_ROUTES_LEDGER = RequestRunLedger()
 
@@ -35,7 +34,8 @@ async def ai_threat_stats():
 @router.get("/ai-scan/findings", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
 @traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="ai_threat_findings")
 async def ai_threat_findings(limit: int = 20, source: str = ""):
-    db = Path("data/ai_threats.jsonl")
+    from scp.core.ai_threat_scanner import THREATS_DB
+    db = THREATS_DB
     if not db.exists(): return {"findings": [], "total": 0}
     findings = []
     with open(db, encoding="utf-8") as f:
@@ -57,7 +57,8 @@ async def harm_stats():
 @router.get("/harm/incidents", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
 @traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="harm_incidents")
 async def harm_incidents(limit: int = 20, harm_type: str = ""):
-    db = Path("data/ai_harm_incidents.jsonl")
+    from scp.core.harm_detector import HARM_DB
+    db = HARM_DB
     if not db.exists(): return {"incidents": [], "total": 0}
     incidents = []
     with open(db, encoding="utf-8") as f:

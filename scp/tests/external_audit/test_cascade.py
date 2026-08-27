@@ -6,7 +6,7 @@ from SCP's own autofix scanners.
 These tests are deliberately minimal and self-contained. They check INVARIANTS
 that must hold after every fix:
   1. RC-1: ruff --select F821,E722 → 0 errors (no undefined names, no bare except)
-  2. RC-2: no hardcoded token, no DEV_MODE bypass, evolution default ON
+  2. RC-2: no hardcoded token, no DEV_MODE bypass, evolution default OFF
   3. Cascade: every .py file still parses (no syntax errors introduced by fixes)
 
 If any of these tests fail, the corresponding RC fix has regressed — revert
@@ -143,20 +143,19 @@ def test_no_dev_mode_bypass_via_grep():
     )
 
 
-def test_evolution_enabled_default_via_grep():
-    """RC-2: SCP_EVOLUTION_ENABLED default must be "1" (ON), not "0".
+def test_evolution_requires_explicit_opt_in_via_grep():
+    """RC-2: evolution must be OFF unless explicitly enabled.
 
-    V105 defaulted SCP_EVOLUTION_ENABLED=0 in 4 sites:
-      - autofix/evolution.py:157, 2101
-      - autofix/llm_fix.py:449
-      - autofix/engine.py:388
-    Defaulting it OFF silently disabled DNA #8 (learning + accumulation).
-    RC-2 flipped all 4 defaults to "1".
+    Evolution can write or promote self-generated changes, so the safe contract
+    is deny-by-default: a missing flag must not silently enable it. Production
+    child-safe configuration also sets SCP_EVOLUTION_ENABLED=0 explicitly.
+    This test guards against the opposite regression: a future source change
+    that makes the default implicitly ON.
     """
-    # Find any os.environ.get("SCP_EVOLUTION_ENABLED", "0") still present
+    # Find any environment lookup that implicitly enables evolution.
     result = safe_run(
         ["grep", "-rn", "--include=*.py",
-         'SCP_EVOLUTION_ENABLED", "0"', str(SCP_ROOT)],
+         'SCP_EVOLUTION_ENABLED", "1"', str(SCP_ROOT)],
     )
     found_lines = [
         line for line in result.stdout.splitlines()
@@ -164,7 +163,7 @@ def test_evolution_enabled_default_via_grep():
         and "/tests/external_audit/" not in line  # skip our own test files
     ]
     assert not found_lines, (  # noqa: S101
-        "SCP_EVOLUTION_ENABLED still defaults to 0 somewhere (RC-2 regression):\n"
+        "SCP_EVOLUTION_ENABLED implicitly defaults to 1 somewhere (RC-2 regression):\n"
         + "\n".join(found_lines)
     )
 

@@ -1,20 +1,18 @@
 """
 SCP V105 â€” Streaming /ask endpoint (real-time response)
 
-DEAD ROUTE â€” not registered in api_server.py. This router is defined but
-NOT wired (no `app.include_router(stream_router)` call). The 1 route
-below (`POST /v105/ask/stream`) is unreachable at runtime â€” calling it
-through the gateway returns 404.
+LIVE ROUTE â€” registered by api_server.py. This router is live and
+already wired by the app. The route
+below (`POST /v105/ask/stream`) is reachable at runtime â€” calling it
+through the gateway returns a streamed response.
 
-This is INTENTIONAL (per Subagent A SA-R9-6 + Subagent G GATEWAY.md +
-Subagent J Task 14.B). The router is retained as WIP for future rounds
-that may want to wire it. See `scp/api/routes/README.md` for the full
-list of dead routers + how to activate them.
+The older WIP/dead-route note is historical and no longer describes the
+current app wiring. See `scp/api/routes/README.md` only for route inventory.
 
-[COMPLETION-FIX] ThĂªm streaming response cho /ask:
+[LIVE-FIX] Streaming response cho /ask:
 - POST /v105/ask/stream â€” streaming verdict (real-time)
 
-To activate:
+Registration is already active:
     # In scp/api_server.py (around line 540, where other v105 routers are
     # registered):
     from scp.api.routes.stream_routes import router as stream_router
@@ -22,6 +20,7 @@ To activate:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -71,7 +70,12 @@ async def ask_stream(req: StreamAskRequest):
             # Step 3: Judge (full pipeline)
             yield f"data: {json.dumps({'step': 'judge', 'status': 'running', 'ts': time.time()})}\n\n"
 
-            verdict = judge.judge(req.question, req.ai_answer, cycle_count=0)
+            # The judge pipeline is synchronous and can perform CPU/network
+            # work. Run it off the event loop so SSE heartbeats and other
+            # requests remain responsive while the verdict is computed.
+            verdict = await asyncio.to_thread(
+                judge.judge, req.question, req.ai_answer, cycle_count=0
+            )
 
             yield f"data: {json.dumps({'step': 'judge', 'status': 'done', 'verdict': verdict.verdict, 'confidence': verdict.confidence, 'domain': verdict.domain, 'reasoning': verdict.reasoning[:200] if verdict.reasoning else ''})}\n\n"
 

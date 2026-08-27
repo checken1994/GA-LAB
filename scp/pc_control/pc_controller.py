@@ -151,6 +151,12 @@ class PCController:
             return PolicyDecision(False, "Empty command", "low", False, capability_level)
         if self.kill_switch_engaged():
             return PolicyDecision(False, "Kill switch is engaged", "critical", False, capability_level)
+        # A read-only prefix must describe the whole command. Reject shell
+        # separators/substitution before applying the prefix allowlist so a
+        # payload such as `whoami ; Start-Process ...` cannot smuggle a second
+        # command through the read-only regex.
+        if re.search(r"(?:;|&&|\|\||\||`|\$\(|\$\{)", command):
+            return PolicyDecision(False, "Command chaining is not allowed", "critical", False, capability_level)
         try:
             level = CapabilityLevel(max(0, min(5, int(capability_level))))
         except (TypeError, ValueError):

@@ -12,14 +12,16 @@ the dashboard route table marks them `wired: true`.
 """
 from __future__ import annotations
 
+import json
 import logging
 
 from fastapi import APIRouter, Depends
 
 from scp.api._shared import verify_admin
+from scp.core.audit_fetcher import AUDIT_DB
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
 logger = logging.getLogger("scp.api.audit")
-from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
 _AUDIT_ROUTES_LEDGER = RequestRunLedger()
 
@@ -36,9 +38,7 @@ async def audit_stats():
 @traced_request(_AUDIT_ROUTES_LEDGER, require_write=False, action="audit_findings")
 async def audit_findings(limit: int = 20, source: str = ""):
     """Get recent audit findings."""
-    import json
-    from pathlib import Path
-    db = Path("data/audit_findings.jsonl")
+    db = AUDIT_DB
     if not db.exists():
         return {"findings": [], "total": 0}
     findings = []

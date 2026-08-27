@@ -16,6 +16,8 @@ from urllib.parse import urlparse
 import httpx
 import websockets
 
+from scp.security.url_safety import validate_url as validate_safe_url
+
 
 class BrowserSession:
     def __init__(self, port: int | None = None) -> None:
@@ -43,12 +45,16 @@ class BrowserSession:
 
     @staticmethod
     def validate_url(url: str) -> str:
-        parsed = urlparse(url.strip())
+        clean_url = url.strip() if isinstance(url, str) else ""
+        parsed = urlparse(clean_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError("Only public http/https URLs are allowed")
         if parsed.username or parsed.password:
             raise ValueError("URLs containing credentials are not allowed")
-        return url.strip()
+        # Use the canonical SSRF policy, including literal/resolved private,
+        # loopback, link-local, multicast and reserved IP rejection.
+        validate_safe_url(clean_url)
+        return clean_url
 
     async def evaluate(self, expression: str, target: dict[str, Any] | None = None) -> Any:
         targets = await self.targets()
