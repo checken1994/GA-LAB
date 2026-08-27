@@ -610,7 +610,6 @@ class AutoFixEngine:
             # the other checks alone.
             try:
                 from scp.autofix.property_validator import (
-                    INT_OR_NONE_STRATEGY as _v4_int_strat,
                     MIXED_STRATEGY as _v4_mixed_strat,
                     PropertySpec as _V4_PropertySpec,
                     validate_fix as _v4_property_validate,
