@@ -3,7 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import requests
 from bs4 import BeautifulSoup
-ROOT=Path(r"C:\Users\check\Downloads\scp");P=ROOT/'benchmark'/'questions_1000_real_rag_20260817.jsonl';UA='SCP-Real-RAG-Benchmark/1.0 (Bing fallback)'
+ROOT=Path(__file__).resolve().parents[1];P=ROOT/'benchmark'/'questions_1000_real_rag_20260817.jsonl';UA='SCP-Real-RAG-Benchmark/1.0 (Bing fallback)'
 
 def qclean(q):
  q=re.sub(r'\(Mã\s*CH-\d+\)','',q,flags=re.I);q=q.replace('\n',' ');q=re.sub(r'\s+',' ',q);q=re.sub(r'\b(mới nhất|hiện nay|năm nay)\b','',q,flags=re.I);q=re.sub(r'^(Thông tin|Tra cứu thông tin|Hướng dẫn|Phân tích|Cách|Các|Một số)\s*[:：]?\s*','',q,flags=re.I);return q.strip(' ?')

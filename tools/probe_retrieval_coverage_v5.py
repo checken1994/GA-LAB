@@ -1,7 +1,7 @@
 import sys,json,collections
-sys.path.insert(0,r'C:\Users\check\Downloads\scp')
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scp.rag.canonical_retriever import CanonicalRetriever
-root=r'C:\Users\check\Downloads\scp';src=root+r'\data\benchmark_batches\cc047e32d62448678a773738abe08833\questions.jsonl';r=CanonicalRetriever();out=[]
+root=str(Path(__file__).resolve().parents[1]);src=root+r'\data\benchmark_batches\cc047e32d62448678a773738abe08833\questions.jsonl';r=CanonicalRetriever();out=[]
 for line in open(src,encoding='utf-8'):
  if not line.strip():continue
  x=json.loads(line);hits=r.retrieve(x.get('question',''),k=5);out.append({'question_id':x.get('id'),'question':x.get('question'),'hit_count':len(hits),'hits':hits})

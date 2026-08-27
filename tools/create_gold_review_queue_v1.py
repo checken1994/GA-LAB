@@ -1,6 +1,6 @@
 import json,datetime,hashlib
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');SRC=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817'/'corpus_1000.jsonl';OUT=ROOT/'data'/'rag_gold_review_queue_v1_20260817.jsonl'
+ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817'/'corpus_1000.jsonl';OUT=ROOT/'data'/'rag_gold_review_queue_v1_20260817.jsonl'
 def is_canonical(u):return str(u).startswith(('http://','https://')) and 'bing.com/' not in str(u)
 rows=[]
 for line in SRC.read_text(encoding='utf-8').splitlines():

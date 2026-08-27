@@ -1,6 +1,6 @@
 import json,re,hashlib,datetime
 from pathlib import Path
-ROOT=Path(r"C:\Users\check\Downloads\scp");B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';OUT=ROOT/'data'/'rag_corpus'/'v20260817';OUT.mkdir(parents=True,exist_ok=True)
+ROOT=Path(__file__).resolve().parents[1];B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';OUT=ROOT/'data'/'rag_corpus'/'v20260817';OUT.mkdir(parents=True,exist_ok=True)
 qs=[json.loads(x) for x in (B/'questions.jsonl').read_text(encoding='utf-8').splitlines() if x.strip()]
 chunks=[];docs={};gold=[]
 for q in qs:

@@ -1,6 +1,6 @@
 import json,hashlib
 from pathlib import Path
-ROOT=Path(r"C:\Users\check\Downloads\scp");B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';C=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817';OUT=C/'corpus_1000.jsonl';
+ROOT=Path(__file__).resolve().parents[1];B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';C=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817';OUT=C/'corpus_1000.jsonl';
 rows=[json.loads(x) for x in B.read_text(encoding='utf-8').splitlines() if x.strip()];cand={}
 cp=C/'candidates.jsonl'
 if cp.exists():

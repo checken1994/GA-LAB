@@ -3,7 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import requests
 from bs4 import BeautifulSoup
-ROOT=Path(r"C:\Users\check\Downloads\scp");B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';OUT=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817';OUT.mkdir(parents=True,exist_ok=True);UA='SCP-Canonical-RAG-Rebuilder/1.0'
+ROOT=Path(__file__).resolve().parents[1];B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';OUT=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817';OUT.mkdir(parents=True,exist_ok=True);UA='SCP-Canonical-RAG-Rebuilder/1.0'
 
 def clean(q):
  q=re.sub(r'\(Mã\s*CH-\d+\)','',q,flags=re.I);q=q.replace('\n',' ');q=re.sub(r'\s+',' ',q);q=re.sub(r'\b(mới nhất|năm nay|hiện nay)\b','',q,flags=re.I);q=re.sub(r'^(Thông tin|Tra cứu thông tin|Hướng dẫn|Phân tích|Cách|Các|Một số)\s*[:：]?\s*','',q,flags=re.I);return q.strip(' ?')

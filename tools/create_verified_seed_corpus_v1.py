@@ -1,6 +1,6 @@
 import json,hashlib,datetime
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');OUT=ROOT/'data'/'rag_corpus'/'canonical-v3-20260817'/'verified_seed_corpus.jsonl';OUT.parent.mkdir(parents=True,exist_ok=True)
+ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'data'/'rag_corpus'/'canonical-v3-20260817'/'verified_seed_corpus.jsonl';OUT.parent.mkdir(parents=True,exist_ok=True)
 sources=[
  {'url':'https://www.whitehouse.gov/about-the-white-house/presidents/george-washington/','title':'George Washington - The White House','authority':'official-government','text':'On April 30, 1789, George Washington took his oath of office as the first President of the United States. The Electoral College unanimously elected Washington President after the new Constitution was ratified.'},
  {'url':'https://www.law.cornell.edu/wex/contract','title':'Contract - Cornell Wex','authority':'academic-law-reference','text':'Contract is an agreement between parties, creating mutual obligations that are enforceable by law. The basic elements required for a legally enforceable contract include mutual assent, consideration, capacity, and legality.'},

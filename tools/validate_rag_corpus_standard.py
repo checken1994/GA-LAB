@@ -1,6 +1,6 @@
 import json,re,urllib.parse
 from pathlib import Path
-ROOT=Path(r"C:\Users\check\Downloads\scp");P=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';OUT=ROOT/'data'/'rag_corpus_quality_gate_20260817.jsonl';
+ROOT=Path(__file__).resolve().parents[1];P=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';OUT=ROOT/'data'/'rag_corpus_quality_gate_20260817.jsonl';
 def tok(s):return set(re.findall(r'[\wÀ-ỹ]{4,}',str(s).lower()))
 def qclean(q):
  q=re.sub(r'\(Mã\s*CH-\d+\)','',q,flags=re.I);q=re.sub(r'\b(mới nhất|năm nay|hiện nay)\b','',q,flags=re.I);return q

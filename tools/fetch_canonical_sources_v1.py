@@ -1,6 +1,6 @@
 import json,requests,datetime,concurrent.futures
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');SRC=ROOT/'data'/'rag_normalized_source_candidates_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_canonical_fetch_results_v1_20260817.jsonl'
+ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_normalized_source_candidates_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_canonical_fetch_results_v1_20260817.jsonl'
 rows=[json.loads(x) for x in SRC.read_text(encoding='utf-8').splitlines() if x.strip()]
 def one(r):
  c=(r.get('candidate_sources') or [{}])[0];u=c.get('canonical_url_candidate','');res={'question_id':r.get('question_id'),'question':r.get('question'),'canonical_url':u,'fetch_status':'NO_URL','http_status':None,'final_url':'','content_type':'','title':'','text_preview':'','fetched_at':datetime.datetime.now(datetime.timezone.utc).isoformat()}

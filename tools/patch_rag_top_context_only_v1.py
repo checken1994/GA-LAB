@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil,subprocess
-root=Path(r'C:\Users\check\Downloads\scp');p=root/'scp'/'api_server.py';bak=p.with_name(p.name+'.bak-rag-top-context-only-20260817');raw=p.read_text(encoding='utf-8-sig')
+root=Path(__file__).resolve().parents[1];p=root/'scp'/'api_server.py';bak=p.with_name(p.name+'.bak-rag-top-context-only-20260817');raw=p.read_text(encoding='utf-8-sig')
 old='    body = " ".join(x for x in bodies if x).strip()\n'
 new='    # Use the highest-ranked retrieved chunk for generation. Other chunks remain\n    # in evidence for context-precision evaluation but must not contaminate answer text.\n    body = next((x for x in bodies if x), "")\n'
 if old not in raw:raise RuntimeError('extractive body assembly not found')

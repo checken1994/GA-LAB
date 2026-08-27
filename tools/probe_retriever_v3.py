@@ -1,5 +1,5 @@
 import sys,json
-sys.path.insert(0,r'C:\Users\check\Downloads\scp')
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scp.rag.canonical_retriever import CanonicalRetriever
 r=CanonicalRetriever()
 print({'path':str(r.path),'items_before':len(r.items)})

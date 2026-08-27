@@ -2,7 +2,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-root = Path(r"C:\Users\check\Downloads\scp")
+root = Path(__file__).resolve().parents[1]
 p = root / "scp" / "runtime" / "judge.py"
 bak = p.with_name(p.name + ".bak-domain-async-20260817")
 if not bak.exists():

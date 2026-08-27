@@ -1,6 +1,6 @@
 import os,sys
 from pathlib import Path
-root=Path(r'C:\Users\check\Downloads\scp')
+root=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(root))
 for line in (root/'.env.test').read_text(encoding='utf-8-sig').splitlines():
  s=line.strip()

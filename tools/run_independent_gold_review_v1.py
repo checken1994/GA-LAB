@@ -1,6 +1,6 @@
 import json,re,hashlib,datetime,concurrent.futures,requests
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');SRC=ROOT/'data'/'rag_corpus'/'canonical-v2-20260817'/'corpus_all_fetched.jsonl';OUT=ROOT/'data'/'rag_gold_independent_review_v1_20260817.jsonl';BASE='https://11435-i6tz6ri8dbkvtipolhdxd-b4a6d624.sg1.manus.computer/api/v1';HEAD={'Authorization':'Bearer bridge-test-token','Content-Type':'application/json'}
+ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_corpus'/'canonical-v2-20260817'/'corpus_all_fetched.jsonl';OUT=ROOT/'data'/'rag_gold_independent_review_v1_20260817.jsonl';BASE='https://11435-i6tz6ri8dbkvtipolhdxd-b4a6d624.sg1.manus.computer/api/v1';HEAD={'Authorization':'Bearer bridge-test-token','Content-Type':'application/json'}
 def load_records(p):
  s=p.read_text(encoding='utf-8');d=json.JSONDecoder();i=0
  while i<len(s):

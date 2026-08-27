@@ -26,7 +26,7 @@ def test_case_redacts_secret_and_path_and_has_no_truth_label():
     case = make_case(
         {
             "id": 7,
-            "question": "token=secret-value read C:\\Users\\check\\Downloads\\scp",
+            "question": "token=secret-value read C:\\Users\\tester\\Downloads\\scp",
             "source": "threat_simulator",
             "verdict": "UNKNOWN",
         },

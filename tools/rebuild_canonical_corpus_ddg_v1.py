@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 import requests
 from bs4 import BeautifulSoup
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
+ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "data" / "benchmark_batches" / "cc047e32d62448678a773738abe08833" / "questions.jsonl"
 OUT = ROOT / "data" / "rag_corpus" / "canonical-v4-ddg-20260817" / "corpus_ddg_search.jsonl"
 LOG = ROOT / "reports" / "CANONICAL_V4_DDG_SEARCH_STDOUT_2026-08-17.txt"

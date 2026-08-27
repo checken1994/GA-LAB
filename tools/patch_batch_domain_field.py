@@ -1,8 +1,9 @@
+import sys
 from pathlib import Path
 import shutil
 import subprocess
 
-root = Path(r"C:\Users\check\Downloads\scp")
+root = Path(__file__).resolve().parents[1]
 p = root / "scp" / "api" / "routes" / "batch_benchmark_routes.py"
 bak = p.with_name(p.name + ".bak-domain-field-20260817")
 if not bak.exists():
@@ -19,6 +20,6 @@ if old not in raw:
     raise RuntimeError("rag payload block not found")
 raw = raw.replace(old, new, 1)
 p.write_text(raw, encoding="utf-8")
-subprocess.run([r"C:\Users\check\Downloads\scp\scp\venv\Scripts\python.exe", "-m", "py_compile", str(p)], check=True)
+subprocess.run([sys.executable, "-m", "py_compile", str(p)], check=True)
 print("patched batch domain field")
 print(f"backup={bak}")

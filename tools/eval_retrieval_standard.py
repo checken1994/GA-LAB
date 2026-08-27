@@ -1,6 +1,6 @@
 import json,re,math,collections
 from pathlib import Path
-ROOT=Path(r"C:\Users\check\Downloads\scp");C=ROOT/'data'/'rag_corpus'/'v20260817';B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';OUT=ROOT/'data'/'rag_retrieval_eval_20260817.jsonl';SUM=ROOT/'data'/'rag_retrieval_eval_20260817.json'
+ROOT=Path(__file__).resolve().parents[1];C=ROOT/'data'/'rag_corpus'/'v20260817';B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';OUT=ROOT/'data'/'rag_retrieval_eval_20260817.jsonl';SUM=ROOT/'data'/'rag_retrieval_eval_20260817.json'
 def tok(s):return set(re.findall(r'[\wÀ-ỹ]{3,}',str(s).lower()))
 chunks=[json.loads(x) for x in (C/'chunks.jsonl').read_text(encoding='utf-8').splitlines() if x.strip()]; qs=[json.loads(x) for x in (B/'questions.jsonl').read_text(encoding='utf-8').splitlines() if x.strip()]; gold={x['question_id']:set(x['gold_chunk_ids']) for x in (C/'gold_retrieval_annotations.jsonl').read_text(encoding='utf-8').splitlines() if x.strip() for x in [json.loads(x)]}
 df=collections.Counter();ct=[]

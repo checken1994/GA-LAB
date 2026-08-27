@@ -5,8 +5,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
-WORKTREE = Path(r"C:\Users\check\Downloads\scp-phase3-ragas-remediation-20260826")
+ROOT = Path(__file__).resolve().parents[1]
+WORKTREE = ROOT
 CANDIDATE = WORKTREE / "benchmark" / "gold_anchor_50_v2_candidates.jsonl"
 OUT = WORKTREE / "benchmark" / "ares_preconditions_v2.json"
 

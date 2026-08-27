@@ -1,6 +1,6 @@
 import json,re,hashlib,datetime
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');SRC=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817'/'corpus_1000.jsonl';OUT=ROOT/'data'/'rag_input_gold_validation_v1_20260817.jsonl';SUM=ROOT/'data'/'rag_input_gold_validation_v1_20260817.json'
+ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817'/'corpus_1000.jsonl';OUT=ROOT/'data'/'rag_input_gold_validation_v1_20260817.jsonl';SUM=ROOT/'data'/'rag_input_gold_validation_v1_20260817.json'
 def url_ok(u):return bool(re.match(r'^https?://',str(u))) and 'bing.com/ck/' not in str(u) and 'bing.com/search' not in str(u)
 def hash_ok(text,h):return bool(h) and h=='sha256:'+hashlib.sha256(str(text).encode()).hexdigest()
 rows=[]

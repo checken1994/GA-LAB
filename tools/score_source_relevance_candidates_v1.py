@@ -1,6 +1,6 @@
 import json,re,html,unicodedata
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');SRC=ROOT/'data'/'rag_canonical_fetch_results_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_relevance_review_queue_v1_20260817.jsonl'
+ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_canonical_fetch_results_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_relevance_review_queue_v1_20260817.jsonl'
 def toks(s):
  s=unicodedata.normalize('NFKC',str(s).lower());return set(re.findall(r'[\wÀ-ỹ]{3,}',s,flags=re.UNICODE))
 def clean(s):

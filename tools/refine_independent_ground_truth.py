@@ -1,6 +1,6 @@
 import json,re
 from pathlib import Path
-P=Path(r"C:\Users\check\Downloads\scp\benchmark\questions_1000_real_rag_20260817.jsonl")
+P=Path(str(Path(__file__).resolve().parents[1] / "benchmark" / "questions_1000_real_rag_20260817.jsonl"))
 rows=[json.loads(x) for x in P.read_text(encoding='utf-8').splitlines() if x.strip()]
 for r in rows:
     raw=str(r.get('ground_truth',''))

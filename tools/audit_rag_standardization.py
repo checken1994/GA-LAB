@@ -1,6 +1,6 @@
 import json,collections
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');stamp='20260817_144947';audit=ROOT/'data'/f'rag_input_standardization_audit_{stamp}';audit.mkdir(parents=True,exist_ok=True)
+ROOT=Path(__file__).resolve().parents[1];stamp='20260817_144947';audit=ROOT/'data'/f'rag_input_standardization_audit_{stamp}';audit.mkdir(parents=True,exist_ok=True)
 src=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';out=ROOT/'data'/'ragas_ares_canonical_1000_20260817.jsonl'
 import shutil
 shutil.copy2(src,audit/'questions_source.jsonl')

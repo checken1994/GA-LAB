@@ -2,7 +2,7 @@ import json,re,time,hashlib
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import requests
-ROOT=Path(r"C:\Users\check\Downloads\scp")
+ROOT=Path(__file__).resolve().parents[1]
 P=ROOT/'benchmark'/'questions_1000_real_rag_20260817.jsonl'
 UA='SCP-Real-RAG-Benchmark/1.0 (refill)'
 

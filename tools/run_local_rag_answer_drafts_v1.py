@@ -1,6 +1,6 @@
 import sys,json,re,datetime,concurrent.futures,requests
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');sys.path.insert(0,str(ROOT));from scp.rag.canonical_retriever import CanonicalRetriever
+ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT));from scp.rag.canonical_retriever import CanonicalRetriever
 QUESTION_FILES=[ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl'];OUT=ROOT/'data'/'rag_local_answer_drafts_v1_20260817.jsonl';ENDPOINT='http://127.0.0.1:11434/api/chat'
 def terms(s):return set(re.findall(r'[\wÀ-ỹ]{4,}',str(s).lower()))
 def loadq():

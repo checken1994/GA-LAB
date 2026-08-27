@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil,subprocess,re
-root=Path(r'C:\Users\check\Downloads\scp');p=root/'scp'/'api_server.py';bak=p.with_name(p.name+'.bak-auto-canonical-retrieval-20260817')
+root=Path(__file__).resolve().parents[1];p=root/'scp'/'api_server.py';bak=p.with_name(p.name+'.bak-auto-canonical-retrieval-20260817')
 raw=p.read_text(encoding='utf-8-sig')
 if 'from scp.rag.canonical_retriever import get_canonical_retriever' not in raw:
  marker='from scp.web_control.internet_search import InternetSearch\n'

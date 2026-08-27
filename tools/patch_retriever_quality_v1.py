@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil,subprocess
-root=Path(r'C:\Users\check\Downloads\scp');api=root/'scp'/'api_server.py';rap=root/'scp'/'rag'/'canonical_retriever.py'
+root=Path(__file__).resolve().parents[1];api=root/'scp'/'api_server.py';rap=root/'scp'/'rag'/'canonical_retriever.py'
 for p,name in [(api,'api-k1'),(rap,'retriever-host-deny')]:
  raw=p.read_text(encoding='utf-8-sig');bak=p.with_name(p.name+'.bak-'+name+'-20260817')
  if name=='api-k1':

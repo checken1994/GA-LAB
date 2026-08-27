@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import openpyxl
 
-ROOT=Path(r"C:\Users\check\Downloads\scp")
+ROOT=Path(__file__).resolve().parents[1]
 SRC=ROOT/'benchmark'/'bo_de_1000_cau_v3-v2.xlsx'
 OUT_JSONL=ROOT/'benchmark'/'questions_1000_real_rag_20260817.jsonl'
 OUT_XLSX=ROOT/'benchmark'/'bo_de_1000_cau_real_rag_20260817.xlsx'

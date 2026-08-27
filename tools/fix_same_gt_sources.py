@@ -2,7 +2,7 @@ import json,re,hashlib
 from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
-ROOT=Path(r"C:\Users\check\Downloads\scp");P=ROOT/'benchmark'/'questions_1000_real_rag_20260817.jsonl';UA='SCP-Real-RAG-Benchmark/1.0 (source independence repair)'
+ROOT=Path(__file__).resolve().parents[1];P=ROOT/'benchmark'/'questions_1000_real_rag_20260817.jsonl';UA='SCP-Real-RAG-Benchmark/1.0 (source independence repair)'
 def clean(q):
  q=re.sub(r'\(Mã\s*CH-\d+\)','',q,flags=re.I);q=re.sub(r'\s+',' ',q.replace('\n',' '));q=re.sub(r'\b(mới nhất|hiện nay|năm nay)\b','',q,flags=re.I);return q.strip(' ?')
 def fetch(q):

@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil,subprocess
-root=Path(r'C:\Users\check\Downloads\scp');p=root/'scp'/'api_server.py';bak=p.with_name(p.name+'.bak-rag-fail-closed-20260817');raw=p.read_text(encoding='utf-8-sig')
+root=Path(__file__).resolve().parents[1];p=root/'scp'/'api_server.py';bak=p.with_name(p.name+'.bak-rag-fail-closed-20260817');raw=p.read_text(encoding='utf-8-sig')
 old='''        if req.contexts or req.retrieved_context:\n            return await _ask_rag_verified(req, request)\n'''
 new='''        # RAG requests never fall through to an ungrounded model answer.\n        return await _ask_rag_verified(req, request)\n'''
 if old not in raw:raise RuntimeError('auto retrieval dispatch block not found')

@@ -2,7 +2,7 @@ import json,re,hashlib,datetime,concurrent.futures
 from pathlib import Path
 from bs4 import BeautifulSoup
 import requests
-ROOT=Path(r'C:\Users\check\Downloads\scp');SRC=ROOT/'data'/'rag_canonical_fetch_results_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_corpus'/'canonical-v2-20260817';OUT.mkdir(parents=True,exist_ok=True);CORP=OUT/'corpus_all_fetched.jsonl'
+ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_canonical_fetch_results_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_corpus'/'canonical-v2-20260817';OUT.mkdir(parents=True,exist_ok=True);CORP=OUT/'corpus_all_fetched.jsonl'
 def load_records(p):
  s=p.read_text(encoding='utf-8');dec=json.JSONDecoder();i=0
  while i<len(s):

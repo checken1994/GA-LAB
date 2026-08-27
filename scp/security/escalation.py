@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import secrets
 import threading
 from pathlib import Path
 
@@ -54,10 +55,21 @@ class EscalationManager:
                 "active": self._active,
                 "history": self._history,
             }
-        temporary = self.escalation_state_path.with_suffix(".tmp")
+        temporary = self.escalation_state_path.with_name(
+            f"{self.escalation_state_path.name}.{secrets.token_hex(4)}.tmp"
+        )
         with self._write_lock:
-            temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-            os.replace(temporary, self.escalation_state_path)
+            try:
+                temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+                os.replace(temporary, self.escalation_state_path)
+            except Exception as exc:
+                logger.warning("[escalation] state persist warning: %s", exc)
+            finally:
+                if temporary.exists():
+                    try:
+                        temporary.unlink()
+                    except OSError:
+                        pass
 
     def _restore_state(self) -> None:
         """Restore state and re-arm non-terminal deadlines after restart."""

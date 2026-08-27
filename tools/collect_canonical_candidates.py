@@ -3,7 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import requests
 from bs4 import BeautifulSoup
-ROOT=Path(r"C:\Users\check\Downloads\scp");B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';
+ROOT=Path(__file__).resolve().parents[1];B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';
 if not B.exists():B=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl'
 OUT=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817'/'candidates_multi.jsonl';UA='SCP-Canonical-Candidate-Collector/1.0'
 def clean(q):

@@ -1,8 +1,9 @@
+import sys
 from pathlib import Path
 import shutil
 import subprocess
 
-root = Path(r"C:\Users\check\Downloads\scp")
+root = Path(__file__).resolve().parents[1]
 p = root / "scp" / "api_server.py"
 bak = p.with_name(p.name + ".bak-ask-domain-dispatch-20260817")
 if not bak.exists():
@@ -68,6 +69,6 @@ if old not in raw:
     raise RuntimeError("ask dispatch block not found")
 raw = raw.replace(old, new, 1)
 p.write_text(raw, encoding="utf-8")
-subprocess.run([r"C:\Users\check\Downloads\scp\scp\venv\Scripts\python.exe", "-m", "py_compile", str(p)], check=True)
+subprocess.run([sys.executable, "-m", "py_compile", str(p)], check=True)
 print("patched ask explicit-domain dispatch")
 print(f"backup={bak}")

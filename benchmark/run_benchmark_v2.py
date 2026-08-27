@@ -926,9 +926,11 @@ def main():
         import subprocess
         import platform
 
-        # Find project root (parent of scp/benchmark/)
-        project_root = BENCHMARK_DIR.parent.parent  # scp-r16-fixed/
-        # But on user machine: C:\Users\check\Downloads\scp\
+        # Find project root
+        if (BENCHMARK_DIR.parent / "start-scp.bat").exists() or (BENCHMARK_DIR.parent / "start-scp.sh").exists():
+            project_root = BENCHMARK_DIR.parent
+        else:
+            project_root = BENCHMARK_DIR.parent.parent
         # start-scp.bat is at project root
         start_bat = project_root / "start-scp.bat"
         start_sh = project_root / "start-scp.sh"

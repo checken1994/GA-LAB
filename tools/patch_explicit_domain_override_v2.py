@@ -2,7 +2,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
+ROOT = Path(__file__).resolve().parents[1]
 files = [
     ROOT / "scp" / "runtime" / "judge_parts" / "judgeroute_mixin.py",
     ROOT / "scp" / "runtime" / "judge_parts" / "judgecore_mixin.py",

@@ -1,7 +1,7 @@
 import json,re,html,hashlib,datetime,concurrent.futures
 from pathlib import Path
 from bs4 import BeautifulSoup
-ROOT=Path(r'C:\Users\check\Downloads\scp');SRC=ROOT/'data'/'rag_relevance_review_queue_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_corpus'/'canonical-v2-20260817';OUT.mkdir(parents=True,exist_ok=True);CORP=OUT/'corpus_review_candidates.jsonl'
+ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_relevance_review_queue_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_corpus'/'canonical-v2-20260817';OUT.mkdir(parents=True,exist_ok=True);CORP=OUT/'corpus_review_candidates.jsonl'
 def one(r):
  u=r.get('canonical_url','');base={'question_id':r.get('question_id'),'question':r.get('question'),'source_url':u,'source_title':r.get('source_title',''),'fetch_status':r.get('fetch_status'),'chunks':[],'gold_status':'NO_GOLD','review_required':True}
  if r.get('relevance_status')!='REVIEW_REQUIRED' or not u:return base

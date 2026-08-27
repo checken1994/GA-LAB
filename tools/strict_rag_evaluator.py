@@ -1,6 +1,6 @@
 import json,re,hashlib,datetime
 from pathlib import Path
-ROOT=Path(r"C:\Users\check\Downloads\scp")
+ROOT=Path(__file__).resolve().parents[1]
 BATCH=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'
 Q=BATCH/'questions.jsonl';R=BATCH/'results.jsonl';OUT=ROOT/'data'/'rag_standard_eval_20260817.jsonl';REPORT=ROOT/'data'/'rag_standard_eval_20260817.json'
 

@@ -1,8 +1,9 @@
+import sys
 from pathlib import Path
 import shutil
 import subprocess
 
-path = Path(r"C:\Users\check\Downloads\scp\scp\api\routes\batch_benchmark_routes.py")
+path = Path(str(Path(__file__).resolve().parents[1] / "scp" / "api" / "routes" / "batch_benchmark_routes.py"))
 backup = path.with_name(path.name + ".bak-rag-before-patch-20260817")
 raw = path.read_text(encoding="utf-8-sig")
 if "scp_batch_rag_v1" in raw:
@@ -72,6 +73,6 @@ if old2 not in raw:
     raise RuntimeError("response block not found; no changes made")
 raw = raw.replace(old2, new2, 1)
 path.write_text(raw, encoding="utf-8")
-subprocess.run([r"C:\Users\check\Downloads\scp\scp\venv\Scripts\python.exe", "-m", "py_compile", str(path)], check=True)
+subprocess.run([sys.executable, "-m", "py_compile", str(path)], check=True)
 print(f"patched={path}")
 print(f"backup={backup}")

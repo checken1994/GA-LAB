@@ -1,6 +1,6 @@
 import json,math,re,collections,time,requests
 from pathlib import Path
-ROOT=Path(r"C:\Users\check\Downloads\scp");CORP=ROOT/'data'/'rag_corpus'/'v20260817'/'chunks.jsonl';BATCH=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';RET=ROOT/'data'/'rag_standard_retrieval_20260817.jsonl';
+ROOT=Path(__file__).resolve().parents[1];CORP=ROOT/'data'/'rag_corpus'/'v20260817'/'chunks.jsonl';BATCH=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';RET=ROOT/'data'/'rag_standard_retrieval_20260817.jsonl';
 def tok(s):return re.findall(r'[\wÀ-ỹ]{3,}',str(s).lower())
 chunks=[json.loads(x) for x in CORP.read_text(encoding='utf-8').splitlines() if x.strip()];d=[]
 for c in chunks:d.append((c,collections.Counter(tok(c['text']))))

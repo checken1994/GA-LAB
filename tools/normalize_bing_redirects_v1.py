@@ -1,6 +1,6 @@
 import json,base64,urllib.parse,html,re,hashlib
 from pathlib import Path
-ROOT=Path(r'C:\Users\check\Downloads\scp');SRC=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';OUT=ROOT/'data'/'rag_normalized_source_candidates_v1_20260817.jsonl'
+ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';OUT=ROOT/'data'/'rag_normalized_source_candidates_v1_20260817.jsonl'
 def resolve(url):
     u=str(url or '')
     p=urllib.parse.urlparse(u)

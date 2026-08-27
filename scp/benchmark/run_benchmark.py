@@ -220,10 +220,8 @@ def main():
         print(f"\n❌ Cannot connect to SCP server at {args.url}")
         print(f"   Error: {e}")
         print("\n   Start server first:")
-        print("     cd C:\\Users\\check\\Downloads\\scp-vietnam")
-        print("     .\\.venv\\Scripts\\Activate.ps1")
-        print("     $env:SCP_SKIP_STARTUP_GATE = '1'")
-        print("     python start_api.py")
+        print("     start-scp.bat  (or ./start-scp.sh on Linux/Mac)")
+        print("     python -m scp")
         sys.exit(1)
     
     # Run
