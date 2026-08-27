@@ -8,17 +8,21 @@ from __future__ import annotations
 
 import json as _json
 import logging
+import os
 import urllib.request
 
 from scp.security.url_safety import safe_urlopen  # noqa: B310
 
 logger = logging.getLogger("scp.why.sources.nasa")
 
+# [GLM-AUDIT-FIX] Read NASA API key from environment; DEMO_KEY is public fallback
+_NASA_API_KEY = os.environ.get("NASA_API_KEY", "DEMO_KEY")
+
 
 def query_nasa(target: str) -> str | None:
     """Query NASA APOD."""
     try:
-        url = "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY"
+        url = f"https://api.nasa.gov/planetary/apod?api_key={_NASA_API_KEY}"
         req = urllib.request.Request(url, headers={"User-Agent": "SCP-WHY/1.0"})
         with safe_urlopen(req, timeout=8) as resp:
             data = _json.loads(resp.read().decode('utf-8'))
@@ -27,3 +31,4 @@ def query_nasa(target: str) -> str | None:
     except Exception as e:  # [RC-7 FIX Task 6-B] silent swallow → log context
         logger.warning(f"[why_sources.nasa] failed for target='{target}': {e}")
         return None
+

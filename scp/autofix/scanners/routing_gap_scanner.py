@@ -38,6 +38,8 @@ logger = logging.getLogger("scp.autofix.scanners.routing_gap")
 
 _SCP_ROOT = Path(__file__).resolve().parent.parent.parent  # .../scp/
 _JUDGE_PATH = _SCP_ROOT / "runtime" / "judge.py"
+# [GLM-AUDIT-FIX-①] Also scan judge_parts/ since routing logic may be split
+_JUDGE_PARTS_DIR = _SCP_ROOT / "runtime" / "judge_parts"
 
 # Domains that are fallbacks (routed by classifier or unconditional append)
 _FALLBACK_DOMAINS = {"universal", "general"}
@@ -141,29 +143,50 @@ class RoutingGapScanner:
         self.judge_path = judge_path or _JUDGE_PATH
 
     def scan(self) -> list[BugReport]:
-        """Run the scanner. Returns list of BugReports for routing gaps."""
-        if not self.judge_path.exists():
+        """Run the scanner. Returns list of BugReports for routing gaps.
+
+        [GLM-AUDIT-FIX] Scans both judge.py AND judge_parts/*.py so that
+        routing keywords split across multiple files are not missed.
+        """
+        sources_to_parse: list[Path] = []
+        if self.judge_path.exists():
+            sources_to_parse.append(self.judge_path)
+        elif not _JUDGE_PARTS_DIR.exists():
             logger.warning(
-                f"[RoutingGapScanner] judge.py not found at {self.judge_path}"
+                f"[RoutingGapScanner] judge.py not found at {self.judge_path} "
+                f"and judge_parts/ not found at {_JUDGE_PARTS_DIR}"
             )
             return []
 
-        try:
-            source = self.judge_path.read_text(encoding="utf-8", errors="replace")
-            tree = ast.parse(source, filename=str(self.judge_path))
-        except SyntaxError as e:
-            logger.error(f"[RoutingGapScanner] judge.py SyntaxError: {e}")
-            return []
+        # Also add all .py files from judge_parts/ directory
+        if _JUDGE_PARTS_DIR.exists():
+            for part_file in sorted(_JUDGE_PARTS_DIR.glob("*.py")):
+                if part_file.name.startswith("__"):
+                    continue
+                if part_file not in sources_to_parse:
+                    sources_to_parse.append(part_file)
 
-        # Also need list of init SLMs to cross-check
-        from scp.autofix.scanners.dead_slm_scanner import _SLMInitCollector
-        init_collector = _SLMInitCollector()
-        init_collector.visit(tree)
-        slms_init = init_collector.slms_init
-
-        # Collect routing keywords
         kw_collector = _RoutingKeywordCollector()
-        kw_collector.visit(tree)
+        slms_init: dict[str, int] = {}
+
+        for source_path in sources_to_parse:
+            try:
+                source = source_path.read_text(encoding="utf-8", errors="replace")
+                if not source.strip():
+                    continue  # Skip empty files (e.g. judge_phase_4_governance.py)
+                tree = ast.parse(source, filename=str(source_path))
+            except SyntaxError as e:
+                logger.error(f"[RoutingGapScanner] SyntaxError in {source_path}: {e}")
+                continue
+
+            # Collect init SLMs from this file
+            from scp.autofix.scanners.dead_slm_scanner import _SLMInitCollector
+            init_collector = _SLMInitCollector()
+            init_collector.visit(tree)
+            slms_init.update(init_collector.slms_init)
+
+            # Collect routing keywords from this file
+            kw_collector.visit(tree)
 
         bugs: list[BugReport] = []
         for domain, init_line in slms_init.items():

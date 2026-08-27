@@ -64,6 +64,12 @@ function loadRootEnv() {
 const rootEnv = loadRootEnv();
 const DESKTOP_BRIDGE_PORT = Number.parseInt(rootEnv.SCP_LLM_BRIDGE_PORT || process.env.SCP_LLM_BRIDGE_PORT || '11434', 10) || 11434;
 const DESKTOP_BRIDGE_URL = 'http://127.0.0.1:' + DESKTOP_BRIDGE_PORT;
+// [GLM-AUDIT-FIX-①] Single source of truth for backend port.
+// Set SCP_PORT in .env or environment to override. Default: 8000 (production).
+const SCP_BACKEND_PORT = Number.parseInt(
+  rootEnv.SCP_PORT || process.env.SCP_PORT || '8000', 10
+) || 8000;
+const SCP_BASE_URL = `http://127.0.0.1:${SCP_BACKEND_PORT}`;
 const PRODUCTION_CSP = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -74,7 +80,8 @@ const PRODUCTION_CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 ws://127.0.0.1:8000 ws://localhost:8000",
+  // [GLM-AUDIT-FIX-①] Use SCP_BACKEND_PORT so CSP matches actual backend port
+  `connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 ws://127.0.0.1:${SCP_BACKEND_PORT} ws://localhost:${SCP_BACKEND_PORT}`,
 ].join('; ');
 function installDesktopCsp() {
   const mode = String(rootEnv.SCP_DESKTOP_CSP_MODE || process.env.SCP_DESKTOP_CSP_MODE || "dev").trim().toLowerCase();
@@ -124,10 +131,11 @@ function envForService(extra = {}) {
 function commandFor(label) {
   if (IS_PACKAGED) {
     return {
-      bridge: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-llm-bridge.exe'), args: [], env: { SCP_BASE_URL: 'http://127.0.0.1:8000', ZAI_BRIDGE_PORT: String(DESKTOP_BRIDGE_PORT), ZAI_BRIDGE_HOST: '127.0.0.1' } },
-      scheduler: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-loop-scheduler.exe'), args: [], env: { SCP_BASE_URL: 'http://127.0.0.1:8000', LLM_BRIDGE_URL: DESKTOP_BRIDGE_URL } },
+      bridge: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-llm-bridge.exe'), args: [], env: { SCP_BASE_URL, ZAI_BRIDGE_PORT: String(DESKTOP_BRIDGE_PORT), ZAI_BRIDGE_HOST: '127.0.0.1' } },
+      scheduler: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-loop-scheduler.exe'), args: [], env: { SCP_BASE_URL, LLM_BRIDGE_URL: DESKTOP_BRIDGE_URL } },
       worker: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-autofix-worker.exe'), args: ['--max-jobs', '1', '--watch'], env: { SCP_AUTOFIX_WORKER_ROOT: SCP_ROOT, SCP_AUTOFIX_WORKER_DATA_DIR: path.join(SCP_ROOT, 'data'), SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK: 'low' } },
-      scp: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-backend.exe'), args: ['8000'], env: { OLLAMA_HOST: DESKTOP_BRIDGE_URL } },
+      // [GLM-AUDIT-FIX-①] Use SCP_BACKEND_PORT instead of hardcoded 8000
+      scp: { cwd: RUNTIME_ROOT, file: path.join(RUNTIME_ROOT, 'scp-backend.exe'), args: [String(SCP_BACKEND_PORT)], env: { OLLAMA_HOST: DESKTOP_BRIDGE_URL, SCP_PORT: String(SCP_BACKEND_PORT) } },
       dashboard: { cwd: path.join(RUNTIME_ROOT, 'dashboard'), file: process.execPath, args: [path.join(RUNTIME_ROOT, 'dashboard', 'server.js')], env: { HOSTNAME: '127.0.0.1', PORT: '3000', ELECTRON_RUN_AS_NODE: '1', NEXT_TELEMETRY_DISABLED: '1' } },
     }[label];
   }
@@ -137,7 +145,7 @@ function commandFor(label) {
       file: 'bun',
       args: ['run', 'dev'],
       env: {
-        SCP_BASE_URL: 'http://127.0.0.1:8000',
+        SCP_BASE_URL,
         ZAI_BRIDGE_PORT: String(DESKTOP_BRIDGE_PORT),
         ZAI_BRIDGE_HOST: '127.0.0.1',
       },
@@ -149,7 +157,7 @@ function commandFor(label) {
       env: {
         SCP_ROOT,
         SCP_MODEL_VERSION: MODEL_VERSION,
-        SCP_BASE_URL: 'http://127.0.0.1:8000',
+        SCP_BASE_URL,
         LLM_BRIDGE_URL: DESKTOP_BRIDGE_URL,
       },
     },
@@ -166,7 +174,9 @@ function commandFor(label) {
     scp: {
       cwd: SCP_ROOT,
       file: path.join(SCP_ROOT, 'scp', 'venv', 'Scripts', 'python.exe'),
-      args: ['-m', 'scp', '8000'],
+      // [GLM-AUDIT-FIX-①] Use SCP_BACKEND_PORT; also pass SCP_PORT env var for api_server.py
+      args: ['-m', 'scp', String(SCP_BACKEND_PORT)],
+      env: { SCP_PORT: String(SCP_BACKEND_PORT) },
     },
     dashboard: {
       cwd: path.join(SCP_ROOT, 'dashboard'),
@@ -252,7 +262,7 @@ async function classifyExistingStack() {
   const checks = await Promise.all([
     probeHttp('http://127.0.0.1:3000/'),
     probeHttp('http://127.0.0.1:3030/'),
-    probeHttp('http://127.0.0.1:8000/health'),
+    probeHttp(`${SCP_BASE_URL}/health`),  // [GLM-AUDIT-FIX-①] use SCP_BASE_URL
     probeHttp(`http://127.0.0.1:${DESKTOP_BRIDGE_PORT}/api/tags`),
   ]);
   const healthy = checks.filter(Boolean).length;

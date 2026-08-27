@@ -6,6 +6,7 @@ này. Backward-compatible — real_question_fetcher.py re-exports all fetchers.
 """
 from __future__ import annotations
 
+import os
 import random
 import re
 
@@ -37,7 +38,9 @@ def fetch_nasa_apod(n: int = 3) -> list[dict]:
     # (same image all day), so fetching N is fundamentally impossible.
     # Fix: fetch ONCE (no loop), document that APOD is daily-singleton.
     # Callers should set BATCH_SOURCES["nasa_apod"] = 1 (not 50).
-    data = _http_get_json("https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY")
+    # [GLM-AUDIT-FIX] Use NASA_API_KEY env var; DEMO_KEY is public rate-limited fallback
+    _nasa_key = os.environ.get("NASA_API_KEY", "DEMO_KEY")
+    data = _http_get_json(f"https://api.nasa.gov/planetary/apod?api_key={_nasa_key}")
     if not data:
         # [ROOT-FIX 3] Lock-protected read-modify-write
         with _SOURCE_HEALTH_LOCK:
