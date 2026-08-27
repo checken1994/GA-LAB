@@ -34,8 +34,9 @@ import logging
 import time
 
 from fastapi import APIRouter, HTTPException, Request
-from scp.core.request_run_ledger import RequestRunLedger, traced_request
 from pydantic import BaseModel, Field
+
+from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
 logger = logging.getLogger("scp.api.webhook")
 

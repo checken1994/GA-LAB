@@ -28,14 +28,14 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from scp.core.db_manager import (
     db_exec,
 )
 from scp.core.evidence_filter import filter_slm_responses
-from scp.runtime.judge_parts.types import JudgeVerdict, _AllowedByWatchlist
 from scp.meta.severity import Severity
+from scp.runtime.judge_parts.types import JudgeVerdict, _AllowedByWatchlist
 
 # [Task 19-C] TYPE_CHECKING import — RealityJudge is the parent class that
 # mixes in JudgeCoreMixin. Referencing it directly (self._extract_value)
@@ -114,7 +114,7 @@ class JudgeCoreMixin:
     """Mixin for RealityJudge — provides judge."""
 
     def judge(self, question: str, ai_answer: str = "", cycle_count: int = 0,
-              source: str = "", v98_context: Optional[dict[str, Any]] = None,
+              source: str = "", v98_context: dict[str, Any] | None = None,
               domain_override: str | None = None) -> JudgeVerdict:
         """Process a question through the reality-checking pipeline.
 
@@ -1513,10 +1513,11 @@ class JudgeCoreMixin:
                         str(question or ''),
                     ))
                     if _math_like and (ai_answer or final_answer):
-                        _nums = lambda _text: _answer_match_re.findall(
-                            r'(?<![A-Za-z_])[-+]?\d+(?:[.,]\d+)?',
-                            str(_text or ''),
-                        )
+                        def _nums(_text):
+                            return _answer_match_re.findall(
+                                r'(?<![A-Za-z_])[-+]?\d+(?:[.,]\d+)?',
+                                str(_text or ''),
+                            )
                         _comparison_answer = ai_answer or final_answer
                         _ai_nums = _nums(_comparison_answer)
                         _ai_last = _ai_nums[-1].replace(',', '.') if _ai_nums else None
