@@ -1310,13 +1310,13 @@ async def _ask_impl(req: AskRequest, request: Request):
             _gateway = get_gateway()
             _ollama_answer, _provider = await _gateway.chat(
                     req.question,
-                    context=("Lá»‹ch sá»­ gáº§n Ä‘Ă¢y (chá»‰ Ä‘á»ƒ tham kháº£o):\n" + "\n".join(
+                    context=("Lịch sử gần đây (chỉ để tham khảo):\n" + "\n".join(
                         f"{t['role']}: {t['content']}" for t in _history
                     )) if _history else "",
                     system_prompt=(
-                        "Báº¡n lĂ  SCP â€” má»™t trá»£ lĂ½ AI thĂ´ng minh. Tráº£ lá»i ngáº¯n gá»n, chĂ­nh xĂ¡c, báº±ng tiáº¿ng Viá»‡t. "
-                        "Chá»‰ tráº£ lá»i cĂ¢u há»i HIá»†N Táº I á»Ÿ cuá»‘i yĂªu cáº§u. KhĂ´ng tiáº¿p tá»¥c chá»§ Ä‘á» cÅ© náº¿u cĂ¢u há»i má»›i Ä‘á»•i chá»§ Ä‘á». "
-                        "Náº¿u thiáº¿u dá»¯ liá»‡u, nĂ³i rĂµ chÆ°a Ä‘á»§ dá»¯ liá»‡u thay vĂ¬ Ä‘oĂ¡n."
+                        "Bạn là SCP — một trợ lý AI thông minh. Trả lời ngắn gọn, chính xác, bằng tiếng Việt. "
+                        "Chỉ trả lời câu hỏi HIỆN TẠI ở cuối yêu cầu. Không tiếp tục chủ đề cũ nếu câu hỏi mới đổi chủ đề. "
+                        "Nếu thiếu dữ liệu, nói rõ chưa đủ dữ liệu thay vì đoán."
                     ),
                     task="chat",
 
@@ -1386,7 +1386,7 @@ async def _ask_impl(req: AskRequest, request: Request):
     _q_lower = req.question.lower() if req.question else ""
     _FACT_CHECK_KEYWORDS = (
         "true or false", "fact check", "is it true", "fact-check",
-        "cĂ„â€Ă‚Â³ thÄ‚Â¡Ă‚ÂºĂ‚Â­t", "Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Âºng khĂ„â€Ă‚Â´ng", "cĂ„â€Ă‚Â³ thÄ‚Â¡Ă‚ÂºĂ‚Â­t khĂ„â€Ă‚Â´ng", "kiÄ‚Â¡Ă‚Â»Ă†â€™m chÄ‚Â¡Ă‚Â»Ă‚Â©ng",
+        "có thật", "đúng không", "có thật không", "kiểm chứng",
         "real or fake", "verify this claim",
     )
     if any(kw in _q_lower for kw in _FACT_CHECK_KEYWORDS):
@@ -1595,9 +1595,9 @@ async def _ask_impl(req: AskRequest, request: Request):
     _api_falsification_status = v.evidence.get("falsification_status")
     if _gov_decision == "KILL" or v.verdict in ("FAIL", "FLAGGED"):
         # [V104.41 #X] Don't return killed/failed content to client
-        _api_final_answer = f"[SCP: Answer withheld Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â verdict: {v.verdict}]"
+        _api_final_answer = f"[SCP: Answer withheld — verdict: {v.verdict}]"
         if _gov_decision == "KILL":
-            _api_final_answer = "[SCP: Answer withheld Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Governance KILL]"
+            _api_final_answer = "[SCP: Answer withheld — Governance KILL]"
         # [FIX-CRIT-27 BUG 6] Clear ALL leak fields Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â abstain must be total.
         _api_slm_responses = []
         _api_slm_trace = []
@@ -1617,7 +1617,7 @@ async def _ask_impl(req: AskRequest, request: Request):
         # [FIX-1] WHY Gate blocked PASS → UNKNOWN. Treat like FAIL/KILL:
         # withhold answer + clear all leak fields. Without this the WHY block
         # in judge.py was cosmetic Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â final_answer still shipped to client.
-        _api_final_answer = "[SCP: Answer withheld Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â WHY Gate blocked]"
+        _api_final_answer = "[SCP: Answer withheld — WHY Gate blocked]"
         _api_slm_responses = []
         _api_slm_trace = []
         _api_reasoning = "[SCP: WHY Gate blocked]"
@@ -1639,9 +1639,9 @@ async def _ask_impl(req: AskRequest, request: Request):
             _sources = []
             for r in v.slm_responses:
                 if r.get("answer"):
-                    _sources.append(f"  Ä‚Â¢Ă¢â€Â¬Ă‚Â¢ {r.get('slm_name','?')}: {str(r.get('answer',''))[:60]}")
-            _source_text = "\n".join(_sources) if _sources else "  (khĂ„â€Ă‚Â´ng cĂ„â€Ă‚Â³ SLM nĂ„â€Ă‚Â o trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi)"
-            _api_final_answer = str(_api_final_answer) + str(f"\n\nĂ„â€˜Ă…Â¸Ă¢â‚¬â„¢Ă‚Â¡ SCP Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â£ kiÄ‚Â¡Ă‚Â»Ă†â€™m tra:\n{_source_text}\nĂ„â€˜Ă…Â¸Ă¢â‚¬Å“Ă‚Â Confidence: {v.confidence:.0%} Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â chÄ‚â€ Ă‚Â°a Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă‚Â§ ngÄ‚â€ Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â¡ng (cÄ‚Â¡Ă‚ÂºĂ‚Â§n ≥70%)")
+                    _sources.append(f"  • {r.get('slm_name','?')}: {str(r.get('answer',''))[:60]}")
+            _source_text = "\n".join(_sources) if _sources else "  (không có SLM nào trả lời)"
+            _api_final_answer = str(_api_final_answer) + str(f"\n\nSCP đã kiểm tra:\n{_source_text}\nĐộ tin cậy: {v.confidence:.0%} — chưa đạt ngưỡng (cần ≥70%)")
 
     # ===== V104 FIX: Fact-check ASYNC (background, KHĂ„â€Ă¢â‚¬ÂNG block /ask) =====
     # [V104.41 #Z] Only fact-check if we're actually returning an answer (not abstained)

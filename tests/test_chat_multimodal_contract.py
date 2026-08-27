@@ -37,3 +37,29 @@ def test_websocket_chat_passes_conversation_context_to_judge():
     assert "get_context_string(session_id)" in source
     assert '"conversation_history": _conversation_context' in source
     assert '"current_question": user_message' in source
+
+
+def test_chat_runtime_user_visible_strings_are_clean_and_vietnamese_keywords_work():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "scp" / "api" / "chat.py").read_text(encoding="utf-8")
+    assert 'f"{RELEASE_LABEL} — kết nối. Session: {session_id}\\n"' in source
+    assert 'f"Tôi có thể kiểm tra câu trả lời, phát hiện tấn công, và tự học.\\n"' in source
+    assert 'f"Hỏi tôi bất cứ điều gì — tôi sẽ nói \'Tại sao?\' và kiểm tra."' in source
+    assert '"(Không có câu trả lời)"' in source
+    assert '"Tôi chưa đủ thông tin để kết luận. "' in source
+    assert '"Tôi không thể xác nhận câu trả lời này. Lý do: "' in source
+    assert '"Đã kiểm tra: câu trả lời đạt độ tin cậy ' in source
+    assert '"tiến hóa" in user_message.lower()' in source
+    assert '"học" in user_message.lower()' in source
+
+
+def test_ask_runtime_user_visible_strings_and_fact_check_keywords_are_clean():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "scp" / "api_server.py").read_text(encoding="utf-8")
+    assert '"Bạn là SCP — một trợ lý AI thông minh.' in source
+    assert '"có thật", "đúng không", "có thật không", "kiểm chứng"' in source
+    assert '"[SCP: Answer withheld — Governance KILL]"' in source
+    assert '"[SCP: Answer withheld — WHY Gate blocked]"' in source
+    assert '"  (không có SLM nào trả lời)"' in source
+    assert '"\\n\\nSCP đã kiểm tra:\\n' in source
+    assert 'Độ tin cậy: {v.confidence:.0%} — chưa đạt ngưỡng (cần ≥70%)' in source
