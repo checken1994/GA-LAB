@@ -5,6 +5,7 @@ import json
 import re
 import secrets
 import sqlite3
+import threading
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -141,6 +142,8 @@ class TaskKernel:
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.db_path, timeout=10, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self._tx_lock = threading.RLock()
+        self._tx_state = threading.local()
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.execute("PRAGMA busy_timeout=10000")
@@ -244,7 +247,31 @@ class TaskKernel:
         )
 
     def _begin(self) -> None:
-        self.conn.execute("BEGIN IMMEDIATE")
+        self._tx_lock.acquire()
+        try:
+            self.conn.execute("BEGIN IMMEDIATE")
+            self._tx_state.held = True
+        except BaseException:
+            self._tx_lock.release()
+            raise
+
+    def _release_tx_lock(self) -> None:
+        if getattr(self._tx_state, "held", False):
+            self._tx_state.held = False
+            self._tx_lock.release()
+
+    def _commit(self) -> None:
+        try:
+            self.conn.execute("COMMIT")
+        finally:
+            self._release_tx_lock()
+
+    def _rollback(self) -> None:
+        try:
+            if self.conn.in_transaction:
+                self.conn.execute("ROLLBACK")
+        finally:
+            self._release_tx_lock()
 
     def _control(self) -> sqlite3.Row:
         return self.conn.execute("SELECT * FROM control WHERE id=1").fetchone()
@@ -306,9 +333,9 @@ class TaskKernel:
                 (task_id, owner, goal, risk_tier, deadline_ms, max_attempts, input_hash, priority, "CREATED", created, created),
             )
             self._append_event(task_id, "TASK_CREATED", None, "CREATED", "kernel", "task_created", {"input_hash": input_hash})
-            self.conn.execute("COMMIT")
+            self._commit()
         except Exception:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             raise
         return self.get_task(task_id)
 
@@ -323,7 +350,7 @@ class TaskKernel:
                 if existing:
                     if existing["task_id"] != task_id or existing["to_state"] != to_state:
                         raise InvalidTransition("event_id reused for a different transition")
-                    self.conn.execute("COMMIT")
+                    self._commit()
                     return self.get_task(task_id)
             task = self._task(task_id); old = task["state"]
             if to_state not in ALLOWED_TRANSITIONS.get(old, set()):
@@ -332,9 +359,9 @@ class TaskKernel:
                 raise InvalidTransition("terminal task is immutable")
             self.conn.execute("UPDATE tasks SET state=?,version=version+1,updated_at=? WHERE task_id=?", (to_state, now_iso(), task_id))
             self._append_event(task_id, "STATE_TRANSITION", old, to_state, actor, reason or f"{old}->{to_state}", payload, event_id=event_id)
-            self.conn.execute("COMMIT")
+            self._commit()
         except Exception:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             raise
         return self.get_task(task_id)
 
@@ -368,10 +395,10 @@ class TaskKernel:
                 (task["owner"], 1, 1, now),
             )
             self._append_event(task_id, "LEASE_GRANTED", "QUEUED", "LEASED", "kernel", "lease_granted", {"lease_id": lease_id, "fencing_token": token, "worker_id": worker_id})
-            self.conn.execute("COMMIT")
+            self._commit()
             return Lease(lease_id, task_id, attempt_id, worker_id, now + ttl_seconds, token, control["global_kill_epoch"])
         except Exception:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             raise
 
     def claim_next(
@@ -437,12 +464,12 @@ class TaskKernel:
                     task["task_id"], "LEASE_GRANTED", "QUEUED", "LEASED", "kernel",
                     "fair_queue_claim", {"lease_id": lease_id, "fencing_token": fencing_token, "worker_id": worker_id},
                 )
-                self.conn.execute("COMMIT")
+                self._commit()
                 return Lease(lease_id, task["task_id"], attempt_id, worker_id, expires_at, fencing_token, control["global_kill_epoch"])
-            self.conn.execute("COMMIT")
+            self._commit()
             return None
         except Exception:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             raise
 
     def queue_status(self) -> dict[str, Any]:
@@ -474,9 +501,9 @@ class TaskKernel:
             if task["state"] != "LEASED": raise InvalidTransition(f"{task['state']}->RUNNING")
             self.conn.execute("UPDATE tasks SET state='RUNNING',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task_id))
             self._append_event(task_id, "WORKER_STARTED", "LEASED", "RUNNING", "worker", "lease_valid", {"lease_id": lease_id})
-            self.conn.execute("COMMIT")
+            self._commit()
         except Exception:
-            self.conn.execute("ROLLBACK"); raise
+            self._rollback(); raise
         return self.get_task(task_id)
 
     def heartbeat(self, task_id: str, lease_id: str, extend_seconds: float = 30.0) -> Lease:
@@ -484,10 +511,10 @@ class TaskKernel:
         try:
             lease = self._assert_lease(lease_id, task_id); now = time.time(); expires = now + extend_seconds
             self.conn.execute("UPDATE leases SET heartbeat_at=?,expires_at=? WHERE lease_id=?", (now, expires, lease_id))
-            self.conn.execute("COMMIT")
+            self._commit()
             return Lease(lease["lease_id"], lease["task_id"], lease["attempt_id"], lease["worker_id"], expires, lease["fencing_token"], lease["global_kill_epoch"])
         except Exception:
-            self.conn.execute("ROLLBACK"); raise
+            self._rollback(); raise
 
     def expire_leases(self, now: float | None = None) -> list[str]:
         now = now or time.time(); expired=[]; self._begin()
@@ -501,22 +528,22 @@ class TaskKernel:
                 self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?", (lease["lease_id"],))
                 owner = self._task(lease["task_id"])["owner"]
                 self.conn.execute("UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?", (owner,))
-            self.conn.execute("COMMIT")
+            self._commit()
             return expired
         except Exception:
-            self.conn.execute("ROLLBACK"); raise
+            self._rollback(); raise
 
     def release(self, task_id: str, lease_id: str) -> None:
         self._begin()
         try:
-            lease = self._assert_lease(lease_id,task_id)
+            self._assert_lease(lease_id, task_id)
             self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?",(lease_id,))
             owner = self._task(task_id)["owner"]
             self.conn.execute("UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?", (owner,))
             self._append_event(task_id,"LEASE_RELEASED",None,None,"kernel","worker_release",{"lease_id":lease_id})
-            self.conn.execute("COMMIT")
+            self._commit()
         except Exception:
-            self.conn.execute("ROLLBACK");raise
+            self._rollback();raise
 
     def checkpoint(self, task_id: str, lease_id: str, step_id: str, state: str, planned_action: Any,
                    capability_epoch: int, idempotency_key: str, pre_observation_ref: str | None = None,
@@ -537,9 +564,9 @@ class TaskKernel:
             lease=self._assert_lease(lease_id,task_id); payload={"task_id":task_id,"attempt_id":lease["attempt_id"],"step_id":step_id,"state":state,"planned_action":planned_action,"capability_epoch":capability_epoch,"idempotency_key":idempotency_key,"pre_observation_ref":pre_observation_ref,"post_observation_ref":post_observation_ref,"tool_result":tool_result,"verifier_verdict":verifier_verdict};cp_id="cp_"+secrets.token_hex(10);payload_hash=stable_hash(payload)
             self.conn.execute("INSERT INTO checkpoints(checkpoint_id,task_id,attempt_id,step_id,state,planned_action_hash,capability_epoch,idempotency_key,pre_observation_ref,post_observation_ref,tool_result_json,verifier_verdict,payload_hash,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(cp_id,task_id,lease["attempt_id"],step_id,state,stable_hash(planned_action),capability_epoch,idempotency_key,pre_observation_ref,post_observation_ref,json.dumps(tool_result,ensure_ascii=False,sort_keys=True) if tool_result is not None else None,verifier_verdict,payload_hash,now_iso()))
             self._append_event(task_id,"CHECKPOINT_WRITTEN",None,state,"kernel","checkpoint_written",{"checkpoint_id":cp_id,"payload_hash":payload_hash,"idempotency_key":idempotency_key})
-            self.conn.execute("COMMIT");return cp_id
+            self._commit();return cp_id
         except Exception:
-            self.conn.execute("ROLLBACK");raise
+            self._rollback();raise
 
     def record_action_dispatched(
         self,
@@ -576,7 +603,7 @@ class TaskKernel:
                 existing_result = json.loads(existing["tool_result_json"] or "{}")
                 if existing_result.get("provider_request_id") != str(provider_request_id):
                     raise KernelError("idempotency key reused with different provider request")
-                self.conn.execute("COMMIT")
+                self._commit()
                 result = dict(existing)
                 result["dispatch_status"] = "UNKNOWN"
                 result["provider_request_id"] = existing_result.get("provider_request_id")
@@ -639,13 +666,13 @@ class TaskKernel:
                     "provider_request_id": str(provider_request_id),
                 },
             )
-            self.conn.execute("COMMIT")
+            self._commit()
             result = self.get_checkpoint(checkpoint_id)
             result["dispatch_status"] = "UNKNOWN"
             result["provider_request_id"] = str(provider_request_id)
             return result
         except Exception:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             raise
 
     def _load_reconcile_checkpoint(self, task_id: str, checkpoint_id: str) -> dict[str, Any]:
@@ -676,7 +703,7 @@ class TaskKernel:
             task = self._task(task_id)
             self._load_reconcile_checkpoint(task_id, checkpoint_id)
             if task["state"] == "RECONCILING":
-                self.conn.execute("COMMIT")
+                self._commit()
                 return dict(task)
             if task["state"] != "UNKNOWN":
                 raise InvalidTransition(f"{task['state']}->RECONCILING")
@@ -693,10 +720,10 @@ class TaskKernel:
                 reason or "reconcile_required",
                 {"checkpoint_id": checkpoint_id},
             )
-            self.conn.execute("COMMIT")
+            self._commit()
             return self.get_task(task_id)
         except Exception:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             raise
 
     def reconcile_unknown(
@@ -769,10 +796,10 @@ class TaskKernel:
                     "verifier_id": verifier_id,
                 },
             )
-            self.conn.execute("COMMIT")
+            self._commit()
             return self.get_task(task_id)
         except Exception:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             raise
 
     def validate_checkpoint(self, checkpoint_id: str, planned_action: Any) -> dict[str, Any]:
@@ -813,13 +840,13 @@ class TaskKernel:
                         "UPDATE idempotency SET status='CLAIMED',result_ref=NULL WHERE logical_key=?",
                         (logical_key,),
                     )
-                    self.conn.execute("COMMIT")
+                    self._commit()
                     return logical_key, True
-                self.conn.execute("COMMIT")
+                self._commit()
                 return logical_key,False
-            self.conn.execute("INSERT INTO idempotency(logical_key,task_id,step_id,action_type,resource_identity,status,created_at) VALUES (?,?,?,?,?,?,?)",(logical_key,task_id,step_id,action_type,resource_identity,"CLAIMED",now_iso()));self.conn.execute("COMMIT");return logical_key,True
+            self.conn.execute("INSERT INTO idempotency(logical_key,task_id,step_id,action_type,resource_identity,status,created_at) VALUES (?,?,?,?,?,?,?)",(logical_key,task_id,step_id,action_type,resource_identity,"CLAIMED",now_iso()));self._commit();return logical_key,True
         except Exception:
-            self.conn.execute("ROLLBACK");raise
+            self._rollback();raise
 
     def idempotency_complete(self, logical_key: str, result_ref: str) -> None:
         if not logical_key or not result_ref:
@@ -835,7 +862,7 @@ class TaskKernel:
             if row["status"] == "COMPLETED":
                 if row["result_ref"] != result_ref:
                     raise KernelError("idempotency result mismatch")
-                self.conn.execute("COMMIT")
+                self._commit()
                 return
             if row["status"] != "CLAIMED":
                 raise KernelError(f"invalid idempotency status: {row['status']}")
@@ -843,9 +870,9 @@ class TaskKernel:
                 "UPDATE idempotency SET status='COMPLETED',result_ref=? WHERE logical_key=?",
                 (result_ref, logical_key),
             )
-            self.conn.execute("COMMIT")
+            self._commit()
         except Exception:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             raise
 
     def commit_verification_result(self, task_id: str, lease_id: str, verification_result: dict[str, Any]) -> dict[str, Any]:
@@ -865,9 +892,9 @@ class TaskKernel:
             self._append_event(task_id,"TASK_COMPLETED",old,"COMPLETED","verifier","postcondition_verified",{"evidence_ref":evidence_ref,"verifier_verdict":verifier_verdict,"lease_id":lease_id})
             self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?",(lease_id,))
             self.conn.execute("UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=(SELECT owner FROM tasks WHERE task_id=? )", (task_id,))
-            self.conn.execute("COMMIT");return self.get_task(task_id)
+            self._commit();return self.get_task(task_id)
         except Exception:
-            self.conn.execute("ROLLBACK");raise
+            self._rollback();raise
 
     def set_global_kill(self, active: bool, actor: str = "operator") -> int:
         self._begin()
@@ -875,9 +902,9 @@ class TaskKernel:
             c=self._control();epoch=int(c["global_kill_epoch"])+(1 if active else 0)
             self.conn.execute("UPDATE control SET global_kill=?,global_kill_epoch=? WHERE id=1",(1 if active else 0,epoch))
             self._append_event("__global__","GLOBAL_KILL_ON" if active else "GLOBAL_KILL_OFF",None,None,actor,"operator_toggle",{"epoch":epoch})
-            self.conn.execute("COMMIT");return epoch
+            self._commit();return epoch
         except Exception:
-            self.conn.execute("ROLLBACK");raise
+            self._rollback();raise
 
     def set_task_kill(self, task_id: str, actor: str = "operator") -> dict[str, Any]:
         self._begin()
@@ -891,9 +918,9 @@ class TaskKernel:
             for _ in active_leases:
                 self.conn.execute("UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?", (task["owner"],))
             self._append_event(task_id,"TASK_KILLED",task["state"],"CANCELLED",actor,"task_kill",{})
-            self.conn.execute("COMMIT");return self.get_task(task_id)
+            self._commit();return self.get_task(task_id)
         except Exception:
-            self.conn.execute("ROLLBACK");raise
+            self._rollback();raise
 
     def get_task(self, task_id: str) -> dict[str, Any]: return dict(self._task(task_id))
     def get_events(self, task_id: str) -> list[dict[str, Any]]: return [dict(x) for x in self.conn.execute("SELECT * FROM events WHERE task_id=? ORDER BY seq",(task_id,)).fetchall()]
