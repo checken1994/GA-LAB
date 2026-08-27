@@ -8,7 +8,7 @@
     "fail_closed_compliance_rate": 1.0,
     "evaluation_method": "deterministic_token_overlap",
     "gold_dataset_sha256": "4dacd4f05768bec7f3271de36c3c7f91022a097f38332720fb68af98984c3acd",
-    "evaluation_timestamp": "2026-08-27T07:09:30.836273+00:00",
+    "evaluation_timestamp": "2026-08-27T10:41:48.525686+00:00",
     "scp_version": "v14.0.0-candidate",
     "notes": "Metrics computed with token-overlap proxy (deterministic, reproducible, no LLM judge needed). context_precision = question-keyword coverage in retrieved context. faithfulness = answer-context token overlap. answer_relevancy = question-answer token overlap. fail_closed_compliance = fraction of rows where SCP correctly provides an answer (gold present)."
   },
