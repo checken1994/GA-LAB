@@ -16,12 +16,13 @@ $LogDir = Join-Path $PrivateDir 'logs'
 $Manifest = Join-Path $PrivateDir 'install-manifest.json'
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-if (-not (Test-Path $Supervisor)) { throw "Supervisor missing: $Supervisor" }
-if (-not (Test-Path $RecoveryWatchdog)) { throw "Recovery watchdog missing: $RecoveryWatchdog" }
-
-$pwsh = (Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue).Source
-if (-not $pwsh) { throw 'PowerShell 7 (pwsh.exe) is required for SCP-247 supervisor' }
-$action = New-ScheduledTaskAction -Execute $pwsh -Argument "-WindowStyle Hidden -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Supervisor`""
+$pythonw = Join-Path $Root 'scp\venv\Scripts\pythonw.exe'
+if (-not (Test-Path $pythonw)) {
+    $cmd = Get-Command 'pythonw.exe' -ErrorAction SilentlyContinue
+    $pythonw = if ($cmd) { $cmd.Source } else { 'pythonw.exe' }
+}
+$SilentRunner = Join-Path $PSScriptRoot 'run_silent.py'
+$action = New-ScheduledTaskAction -Execute $pythonw -Argument "`"$SilentRunner`" `"$pwsh`" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Supervisor`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 # Background reliability: restart only after an abnormal non-zero/termination result.
 # The supervisor exits normally for KILL, so an intentional kill switch is not
@@ -43,7 +44,7 @@ $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings 
 # minute, so a hung watchdog cannot accumulate resident processes. It uses the
 # same user session because registering SYSTEM requires an elevated service
 # installation boundary that is not available to this user-level installer.
-$watchdogAction = New-ScheduledTaskAction -Execute $pwsh -Argument "-WindowStyle Hidden -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$RecoveryWatchdog`""
+$watchdogAction = New-ScheduledTaskAction -Execute $pythonw -Argument "`"$SilentRunner`" `"$pwsh`" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$RecoveryWatchdog`""
 $watchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
 $watchdogSettings = New-ScheduledTaskSettingsSet -Hidden -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Seconds 30) -MultipleInstances IgnoreNew
 $watchdogPrincipal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited

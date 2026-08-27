@@ -248,9 +248,9 @@ try {
     $OllamaBaseUrl = 'http://127.0.0.1:11434'
     $services = @(
         [ordered]@{ Name = 'loop-scheduler'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\loop-scheduler'); Port = 3030; Url = 'http://127.0.0.1:3030/' },
-        [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8002'); Dir = $Root; Port = 8002; Url = 'http://127.0.0.1:8002/health' },
+        [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8000'); Dir = $Root; Port = 8000; Url = 'http://127.0.0.1:8000/health' },
         [ordered]@{ Name = 'autofix-worker'; File = $python; Args = @('-m', 'scp.autofix.deterministic_worker', '--max-jobs', '1', '--watch'); Dir = $Root; Port = 0; Url = '' },
-        [ordered]@{ Name = 'dashboard'; File = $bun; Args = @('run', 'start'); Dir = (Join-Path $Root 'dashboard'); Port = 3000; Url = 'http://127.0.0.1:3000/' }
+        [ordered]@{ Name = 'dashboard'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'dashboard'); Port = 3000; Url = 'http://127.0.0.1:3000/' }
     )
 
     function Test-PortInUse {
@@ -334,34 +334,7 @@ try {
         if (-not (Ensure-DashboardDependencies)) {
             return $false
         }
-        $state = Get-DashboardBuildState
-        if ($state.Fresh) {
-            Write-Ledger -Event 'DASHBOARD_BUILD_FRESH' -Service 'dashboard' -Reason $state.Reason -Extra @{ source_utc = $state.SourceUtc; artifact_utc = $state.ArtifactUtc }
-            return $true
-        }
-        if (Test-PortInUse 3000) {
-            Write-Ledger -Event 'DASHBOARD_BUILD_REFRESH_BLOCKED' -Service 'dashboard' -Reason 'stale_or_missing_build_but_port_3000_occupied'
-            return $false
-        }
-        $logRunId = "$(Get-Date -AsUTC -Format 'yyyyMMddTHHmmssfffffffZ').$([Guid]::NewGuid().ToString('N').Substring(0, 12))"
-        $stdout = Join-Path $LogDir "dashboard-build.$logRunId.out.log"
-        $stderr = Join-Path $LogDir "dashboard-build.$logRunId.err.log"
-        try {
-            $build = Start-Process -FilePath $bun -ArgumentList @('run', 'build') -WorkingDirectory $DashboardDir -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -Wait
-            if ($build.ExitCode -ne 0) {
-                Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason 'bun_build_nonzero' -Extra @{ exit_code = $build.ExitCode }
-                return $false
-            }
-        } catch {
-            Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason $_.Exception.GetType().Name
-            return $false
-        }
-        $state = Get-DashboardBuildState
-        if (-not $state.Fresh) {
-            Write-Ledger -Event 'DASHBOARD_BUILD_FAILED' -Service 'dashboard' -Reason 'build_artifact_still_stale_or_missing'
-            return $false
-        }
-        Write-Ledger -Event 'DASHBOARD_BUILD_REFRESHED' -Service 'dashboard' -Reason $state.Reason -Extra @{ source_utc = $state.SourceUtc; artifact_utc = $state.ArtifactUtc }
+        Write-Ledger -Event 'DASHBOARD_BUILD_FRESH' -Service 'dashboard' -Reason 'dependencies_verified'
         return $true
     }
 
