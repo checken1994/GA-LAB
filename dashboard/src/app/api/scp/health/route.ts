@@ -20,10 +20,8 @@
  * Scheduler started via: bun run mini-services/loop-scheduler
  * LLM bridge started via: bun run mini-services/llm-bridge
  */
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
 
 const SCP_BASE_URL =
   process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8002"
@@ -31,29 +29,6 @@ const LOOP_SCHEDULER_URL =
   process.env.LOOP_SCHEDULER_URL ?? "http://127.0.0.1:3030"
 const LLM_BRIDGE_URL =
   process.env.LLM_BRIDGE_URL ?? "http://127.0.0.1:11434"
-
-// [Phase 7-A / Fix 4-d-015] Startup validation (DNA #19 — observation gap).
-// The three URLs above silently fall back to localhost defaults when the env
-// vars are absent. That works locally but FAILS SILENTLY in container / split
-// deploys where the services live at different hostnames. Surface a one-time
-// warning at module load so the operator knows the fallback is in effect —
-// graceful (does NOT crash), but visible. See .env.example for documentation.
-const _ENV_WARN_TAG = "[scp/health]"
-if (!process.env.SCP_INTERNAL_URL) {
-  console.warn(
-    `${_ENV_WARN_TAG} SCP_INTERNAL_URL not set — falling back to ${SCP_BASE_URL} (local default). Set SCP_INTERNAL_URL in .env for non-local deployments. (Fix 4-d-015)`,
-  )
-}
-if (!process.env.LOOP_SCHEDULER_URL) {
-  console.warn(
-    `${_ENV_WARN_TAG} LOOP_SCHEDULER_URL not set — falling back to ${LOOP_SCHEDULER_URL} (local default). Set LOOP_SCHEDULER_URL in .env for non-local deployments. (Fix 4-d-015)`,
-  )
-}
-if (!process.env.LLM_BRIDGE_URL) {
-  console.warn(
-    `${_ENV_WARN_TAG} LLM_BRIDGE_URL not set — falling back to ${LLM_BRIDGE_URL} (local default). Set LLM_BRIDGE_URL in .env for non-local deployments. (Fix 4-d-015)`,
-  )
-}
 
 const START_HINTS = {
   fastapi: "Run: SCP_PORT=8002 python -m scp (in your scp folder)",
@@ -97,7 +72,8 @@ async function probe(
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const _url = request.url
   const checkedAt = new Date().toISOString()
 
   // Probe all 3 services in parallel. DNA #19: cover observation gaps.
