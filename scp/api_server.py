@@ -1800,7 +1800,7 @@ async def health():
         "release": public_release_metadata(),
         "routes": len(app.routes),
         "modules": "136+ Python files",
-        "note": "minimal health Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â use /health/detailed for full status",
+        "note": "minimal health — use /health/detailed for full status",
     }
 
 
