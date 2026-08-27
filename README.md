@@ -211,6 +211,12 @@ curl http://127.0.0.1:8002/health
 
 Để chạy bộ dịch vụ local đầy đủ, xem hướng dẫn nền tảng trong [`docs/guides/WINDOWS-README.md`](docs/guides/WINDOWS-README.md), bản đồ repository trong [`docs/architecture/REPOSITORY_LAYOUT.md`](docs/architecture/REPOSITORY_LAYOUT.md) và các launcher trong repository. Các launcher local không phải bằng chứng rằng deployment đã đạt production hoặc 24/7 độc lập đăng nhập.
 
+## Triển khai VPS Linux
+
+Recipe cho VPS Ubuntu nằm trong [`deploy/vps/README.md`](deploy/vps/README.md). Recipe giữ SCP API ở `127.0.0.1:8002`, đặt Caddy làm ranh giới TLS/public, bật production guard, dùng user Linux riêng và giữ `SCP_EGRESS_MODE=deny` trong smoke đầu tiên. Không mở trực tiếp port `8002`, scheduler `3030` hoặc Ollama `11434` ra Internet.
+
+Tài liệu này mới là deployment contract và hướng dẫn có thể tái hiện; nó không có nghĩa một VPS đã được provision hoặc runtime đã đạt production-ready. Cần có VPS, SSH/sudo hợp lệ, domain (nếu dùng HTTPS công khai) và kế hoạch secret do operator quản lý trước khi triển khai thật.
+
 ## Kiểm thử và release gate
 
 Workflow chính là [SCP Release Gate](.github/workflows/scp-release-gate.yml). Nó chạy trên Windows và hiện kiểm tra các nhóm sau:

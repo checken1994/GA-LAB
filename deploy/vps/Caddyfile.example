@@ -1,0 +1,24 @@
+# Replace example.com with a domain controlled by the operator.
+# Caddy obtains and renews a public TLS certificate for a real domain.
+# Do not expose SCP directly on :8002.
+
+example.com {
+    encode gzip
+
+    request_body {
+        max_size 2MB
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        -Server
+    }
+
+    reverse_proxy 127.0.0.1:8002 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {remote_host}
+    }
+}

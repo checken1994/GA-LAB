@@ -1,0 +1,33 @@
+[Unit]
+Description=SCP Structured Constraint Protocol API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=scp
+Group=scp
+WorkingDirectory=/opt/scp
+EnvironmentFile=/etc/scp/scp.env
+ExecStart=/opt/scp/.venv/bin/python -m scp
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+# Keep the service bound to loopback; Caddy is the public TLS boundary.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+ReadWritePaths=/opt/scp/data /var/lib/scp /var/log/scp
+
+[Install]
+WantedBy=multi-user.target
