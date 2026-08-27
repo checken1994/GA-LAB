@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T12:53:22.425045+00:00",
-  "captured_commit": "6efd23c88dc91052df81247113d02b35f304b1ae",
-  "captured_parent": "c5e5835ba968f4713cbad1e0db58cc191258c243",
-  "captured_tree": "b4f988cb1ea29cb1204476f6f64a35081d938992",
+  "generated_at_utc": "2026-08-27T14:23:41.902892+00:00",
+  "captured_commit": "20b728afcd1f4ee117e69753c8e2cf0b746385f1",
+  "captured_parent": "740ba752075fd9ab7939a266416f61befa390d95",
+  "captured_tree": "a7f659df9fbda363e3e05c31b4e903e103c1f323",
   "tracked_count": 1355,
-  "inventory_sha256": "7dec062444531eacc87f24f9b917acdb667384e0e584fc4caa5628db424125b7",
+  "inventory_sha256": "e77d90c68fdbbaf60b597dc95443be8342dab8c4c18d354061a7cc6cd1832231",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -14,9 +14,9 @@
       "sha256": "815b4a0f665281b75b1e8f5a8439693d9f349ecf843ce9473cd3d4bff396fc05"
     },
     "scp/api_server.py": {
-      "blob": "bec13105f8d21fa41c8ce19965149edd495d7219",
-      "bytes": 100395,
-      "sha256": "0c71e5b059723da1fef526cae06af43edff235940a5c4c4b276de07d222764f0"
+      "blob": "85ba66e676bef60e35e22ddb2ae4faf1bf92959d",
+      "bytes": 100359,
+      "sha256": "befb717550aad6493a430cbbcf7c443ff4cd1bc1c8f97b30267c684fe66f260b"
     },
     "scp/task_kernel.py": {
       "blob": "a63c5c8adf8465f4dc4f3b9cdc603339a6205dc5",
@@ -3148,7 +3148,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ffa92c54a65599929fb3f75711b792bd61d5de12",
+      "blob": "d053bd2e7a18dd688861b49174f4ea491aede0b3",
       "path": "scp/__main__.py"
     },
     {
@@ -3316,7 +3316,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bec13105f8d21fa41c8ce19965149edd495d7219",
+      "blob": "85ba66e676bef60e35e22ddb2ae4faf1bf92959d",
       "path": "scp/api_server.py"
     },
     {
@@ -7552,7 +7552,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "61e06f3a9f65d20112e53642090ff3150da2b16c",
+      "blob": "f82ed08cedde189e860b9b8847528a4065675de6",
       "path": "tests/test_identity_naming_contract.py"
     },
     {
