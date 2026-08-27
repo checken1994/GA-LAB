@@ -22,3 +22,11 @@ def test_manual_launcher_treats_ollama_as_external_dependency():
     assert 'set LOOP_SCHEDULER_URL=http://127.0.0.1:3030' in LAUNCHER
     assert 'set OLLAMA_HOST=http://127.0.0.1:11434' in LAUNCHER
     assert 'Ollama:          http://127.0.0.1:11434/api/tags' in LAUNCHER
+
+
+def test_stop_launcher_never_kills_external_ollama_port():
+    stop = (ROOT / "stop-scp.bat").read_text(encoding="utf-8")
+    assert 'findstr ":11434 "' not in stop
+    kill_lines = [line.lower() for line in stop.splitlines() if 'taskkill' in line.lower()]
+    assert all('11434' not in line for line in kill_lines)
+    assert 'taskkill' in stop.lower()
