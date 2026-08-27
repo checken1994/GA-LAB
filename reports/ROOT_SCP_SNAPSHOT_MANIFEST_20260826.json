@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T14:23:41.902892+00:00",
-  "captured_commit": "20b728afcd1f4ee117e69753c8e2cf0b746385f1",
-  "captured_parent": "740ba752075fd9ab7939a266416f61befa390d95",
-  "captured_tree": "a7f659df9fbda363e3e05c31b4e903e103c1f323",
+  "generated_at_utc": "2026-08-27T14:40:26.824778+00:00",
+  "captured_commit": "2a06727e318abd279f4a79ce748ad88ca85324b7",
+  "captured_parent": "1cf933528c957af0c9c3c74c33138a9fcf345993",
+  "captured_tree": "dc71940047ff0e06d87d3c619bd9581185aad081",
   "tracked_count": 1355,
-  "inventory_sha256": "e77d90c68fdbbaf60b597dc95443be8342dab8c4c18d354061a7cc6cd1832231",
+  "inventory_sha256": "a76ae2b109b81479e74b24f207354c65bdcdf7855c6fcbccc416da901a666013",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -14,9 +14,9 @@
       "sha256": "815b4a0f665281b75b1e8f5a8439693d9f349ecf843ce9473cd3d4bff396fc05"
     },
     "scp/api_server.py": {
-      "blob": "85ba66e676bef60e35e22ddb2ae4faf1bf92959d",
-      "bytes": 100359,
-      "sha256": "befb717550aad6493a430cbbcf7c443ff4cd1bc1c8f97b30267c684fe66f260b"
+      "blob": "b9bbb22afe37fa1a577018303e09f143227ef27c",
+      "bytes": 99368,
+      "sha256": "42f9149bc1f6a6d8abc181cc97ab6ebba06b3b160e2b68ff21917b2fb07cccbb"
     },
     "scp/task_kernel.py": {
       "blob": "a63c5c8adf8465f4dc4f3b9cdc603339a6205dc5",
@@ -3178,7 +3178,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "218404ace3e41c2cda0baf3635231f81187cf519",
+      "blob": "3216ae044c031cbf0fc4177aabf872aa62902741",
       "path": "scp/api/chat.py"
     },
     {
@@ -3316,7 +3316,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "85ba66e676bef60e35e22ddb2ae4faf1bf92959d",
+      "blob": "b9bbb22afe37fa1a577018303e09f143227ef27c",
       "path": "scp/api_server.py"
     },
     {
@@ -7402,7 +7402,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "62b6e8e525d765012b49589b380e63eb46ee573d",
+      "blob": "6608df3961df5dc84fe7d5c05af04a46a44730ba",
       "path": "tests/test_chat_multimodal_contract.py"
     },
     {
