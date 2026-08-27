@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T11:24:51.581318+00:00",
-  "captured_commit": "52594fd673a94a382b52ecec6be13e628c30cf49",
-  "captured_parent": "de537486adf2f211b91c9b0bc8a645e8c744db6b",
-  "captured_tree": "f7ab8152d1dd96ffe593ad3df206cf2757eea64e",
-  "tracked_count": 1351,
-  "inventory_sha256": "26eb6f3377341fa1de1efa698772c9dea19596928c5a905ed51eac2db4241528",
+  "generated_at_utc": "2026-08-27T11:52:44.765062+00:00",
+  "captured_commit": "6fdfeb4a64e903d4d147e501b51630ba59a37776",
+  "captured_parent": "c7f5159c0be16c274b5a6ece260f146201fa078b",
+  "captured_tree": "132a3b12e3564aec93b919fb34c860f6dc207565",
+  "tracked_count": 1354,
+  "inventory_sha256": "28e5c9f08bbba0024723ac127c26dd718b3d649ba077e88645d45dd2d2111c42",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
-      "blob": "38f575eca3dd609d60fc31ed5c75d7c1aa977f88",
-      "bytes": 3309,
-      "sha256": "c6d3f576dbe33c83730eb28baf535e73bfd20878cbe694ebbd1f1824e05120bd"
+      "blob": "c80fd15efd30343e486086cd7da61fba25897291",
+      "bytes": 3431,
+      "sha256": "815b4a0f665281b75b1e8f5a8439693d9f349ecf843ce9473cd3d4bff396fc05"
     },
     "scp/api_server.py": {
       "blob": "bec13105f8d21fa41c8ce19965149edd495d7219",
@@ -166,7 +166,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "38f575eca3dd609d60fc31ed5c75d7c1aa977f88",
+      "blob": "c80fd15efd30343e486086cd7da61fba25897291",
       "path": ".github/workflows/scp-release-gate.yml"
     },
     {
@@ -562,7 +562,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a419cbe4e3a5e8d4b481b851dbf4ac767de069e6",
+      "blob": "c4b7818fbb2c2c34c24feb1b627ee824507c5600",
       "path": "dashboard/next-env.d.ts"
     },
     {
@@ -634,7 +634,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4accce9a3d185c5be58cded3ac78b6131e7e1846",
+      "blob": "b181c5269376afe28ee9044f99876b8868fe18b2",
       "path": "dashboard/src/app/api/scp/health/route.ts"
     },
     {
@@ -5986,7 +5986,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9a1219c70861ab3183c31d532c040b403d5dfd3a",
+      "blob": "cfcd92455ddc977f6520db64ba72b039092210fe",
       "path": "scp/security/production_guard.py"
     },
     {
@@ -6526,6 +6526,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "fe64725e83d79127c0bffa82284ad4d0cfc9c5a9",
+      "path": "scripts/ops/run_silent.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "c709e0a79de3936af3fb08be90cf91286d60f84f",
       "path": "scripts/ops/scp_247_bounded_outage_test.ps1"
     },
@@ -6538,7 +6544,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b1786a72403dca9c805eb7d9aa5077a695448150",
+      "blob": "8d5b9b27456be81a8c6d0a92f1535fa7cf8f857f",
       "path": "scripts/ops/scp_247_install.ps1"
     },
     {
@@ -6550,7 +6556,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9641ea1f593ee192a17fb5137ab9602b3206113c",
+      "blob": "cacdec62fc02bd2964724536f0ff2928216432a0",
+      "path": "scripts/ops/scp_247_recovery_watchdog.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ffe2f9fa9df0a871c4a6c2388e5966e6439844e3",
       "path": "scripts/ops/scp_247_supervisor.ps1"
     },
     {
@@ -6570,6 +6582,12 @@
       "type": "blob",
       "blob": "f4045e7e3920241bf939db9534d21c790e52289a",
       "path": "scripts/ops/scp_hourly_monitor.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "671aaa23a9705137220ee6c9b953613dc0bd0485",
+      "path": "scripts/ops/silent_run.vbs"
     },
     {
       "mode": "100644",
