@@ -17,6 +17,14 @@ def add(a, b):
 ORIGINAL = "def add(a, b):\n    return a - b\n"
 
 
+def _write_source(path: Path, source: str) -> None:
+    # Keep the patch fixture byte-stable across Linux and Windows. On Windows,
+    # Path.write_text() can translate LF to CRLF, so the canonical SEARCH block
+    # would not match even though the test source looks identical.
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(source)
+
+
 def _bug(path: Path, suggested_fix: str) -> BugReport:
     return BugReport(
         file=str(path),
@@ -31,7 +39,7 @@ def _bug(path: Path, suggested_fix: str) -> BugReport:
 def test_malformed_deterministic_only_candidate_does_not_write(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     target = tmp_path / "fixture.py"
-    target.write_text(ORIGINAL, encoding="utf-8")
+    _write_source(target, ORIGINAL)
     engine = AutoFixEngine(data_dir=str(tmp_path / "data"))
 
     result = process_bug_with_llm(
@@ -49,7 +57,7 @@ def test_malformed_deterministic_only_candidate_does_not_write(tmp_path, monkeyp
 def test_verified_regression_is_rolled_back_and_not_reported_fixed(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     target = tmp_path / "fixture.py"
-    target.write_text(ORIGINAL, encoding="utf-8")
+    _write_source(target, ORIGINAL)
     engine = AutoFixEngine(data_dir=str(tmp_path / "data"))
     monkeypatch.setattr(
         engine,
@@ -70,7 +78,7 @@ def test_missing_post_fix_evidence_rolls_back_and_escalates_not_fixed(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     target = tmp_path / "fixture.py"
-    target.write_text(ORIGINAL, encoding="utf-8")
+    _write_source(target, ORIGINAL)
     engine = AutoFixEngine(data_dir=str(tmp_path / "data"))
     monkeypatch.setattr(
         engine,
