@@ -81,6 +81,18 @@ _threat_history: list[dict] = []
 _alert_history: list[dict] = []
 
 
+def _require_admin(request: Request | None) -> None:
+    """Enforce the canonical admin-auth contract for every webhook endpoint."""
+    from scp.api._shared import verify_admin
+
+    if request is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "", 1) if auth_header.startswith("Bearer ") else ""
+    if not verify_admin(token=token, request=request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @router.post("/analyze", response_model=AnalyzeResponse)
 @traced_request(_WEBHOOK_LEDGER, require_write=False, action="webhook_analyze")
 async def analyze_prompt(req: AnalyzeRequest, request: Request):
@@ -89,13 +101,7 @@ async def analyze_prompt(req: AnalyzeRequest, request: Request):
     This is the MAIN endpoint for external systems.
     External AI Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢ POST /api/analyze Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢ get action Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¢ allow/block prompt.
     """
-    from scp.api._shared import verify_admin
-
-    # Verify auth
-    auth_header = request.headers.get("Authorization", "")
-    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    if not verify_admin(token):
-        raise HTTPException(status_code=401, detail="Unauthorized Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¢Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚ÂÄ‚â€Ă‚Â¬Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚â€Ă‚Â set SCP_AUTH_TOKEN_SECRET")
+    _require_admin(request)
 
     start = time.time()
 
@@ -173,11 +179,7 @@ async def analyze_prompt(req: AnalyzeRequest, request: Request):
 @router.post("/register")
 async def register_system(req: RegisterRequest, request: Request):
     """Register a system for SCP protection."""
-    from scp.api._shared import verify_admin
-    auth_header = request.headers.get("Authorization", "")
-    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    if not verify_admin(token):
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    _require_admin(request)
 
     _registered_systems[req.system_id] = {
         "system_name": req.system_name,
@@ -189,13 +191,9 @@ async def register_system(req: RegisterRequest, request: Request):
 
 
 @router.get("/threats")
-async def list_threats(limit: int = 50, request: Request = None):
+async def list_threats(request: Request, limit: int = 50):
     """List recent threats detected."""
-    from scp.api._shared import verify_admin
-    auth_header = request.headers.get("Authorization", "") if request else ""
-    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    if not verify_admin(token):
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    _require_admin(request)
 
     return {
         "total": len(_threat_history),
@@ -204,13 +202,9 @@ async def list_threats(limit: int = 50, request: Request = None):
 
 
 @router.get("/alerts")
-async def list_alerts(limit: int = 50, request: Request = None):
+async def list_alerts(request: Request, limit: int = 50):
     """List recent alerts."""
-    from scp.api._shared import verify_admin
-    auth_header = request.headers.get("Authorization", "") if request else ""
-    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    if not verify_admin(token):
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    _require_admin(request)
 
     return {
         "total": len(_alert_history),
@@ -221,11 +215,7 @@ async def list_alerts(limit: int = 50, request: Request = None):
 @router.get("/systems")
 async def list_systems(request: Request):
     """List registered systems."""
-    from scp.api._shared import verify_admin
-    auth_header = request.headers.get("Authorization", "")
-    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    if not verify_admin(token):
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    _require_admin(request)
 
     return {
         "total": len(_registered_systems),

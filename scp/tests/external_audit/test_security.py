@@ -244,3 +244,55 @@ def test_browser_validator_rejects_private_network_targets():
     ):
         with pytest.raises(ValueError, match="internal/private"):
             BrowserSession.validate_url(url)
+
+
+@pytest.mark.asyncio
+async def test_webhook_handlers_pass_request_to_canonical_admin_auth(monkeypatch):
+    """All webhook handlers must pass the Starlette Request into verify_admin."""
+    from starlette.requests import Request
+
+    import scp.api._shared as shared
+    import scp.api.webhook as webhook
+
+    captured: list[tuple[str, Request]] = []
+
+    def fake_verify_admin(token: str | None = None, *, request: Request):
+        captured.append((token or "", request))
+        return True
+
+    class FakeVerdict:
+        verdict = "PASS"
+        confidence = 0.9
+        evidence: dict = {}
+        domain = "general"
+        final_answer = ""
+
+    class FakeJudge:
+        def judge(self, **_kwargs):
+            return FakeVerdict()
+
+    monkeypatch.setattr(shared, "verify_admin", fake_verify_admin)
+    monkeypatch.setattr(shared, "get_judge", lambda: FakeJudge())
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/analyze",
+            "headers": [(b"authorization", b"Bearer test-token")],
+            "client": ("127.0.0.1", 12345),
+            "scheme": "http",
+            "server": ("testserver", 80),
+        }
+    )
+    analyze_handler = webhook.analyze_prompt.__wrapped__
+    await analyze_handler(webhook.AnalyzeRequest(prompt="safe test"), request)
+    await webhook.register_system(webhook.RegisterRequest(system_id="test-system"), request)
+    await webhook.list_threats(request)
+    await webhook.list_alerts(request)
+    await webhook.list_systems(request)
+
+    assert len(captured) == 5  # noqa: S101
+    assert [token for token, _request in captured] == ["test-token"] * 5  # noqa: S101
+    assert all(received_request is request for _token, received_request in captured)  # noqa: S101
+    webhook._registered_systems.pop("test-system", None)
