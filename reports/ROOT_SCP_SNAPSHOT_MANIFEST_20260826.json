@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T05:52:32.573236+00:00",
-  "captured_commit": "e0194479152ba1871331ed958aac65916a2891cc",
-  "captured_parent": "3e85800d87494b18323facca9b6e8abbfb203f48",
-  "captured_tree": "d59bc3e5ca8e5aa5ee6726ba0a0979c90fb04d23",
+  "generated_at_utc": "2026-08-27T06:11:31.833975+00:00",
+  "captured_commit": "84c46a614e1ae4d2bdd32720aa345d3a83a42169",
+  "captured_parent": "3e78d62b45fcffbd56369cdc671673ed94315384",
+  "captured_tree": "3596773af5182181230d5fee8f63a27c8e47be47",
   "tracked_count": 1314,
-  "inventory_sha256": "cfce98a6aff19f14afbfdbe541d1dd683bc9a91fc9177aea9bb18b7c7f8d75ab",
+  "inventory_sha256": "400b9ff1aaf83e50bdc5d332aaebef0655419f972c7c5f53e2f84c9db6cfb008",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -1756,7 +1756,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4ee84bc8cb0e8ba7d6f43b4067f3644e4ece4f71",
+      "blob": "ca6f21a2b35fb4c098605475f405da4e3facd5c1",
       "path": "docs/SCP_SKILLS_ANNOUNCEMENT.md"
     },
     {
