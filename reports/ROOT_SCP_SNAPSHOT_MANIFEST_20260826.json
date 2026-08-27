@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T12:06:22.361986+00:00",
-  "captured_commit": "f13fc963ee10de5a80a2d223fbd90954edd1cd25",
-  "captured_parent": "c7f5159c0be16c274b5a6ece260f146201fa078b",
-  "captured_tree": "cbbfa306f95ddcf9980524510cc1cbc7a1386c7c",
+  "generated_at_utc": "2026-08-27T12:22:40.976432+00:00",
+  "captured_commit": "071cb1331deacd716b92757912aa8cf7975a75db",
+  "captured_parent": "7538084aac7bd82b1a2c5253167b6b5681bf2600",
+  "captured_tree": "b163602fc28b5bc5ac8843cfcd6399764e74c80e",
   "tracked_count": 1354,
-  "inventory_sha256": "293453bb1a2d0814d727a4b54766db9c17618d05dffb6773e6a741b03ca0ce68",
+  "inventory_sha256": "de7125a911bcf069577e18cccef3ae32ecfce056793566cdfee99d636dbdbd9b",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
-      "blob": "38f575eca3dd609d60fc31ed5c75d7c1aa977f88",
-      "bytes": 3309,
-      "sha256": "c6d3f576dbe33c83730eb28baf535e73bfd20878cbe694ebbd1f1824e05120bd"
+      "blob": "c80fd15efd30343e486086cd7da61fba25897291",
+      "bytes": 3431,
+      "sha256": "815b4a0f665281b75b1e8f5a8439693d9f349ecf843ce9473cd3d4bff396fc05"
     },
     "scp/api_server.py": {
       "blob": "bec13105f8d21fa41c8ce19965149edd495d7219",
@@ -166,7 +166,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "38f575eca3dd609d60fc31ed5c75d7c1aa977f88",
+      "blob": "c80fd15efd30343e486086cd7da61fba25897291",
       "path": ".github/workflows/scp-release-gate.yml"
     },
     {
@@ -634,7 +634,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4accce9a3d185c5be58cded3ac78b6131e7e1846",
+      "blob": "948ca93cfdbd2f73a18edd1f4b55e511b47c6bc0",
       "path": "dashboard/src/app/api/scp/health/route.ts"
     },
     {
@@ -5986,7 +5986,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9a1219c70861ab3183c31d532c040b403d5dfd3a",
+      "blob": "cfcd92455ddc977f6520db64ba72b039092210fe",
       "path": "scp/security/production_guard.py"
     },
     {
