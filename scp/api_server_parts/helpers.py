@@ -18,14 +18,7 @@ silently skipped for ALL multimodal requests).
 # ruff: noqa: F821
 from __future__ import annotations
 
-import ipaddress
 import logging
-import os
-import secrets
-import socket
-import urllib.error
-import urllib.parse
-import urllib.request
 import uuid
 from typing import Any
 
@@ -43,15 +36,15 @@ from typing import Any
 #   (api_server.py line 42, _shared.py PEP 562 delegation, v104_routes.py)
 #   keep working unchanged. If you need a fetcher, extend url_fetcher.py —
 #   do NOT add a third impl here.
-from scp.core.url_fetcher import (  # noqa: E402 (after sys-path tweaks above)
+from scp.core.url_fetcher import (  # noqa: E402,F401 (compatibility re-exports)
     _SCP_SAFE_FETCH_UA,
     _SafeRedirectHandler,
     _is_disallowed_ip,
     _safe_fetch_url,
 )
 
-from fastapi import Depends, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Request
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("scp.api")
@@ -225,12 +218,22 @@ class SessionAnalyzeRequest(BaseModel):
 
 
 def _extract_v98_context(request: Request) -> dict[str, Any]:
-    """Extract IP, headers, session_id from HTTP request for V98 security modules."""
+    """Extract bounded request metadata for V98 security modules.
+
+    Credential and cookie header values must never enter model-adjacent
+    security context.  The detector keeps only a bounded user-agent
+    fingerprint plus header names and a sensitive-header presence flag.
+    """
+    from scp.security.request_context import safe_header_metadata
+
     ip = request.client.host if request.client else "unknown"
-    request.headers.get("user-agent", "")
+    header_metadata = safe_header_metadata(request.headers)
     return {
         "ip": ip,
-        "headers": dict(request.headers),
+        "headers": header_metadata["headers"],
+        "header_names": header_metadata["header_names"],
+        "sensitive_headers_present": header_metadata["sensitive_headers_present"],
+        "user_agent_present": header_metadata["user_agent_present"],
         "session_id": str(uuid.uuid4()),
         "endpoint": str(request.url.path),
         "body": "",

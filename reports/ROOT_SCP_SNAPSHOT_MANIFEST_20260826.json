@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T08:08:53.653656+00:00",
-  "captured_commit": "153f035abf1ecdf7d79007b26b309bb603617738",
-  "captured_parent": "f964e79e83c4fb82d6dd36bd09b0450c0158bc87",
-  "captured_tree": "69c11df77a6c7bc6fd4bef1f3ac4282df82da625",
-  "tracked_count": 1326,
-  "inventory_sha256": "6e9c12788735b2ae75ed319dee10b8c7835587ee5e8fd00a2dfd84865e5ed09a",
+  "generated_at_utc": "2026-08-27T09:48:27.805220+00:00",
+  "captured_commit": "bbb0f88879b21d18a1bab841dfe1d2565c1c3b6a",
+  "captured_parent": "78abaf70292507e1fc8ebf6b8b44a1e843139141",
+  "captured_tree": "4a21da4d4f8ea9f55e700ac42adce7fb651956c9",
+  "tracked_count": 1337,
+  "inventory_sha256": "d75e1b8df5dc979df7c67150f5b3caf66eaae40361180fd0b8c131027fb3d1e2",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -14,9 +14,9 @@
       "sha256": "c6d3f576dbe33c83730eb28baf535e73bfd20878cbe694ebbd1f1824e05120bd"
     },
     "scp/api_server.py": {
-      "blob": "e174814c710658f690ba817a719f43a2677bdee7",
-      "bytes": 99527,
-      "sha256": "ad1c9e13a16e437f53e5eb42331da834b658f94937555bec918599c97ec21f35"
+      "blob": "9d4476b15098207acd31024d9a49ea617bb87f74",
+      "bytes": 101480,
+      "sha256": "e0443bc043ed03da5b692eaee530a5e26ae0c25912b6a7e6df4c78dae49da01d"
     },
     "scp/task_kernel.py": {
       "blob": "a63c5c8adf8465f4dc4f3b9cdc603339a6205dc5",
@@ -88,6 +88,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "b95d136002706db9e0163dc9f56ab3bf7eeb03fa",
+      "path": ".dockerignore"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "d5c06d8cdc9df93cdd1cef1093687687ca4faaaa",
       "path": ".env.example"
     },
@@ -108,6 +114,12 @@
       "type": "blob",
       "blob": "50790159ecbfafd3c5da9ac73bd216adde8d1fd9",
       "path": "CONTRIBUTING.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "212625d6ccad4d437b4140ad1a396c984200ccca",
+      "path": "Dockerfile"
     },
     {
       "mode": "100644",
@@ -448,6 +460,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "25739ab0f386ab741a227a1cdbc3bdd059cc5e2f",
+      "path": "compose.yml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "452a691c982cd9e555fa90f0c7692c71dd0e7454",
       "path": "dashboard/bun.lock"
     },
@@ -568,7 +586,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d0a9846e57b84f9a59fd7c6a2f1fa99f0b9626e2",
+      "blob": "85a6677ce11b5db92b481a452fa2a47416a562ed",
       "path": "dashboard/src/app/api/scp/status/route.ts"
     },
     {
@@ -1308,6 +1326,12 @@
       "type": "blob",
       "blob": "75b34120a2681aaceb5fd5c59ca33e39d93721c6",
       "path": "data/rag_gold_review_queue_ddg_short_20260825.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f98db0980f9f62bd9572fb4003f6bb42e4d301ca",
+      "path": "deploy/container/README.md"
     },
     {
       "mode": "100644",
@@ -2086,7 +2110,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f5be022738d15509904ae267bdb93ac3e88fcbd2",
+      "blob": "9c0183e6841126c6ddd4c31516e21502b955317b",
       "path": "mini-services/loop-scheduler/index.ts"
     },
     {
@@ -3070,7 +3094,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f632bf65d534f6f2f5b6569c2da5da49a10b5cc4",
+      "blob": "0b8f41444d7e1e971b7db6f9f75c2add98987cda",
       "path": "scp/api/_shared.py"
     },
     {
@@ -3214,7 +3238,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e174814c710658f690ba817a719f43a2677bdee7",
+      "blob": "9d4476b15098207acd31024d9a49ea617bb87f74",
       "path": "scp/api_server.py"
     },
     {
@@ -3226,7 +3250,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e2da5ff404361fd400f904e64c6e7d09450ffe04",
+      "blob": "4757455dc4126c87ef8e7065ca0b7bc37cbe5395",
       "path": "scp/api_server_parts/helpers.py"
     },
     {
@@ -3418,7 +3442,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "05b0fdd1e8064e2e3c2873e3a71d7f6f3ee5d8af",
+      "blob": "99c644ac3e2eac22bd300e6dcc26f776c42bbe0b",
       "path": "scp/autofix/engine.py"
     },
     {
@@ -3526,13 +3550,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "0c57f8ebc67b2d7e1da69c7c58afde161b3c7700",
+      "blob": "50b2ed15d2acb8f5037e68065379a6d6e9b7e630",
       "path": "scp/autofix/property_validator.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "45e4f457571dd5853c37ee0d5097ec92e12c04b0",
+      "blob": "871ad95380580cb4efc3036162704c05092780e1",
       "path": "scp/autofix/realtime_verifier.py"
     },
     {
@@ -3604,7 +3628,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3f9d7b43b01cd6636a6c2463a4d7ce136c7b42f5",
+      "blob": "a81d62949b4f884b5d73ad6bf3a4ce6f9ce5ba69",
       "path": "scp/autofix/runner_phases/post_fix_verify.py"
     },
     {
@@ -4996,7 +5020,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a6b9b837423ac72307a4ebfe0aeeb77df502b8b9",
+      "blob": "40bffdee4b50e949da5d01ba529938acb47931fc",
       "path": "scp/llm_gateway/client.py"
     },
     {
@@ -5892,6 +5916,12 @@
       "type": "blob",
       "blob": "a10f7ecf02430b1992063ba76329640b248fb547",
       "path": "scp/security/provider_keys.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7c46ce0c9608781c57825d96f5bac7962187d845",
+      "path": "scp/security/request_context.py"
     },
     {
       "mode": "100644",
@@ -7246,6 +7276,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "4497c12322bdfc4f65e7616f8915223554a1205b",
+      "path": "tests/test_autofix_engine_integration_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "238ba84e4d312306a145169a7342c7a247c6273b",
       "path": "tests/test_bare_except_ab_r44.py"
     },
@@ -7282,6 +7318,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "c9579110fb0ca8b69efb3040482addbc235746ce",
+      "path": "tests/test_container_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "c59fca568f78bb28ea9056e880055d4bf9ccfb3c",
       "path": "tests/test_desktop_controls_contract.py"
     },
@@ -7306,7 +7348,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3f752302394898d86c86c9c0069d5f10bbe46ef7",
+      "blob": "67fcc2f50c34bfc24a4cf7777e111a5f6f3e5247",
       "path": "tests/test_evidence_replay_contract.py"
     },
     {
@@ -7432,6 +7474,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "4d9c8ed36a700a090504091e381cc695fa62895c",
+      "path": "tests/test_llm_gateway_fallback_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "8b9665f92f66bd0f09d94f745a8525c6ed434fa8",
       "path": "tests/test_multi_source_search.py"
     },
@@ -7450,6 +7498,18 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "ec2667cc2bf8e7fcf1bf2bb04c914bc59ef2aebc",
+      "path": "tests/test_policy_mutation_smoke.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "da753ddde77432e06e2a3885dd02a029a906f345",
+      "path": "tests/test_property_validator_fail_closed.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "a32408afa62131df896db1304ab8362bced4d391",
       "path": "tests/test_provider_fallback.py"
     },
@@ -7464,6 +7524,12 @@
       "type": "blob",
       "blob": "fe726e0f555c2f1701dae979f1a98b90c7993d41",
       "path": "tests/test_provider_timeout_recovery.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "280aa3e24f752a6c35926ae01322ecb66c1a4f10",
+      "path": "tests/test_readiness_and_context_contract.py"
     },
     {
       "mode": "100644",

@@ -52,11 +52,18 @@ def get_judge():
 
 
 def _extract_v98_context(request) -> dict[str, Any]:
-    """Extract V98 context from request."""
-    ctx = {}
-    ctx["ip"] = request.client.host if request.client else "unknown"
-    ctx["user_agent"] = request.headers.get("user-agent", "")
-    return ctx
+    """Extract bounded V98 request metadata without secret header values."""
+    from scp.security.request_context import safe_header_metadata
+
+    metadata = safe_header_metadata(request.headers)
+    return {
+        "ip": request.client.host if request.client else "unknown",
+        "user_agent": metadata["headers"].get("user-agent", ""),
+        "headers": metadata["headers"],
+        "header_names": metadata["header_names"],
+        "sensitive_headers_present": metadata["sensitive_headers_present"],
+        "user_agent_present": metadata["user_agent_present"],
+    }
 
 
 # [FIX] Stubs for route imports — delegate to api_server at runtime

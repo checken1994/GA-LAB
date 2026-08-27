@@ -430,7 +430,7 @@ class PropertyResult:
 # ============================================================
 
 def _resolve_strategy(spec: PropertySpec) -> Callable[[], Any] | None:
-    """Resolve the strategy from spec — return None on failure (fail-open)."""
+    """Resolve a declared strategy; unknown strategies are not verification."""
     try:
         s = spec.strategy
         if callable(s):
@@ -438,8 +438,8 @@ def _resolve_strategy(spec: PropertySpec) -> Callable[[], Any] | None:
         if isinstance(s, str):
             fn = STRATEGY_REGISTRY.get(s)
             if fn is None:
-                logger.warning(f"[IMP-19] unknown strategy {s!r}, falling back to mixed")
-                return STRATEGY_REGISTRY.get("mixed")
+                logger.warning(f"[IMP-19] unknown strategy {s!r}; verification unavailable")
+                return None
             return fn
         logger.warning(f"[IMP-19] bad strategy type {type(s).__name__}")
         return None
@@ -602,8 +602,10 @@ def validate_fix(
         n: Number of edge-case inputs to test (default 100).
         seed: Optional random seed (for reproducibility).
 
-    Returns:
-        PropertyResult. Fail-open: any setup error → ok=True with reason.
+            Returns:
+        PropertyResult. Setup or execution uncertainty is ``ok=False`` so the
+        caller cannot promote an unverified fix as successful.
+
     """
     result = PropertyResult()
     if seed is not None:
@@ -611,8 +613,8 @@ def validate_fix(
 
     try:
         if not spec or not spec.invariants:
-            result.ok = True
-            result.reason = "skip — no invariants to check (fail-open)"
+            result.ok = False
+            result.reason = "unverified — no invariants declared"
             return result
 
         # Resolve the target function name from bug_location (if any).
@@ -622,17 +624,15 @@ def validate_fix(
         fixed_fn = _compile_function(fixed_source, expected_name)
 
         if orig_fn is None or fixed_fn is None:
-            result.ok = True
-            result.reason = (
-                "skip — could not compile function(s) for property test (fail-open)"
-            )
+            result.ok = False
+            result.reason = "unverified — could not compile function(s) for property test"
             result.inputs_tested = 0
             return result
 
         strategy = _resolve_strategy(spec)
         if strategy is None:
-            result.ok = True
-            result.reason = "skip — strategy unavailable (fail-open)"
+            result.ok = False
+            result.reason = "unverified — strategy unavailable"
             return result
 
         # Run N trials.
@@ -804,7 +804,11 @@ def validate_fix(
                     # show this pattern. Single divergence may be the fix.
                     pass  # Don't flag (too noisy) — invariant check covers real harm.
 
-        # Final verdict.
+        # Final verdict. Zero executed inputs is not evidence of a safe fix.
+        if result.inputs_tested == 0:
+            result.ok = False
+            result.reason = "unverified — property strategy produced no executable inputs"
+            return result
         if result.violations:
             result.ok = False
             result.reason = (
@@ -817,10 +821,10 @@ def validate_fix(
                 f"all invariants held across {result.inputs_tested} inputs"
             )
 
-    except Exception as e:  # noqa: BLE001 — fail-open per DNA #7
+    except Exception as e:  # noqa: BLE001 — uncertainty must not become PASS
         logger.warning(f"[IMP-19] validate_fix error: {e}")
-        result.ok = True
-        result.reason = f"skip — internal error (fail-open): {e}"
+        result.ok = False
+        result.reason = f"unverified — internal error: {type(e).__name__}"
 
     return result
 
@@ -858,12 +862,12 @@ def run_property_suite(
             except Exception as e:  # noqa: BLE001
                 logger.warning(f"[IMP-19] spec run error: {e}")
                 out.append(PropertyResult(
-                    ok=True, reason=f"skip — spec error (fail-open): {e}",
+                    ok=False, reason=f"unverified — spec error: {type(e).__name__}",
                 ))
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[IMP-19] run_property_suite error: {e}")
-        # Return a single fail-open result if whole suite crashed.
-        out = [PropertyResult(ok=True, reason=f"skip — suite error (fail-open): {e}")]
+        # Return a single blocked result if the whole suite crashed.
+        out = [PropertyResult(ok=False, reason=f"unverified — suite error: {type(e).__name__}")]
     return out
 
 

@@ -656,6 +656,22 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({ status: "ok", service: "scp-loop-scheduler" });
   }
 
+  // GET /ready and /readiness — explicit readiness aliases.  The scheduler
+  // is ready once this handler is serving requests; its dependency state is
+  // reported separately in the root status payload and each audit run.
+  if (method === "GET" && (path === "/ready" || path === "/readiness")) {
+    return jsonResponse({
+      status: "ready",
+      service: "scp-loop-scheduler",
+      paused: state.paused,
+      running: state.running,
+      dependency_checks: {
+        scp: state.scp_online ? "ok" : "unknown",
+        llm_bridge: state.bridge_online ? "ok" : "unknown",
+      },
+    });
+  }
+
   // POST /trigger — manual trigger (returns the run result).
   // [SCP-DNA-FIX 4-d-007] Concurrent-trigger guard (DNA #9 No harm).
   // Pre-fix: if operator POSTed /trigger while a cron tick was in
