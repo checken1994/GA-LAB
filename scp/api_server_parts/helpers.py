@@ -225,12 +225,22 @@ class SessionAnalyzeRequest(BaseModel):
 
 
 def _extract_v98_context(request: Request) -> dict[str, Any]:
-    """Extract IP, headers, session_id from HTTP request for V98 security modules."""
+    """Extract bounded request metadata for V98 security modules.
+
+    Credential and cookie header values must never enter model-adjacent
+    security context.  The detector keeps only a bounded user-agent
+    fingerprint plus header names and a sensitive-header presence flag.
+    """
+    from scp.security.request_context import safe_header_metadata
+
     ip = request.client.host if request.client else "unknown"
-    request.headers.get("user-agent", "")
+    header_metadata = safe_header_metadata(request.headers)
     return {
         "ip": ip,
-        "headers": dict(request.headers),
+        "headers": header_metadata["headers"],
+        "header_names": header_metadata["header_names"],
+        "sensitive_headers_present": header_metadata["sensitive_headers_present"],
+        "user_agent_present": header_metadata["user_agent_present"],
         "session_id": str(uuid.uuid4()),
         "endpoint": str(request.url.path),
         "body": "",

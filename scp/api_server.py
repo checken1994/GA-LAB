@@ -106,14 +106,22 @@ _ASK_KERNEL_ADAPTER_LOCK = threading.Lock()
 _ASK_KERNEL_INIT_ERROR: Exception | None = None
 
 
-def _ask_kernel_enabled(req: AskRequest) -> bool:
-    if os.environ.get("SCP_ASK_KERNEL_ENABLED", "1") != "1":
-        return False
+def _ask_is_context_rag(req: AskRequest) -> bool:
     return bool(
         getattr(req, "rag_enabled", False)
         or getattr(req, "contexts", None)
         or str(getattr(req, "retrieved_context", "") or "").strip()
     )
+
+
+def _ask_kernel_enabled(req: AskRequest) -> bool:
+    """Return true only when the durable RAG kernel is explicitly enabled.
+
+    A context-backed request must not silently fall through to the legacy
+    handler when the kernel flag is disabled.  The route turns that state into
+    a fail-closed kernel-gate response instead.
+    """
+    return _ask_is_context_rag(req) and os.environ.get("SCP_ASK_KERNEL_ENABLED", "1") == "1"
 
 
 def _get_ask_kernel_adapter() -> Any:
@@ -375,6 +383,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"{RELEASE_LABEL} API Server starting...")
     logger.info("=" * 60)
 
+    # Readiness is distinct from liveness: /health can answer as soon as the
+    # socket is bound, while /ready only becomes 200 after judge initialization.
+    app.state.judge_ready = False
+    app.state.startup_status = "starting"
+    app.state.readiness_reason = "judge_initialization_pending"
+
     # [SCP-DNA-FIX R12-28] Disable WHY LLM + evolution during startup (fast boot).
     _orig_why_llm = os.environ.get("SCP_WHY_LLM_ENABLED", "0")
     _orig_evo_auto = os.environ.get("SCP_EVOLUTION_AUTO", "0")
@@ -446,13 +460,19 @@ async def lifespan(app: FastAPI):
         global _judge  # propagate judge to module scope for lifespan post-yield
         try:
             judge = get_judge()
-            _judge = judge  # module-level singleton Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â lifespan post-yield polls this
+            _judge = judge  # module-level singleton; post-yield polls this
+            app.state.judge_ready = True
+            app.state.startup_status = "ready"
+            app.state.readiness_reason = None
             logger.info(f"[R20-ROOT-FIX-REAL] Judge ready: {len(judge.slms)} SLMs")
             logger.info(f"[R20-ROOT-FIX-REAL] V98 status: {judge.get_v98_status()}")
             # [4-a-001] Background scheduler start is deferred to the lifespan
             # post-yield block (which runs inside the running event loop).
             # asyncio.create_task cannot be called from this non-async thread.
         except Exception as e:
+            app.state.judge_ready = False
+            app.state.startup_status = "failed"
+            app.state.readiness_reason = "judge_initialization_failed"
             logger.error(f"[R20-ROOT-FIX-REAL] Judge init FAILED: {e}")
             logger.error("[R20-ROOT-FIX-REAL] /ask will return 503 until judge is available")
 
@@ -659,6 +679,10 @@ async def lifespan(app: FastAPI):
         logger.warning("[AUTO] Attack mode monitor failed to start: %s", exc)
 
     yield
+
+    app.state.judge_ready = False
+    app.state.startup_status = "stopping"
+    app.state.readiness_reason = "server_shutting_down"
 
     # ============================================================
     # [OPT-14 / GĂ„â€Ă‚Â  Ä‚â€Ă‚Â§8] External trust root verification Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â at startup,
@@ -1101,7 +1125,9 @@ def _ask_context_rag(req: AskRequest, request: Request) -> AskResponse:
 @app.post("/ask", response_model=AskResponse)
 @traced_request(_REQUEST_RUN_LEDGER)
 async def ask(req: AskRequest, request: Request):
-    if _ask_kernel_enabled(req):
+    if _ask_is_context_rag(req):
+        if not _ask_kernel_enabled(req):
+            return _kernel_gate_unavailable_response(req, RuntimeError("rag_kernel_disabled"))
         adapter = _get_ask_kernel_adapter()
         if adapter is None:
             return _kernel_gate_unavailable_response(req, _ASK_KERNEL_INIT_ERROR or RuntimeError("kernel_adapter_unavailable"))
@@ -1119,7 +1145,7 @@ async def _ask_impl(req: AskRequest, request: Request):
       4. [V98] AttackPolicy + CounterResponse + Canary + AttackPatternMemory.record_bypass
     """
     t0 = time.time()
-    if os.environ.get("SCP_ASK_KERNEL_ENABLED", "1") == "1" and (req.rag_enabled or req.contexts or str(req.retrieved_context or "").strip()):
+    if _ask_is_context_rag(req):
         return _ask_context_rag(req, request)
     if req.source == "scp_batch_benchmark_v1":
         return await _ask_benchmark_fast(req, request)
@@ -1755,6 +1781,30 @@ async def health():
         "modules": "136+ Python files",
         "note": "minimal health Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â use /health/detailed for full status",
     }
+
+
+@app.get("/ready")
+@app.get("/readiness")
+async def readiness():
+    """Report whether the API can serve judge-backed requests.
+
+    ``/health`` is liveness and may return 200 while initialization is still
+    running.  These aliases are readiness probes and return 503 until the
+    background judge initialization has completed.
+    """
+    judge_ready = bool(getattr(app.state, "judge_ready", False))
+    scheduler_started = bool(getattr(app.state, "background_scheduler_started", False))
+    payload = {
+        "status": "ready" if judge_ready else "initializing",
+        "service": "scp-api",
+        "version": _SCP_VERSION,
+        "checks": {
+            "judge": "ok" if judge_ready else "pending",
+            "background_scheduler": "ok" if scheduler_started else "pending",
+        },
+        "reason": getattr(app.state, "readiness_reason", None),
+    }
+    return JSONResponse(payload, status_code=200 if judge_ready else 503)
 
 
 @app.get("/health/detailed")

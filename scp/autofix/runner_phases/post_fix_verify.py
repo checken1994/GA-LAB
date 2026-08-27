@@ -57,8 +57,8 @@ def _run_vulture_cross_file(method_name: str) -> bool:
         # If method_name appears in vulture output → still dead
         return method_name not in result.stdout
     except Exception as e:
-        logger.debug(f"[R7-12] vulture cross-file failed: {e}")
-        return True  # fail-open (don't block fix if vulture unavailable)
+        logger.warning("[R7-12] vulture cross-file unavailable; verification is UNVERIFIED: %s", type(e).__name__)
+        return False
 
 
 def _try_import_module(file_path: str) -> tuple[bool, str]:
@@ -85,9 +85,9 @@ def _try_import_module(file_path: str) -> tuple[bool, str]:
     except SyntaxError as e:
         return False, f"SyntaxError: {e}"
     except Exception as e:
-        # Other exceptions during module-level code are OK (may need runtime context)
-        logger.debug(f"[R7-12] import check exception (non-fatal): {e}")
-        return True, f"import OK (module-level exception non-fatal: {type(e).__name__})"
+        # A module-level exception means the patched module was not verified.
+        logger.warning("[R7-12] import check failed; verification is UNVERIFIED: %s", type(e).__name__)
+        return False, f"module import failed: {type(e).__name__}"
 
 
 def _try_hypothesis_test(file_path: str) -> tuple[bool, str]:
@@ -101,7 +101,7 @@ def _try_hypothesis_test(file_path: str) -> tuple[bool, str]:
         stem = rel.stem  # e.g. "conversionslm"
         test_file = _SCP_ROOT.parent / "tests" / "property" / f"test_{stem}.py"
         if not test_file.exists():
-            return True, f"no property test at {test_file}"
+            return False, f"UNVERIFIED: no property test at {test_file}"
         result = subprocess.run(
             [sys.executable, "-m", "pytest", str(test_file), "-x", "--tb=short", "-q"],
             capture_output=True, text=True, timeout=_MAX_VERIFY_TIME_S
@@ -110,8 +110,8 @@ def _try_hypothesis_test(file_path: str) -> tuple[bool, str]:
             return True, "hypothesis tests pass"
         return False, f"hypothesis tests failed: {result.stdout[-500:]}"
     except Exception as e:
-        logger.debug(f"[R7-12] hypothesis test failed to run: {e}")
-        return True, f"hypothesis test skipped ({e})"
+        logger.warning("[R7-12] hypothesis test unavailable; verification is UNVERIFIED: %s", type(e).__name__)
+        return False, f"UNVERIFIED: hypothesis test unavailable ({type(e).__name__})"
 
 
 def run_post_fix_verify(
@@ -283,8 +283,8 @@ def run_full_post_fix_verify(
     # escalate/rollback even when other phases pass).
     _bsgva_escalate = False
     _bsgva_rollback = False
-    # Missing or failed oracle evidence is explicitly unverified. Escalate for
-    # review, but do not auto-rollback a candidate merely because gold is absent.
+    # Missing or failed oracle evidence is explicitly unverified and blocks
+    # promotion; the caller decides whether to rollback or escalate.
     _bsgva_unverified = False
 
     # Phase A: base post-fix verify (vulture + import + hypothesis)
@@ -313,11 +313,13 @@ def run_full_post_fix_verify(
             if not reality_result.get("ok", False):
                 all_ok = False
         except ImportError as e:
-            logger.debug(f"[IMP-1] reality_test unavailable (skip): {e}")
-            phases["reality_test"] = {"ok": True, "skipped": True, "reason": f"import skipped: {e}"}
+            logger.warning("[IMP-1] reality_test unavailable; verification is UNVERIFIED: %s", type(e).__name__)
+            phases["reality_test"] = {"ok": False, "status": "UNVERIFIED", "reason": "reality_test unavailable"}
+            all_ok = False
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"[IMP-1] reality_test error (fail-open): {e}")
-            phases["reality_test"] = {"ok": True, "skipped": True, "reason": f"error: {e}"}
+            logger.warning("[IMP-1] reality_test failed; verification is UNVERIFIED: %s", type(e).__name__)
+            phases["reality_test"] = {"ok": False, "status": "UNVERIFIED", "reason": "reality_test failed"}
+            all_ok = False
 
     # Phase C: [IMP-3] completeness_check — re-scan for bug_type
     if run_completeness and bug_type:
@@ -335,15 +337,17 @@ def run_full_post_fix_verify(
                 # but missed some sites. Tier-3 review decides.
                 all_ok = False
         except ImportError as e:
-            logger.debug(f"[IMP-1] completeness_check unavailable (skip): {e}")
+            logger.warning("[IMP-1] completeness_check unavailable; verification is UNVERIFIED: %s", type(e).__name__)
             phases["completeness_check"] = {
-                "complete": True, "skipped": True, "reason": f"import skipped: {e}",
+                "ok": False, "complete": False, "status": "UNVERIFIED", "reason": "completeness_check unavailable",
             }
+            all_ok = False
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"[IMP-1] completeness_check error (fail-open): {e}")
+            logger.warning("[IMP-1] completeness_check failed; verification is UNVERIFIED: %s", type(e).__name__)
             phases["completeness_check"] = {
-                "complete": True, "skipped": True, "reason": f"error: {e}",
+                "ok": False, "complete": False, "status": "UNVERIFIED", "reason": "completeness_check failed",
             }
+            all_ok = False
 
     # Phase D: [R12-9 BSG-VA] Evidence Replay — classify test PASS as
     # gold-aligned / regression-only / misleading / candidate-specific /
@@ -364,8 +368,7 @@ def run_full_post_fix_verify(
     #   - role=MISLEADING or REGRESSION_ONLY → escalate_to_tier3 = True
     #     (test evidence is fake or non-discriminative).
     #   - role=DIAGNOSTIC_NEGATIVE → rollback = True (candidate didn't work).
-    #   - Fail-open per DNA #7: import error / no gold entry / any exception
-    #     → skip phase (do NOT block fix).
+    #   - Missing oracle evidence remains UNVERIFIED and blocks promotion.
     if run_evidence_replay and bug_type:
         try:
             import tempfile as _bsgva_tmpfile
@@ -542,21 +545,30 @@ def run_full_post_fix_verify(
                 )
         else:
             phases["semantic_equiv"] = {
-                "ok": True, "skipped": True,
-                "reason": "no backup file — cannot compare (fail-open)",
+                "ok": False, "status": "UNVERIFIED", "skipped": True,
+                "reason": "no backup file — semantic equivalence cannot be verified",
             }
+            all_ok = False
     except ImportError as _v3_se_imp:
-        logger.debug(
-            f"[R10 v3 IMP-15] semantic_equiv unavailable (fail-open): {_v3_se_imp}"
+        logger.warning(
+            "[R10 v3 IMP-15] semantic_equiv unavailable; verification is UNVERIFIED: %s",
+            type(_v3_se_imp).__name__,
         )
         phases["semantic_equiv"] = {
-            "ok": True, "skipped": True, "reason": f"import skipped: {_v3_se_imp}",
+            "ok": False, "status": "UNVERIFIED", "skipped": True,
+            "reason": "semantic equivalence unavailable",
         }
+        all_ok = False
     except Exception as _v3_se_err:
-        logger.warning(f"[R10 v3 IMP-15] semantic_equiv error (fail-open): {_v3_se_err}")
+        logger.warning(
+            "[R10 v3 IMP-15] semantic_equiv failed; verification is UNVERIFIED: %s",
+            type(_v3_se_err).__name__,
+        )
         phases["semantic_equiv"] = {
-            "ok": True, "skipped": True, "reason": f"error: {_v3_se_err}",
+            "ok": False, "status": "UNVERIFIED", "skipped": True,
+            "reason": "semantic equivalence failed",
         }
+        all_ok = False
 
     overall_ok = all_ok and not _bsgva_unverified
     escalate = (not all_ok) or _bsgva_escalate or _bsgva_unverified

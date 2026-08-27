@@ -302,7 +302,7 @@ class AutoFixEngine:
     # TẠI SAO: WHY gate (v9.0) hỏi "có nên fix không?" (action layer — necessity +
     # falsification). _verify_fix hỏi "fix có work không? Có introduce new bug không?"
     # (verify layer). WHY + verify = cùng độ sâu (2 layer mỗi cái).
-    # Non-blocking: verify error → fail-open (don't break fix).
+    # Verification uncertainty is fail-closed: an unverified fix must not be promoted.
     # Nếu verify phát hiện new bugs → caller ROLLBACK (restore pre-fix content).
     def _verify_fix(self, filepath, original_bugs: list) -> tuple[bool, str]:
         """Self-verify a fix after applying patch.
@@ -313,7 +313,7 @@ class AutoFixEngine:
 
         Returns (is_valid, reason).
         - is_valid=False → fix broke things → caller should ROLLBACK
-        - is_valid=True → fix OK (or inconclusive — fail-open)
+        - is_valid=True → every required verifier passed
 
         Checks (in priority order):
           1. ast.parse() — patched file still parses (syntax OK)
@@ -358,11 +358,12 @@ class AutoFixEngine:
                         f"original bug still present after fix: "
                         f"{len(_still_present)}/{len(original_bugs)} unchanged"
                     )
-            except ImportError:
-                # ast_scan_scp unavailable (circular import risk) → fail-open
-                logger.debug("[V9.1-UPGRADE] ast_scan_scp unavailable (fail-open on re-scan)")
+            except ImportError as _rescan_import_err:
+                logger.warning("[V9.1-UPGRADE] ast_scan_scp unavailable; rejecting unverifiable fix: %s", type(_rescan_import_err).__name__)
+                return False, "re-scan unavailable; fix is UNVERIFIED"
             except Exception as _rescan_err:
-                logger.debug(f"[V9.1-UPGRADE] re-scan failed (fail-open): {_rescan_err}")
+                logger.warning("[V9.1-UPGRADE] re-scan failed; rejecting unverifiable fix: %s", type(_rescan_err).__name__)
+                return False, "re-scan failed; fix is UNVERIFIED"
 
             # [V9.1-UPGRADE] Check 3: no NEW bugs introduced at the fix line.
             # TẠI SAO: fix có thể "fix bug A nhưng introduce bug B" (e.g., add
@@ -393,10 +394,12 @@ class AutoFixEngine:
                         f"fix introduced {_new_bugs.__len__()} new bug(s) near fix line: "
                         f"{[getattr(b, 'bug_type', '?') for b in _new_bugs[:3]]}"
                     )
-            except ImportError as e:
-                logger.warning(f"Silent except: {e}")  # fail-open
+            except ImportError as _new_bug_import_err:
+                logger.warning("[V9.1-UPGRADE] new-bug scanner unavailable; rejecting unverifiable fix: %s", type(_new_bug_import_err).__name__)
+                return False, "new-bug scan unavailable; fix is UNVERIFIED"
             except Exception as _new_bug_err:
-                logger.debug(f"[V9.1-UPGRADE] new-bug check failed (fail-open): {_new_bug_err}")
+                logger.warning("[V9.1-UPGRADE] new-bug scan failed; rejecting unverifiable fix: %s", type(_new_bug_err).__name__)
+                return False, "new-bug scan failed; fix is UNVERIFIED"
 
             # [WORLD-CLASS-GATE] Check 4: self_scan_patch_diff
             # TẠI SAO: Runtime log cho thấy "fix subprocess nhưng patch thêm subprocess mới"
@@ -592,7 +595,7 @@ class AutoFixEngine:
             except Exception as _ent_err:
                 logger.debug(f"[CASCADE] enterprise re-scan fail-open: {_ent_err}")
 
-            # [R10 v4 WIRE — IMP-19] Property-Based Validation (7th check, fail-open).
+            # [R10 v4 WIRE — IMP-19] Property-Based Validation (7th check, fail-closed).
             # TẠI SAO: existing 6 checks verify syntax + re-scan + no-new-bugs +
             # self-scan + pytest + enterprise. But none of them test that the
             # fix preserves INVARIANTS across edge-case inputs (None, empty,
@@ -602,10 +605,9 @@ class AutoFixEngine:
             # (-10, 2). IMP-19 generates N=50 edge-case inputs via built-in
             # strategy generator, runs BOTH orig + fixed on each, compares.
             # If fixed violates an invariant that orig held → FIX FAILED.
-            # Fail-open per DNA #7: if property_validator crashes or no
-            # PropertySpec available → don't block the fix (the 6 prior
-            # checks already ran). Only FAIL if a real invariant violation
-            # is found.
+            # Verification uncertainty is fail-closed: if the property
+            # validator cannot run, do not promote the fix on the strength of
+            # the other checks alone.
             try:
                 from scp.autofix.property_validator import (
                     INT_OR_NONE_STRATEGY as _v4_int_strat,
@@ -679,19 +681,26 @@ class AutoFixEngine:
                         f"0 violations ({_v4_pv_result.reason})"
                     )
             except ImportError as _v4_pv_imp:
-                logger.debug(
-                    f"[R10 v4 IMP-19] property_validator unavailable (fail-open): {_v4_pv_imp}"
+                logger.warning(
+                    "[R10 v4 IMP-19] property_validator unavailable; rejecting unverifiable fix: %s",
+                    type(_v4_pv_imp).__name__,
                 )
+                return False, "property validation unavailable; fix is UNVERIFIED"
             except Exception as _v4_pv_err:
-                logger.debug(
-                    f"[R10 v4 IMP-19] property_validator crash (fail-open): {_v4_pv_err}"
+                logger.warning(
+                    "[R10 v4 IMP-19] property_validator failed; rejecting unverifiable fix: %s",
+                    type(_v4_pv_err).__name__,
                 )
+                return False, "property validation failed; fix is UNVERIFIED"
 
             return True, "fix verified OK (syntax + re-scan + no new bugs + self-scan + pytest + enterprise + property)"
 
         except Exception as _verify_err:
-            logger.debug(f"[V9.1-UPGRADE] _verify_fix error (fail-open): {_verify_err}")
-            return True, f"verify error (fail-open): {_verify_err}"
+            logger.warning(
+                "[V9.1-UPGRADE] _verify_fix error; rejecting unverifiable fix: %s",
+                type(_verify_err).__name__,
+            )
+            return False, "verification error; fix is UNVERIFIED"
 
     # [V9.1-UPGRADE] Audit log helper for V9.1 self-verify layer.
     def _audit_v91(self, event: str, payload: dict) -> None:
@@ -1746,64 +1755,122 @@ class AutoFixEngine:
                         f"flagged={_v4_shadow_result.flagged_for_review})"
                     )
             except ImportError as _v4_sc_imp:
-                logger.debug(
-                    f"[R9 v4 IMP-23] shadow_canary unavailable "
-                    f"(fail-open — apply without canary): {_v4_sc_imp}"
+                logger.warning(
+                    "[R9 v4 IMP-23] shadow_canary unavailable; blocking unverifiable patch: %s",
+                    type(_v4_sc_imp).__name__,
                 )
+                return {
+                    "action": "skipped",
+                    "tier": int(bug.tier),
+                    "reason": "shadow_canary unavailable; fix is UNVERIFIED",
+                    "patched": False,
+                    "shadow_canary_unverified": True,
+                }
             except Exception as _v4_sc_err:
-                logger.debug(
-                    f"[R9 v4 IMP-23] shadow_canary crash "
-                    f"(fail-open — apply without canary): {_v4_sc_err}"
+                logger.warning(
+                    "[R9 v4 IMP-23] shadow_canary failed; blocking unverifiable patch: %s",
+                    type(_v4_sc_err).__name__,
                 )
+                return {
+                    "action": "skipped",
+                    "tier": int(bug.tier),
+                    "reason": "shadow_canary failed; fix is UNVERIFIED",
+                    "patched": False,
+                    "shadow_canary_unverified": True,
+                }
 
             # [SCP-DNA-FIX R12-18] Real-Time Verifier — check invariants BEFORE file write.
             # TẠI SAO: post_fix_verify (R12-6) chạy SAU patch apply → nếu break invariant
             # phải rollback (waste). Real-Time Verifier chạy TRƯỚC _apply_fix → nếu
             # will break → BLOCK patch (no waste). VIGIL có Observation real-time, SCP
             # thiếu → R12-18 thêm. DNA #22 (PASS ≠ TRUE): post-hoc ≠ real-time.
-            # Fail-open per DNA #7: verifier crash → allow (don't block fix).
+            # Verifier uncertainty is fail-closed: no file write may occur.
             try:
                 from scp.autofix.realtime_verifier import verify_patch_realtime
                 _rtv_patched_source = filepath.read_text(encoding="utf-8") if filepath.exists() else ""
                 # Simulate patch: apply suggested_fix to orig source (best-effort)
-                # If we can't simulate, skip (fail-open)
-                if _pre_fix_content and bug.suggested_fix:
-                    _rtv_simulated = _pre_fix_content
-                    # Simple search-replace simulation (best-effort)
-                    import re as _rtv_re
-                    _rtv_blocks = _rtv_re.findall(
-                        r'<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>>',
-                        bug.suggested_fix, _rtv_re.DOTALL
+                # If we cannot simulate the patch, block it as UNVERIFIED.
+                if not _pre_fix_content or not bug.suggested_fix:
+                    return {
+                        "action": "skipped",
+                        "tier": int(bug.tier),
+                        "reason": "realtime patch simulation unavailable; fix is UNVERIFIED",
+                        "patched": False,
+                        "realtime_blocked": True,
+                    }
+                _rtv_simulated = _pre_fix_content
+                # Simulate only the canonical SEARCH/REPLACE format.  A patch
+                # that cannot be simulated is blocked rather than applied.
+                import re as _rtv_re
+                _rtv_blocks = _rtv_re.findall(
+                    r'<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>>',
+                    bug.suggested_fix, _rtv_re.DOTALL
+                )
+                if not _rtv_blocks:
+                    return {
+                        "action": "skipped",
+                        "tier": int(bug.tier),
+                        "reason": "realtime patch format unsupported; fix is UNVERIFIED",
+                        "patched": False,
+                        "realtime_blocked": True,
+                    }
+                for _rtv_old, _rtv_new in _rtv_blocks:
+                    if _rtv_old not in _rtv_simulated:
+                        return {
+                            "action": "skipped",
+                            "tier": int(bug.tier),
+                            "reason": "realtime patch search block not found; fix is UNVERIFIED",
+                            "patched": False,
+                            "realtime_blocked": True,
+                        }
+                    _rtv_simulated = _rtv_simulated.replace(_rtv_old, _rtv_new, 1)
+                if _rtv_simulated != _pre_fix_content:
+                    _rtv_result = verify_patch_realtime(
+                        orig_source=_pre_fix_content,
+                        patched_source=_rtv_simulated,
+                        func_name=getattr(bug, "function_name", None) or getattr(bug, "method_name", None),
                     )
-                    for _rtv_old, _rtv_new in _rtv_blocks:
-                        _rtv_simulated = _rtv_simulated.replace(_rtv_old, _rtv_new, 1)
-                    if _rtv_simulated != _pre_fix_content:
-                        _rtv_result = verify_patch_realtime(
-                            orig_source=_pre_fix_content,
-                            patched_source=_rtv_simulated,
-                            func_name=getattr(bug, "function_name", None) or getattr(bug, "method_name", None),
+                    if not _rtv_result.ok:
+                        logger.warning(
+                            f"[R12-18] Real-Time Verifier BLOCKED patch for "
+                            f"{bug.file}:{bug.line}: {_rtv_result.reason} — skipping file write"
                         )
-                        if not _rtv_result.ok:
-                            logger.warning(
-                                f"[R12-18] Real-Time Verifier BLOCKED patch for "
-                                f"{bug.file}:{bug.line}: {_rtv_result.reason} — skipping file write"
-                            )
-                            return {
-                                "action": "skipped",
-                                "tier": int(bug.tier),
-                                "reason": f"realtime_verifier: {_rtv_result.reason[:160]}",
-                                "patched": False,
-                                "realtime_blocked": True,
-                                "violations": _rtv_result.violations[:3],
-                            }
-                        logger.info(
-                            f"[R12-18] Real-Time Verifier OK: {_rtv_result.reason} "
-                            f"(inputs={_rtv_result.inputs_tested})"
-                        )
+                        return {
+                            "action": "skipped",
+                            "tier": int(bug.tier),
+                            "reason": f"realtime_verifier: {_rtv_result.reason[:160]}",
+                            "patched": False,
+                            "realtime_blocked": True,
+                            "violations": _rtv_result.violations[:3],
+                        }
+                    logger.info(
+                        f"[R12-18] Real-Time Verifier OK: {_rtv_result.reason} "
+                        f"(inputs={_rtv_result.inputs_tested})"
+                    )
             except ImportError as _rtv_imp:
-                logger.debug(f"[R12-18] realtime_verifier unavailable (fail-open): {_rtv_imp}")
+                logger.warning(
+                    "[R12-18] realtime_verifier unavailable; blocking unverifiable patch: %s",
+                    type(_rtv_imp).__name__,
+                )
+                return {
+                    "action": "skipped",
+                    "tier": int(bug.tier),
+                    "reason": "realtime verifier unavailable; fix is UNVERIFIED",
+                    "patched": False,
+                    "realtime_blocked": True,
+                }
             except Exception as _rtv_err:
-                logger.debug(f"[R12-18] realtime_verifier crash (fail-open): {_rtv_err}")
+                logger.warning(
+                    "[R12-18] realtime_verifier failed; blocking unverifiable patch: %s",
+                    type(_rtv_err).__name__,
+                )
+                return {
+                    "action": "skipped",
+                    "tier": int(bug.tier),
+                    "reason": "realtime verifier failed; fix is UNVERIFIED",
+                    "patched": False,
+                    "realtime_blocked": True,
+                }
 
             patched = agent._apply_fix(filepath, bug.suggested_fix)
             if patched:
@@ -1853,8 +1920,7 @@ class AutoFixEngine:
             # TẠI SAO: WHY gate (v9.0) hỏi "có nên fix không?" (action layer).
             # _verify_fix hỏi "fix có thực sự work không? có introduce new bug không?" (verify layer).
             # WHY + verify = cùng độ sâu (2 layer) như WHY (necessity + falsification).
-            # Non-blocking: verify error → fail-open (don't break fix). Nếu verify
-            # phát hiện new bugs → ROLLBACK (restore pre-fix content) + return skipped.
+            # Any verify error must rollback (restore pre-fix content) and return skipped.
             try:
                 _verify_ok, _verify_reason = self._verify_fix(filepath, [bug])
                 if not _verify_ok:
@@ -1916,8 +1982,8 @@ class AutoFixEngine:
                 # nhưng chỉ import-level, không call-level. DNA #22 (PASS ≠ TRUE): import
                 # ≠ wired ≠ called. Wire tại đây — SAU _verify_fix (gate nội bộ OK),
                 # TRƯỚC cooldown record (để rollback nếu orchestrator fail).
-                # Fail-open per DNA #7: orchestrator error không block fix (fix đã apply +
-                # _verify_fix đã pass). Chỉ escalate_to_tier3 → log warning.
+                # Post-fix uncertainty is a rollback condition; a patch is not
+                # successful unless every required post-fix phase reports pass.
                 try:
                     from scp.autofix.runner_phases.post_fix_verify import run_full_post_fix_verify
                     _pfv_result = run_full_post_fix_verify(
@@ -1931,9 +1997,9 @@ class AutoFixEngine:
                         run_reality_exercise=True,
                         run_completeness=True,
                     )
-                    if not _pfv_result.get("ok", True):
-                        _pfv_reason = _pfv_result.get("reason", "unknown")
-                        _pfv_rollback = _pfv_result.get("rollback", False)
+                    if _pfv_result.get("ok") is not True:
+                        _pfv_reason = _pfv_result.get("reason", "post-fix verification is UNVERIFIED")
+                        _pfv_rollback = True
                         if _pfv_rollback:
                             logger.warning(
                                 f"[R12-6] post_fix_verify ROLLBACK for {bug.file}:{bug.line}: "
@@ -1957,11 +2023,47 @@ class AutoFixEngine:
                             f"(phases: {list(_pfv_result.get('phases', {}).keys())})"
                         )
                 except ImportError as _pfv_imp:
-                    logger.debug(f"[R12-6] post_fix_verify module unavailable (fail-open): {_pfv_imp}")
+                    logger.warning(
+                        "[R12-6] post_fix_verify unavailable; rolling back unverifiable patch: %s",
+                        type(_pfv_imp).__name__,
+                    )
+                    if _pre_fix_content is not None:
+                        filepath.write_text(_pre_fix_content, encoding="utf-8")
+                    self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
+                    return {
+                        "action": "skipped",
+                        "tier": int(bug.tier),
+                        "reason": "post-fix verifier unavailable; fix is UNVERIFIED and was rolled back",
+                        "patched": False,
+                    }
                 except Exception as _pfv_err:
-                    logger.debug(f"[R12-6] post_fix_verify crash (fail-open): {_pfv_err}")
+                    logger.warning(
+                        "[R12-6] post_fix_verify failed; rolling back unverifiable patch: %s",
+                        type(_pfv_err).__name__,
+                    )
+                    if _pre_fix_content is not None:
+                        filepath.write_text(_pre_fix_content, encoding="utf-8")
+                    self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
+                    return {
+                        "action": "skipped",
+                        "tier": int(bug.tier),
+                        "reason": "post-fix verifier failed; fix is UNVERIFIED and was rolled back",
+                        "patched": False,
+                    }
             except Exception as _verify_call_err:
-                logger.debug(f"[V9.1-UPGRADE] _verify_fix call error (fail-open): {_verify_call_err}")
+                logger.warning(
+                    "[V9.1-UPGRADE] verifier call failed; rolling back unverifiable patch: %s",
+                    type(_verify_call_err).__name__,
+                )
+                if _pre_fix_content is not None:
+                    filepath.write_text(_pre_fix_content, encoding="utf-8")
+                self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
+                return {
+                    "action": "skipped",
+                    "tier": int(bug.tier),
+                    "reason": "verifier call failed; fix is UNVERIFIED and was rolled back",
+                    "patched": False,
+                }
 
             # Record for cooldown
             bug_key = f"{bug.file}:{bug.line}:{bug.bug_type}"

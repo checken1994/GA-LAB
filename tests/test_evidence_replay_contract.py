@@ -73,3 +73,24 @@ def test_missing_gold_is_unverified_not_ok(tmp_path: Path, monkeypatch) -> None:
     assert result["ok"] is False
     assert result["rollback"] is False
     assert result["escalate_to_tier3"] is True
+
+
+def test_missing_semantic_baseline_is_unverified(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    result = run_full_post_fix_verify(
+        bug_id="contract-no-baseline-20260826",
+        file_path=str(tmp_path / "missing_target.py"),
+        bug_type=None,
+        run_vulture=False,
+        run_import=False,
+        run_hypothesis=False,
+        run_reality_exercise=False,
+        run_completeness=False,
+        run_evidence_replay=False,
+    )
+
+    semantic = result["phases"]["semantic_equiv"]
+    assert semantic["status"] == "UNVERIFIED"
+    assert semantic["ok"] is False
+    assert result["ok"] is False
+    assert result["escalate_to_tier3"] is True

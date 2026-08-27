@@ -243,8 +243,9 @@ class RealTimeVerifier:
             fixed_callables = _extract_callables(patched_source)
 
             if not orig_callables and not fixed_callables:
-                result.ok = True
-                result.reason = "no callables found — skip (conservative allow)"
+                result.ok = False
+                result.reason = "unverified — no callables found"
+                result.violations.append("no_callable_target")
                 return result
 
             # Determine target function
@@ -256,8 +257,9 @@ class RealTimeVerifier:
                 if len(fixed_callables) == 1:
                     target_func = list(fixed_callables.keys())[0]
                 else:
-                    result.ok = True
-                    result.reason = f"multiple callables ({len(fixed_callables)}) — no target specified, skip"
+                    result.ok = False
+                    result.reason = f"unverified — multiple callables ({len(fixed_callables)}) and no target specified"
+                    result.violations.append("ambiguous_callable_target")
                     return result
 
             orig_func = orig_callables.get(target_func)
@@ -270,9 +272,10 @@ class RealTimeVerifier:
                 return result
 
             if not orig_func:
-                # New function (not in orig) — can't compare, conservative allow
-                result.ok = True
-                result.reason = f"new function '{target_func}' (not in orig) — skip"
+                # A new function has no baseline for equivalence comparison.
+                result.ok = False
+                result.reason = f"unverified — target function '{target_func}' is new"
+                result.violations.append(f"new_function_without_baseline: {target_func}")
                 return result
 
             # Check 1: new side effects
@@ -322,14 +325,22 @@ class RealTimeVerifier:
                             break
 
             result.inputs_tested = inputs_tested
+            if inputs_tested == 0:
+                result.ok = False
+                result.reason = "unverified — no executable verifier inputs"
+                result.violations.append("no_verifier_inputs")
             if result.ok and not result.violations:
                 result.reason = f"OK — {inputs_tested} inputs tested, 0 violations"
 
         except Exception as e:
-            # Fail-open per DNA #7 — verifier crash = allow (don't block fix)
-            logger.debug(f"[R12-18] realtime_verifier crash (fail-open): {e}")
-            result.ok = True
-            result.reason = f"verifier crash (fail-open): {e}"
+            # A verifier crash means the fix is not verified; never allow it.
+            logger.warning(
+                "[R12-18] realtime_verifier failed; rejecting unverifiable fix: %s",
+                type(e).__name__,
+            )
+            result.ok = False
+            result.reason = "unverified — realtime verifier failed"
+            result.violations.append("verifier_failure")
 
         return result
 
