@@ -240,6 +240,7 @@ try {
     $DashboardDir = Join-Path $Root 'dashboard'
     $DashboardStandaloneServer = Join-Path $DashboardDir '.next\standalone\server.js'
     $DashboardBuildId = Join-Path $DashboardDir '.next\BUILD_ID'
+    $DashboardNextCli = Join-Path $DashboardDir 'node_modules\next\dist\bin\next'
 
     # Ollama is an external, pre-existing dependency on 127.0.0.1:11434.
     # It is deliberately NOT a child service: Supervisor must never try to
@@ -304,7 +305,35 @@ try {
         }
     }
 
+    function Ensure-DashboardDependencies {
+        if (Test-Path -LiteralPath $DashboardNextCli -PathType Leaf) {
+            return $true
+        }
+        if (Test-PortInUse 3000) {
+            Write-Ledger -Event 'DASHBOARD_DEPENDENCY_INSTALL_BLOCKED' -Service 'dashboard' -Reason 'next_cli_missing_but_port_3000_occupied'
+            return $false
+        }
+        $logRunId = "$(Get-Date -AsUTC -Format 'yyyyMMddTHHmmssfffffffZ').$([Guid]::NewGuid().ToString('N').Substring(0, 12))"
+        $stdout = Join-Path $LogDir "dashboard-deps.$logRunId.out.log"
+        $stderr = Join-Path $LogDir "dashboard-deps.$logRunId.err.log"
+        try {
+            $install = Start-Process -FilePath $bun -ArgumentList @('install', '--frozen-lockfile') -WorkingDirectory $DashboardDir -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -Wait
+            if ($install.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $DashboardNextCli -PathType Leaf)) {
+                Write-Ledger -Event 'DASHBOARD_DEPENDENCY_INSTALL_FAILED' -Service 'dashboard' -Reason 'bun_install_nonzero_or_next_cli_missing' -Extra @{ exit_code = $install.ExitCode }
+                return $false
+            }
+        } catch {
+            Write-Ledger -Event 'DASHBOARD_DEPENDENCY_INSTALL_FAILED' -Service 'dashboard' -Reason $_.Exception.GetType().Name
+            return $false
+        }
+        Write-Ledger -Event 'DASHBOARD_DEPENDENCY_INSTALLED' -Service 'dashboard' -Reason 'next_cli_available'
+        return $true
+    }
+
     function Ensure-DashboardBuild {
+        if (-not (Ensure-DashboardDependencies)) {
+            return $false
+        }
         $state = Get-DashboardBuildState
         if ($state.Fresh) {
             Write-Ledger -Event 'DASHBOARD_BUILD_FRESH' -Service 'dashboard' -Reason $state.Reason -Extra @{ source_utc = $state.SourceUtc; artifact_utc = $state.ArtifactUtc }
