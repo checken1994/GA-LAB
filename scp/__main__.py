@@ -91,13 +91,14 @@ enforce_production_safety()
 def main() -> None:
     if any(arg in {"-h", "--help"} for arg in sys.argv[1:]):
         print("usage: python -m scp [PORT]")
-        print("Starts the SCP API on loopback; PORT defaults to SCP_PORT or 8002.")
+        print("Starts the SCP API on loopback; PORT defaults to SCP_PORT or 8000.")
         return
     port = (
         int(sys.argv[1])
         if len(sys.argv) > 1
-        else int(os.environ.get("SCP_PORT", "8002"))
+        else int(os.environ.get("SCP_PORT", "8000"))
     )
+    os.environ["SCP_PORT"] = str(port)
     host = os.environ.get("SCP_HOST", "127.0.0.1")
 
     import uvicorn

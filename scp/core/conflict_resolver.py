@@ -396,7 +396,9 @@ def log_conflict(entity: str, attribute: str, values: list[dict],
             entity.lower(), attribute
         ))
         # [R7-8] If UPDATE matched 0 rows, INSERT a new row (don't silent fail).
-        if cursor is not None and hasattr(cursor, "rowcount") and cursor.rowcount == 0:
+        # db_exec() returns int (rowcount) directly.
+        rowcount = cursor if isinstance(cursor, int) else getattr(cursor, "rowcount", None)
+        if rowcount == 0:
             db_exec("""
                 INSERT INTO knowledge_summaries (entity, attribute, conflict_count, value_distribution, first_seen)
                 VALUES (?, ?, 1, ?, ?)

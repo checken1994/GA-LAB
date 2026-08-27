@@ -5,7 +5,7 @@ Copyright (c) 2026 Minh. MIT License.
 FastAPI server exposing V98 pipeline qua HTTP.
 
 Endpoints:
-  POST /ask                          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Main: question Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ V98 pipeline Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verdict
+  POST /ask                          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Main: question → V98 pipeline → verdict
   POST /v1/chat/completions          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â OpenAI-compatible (for PyRIT/garak)
   GET  /v1/models                    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â OpenAI models list
   POST /v98/analyze-session          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Rogue AI detection on session
@@ -39,13 +39,22 @@ def _scp_service_identity() -> dict:
     import subprocess as _subprocess
     from pathlib import Path as _Path
     import sys as _sys
-    try:
-        _port = int(os.environ.get("SCP_PORT", "8000"))
-    except (TypeError, ValueError):
-        _port = -1
+    _port = None
+    if "SCP_PORT" in os.environ:
+        try:
+            _port = int(os.environ["SCP_PORT"])
+        except (TypeError, ValueError):
+            pass
+    if _port is None:
+        for _arg in _sys.argv[1:]:
+            if _arg.isdigit() and 1 <= int(_arg) <= 65535:
+                _port = int(_arg)
+                break
+    if _port is None:
+        _port = 8000
     _mode = os.environ.get("SCP_MODE")
     if not _mode:
-        _mode = "production" if _port == 8000 else "test" if _port == 8001 else "unknown"
+        _mode = "production" if _port == 8000 else "test" if _port == 8001 else "isolated" if _port == 8002 else "unknown"
     try:
         _commit = _subprocess.check_output(
             ["git", "-C", str(_Path(__file__).resolve().parent.parent), "rev-parse", "HEAD"],
@@ -181,9 +190,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | 
 #      multicast/unspecified IP (checked across ALL getaddrinfo results to
 #      mitigate DNS-rebinding); literal IP forms in those ranges rejected too
 #   3. strict User-Agent
-#   4. [AUDIT-3 FIX] redirect following: Ä‚Â¢Ă¢â‚¬Â°Ă‚Â¤5 hops, each hop re-validated against
-#      _is_disallowed_ip (prevents SSRF via 302 Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ http://169.254.169.254/...).
-#      Was: no redirects at all Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ broke legitimate image CDNs (Imgur, S3 presigned,
+#   4. [AUDIT-3 FIX] redirect following: ≤5 hops, each hop re-validated against
+#      _is_disallowed_ip (prevents SSRF via 302 → http://169.254.169.254/...).
+#      Was: no redirects at all → broke legitimate image CDNs (Imgur, S3 presigned,
 #      Bit.ly, Google Photos). Now: follow safe redirects, block unsafe ones.
 #   5. max_bytes cap via streaming read + early abort (no unbounded resp.read())
 #   6. per-request timeout (default 8s)
@@ -320,9 +329,9 @@ if _V1042_AVAILABLE:
     _fast_learning = FastLearningEngine(scp_db_path="data/v13.db", data_dir="data")
 # [V104.36 #56-wire] PredictiveEngine singleton Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â wired to production judge
 # TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: V104.35 #56 fixed SelfLearner to accept judge, but PredictiveEngine
-# was never instantiated with judge Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ self-learning still trained throwaway instance.
+# was never instantiated with judge → self-learning still trained throwaway instance.
 # Now: _predictive_engine is created in get_judge() AFTER _judge exists, so it
-# gets the PRODUCTION judge reference Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ real self-correction.
+# gets the PRODUCTION judge reference → real self-correction.
 _predictive_engine: PredictiveEngine | None = None
 
 # [SCP-DNA-FIX / RUF006] Strong references for fire-and-forget asyncio tasks.
@@ -350,7 +359,7 @@ class SimulationRequest(BaseModel):
 # [Task 7-A] V98 + V100 admin routers Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â imported AFTER SessionAnalyzeRequest/
 # SimulationRequest are defined above to avoid circular import.
 # TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: admin_v98.py needs SessionAnalyzeRequest/SimulationRequest from this
-# module. If imported at top (line 290), api_server.py is still loading Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ ImportError.
+# module. If imported at top (line 290), api_server.py is still loading → ImportError.
 try:
     from scp.api.routes.admin_v98 import router as v98_admin_router
     from scp.api.routes.admin_v100 import router as v100_admin_router
@@ -397,15 +406,17 @@ async def lifespan(app: FastAPI):
     # ============================================================
     # [STARTUP-GATE] Pre-startup deep audit Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â chÄ‚Â¡Ă‚ÂºĂ‚Â¡y TRÄ‚â€ Ă‚Â¯Ä‚Â¡Ă‚Â»Ă‚ÂC khi server start
     # [SCP-DNA-FIX R12-29] Use FAST ast_scan_scp (3s) thay vĂ„â€Ă‚Â¬ pre_startup_audit (SLOW Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â LLM).
-    # TÄ‚Â¡Ă‚ÂºĂ‚Â¡i sao: pre_startup_audit() calls run_deep_audit() Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ process_bug_with_llm()
-    # Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ LLM call mÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i bug Ă„â€Ă¢â‚¬â€ 200 bugs = 2000s = 33 min Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ server timeout.
-    # Fix: chÄ‚Â¡Ă‚Â»Ă¢â‚¬Â° SCAN (fast), khĂ„â€Ă‚Â´ng FIX. Bugs sÄ‚Â¡Ă‚ÂºĂ‚Â½ fix background sau khi server up.
+    # [STARTUP-GATE] Pre-startup deep audit — chạy TRƯỚC khi server start
+    # [SCP-DNA-FIX R12-29] Use FAST ast_scan_scp (3s) thay vì pre_startup_audit (SLOW — LLM).
+    # TẠI SAO: pre_startup_audit() calls run_deep_audit() → process_bug_with_llm()
+    # → LLM call mỗi bug ≈ 200 bugs = 2000s = 33 min → server timeout.
+    # Fix: chỉ SCAN (fast), không FIX. Bugs sẽ fix background sau khi server up.
     # ============================================================
     async def _startup_gate_background():
         """Run bounded AST startup scan without blocking socket readiness."""
         await asyncio.sleep(max(0.0, float(os.environ.get("SCP_STARTUP_BACKGROUND_DELAY_SEC", "5"))))
         if os.environ.get("SCP_SKIP_STARTUP_GATE", "0") == "1":
-            logger.warning("[STARTUP-GATE] SCP_SKIP_STARTUP_GATE=1 Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â audit BYPASSED (dev/test mode)")
+            logger.warning("[STARTUP-GATE] SCP_SKIP_STARTUP_GATE=1 — audit BYPASSED (dev/test mode)")
             return
         try:
             from scp.autofix.runner import ast_scan_scp
@@ -425,18 +436,18 @@ async def lifespan(app: FastAPI):
             logger.warning(f"[STARTUP-GATE] Background scan failed (non-blocking): {e}")
     _startup_gate_task = asyncio.create_task(_startup_gate_background())
     # ============================================================
-    # Server start (chÄ‚Â¡Ă‚Â»Ă¢â‚¬Â° Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â¿n Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â¢y nÄ‚Â¡Ă‚ÂºĂ‚Â¿u audit PASS)
+    # Server start (chỉ Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â¿n Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â¢y nếu audit PASS)
     # ============================================================
     # [R20-ROOT-FIX-REAL] get_judge() moved to BACKGROUND Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â port binds NOW!
     #
-    # ROOT CAUSE of 2-hour 503 (DNA #22: PASS Ä‚Â¢Ă¢â‚¬Â°Ă‚Â  TRUE):
+    # ROOT CAUSE of 2-hour 503 (DNA #22: PASS ≠ TRUE):
     #   I put R20-ROOT-FIX in _lifespan.py (PASS Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â code exists)
     #   BUT FastAPI uses api_server.py lifespan (TRUE Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â different file!)
-    #   get_judge() at line 283 blocks lifespan Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ port doesn't bind Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ 503
+    #   get_judge() at line 283 blocks lifespan → port doesn't bind → 503
     #
     # FIX: Move get_judge() to background thread, yield IMMEDIATELY.
     # DNA #26 (Reality > Model): Reality = log shows "Initializing RealityJudge"
-    #   synchronously Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ port 8000 not bound Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ 503 for 2 hours.
+    #   synchronously → port 8000 not bound → 503 for 2 hours.
     # ============================================================
     import threading as _threading_r20
 
@@ -446,11 +457,11 @@ async def lifespan(app: FastAPI):
         [SCP-DNA-FIX 4-a-001] TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: previously this thread function did
         two things that both failed silently:
           1. `asyncio.create_task(judge.schedule_background_jobs())` raised
-             `RuntimeError: no running event loop` (thread is not async) Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢
-             swallowed by `except Exception` Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ background scheduler never ran.
+             `RuntimeError: no running event loop` (thread is not async) →
+             swallowed by `except Exception` → background scheduler never ran.
           2. `judge` was a LOCAL variable, never propagated back to module
-             scope Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ the post-yield block referenced `judge` Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ NameError Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢
-             swallowed Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ scheduler never ran from there either.
+             scope → the post-yield block referenced `judge` → NameError →
+             swallowed → scheduler never ran from there either.
         Reality (DNA #26): ThreatSimulator (6h) + IntelCrawler (12h) NEVER ran.
         Fix: (a) remove the broken in-thread create_task, (b) set the
         module-level `_judge` so the lifespan post-yield block (which runs
@@ -763,7 +774,7 @@ app.add_middleware(
 #        unapproved origins.
 #     2. Even if preflight passed, the attacker does not possess the
 #        victim's bearer token (it is not auto-attached like a cookie).
-#   Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ Bearer-token auth = inherent CSRF protection. OWASP CSWSH + SOP
+#   → Bearer-token auth = inherent CSRF protection. OWASP CSWSH + SOP
 #     confirm: APIs that do NOT use cookies for auth are not vulnerable
 #     to classical CSRF. (See OWASP CSRF Prevention Cheat Sheet Ä‚â€Ă‚Â§"Use
 #     Standard Headers to Verify Origin" + Ä‚â€Ă‚Â§"Use Synchronizer Token".)
@@ -1135,11 +1146,11 @@ async def ask(req: AskRequest, request: Request):
 
 
 async def _ask_impl(req: AskRequest, request: Request):
-    """Main endpoint Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â question Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ V98 pipeline Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verdict.
+    """Main endpoint Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â question → V98 pipeline → verdict.
 
     Pipeline:
       1. [V98] MemoryPoisoningGuard + AttackPatternMemory + ThreatDetector
-      2. [V88] Route Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ SLM predict Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ RealityJudge
+      2. [V88] Route → SLM predict → RealityJudge
       3. [V97] FalsificationEngine + ErrorStore + Governance
       4. [V98] AttackPolicy + CounterResponse + Canary + AttackPatternMemory.record_bypass
     """
@@ -1175,7 +1186,7 @@ async def _ask_impl(req: AskRequest, request: Request):
             client_ip = request.client.host if request.client else "unknown"
             dos_alert = judge.dos_protection.check_request(client_ip)
             # [V104.22 #2 FIX] dos_alert may be a dataclass Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â use getattr, not .get
-            # (was: .get raised AttributeError Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ swallowed Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ no block)
+            # (was: .get raised AttributeError → swallowed → no block)
             action = getattr(dos_alert, "action_taken", "") if dos_alert else ""
             should_block = (
                 action in ("block", "throttle")
@@ -1261,16 +1272,16 @@ async def _ask_impl(req: AskRequest, request: Request):
             session_id=v98_context["session_id"],
         )
 
-    # [CHATBOT-FIX] NÄ‚Â¡Ă‚ÂºĂ‚Â¿u user khĂ„â€Ă‚Â´ng cung cÄ‚Â¡Ă‚ÂºĂ‚Â¥p ai_answer Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ gÄ‚Â¡Ă‚Â»Ă‚Âi Ollama sinh cĂ„â€Ă‚Â¢u trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi
-    # TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: SCP thiÄ‚Â¡Ă‚ÂºĂ‚Â¿t kÄ‚Â¡Ă‚ÂºĂ‚Â¿ Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă†â€™ verify AI answer, nhÄ‚â€ Ă‚Â°ng chat UI chÄ‚Â¡Ă‚Â»Ă¢â‚¬Â° gÄ‚Â¡Ă‚Â»Ă‚Â­i question (khĂ„â€Ă‚Â´ng ai_answer)
-    # Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ SLM khĂ„â€Ă‚Â´ng cĂ„â€Ă‚Â³ gĂ„â€Ă‚Â¬ verify Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ UNKNOWN/KILL
+    # [CHATBOT-FIX] NÄ‚Â¡Ă‚ÂºĂ‚Â¿u user khĂ„â€Ă‚Â´ng cung cÄ‚Â¡Ă‚ÂºĂ‚Â¥p ai_answer → gÄ‚Â¡Ă‚Â»Ă‚Âi Ollama sinh cĂ„â€Ă‚Â¢u trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi
+    # TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: SCP thiÄ‚Â¡Ă‚ÂºĂ‚Â¿t kÄ‚Â¡Ă‚ÂºĂ‚Â¿ Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă†â€™ verify AI answer, nhÄ‚â€ Ă‚Â°ng chat UI chỉ gÄ‚Â¡Ă‚Â»Ă‚Â­i question (khĂ„â€Ă‚Â´ng ai_answer)
+    # → SLM khĂ„â€Ă‚Â´ng cĂ„â€Ă‚Â³ gĂ„â€Ă‚Â¬ verify → UNKNOWN/KILL
     # Fix: GÄ‚Â¡Ă‚Â»Ă‚Âi Ollama local (llama3.2) sinh cĂ„â€Ă‚Â¢u trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi nhÄ‚â€ Ă‚Â° chatbot, rÄ‚Â¡Ă‚Â»Ă¢â‚¬Å“i SCP verify
-    # [ROOT-FIX 44-A] task="chat" Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ routes to llama3.2 (fastest Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â 3B model, low latency
+    # [ROOT-FIX 44-A] task="chat" → routes to llama3.2 (fastest Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â 3B model, low latency
     # for chat UI responsiveness).
     # [SCP-DNA-FIX 4-a-016] TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: previously `if req is not None: _ai_answer = req.ai_answer
     # else: _ai_answer = None`. FastAPI's `req: AskRequest` parameter is ALWAYS a valid
     # AskRequest Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Pydantic 422s on invalid body before the handler runs. So `req is None`
-    # is impossible Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ the else branch was dead code (DNA #22: PASSÄ‚Â¢Ă¢â‚¬Â°Ă‚Â TRUE Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â code suggested
+    # is impossible → the else branch was dead code (DNA #22: PASS≠TRUE Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â code suggested
     # null handling but the branch was unreachable). Fix: inline the assignment.
     _ai_answer = req.ai_answer
     if not _ai_answer or not _ai_answer.strip():
@@ -1334,7 +1345,7 @@ async def _ask_impl(req: AskRequest, request: Request):
                 except Exception as _web_err:
                     _web_fallback = {"success": False, "method": "public-search", "error": str(_web_err)[:240]}
                     logger.warning("[CHATBOT] Public web fallback failed: %s", _web_err)
-            # Fallback: khĂ„â€Ă‚Â´ng cĂ„â€Ă‚Â³ ai_answer Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ SCP chÄ‚Â¡Ă‚ÂºĂ‚Â¡y SLM-only (old behavior)
+            # Fallback: khĂ„â€Ă‚Â´ng cĂ„â€Ă‚Â³ ai_answer → SCP chÄ‚Â¡Ă‚ÂºĂ‚Â¡y SLM-only (old behavior)
 
     # [Task 34-A / OPT-22] AsyncMultiSourceVerifier Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â pre-judge fact check.
     # TĂ„â€Ă‚ÂI SAO: Task 33-A created AsyncMultiSourceVerifier but it was NOT used
@@ -1348,15 +1359,15 @@ async def _ask_impl(req: AskRequest, request: Request):
     #   1. Detect fact-check intent via keyword match (en + vi).
     #   2. Pull sources from DataSourceRegistry that can_handle("fact_check").
     #   3. Run AsyncMultiSourceVerifier.verify_async() in PARALLEL Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â N sources
-    #      Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ ~1Ă„â€Ă¢â‚¬â€ latency instead of NĂ„â€Ă¢â‚¬â€.
+    #      → ~1Ă„â€Ă¢â‚¬â€ latency instead of NĂ„â€Ă¢â‚¬â€.
     #   4. Interpret each source's verdict (GoogleFactCheck returns
     #      metadata.consensus="FALSE"/"TRUE"/"MIXED" Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â translated to
     #      contradicted/verified so the aggregator's consensus reflects it).
-    #   5. If consensus == "contradicted" Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ pass fact_check_hint to judge
+    #   5. If consensus == "contradicted" → pass fact_check_hint to judge
     #      via v98_context (judge can use it to downgrade confidence /
     #      override verdict Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â additive, judge remains in charge).
     #
-    # Backward compat: any exception Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ silently fall through to judge (the
+    # Backward compat: any exception → silently fall through to judge (the
     # existing path is unchanged). No new dependency on a specific source
     # being enabled Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â if no fact-check sources can handle the question,
     # verify_async() returns consensus="unclear" and the hint is not set.
@@ -1404,8 +1415,8 @@ async def _ask_impl(req: AskRequest, request: Request):
             # [OPT-22b] Translate per-source verdicts (GoogleFactCheck returns
             # metadata.consensus="FALSE"/"TRUE"/"MIXED" Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â the aggregator only
             # counts `verified`/`contradicted` keys, so consensus is "unclear"
-            # unless we synthesize these keys). Map FALSE Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ contradicted,
-            # TRUE Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verified, then recompute consensus.
+            # unless we synthesize these keys). Map FALSE → contradicted,
+            # TRUE → verified, then recompute consensus.
             _extra_verified = 0
             _extra_contradicted = 0
             for _raw in fact_result.get("results", []) or []:
@@ -1470,7 +1481,7 @@ async def _ask_impl(req: AskRequest, request: Request):
         )
     stage_request(request, "verifier_completed", verdict=v.verdict, governance_decision=v.evidence.get("governance_decision", ""))
 
-    # [V104.41 #AC] TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: DoS record_verdict never called Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verdict-quality circuit dead.
+    # [V104.41 #AC] TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: DoS record_verdict never called → verdict-quality circuit dead.
     # Fix: record verdict after judge completes (same as OpenAI path).
     if hasattr(judge, 'dos_protection') and judge.dos_protection:
         try:
@@ -1481,7 +1492,7 @@ async def _ask_impl(req: AskRequest, request: Request):
     # [FIX-CRIT-46 BUG 2] TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: observe() was called with wrong kwargs
     # (response=, verdict=, confidence=, domain=) but ResponseMonitor.observe
     # signature is (prompt, response, latency_ms). TypeError was swallowed by
-    # `except Exception` Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ behavioral detection stayed dead even after BUG 1
+    # `except Exception` → behavioral detection stayed dead even after BUG 1
     # init fix. Fix: match actual signature Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â pass the prompt + latency_ms.
     elapsed_ms = (time.time() - t0) * 1000
     if hasattr(judge, 'response_monitor') and judge.response_monitor:
@@ -1591,7 +1602,7 @@ async def _ask_impl(req: AskRequest, request: Request):
         _api_falsification_status = None
         logger.info(f"[V104.41 #X] API boundary enforcing abstain (all fields cleared): verdict={v.verdict}, gov={_gov_decision}")
     elif v.verdict == "UNKNOWN" and v.evidence.get("why_gate", {}).get("decision") == "REJECT":
-        # [FIX-1] WHY Gate blocked PASS Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ UNKNOWN. Treat like FAIL/KILL:
+        # [FIX-1] WHY Gate blocked PASS → UNKNOWN. Treat like FAIL/KILL:
         # withhold answer + clear all leak fields. Without this the WHY block
         # in judge.py was cosmetic Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â final_answer still shipped to client.
         _api_final_answer = "[SCP: Answer withheld Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â WHY Gate blocked]"
@@ -1618,7 +1629,7 @@ async def _ask_impl(req: AskRequest, request: Request):
                 if r.get("answer"):
                     _sources.append(f"  Ä‚Â¢Ă¢â€Â¬Ă‚Â¢ {r.get('slm_name','?')}: {str(r.get('answer',''))[:60]}")
             _source_text = "\n".join(_sources) if _sources else "  (khĂ„â€Ă‚Â´ng cĂ„â€Ă‚Â³ SLM nĂ„â€Ă‚Â o trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi)"
-            _api_final_answer = str(_api_final_answer) + str(f"\n\nĂ„â€˜Ă…Â¸Ă¢â‚¬â„¢Ă‚Â¡ SCP Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â£ kiÄ‚Â¡Ă‚Â»Ă†â€™m tra:\n{_source_text}\nĂ„â€˜Ă…Â¸Ă¢â‚¬Å“Ă‚Â Confidence: {v.confidence:.0%} Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â chÄ‚â€ Ă‚Â°a Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă‚Â§ ngÄ‚â€ Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â¡ng (cÄ‚Â¡Ă‚ÂºĂ‚Â§n Ä‚Â¢Ă¢â‚¬Â°Ă‚Â¥70%)")
+            _api_final_answer = str(_api_final_answer) + str(f"\n\nĂ„â€˜Ă…Â¸Ă¢â‚¬â„¢Ă‚Â¡ SCP Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â£ kiÄ‚Â¡Ă‚Â»Ă†â€™m tra:\n{_source_text}\nĂ„â€˜Ă…Â¸Ă¢â‚¬Å“Ă‚Â Confidence: {v.confidence:.0%} Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â chÄ‚â€ Ă‚Â°a Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă‚Â§ ngÄ‚â€ Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â¡ng (cÄ‚Â¡Ă‚ÂºĂ‚Â§n ≥70%)")
 
     # ===== V104 FIX: Fact-check ASYNC (background, KHĂ„â€Ă¢â‚¬ÂNG block /ask) =====
     # [V104.41 #Z] Only fact-check if we're actually returning an answer (not abstained)
@@ -1764,7 +1775,7 @@ async def dashboard():
 async def health():
     # [R17-ROOT-FIX-9] /health MUST return 200 immediately when server binds port.
     # BEFORE: /health called get_judge() which triggers full init (FastLearning,
-    #   LLM calls, etc.) Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ if OpenRouter 429 Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ init hangs Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ /health 503 forever.
+    #   LLM calls, etc.) → if OpenRouter 429 → init hangs → /health 503 forever.
     #   Benchmark cannot connect even though server process is alive.
     # AFTER: /health returns 200 immediately with minimal info. Detailed status
     #   available via /health/detailed (which CAN call get_judge).
@@ -1820,7 +1831,7 @@ async def health_detailed():
                     db_size += _os.path.getsize(fp)
         # [4-a-001] Expose background_scheduler_started flag Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â operators MUST be
         # able to verify ThreatSimulator (6h) + IntelCrawler (12h) actually
-        # started. DNA #22 (PASSÄ‚Â¢Ă¢â‚¬Â°Ă‚Â TRUE): prior code logged "started" but the
+        # started. DNA #22 (PASS≠TRUE): prior code logged "started" but the
         # scheduler never ran (NameError swallowed). Now /health/detailed is
         # the reality check.
         _sched_started = getattr(app.state, "background_scheduler_started", False)

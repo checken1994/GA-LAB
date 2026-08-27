@@ -265,7 +265,7 @@ async def v104_learn_ollama(count: int = 10, _admin: bool = Depends(verify_admin
 @router.post("/v104/learn/local")
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_local")
 async def v104_learn_local(_admin: bool = Depends(verify_admin)):
-    """V104 FIX: Trigger local file learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â scan data/ Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verify Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ KB."""
+    """V104 FIX: Trigger local file learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â scan data/ → verify → KB."""
     results = await _real_learning.local_learning_cycle()
     return results
 
@@ -273,7 +273,7 @@ async def v104_learn_local(_admin: bool = Depends(verify_admin)):
 @router.post("/v104/learn/news")
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_news")
 async def v104_learn_news(_admin: bool = Depends(verify_admin)):
-    """V104 FIX: Trigger news learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â fetch RSS Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ verify Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ KB."""
+    """V104 FIX: Trigger news learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â fetch RSS → verify → KB."""
     results = await _real_learning.news_learning_cycle()
     return results
 
@@ -336,7 +336,7 @@ async def v104_learn_matrix():
 async def v104_learn_ollama_matrix(_admin: bool = Depends(verify_admin)):
     """V104.1 NEW: Run full matrix coverage (70 questions = 1 vĂ„â€Ă‚Â²ng ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â§y Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă‚Â§).
 
-    MÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i (country, domain) Ä‚â€Ă¢â‚¬ËœÄ‚â€ Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â£c hÄ‚Â¡Ă‚Â»Ă‚Âi 1 lÄ‚Â¡Ă‚ÂºĂ‚Â§n Ä‚Â¢Ă¢â‚¬Â Ă¢â‚¬â„¢ Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â£m bÄ‚Â¡Ă‚ÂºĂ‚Â£o coverage 14 Ă„â€Ă¢â‚¬â€ 5 = 70.
+    MÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i (country, domain) Ä‚â€Ă¢â‚¬ËœÄ‚â€ Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â£c hÄ‚Â¡Ă‚Â»Ă‚Âi 1 lÄ‚Â¡Ă‚ÂºĂ‚Â§n → Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â£m bÄ‚Â¡Ă‚ÂºĂ‚Â£o coverage 14 Ă„â€Ă¢â‚¬â€ 5 = 70.
     """
     results = await _real_learning.ollama_learning_cycle(count=70)
     return results
