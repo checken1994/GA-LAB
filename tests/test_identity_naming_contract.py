@@ -120,3 +120,17 @@ def test_legacy_naming_note_is_replaced_by_canonical_note():
     note = (ROOT / "scp" / "runtime" / "DOMAIN_EXPERT_NAMING.md").read_text(encoding="utf-8")
     assert "Domain Expert" in note
     assert "compatibility" in note.lower()
+
+
+def test_minimal_health_note_is_utf8_and_user_visible_contract_is_clean():
+    payload = __import__("asyncio").run(health())
+    assert payload["note"] == "minimal health — use /health/detailed for full status"
+    assert not any(marker in payload["note"] for marker in ("Ã", "Â", "Ä", "Ă", "â€", "�"))
+
+
+def test_cli_docstring_matches_canonical_default_port():
+    source = (ROOT / "scp" / "__main__.py").read_text(encoding="utf-8")
+    assert "Defaults to port 8000" in source
+    assert "127.0.0.1:8000 (default)" in source
+    assert "Defaults to port 8002" not in source
+    assert "127.0.0.1:8002 (default)" not in source

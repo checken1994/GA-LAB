@@ -1,11 +1,11 @@
 """SCP entry point — run with: python3 -m scp [port]
 
-Defaults to port 8002. Reads SCP_PORT env var if no arg is passed.
+Defaults to port 8000. Reads SCP_PORT env var if no arg is passed.
 Reads SCP_HOST env var (default 127.0.0.1 — bind to loopback only; the
 Caddy gateway on :81 reverse-proxies public traffic via ?XTransformPort=8002).
 
 Examples:
-    python3 -m scp                 # 127.0.0.1:8002 (default)
+    python3 -m scp                 # 127.0.0.1:8000 (default)
     python3 -m scp 8080            # 127.0.0.1:8080
     SCP_PORT=9000 python3 -m scp   # 127.0.0.1:9000
 

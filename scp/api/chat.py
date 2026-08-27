@@ -111,9 +111,9 @@ async def scp_chat(websocket: WebSocket):
 
     await websocket.send_json({
         "type": "system",
-        "message": f"{RELEASE_LABEL} Ă„â€˜Ä‚Â£ kĂ¡ÂºÂ¿t nĂ¡Â»â€˜i. Session: {session_id}\n"
-                   f"TÄ‚Â´i cÄ‚Â³ thĂ¡Â»Æ’ kiĂ¡Â»Æ’m tra cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi, phÄ‚Â¡t hiĂ¡Â»â€¡n tĂ¡ÂºÂ¥n cÄ‚Â´ng, vÄ‚Â  tĂ¡Â»Â± hĂ¡Â»Âc.\n"
-                   f"HĂ¡Â»Âi tÄ‚Â´i bĂ¡ÂºÂ¥t cĂ¡Â»Â© Ă„â€˜iĂ¡Â»Âu gÄ‚Â¬ Ă¢â‚¬â€ tÄ‚Â´i sĂ¡ÂºÂ½ nÄ‚Â³i 'TĂ¡ÂºÂ¡i sao?' vÄ‚Â  kiĂ¡Â»Æ’m tra.",
+        "message": f"{RELEASE_LABEL} — kết nối. Session: {session_id}\n"
+                   f"Tôi có thể kiểm tra câu trả lời, phát hiện tấn công, và tự học.\n"
+                   f"Hỏi tôi bất cứ điều gì — tôi sẽ nói 'Tại sao?' và kiểm tra.",
         "session_id": session_id,
         "resumed": resumed_history,
         "memory_mode": "redacted_durable",
@@ -235,7 +235,7 @@ async def scp_chat(websocket: WebSocket):
                 _gov = v.evidence.get("governance_decision", "")
                 _abstain = (_gov == "KILL") or (v.verdict in ("FAIL", "FLAGGED"))
                 _ws_answer = ("[SCP: Answer withheld]" if _abstain
-                              else (v.final_answer or "(KhÄ‚Â´ng cÄ‚Â³ cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi)"))
+                              else (v.final_answer or "(Không có câu trả lời)"))
                 _ws_reasoning = ("" if _abstain
                                  else (v.reasoning[:300] if v.reasoning else ""))
 
@@ -254,8 +254,8 @@ async def scp_chat(websocket: WebSocket):
                 if v.verdict == "UNKNOWN":
                     response["type"] = "clarification"
                     response["question"] = (
-                        f"TÄ‚Â´i chĂ†Â°a Ă„â€˜Ă¡Â»Â§ thÄ‚Â´ng tin Ă„â€˜Ă¡Â»Æ’ kĂ¡ÂºÂ¿t luĂ¡ÂºÂ­n. "
-                        f"BĂ¡ÂºÂ¡n cÄ‚Â³ thĂ¡Â»Æ’ cung cĂ¡ÂºÂ¥p thÄ‚Âªm chi tiĂ¡ÂºÂ¿t vĂ¡Â»Â '{user_message[:50]}' khÄ‚Â´ng?"
+                        f"Tôi chưa đủ thông tin để kết luận. "
+                        f"Bạn có thể cung cấp thêm chi tiết về '{user_message[:50]}' không?"
                     )
 
                 if v.verdict == "FAIL":
@@ -263,18 +263,18 @@ async def scp_chat(websocket: WebSocket):
                     response["answer"] = "[SCP: Answer withheld]"  # [FIX-CRIT-27 BUG 7] belt-and-suspenders
                     response["reasoning"] = ""  # don't leak why attack was caught
                     response["explanation"] = (
-                        f"TÄ‚Â´i khÄ‚Â´ng thĂ¡Â»Æ’ xÄ‚Â¡c nhĂ¡ÂºÂ­n cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi nÄ‚Â y. LÄ‚Â½ do: "
-                        f"{v.reasoning[:200] if v.reasoning else 'KhÄ‚Â´ng Ă„â€˜Ă¡Â»Â§ bĂ¡ÂºÂ±ng chĂ¡Â»Â©ng.'}"
+                        f"Tôi không thể xác nhận câu trả lời này. Lý do: "
+                        f"{v.reasoning[:200] if v.reasoning else 'Không đủ bằng chứng.'}"
                     )
 
                 if v.verdict == "PASS":
                     response["type"] = "verified"
                     response["explanation"] = (
-                        f"Ă„ÂÄ‚Â£ kiĂ¡Â»Æ’m tra: cÄ‚Â¢u trĂ¡ÂºÂ£ lĂ¡Â»Âi Ă„â€˜Ă¡ÂºÂ¡t Ă„â€˜Ă¡Â»â„¢ tin cĂ¡ÂºÂ­y {v.confidence:.0%}. "
+                        f"Đã kiểm tra: câu trả lời đạt độ tin cậy {v.confidence:.0%}. "
                         f"Domain: {v.domain}."
                     )
 
-                if "tiĂ¡ÂºÂ¿n hÄ‚Â³a" in user_message.lower() or "evolution" in user_message.lower():
+                if "tiến hóa" in user_message.lower() or "evolution" in user_message.lower():
                     try:
                         from scp.core.code_evolution_agent import get_evolution_agent
                         agent = get_evolution_agent()
@@ -282,7 +282,7 @@ async def scp_chat(websocket: WebSocket):
                     except Exception:
                         logger.exception("[chat.py:182] silenced exception")
 
-                if "hĂ¡Â»Âc" in user_message.lower() or "learning" in user_message.lower():
+                if "học" in user_message.lower() or "learning" in user_message.lower():
                     try:
                         from scp.api_server import _fast_learning
                         if _fast_learning:
@@ -306,7 +306,7 @@ async def scp_chat(websocket: WebSocket):
                 terminal_status, ledger_ok = _CHAT_LEDGER.finish(run, failure_status, error=e)
                 await websocket.send_json({
                     "type": "error",
-                    "message": "Lá»—i xá»­ lĂ½ request; xem run_id trong ledger",
+                    "message": "Lỗi xử lý request; xem run_id trong ledger",
                     "run_id": run.run_id,
                     "trace_id": run.trace_id,
                     "run_status": terminal_status,
