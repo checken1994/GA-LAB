@@ -79,7 +79,7 @@ taskkill /f /fi "WINDOWTITLE eq SCP-LLM-Bridge*" >nul 2>&1
 taskkill /f /fi "WINDOWTITLE eq SCP-Loop-Scheduler*" >nul 2>&1
 taskkill /f /fi "WINDOWTITLE eq SCP-Python*" >nul 2>&1
 taskkill /f /fi "WINDOWTITLE eq SCP-Dashboard*" >nul 2>&1
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":11434 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
+REM Port 11434 belongs to external Ollama; never kill it from the SCP launcher.
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3030 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8002 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
@@ -94,7 +94,7 @@ echo [1/4] Ollama - port 11434 (da kiem tra, khong khoi dong child)
 
 REM --- 2. Loop Scheduler (port 3030) ---
 echo [2/4] Loop Scheduler - port 3030
-start "SCP-Loop-Scheduler" cmd /k "cd /d %~dp0mini-services\loop-scheduler && set SCP_BASE_URL=http://127.0.0.1:8002 && set LLM_BRIDGE_URL=http://127.0.0.1:11434 && set LOOP_LOG_PATH=%~dp0data\loop_runs.jsonl && bun run dev"
+start "SCP-Loop-Scheduler" cmd /k "cd /d %~dp0mini-services\loop-scheduler && set SCP_BASE_URL=http://127.0.0.1:8002 && set SCP_INTERNAL_URL=http://127.0.0.1:8002 && set LOOP_SCHEDULER_URL=http://127.0.0.1:3030 && set LLM_BRIDGE_URL=http://127.0.0.1:11434 && set OLLAMA_HOST=http://127.0.0.1:11434 && set OLLAMA_ENABLED=true && set SCP_LLM_PROVIDER_MODE=ollama_only && set LOOP_LOG_PATH=%~dp0data\loop_runs.jsonl && bun run dev"
 timeout /t 1 /nobreak >nul
 
 REM --- 3. SCP Python (port 8002) - run from ROOT (not scp/) so data/ resolves correctly ---
@@ -103,7 +103,7 @@ start "SCP-Python" cmd /k "cd /d %~dp0 && scp\venv\Scripts\python.exe -m scp 800
 
 REM --- 4. Dashboard Next.js (port 3000) ---
 echo [4/4] Dashboard Next.js - port 3000 (standalone build)
-start "SCP-Dashboard" cmd /k "cd /d %~dp0dashboard && bun run start"
+start "SCP-Dashboard" cmd /k "cd /d %~dp0dashboard && set SCP_INTERNAL_URL=http://127.0.0.1:8002 && set LOOP_SCHEDULER_URL=http://127.0.0.1:3030 && set LLM_BRIDGE_URL=http://127.0.0.1:11434 && bun run start"
 
 REM --- Wait for SCP boot ---
 echo.
