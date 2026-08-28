@@ -49,3 +49,6 @@ scp/runtime/**/__pycache__/
 scp/runtime/**/*.pyc
 
 tools/audit/local/
+
+benchmark_report.txt
+raw_results.jsonl
