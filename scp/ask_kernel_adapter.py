@@ -189,17 +189,18 @@ class AskKernelAdapter:
                 "failures": ["missing_answer"],
                 "checked": [],
             }
-            if not contexts:
+
+        if not contexts:
+            grounded_ratio = 0.0
+        else:
+            import re
+            ans_words = set(re.findall(r"[\w\xc0-\u1ef9]{2,}", answer.lower()))
+            if not ans_words:
                 grounded_ratio = 0.0
             else:
-                import re
-                ans_words = set(re.findall(r"[\wÀ-ỹ]{2,}", answer.lower()))
-                if not ans_words:
-                    grounded_ratio = 0.0
-                else:
-                    ctx_text = " ".join(contexts).lower()
-                    overlap = sum(1 for w in ans_words if w in ctx_text)
-                    grounded_ratio = overlap / len(ans_words)
+                ctx_text = " ".join(contexts).lower()
+                overlap = sum(1 for w in ans_words if w in ctx_text)
+                grounded_ratio = overlap / len(ans_words)
             
         # --- Wire RealityJudge into production (Q1: A) ---
         try:
