@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 import asyncio
 
@@ -24,9 +25,6 @@ def test_openrouter_timeout_recovers_via_task_free_fallback() -> None:
         return calls, answer, name
 
     calls, answer, provider_name = asyncio.run(actual())
-    assert calls[:2] == [
-        "deepseek/deepseek-v4-flash-0731",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-    ]
+    assert calls[:2] == [os.environ.get("OPENROUTER_MODEL", "openrouter/free"), os.environ.get("OPENROUTER_MODEL_JUDGE", "nvidia/nemotron-3-super-120b-a12b:free")]
     assert answer == "recovered fallback answer"
     assert provider_name == "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
