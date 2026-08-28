@@ -19,6 +19,12 @@ class IndependentVerifier:
     verifier_id = "scp-independent-postcondition-verifier-v1"
 
     def verify(self, postcondition: dict[str, Any] | None, observation: dict[str, Any] | None) -> VerificationResult:
+        from scp.core.postcondition_schema import validate_postcondition_dict, SchemaValidationError
+        try:
+            validate_postcondition_dict(postcondition)
+        except SchemaValidationError as e:
+            return VerificationResult("INSUFFICIENT", self.verifier_id, None, tuple(), (f"schema_error:{e}",))
+
         postcondition = postcondition or {}
         observation = observation or {}
         evidence_ref = observation.get("evidence_ref")

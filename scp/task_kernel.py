@@ -964,7 +964,7 @@ class TaskKernel:
                 
                 # 2. Quyết định phục hồi
                 decision = self.recovery_decision("LOST_RESPONSE", True, "UNKNOWN")
-                if decision.state_directive == "RECONCILING":
+                if decision.next_state == "RECONCILING":
                     self.conn.execute("UPDATE tasks SET state='RECONCILING', updated_at=datetime('now') WHERE task_id=?", (tid,))
                     self._append_event(tid, "STATE_TRANSITION", "UNKNOWN", "RECONCILING", actor, "AUTO_RECONCILE_INITIATED", {})
                 orphans.append(tid)

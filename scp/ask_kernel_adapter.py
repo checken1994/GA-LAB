@@ -202,9 +202,19 @@ class AskKernelAdapter:
         except Exception:
             # Fallback nếu LLM Judge sập -> fail closed
             grounded_ratio = 0.0
+            
+        # --- Wire RealityJudge into production (Q1: A) ---
+        try:
+            from scp.runtime.judge import RealityJudge
+            judge = RealityJudge()
+            judge_res = judge.judge(question=str(getattr(req, "question", "")), ai_answer=answer)
+            judge_pass = (judge_res["verdict"] == "PASS")
+        except Exception:
+            judge_pass = False
 
         checks = {
             "verdict_pass": verdict == "PASS",
+            "judge_pass": judge_pass,
             "governance_uphold": governance == "UPHOLD",
             "grounded_ratio_min": grounded_ratio >= 0.35,
             "web_fallback_not_used": not bool(data.get("web_fallback_used")),
@@ -306,6 +316,7 @@ class AskKernelAdapter:
                 return
 
     def _kernel_blocked_response(self, req: Any, exc: Exception) -> Any:
+        import traceback; traceback.print_exc()
         session = getattr(req, "session_id", None) or "ask-kernel-blocked"
         trace_id = "trace-kernel-blocked-" + uuid.uuid4().hex
         if AskResponse is None:

@@ -69,6 +69,12 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
             mutable holder for the asyncio background task so we can cancel
             it on shutdown. (Dict avoids `global` declaration.)
     """
+    from scp.core.config_contract import validate_boot_config
+    validate_boot_config()  # Fail-closed boot config gate
+
+    from scp.api.background_jobs import registry
+    registry.start_all()
+
     logger.info("=" * 60)
     logger.info(f"{RELEASE_LABEL} API Server starting...")
     logger.info("=" * 60)
@@ -730,6 +736,8 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
     # [R20-ROOT-FIX] Old yield was HERE (line 650) — moved to line 364 above.
     # Shutdown cleanup runs when app stops (after second yield context exits).
     # This code still runs on shutdown — just no yield here anymore.
+    from scp.api.background_jobs import registry
+    registry.stop_all()
 
     if _background_task_holder.get("task"):
         _background_task_holder["task"].cancel()

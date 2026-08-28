@@ -17,10 +17,15 @@ class RealityJudge:
 
     def judge(self, question: str, ai_answer: str = "", cycle_count: int = 0, **kwargs) -> dict[str, Any]:
         """Synchronous judge interface."""
-        # Translate legacy inputs to verifier inputs
-        postcondition = {"text_contains": ["*"]} if ai_answer else None
-        obs = {"evidence_ref": ai_answer}
+        from scp.core.postcondition_schema import PostconditionSchema
         
+        if ai_answer:
+            postcondition = PostconditionSchema.for_text_answer(ai_answer, evidence_required=False).to_dict()
+        else:
+            postcondition = PostconditionSchema.no_conditions().to_dict()
+            
+        obs = {"evidence_ref": ai_answer, "text": ai_answer}
+
         result = self.verifier.verify(postcondition, obs)
         is_pass = (result.verdict == "VERIFIED")
         

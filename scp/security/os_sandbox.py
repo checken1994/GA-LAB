@@ -55,11 +55,40 @@ class ProcessIsolationEnvironment:
                 retcode = proc.returncode
                 return subprocess.CompletedProcess(proc.args, retcode, stdout, stderr)
                 
-            except Exception as e:
-                pass # Fallback if win32 APIs fail
-                
-        # Non-Windows or Fallback
-        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=15, env=safe_env)
+            except ImportError:
+                # win32 modules not available — use resource-limited subprocess below
+                pass
+            except Exception as exc:
+                # [Fail-Closed] Job Object setup failed — do NOT silently fall through.
+                # Running a subprocess without isolation is worse than not running it.
+                raise RuntimeError(
+                    f"[SANDBOX] Windows Job Object isolation failed — refusing to execute without isolation. "
+                    f"Reason: {exc}. Set SCP_SANDBOX_STRICT=0 to allow fallback (not recommended)."
+                ) from exc
+
+        # Non-Windows or fallback (win32 not installed)
+        # Apply OS-level resource limits where possible (Linux: setrlimit)
+        preexec = None
+        if not self.is_windows:
+            import platform as _plat
+            if _plat.system() == "Linux":
+                try:
+                    import resource as _resource
+                    def _set_limits():
+                        # 512 MB memory limit
+                        _resource.setrlimit(_resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
+                        # Max 32 processes
+                        _resource.setrlimit(_resource.RLIMIT_NPROC, (32, 32))
+                        # Max 30s CPU time
+                        _resource.setrlimit(_resource.RLIMIT_CPU, (30, 30))
+                    preexec = _set_limits
+                except Exception:
+                    pass  # resource module unavailable — proceed without rlimits
+
+        return subprocess.run(
+            cmd, cwd=cwd, capture_output=True, text=True, timeout=15,
+            env=safe_env, preexec_fn=preexec
+        )
 
     def write_bounded(self, capability_token: CapabilityToken, path: str, content: bytes) -> bool:
         if not self.authority.validate(capability_token):

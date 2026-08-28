@@ -59,9 +59,8 @@ defusedxml==0.7.1
 # Redis cache (sẽ dùng nếu SCP_REDIS_URL set — hiện tại dùng in-memory dict).
 # redis==5.2.0
 #
-# JWT auth (hiện tại dùng HTTPBearer + token so sánh — chưa cần JWT).
-# python-jose[cryptography]==3.4.0
-# pyjwt==2.10.1
+# JWT auth (REQUIRED — jwt_guard.py:1 dùng `import jwt` trực tiếp trong production).
+pyjwt==2.10.1
 #
 # File uploads (chưa có endpoint /upload — để commented).
 # python-multipart==0.0.20
@@ -69,8 +68,33 @@ defusedxml==0.7.1
 # aiohttp (httpx đã đủ — không cần aiohttp song song).
 # aiohttp==3.11.10
 #
-# Retry logic (tenacity — hiện tại dùng custom retry loop trong core/api_utils.py).
-# tenacity==9.0.0
+# Retry logic (REQUIRED — api_utils.py dùng tenacity decorator trong production paths).
+tenacity==9.0.0
 #
 # aiofiles (async file I/O — hiện tại dùng sync open() với Path.read_text).
 # aiofiles==24.1.0
+
+# === Rate limiting + Observability (REQUIRED — api_server.py imports all 5 at top level) ===
+# Confirmed: api_server.py:30 `from slowapi import Limiter, _rate_limit_exceeded_handler`
+# api_server.py:33 `from prometheus_client import generate_latest, ...`
+# scp/observability/telemetry.py:2-5 imports opentelemetry
+slowapi>=0.1.9
+prometheus-client>=0.21.0
+opentelemetry-api>=1.27.0
+opentelemetry-sdk>=1.27.0
+opentelemetry-instrumentation-fastapi>=0.48b0
+PIL
+cryptography
+datasets
+edge_tts
+huggingface_hub
+hypothesis
+networkx
+pytesseract
+pytest
+question_generator
+sentence_transformers
+websockets
+whisper
+pywin32
+pillow

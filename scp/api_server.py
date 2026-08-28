@@ -1192,14 +1192,22 @@ _REQUIRE_API_AUTH: bool = os.environ.get("SCP_REQUIRE_API_AUTH", "0").strip() in
 # POST /ask │Ă¢â€Â¬Ă¢â‚¬Â Main endpoint
 # ============================================================
 
+import secrets as _secrets
+
 from pydantic import BaseModel
 class TokenRequest(BaseModel):
     admin_key: str
 
 @app.post("/auth/token")
-def login_for_access_token(req: TokenRequest):
-    expected_key = os.environ.get("SCP_ADMIN_KEY", "admin")
-    if req.admin_key != expected_key:
+@limiter.limit("5/minute")
+def login_for_access_token(req: TokenRequest, request: Request):
+    """[Zero-Trust] Mint a JWT. Fails closed if SCP_ADMIN_KEY not set in environment."""
+    expected_key = os.environ.get("SCP_ADMIN_KEY")
+    if not expected_key:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="[SECURITY] SCP_ADMIN_KEY not configured — auth disabled")
+    # Timing-safe comparison (prevents timing oracle attacks)
+    if not _secrets.compare_digest(req.admin_key.encode(), expected_key.encode()):
         from fastapi import HTTPException
         raise HTTPException(status_code=401, detail="Incorrect admin key")
     from scp.security.jwt_guard import create_access_token
