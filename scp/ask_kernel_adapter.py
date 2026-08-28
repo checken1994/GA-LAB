@@ -363,3 +363,4 @@ def json_bytes(value: Any) -> bytes:
 
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
+
