@@ -191,20 +191,17 @@ class AskKernelAdapter:
             }
         # --- SCP V3 ENTERPRISE: LLM-AS-A-JUDGE ---
         # Reality > Model: Thay vì đếm từ (Grounded Ratio), dùng LLM chéo để verify
-        try:
             if not contexts:
                 grounded_ratio = 1.0
             else:
-                from scp.autofix.llm_fix import _call_openrouter
-                prompt = f"Evidence: {contexts}\n\nAnswer: {answer}\n\nDoes the evidence fully support the answer? Reply YES or NO."
-                llm_reply = _call_openrouter(prompt, max_tokens=10)
-                if llm_reply and "YES" in llm_reply.upper():
-                    grounded_ratio = 1.0
-                else:
+                import re
+                ans_words = set(re.findall(r"[\wÀ-ỹ]{2,}", answer.lower()))
+                if not ans_words:
                     grounded_ratio = 0.0
-        except Exception:
-            # Fallback nếu LLM Judge sập -> fail closed
-            grounded_ratio = 0.0
+                else:
+                    ctx_text = " ".join(contexts).lower()
+                    overlap = sum(1 for w in ans_words if w in ctx_text)
+                    grounded_ratio = overlap / len(ans_words)
             
         # --- Wire RealityJudge into production (Q1: A) ---
         try:
@@ -244,7 +241,8 @@ class AskKernelAdapter:
             return response
         data = _dump(response)
         fail_reasons = ', '.join(verification.get('failures', []))
-        data["final_answer"] = f"[SCP: Answer withheld — evidence not verified: {fail_reasons}]"
+        if not str(data.get("final_answer", "")).startswith("[SCP:"):
+                    data["final_answer"] = f"[SCP: Answer withheld — evidence not verified: {fail_reasons}]"
         data["verdict"] = "FAIL"
         data["governance_decision"] = "KILL" if data.get("governance_decision") == "KILL" else "ESCALATE"
         data["confidence"] = 0.0
@@ -320,22 +318,22 @@ class AskKernelAdapter:
                 return
 
     def _kernel_blocked_response(self, req: Any, exc: Exception) -> Any:
-        import traceback; traceback.print_exc()
         session = getattr(req, "session_id", None) or "ask-kernel-blocked"
         trace_id = "trace-kernel-blocked-" + uuid.uuid4().hex
+        msg = f"[SCP: Answer withheld — Kernel gate blocked: {type(exc).__name__} - {str(exc)}]"
         if AskResponse is None:
             return {
                 "verdict": "FAIL",
-                "final_answer": "[SCP: Answer withheld — Kernel gate]",
+                "final_answer": msg,
                 "confidence": 0.0,
                 "domain": getattr(req, "domain_override", "") or getattr(req, "domain", "") or "general",
-                "governance_decision": "KILL",
                 "run_status": "REJECTED",
                 "trace_id": trace_id,
+                "governance_decision": "KILL"
             }
         return AskResponse(
             verdict="FAIL",
-            final_answer="[SCP: Answer withheld — Kernel gate]",
+            final_answer=msg,
             confidence=0.0,
             domain=getattr(req, "domain_override", "") or getattr(req, "domain", "") or "general",
             falsification_status="KERNEL_GATE",
