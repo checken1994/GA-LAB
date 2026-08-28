@@ -457,7 +457,19 @@ async def lifespan(app: FastAPI):
     #   BUT FastAPI uses api_server.py lifespan (TRUE │Ă¢â€Â¬Ă¢â‚¬Â different file!)
     #   get_judge() at line 283 blocks lifespan → port doesn't bind → 503
     #
-    # FIX: Move get_judge() to background thread, yield IMMEDIATELY.
+    # FIX: Move get_judge() to background thread, yield
+    # [WIRING-FIX] Restored background services
+    from scp.audit_r9.audit_fetcher import AuditFetcher
+    from scp.security.ai_threat_scanner import AIThreatScanner
+    from scp.security.harm_detector import HarmDetector
+    
+    audit_fetcher = AuditFetcher()
+    threat_scanner = AIThreatScanner()
+    harm_detector = HarmDetector()
+    
+    audit_fetcher.start()
+    threat_scanner.start()
+    harm_detector.start() IMMEDIATELY.
     # DNA #26 (Reality > Model): Reality = log shows "Initializing RealityJudge"
     #   synchronously → port 8000 not bound → 503 for 2 hours.
     # ============================================================
@@ -2033,3 +2045,4 @@ try:
 except Exception as e:
     _OTEL_STATUS = {"enabled": False, "reason": type(e).__name__}
     logger.warning("[OTel] optional instrumentation unavailable: %s", type(e).__name__)
+

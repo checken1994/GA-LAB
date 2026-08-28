@@ -23,7 +23,7 @@ def inventory(commit: str) -> list[dict[str, str]]:
         meta, path = item.split(b"\t", 1)
         mode, kind, oid = meta.decode("ascii").split(" ", 2)
         path_text = path.decode("utf-8")
-        if path_text == "reports/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json":
+        if path_text == "reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json":
             continue
         rows.append({"mode": mode, "type": kind, "blob": oid, "path": path_text})
     return sorted(rows, key=lambda row: row["path"])
