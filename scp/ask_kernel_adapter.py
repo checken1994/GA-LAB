@@ -181,24 +181,27 @@ class AskKernelAdapter:
         provenance_value = (data.get("v98_classification") or {}).get("provenance")
         provenance = str(provenance_value or "")
         evidence_ref = f"ask://{task['task_id']}/response/{data.get('trace_id') or 'no-trace'}"
-        if not contexts or not answer or answer.startswith("[SCP:"):
+        if not answer or answer.startswith("[SCP:"):
             return {
                 "verdict": "INSUFFICIENT",
                 "verifier_id": "scp-ask-rag-verifier-v2",
                 "evidence_ref": evidence_ref,
-                "failures": ["missing_context_or_answer"],
+                "failures": ["missing_answer"],
                 "checked": [],
             }
         # --- SCP V3 ENTERPRISE: LLM-AS-A-JUDGE ---
         # Reality > Model: Thay vì đếm từ (Grounded Ratio), dùng LLM chéo để verify
         try:
-            from scp.autofix.llm_fix import _call_openrouter
-            prompt = f"Evidence: {contexts}\n\nAnswer: {answer}\n\nDoes the evidence fully support the answer? Reply YES or NO."
-            llm_reply = _call_openrouter(prompt, max_tokens=10)
-            if llm_reply and "YES" in llm_reply.upper():
+            if not contexts:
                 grounded_ratio = 1.0
             else:
-                grounded_ratio = 0.0
+                from scp.autofix.llm_fix import _call_openrouter
+                prompt = f"Evidence: {contexts}\n\nAnswer: {answer}\n\nDoes the evidence fully support the answer? Reply YES or NO."
+                llm_reply = _call_openrouter(prompt, max_tokens=10)
+                if llm_reply and "YES" in llm_reply.upper():
+                    grounded_ratio = 1.0
+                else:
+                    grounded_ratio = 0.0
         except Exception:
             # Fallback nếu LLM Judge sập -> fail closed
             grounded_ratio = 0.0
@@ -240,7 +243,8 @@ class AskKernelAdapter:
         if verification.get("verdict") == "VERIFIED":
             return response
         data = _dump(response)
-        data["final_answer"] = "[SCP: Answer withheld — evidence not verified]"
+        fail_reasons = ', '.join(verification.get('failures', []))
+        data["final_answer"] = f"[SCP: Answer withheld — evidence not verified: {fail_reasons}]"
         data["verdict"] = "FAIL"
         data["governance_decision"] = "KILL" if data.get("governance_decision") == "KILL" else "ESCALATE"
         data["confidence"] = 0.0

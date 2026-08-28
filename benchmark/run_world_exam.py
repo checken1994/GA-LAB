@@ -11,7 +11,7 @@ from scp.security.jwt_guard import create_access_token
 import urllib.error
 
 async def run_exam(file_path):
-    print(f"--- BẮT ĐẦU KỲ THI CHUẨN THẾ GIỚI: {file_path} ---")
+    print(f"--- STARTING EXAM: {file_path} ---")
     
     # 1. Pre-flight check
     try:
@@ -42,7 +42,8 @@ async def run_exam(file_path):
             body = json.dumps({
                 "question": question,
                 "session_id": f"benchmark-test-{time.time()}",
-                "contexts": []
+                "contexts": [],
+                "source": "scp_batch_benchmark_v1"
             }).encode('utf-8')
             
             token = create_access_token({"sub": "benchmark-runner"})

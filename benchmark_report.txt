@@ -1,0 +1,16 @@
+============================================================
+SCP Benchmark Grader — Independent Report
+Dataset     : gsm8k
+Grader class: GSM8KGrader
+Total items : 10
+Correct     : 6 / 10
+Accuracy    : 60.0%
+False+rate  : 0.0% (substring khớp nhưng exact sai)
+============================================================
+
+Top 4 wrong items:
+  L   3 | Gold: '70000'                        | Pred: 'To find the profit, first, calculate the'
+  L   8 | Gold: '160'                          | Pred: 'First, Carla downloads 40% of 200 GB: 0.'
+  L   9 | Gold: '45'                           | Pred: 'To find the distance from home, we need '
+  L  10 | Gold: '460'                          | Pred: '40 * 10 + (45 - 40) * 10 * 1.2 = 400 + 1'
+

@@ -51,6 +51,7 @@ def get_requirements(req_path: Path) -> set[str]:
         "pywin32  ": "win32job",
         "pywin32   ": "win32process",
         "pillow": "pil",
+        "openai-whisper": "whisper",
     }
     
     for line in req_path.read_text(encoding="utf-8").splitlines():
@@ -82,13 +83,23 @@ def main():
         print(f"Error: {scp_dir} or {req_file} not found.")
         sys.exit(1)
 
-    reqs = get_requirements(req_file)
-    # Các module local
-    local_modules = {"scp", "tests", "benchmark", "scripts", "task_kernel", "trace_ledger", "conftest"}
+    reqs = set()
+    for req_file in scp_dir.glob("requirements*.txt"):
+        reqs.update(get_requirements(req_file))
+    for req_file in (scp_dir / "scp").glob("requirements*.txt"):
+        reqs.update(get_requirements(req_file))
+    # Các module local hoặc stdlib không có trên PyPI
+    local_modules = {
+        "scp", "tests", "benchmark", "scripts", "task_kernel", "trace_ledger", "conftest",
+        "question_generator", # from benchmark
+    }
     
     all_imports = set()
     for py_file in scp_dir.rglob("*.py"):
         if "venv" in py_file.parts or ".venv" in py_file.parts or "node_modules" in py_file.parts:
+            continue
+        # Bỏ qua cả thư mục rác cũ nếu có
+        if "archived_workspaces" in py_file.parts:
             continue
         all_imports.update(get_imports_from_file(py_file))
 

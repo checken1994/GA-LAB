@@ -45,7 +45,7 @@ from scp.autofix.runner_phases.post_fix_verify import (
     run_full_post_fix_verify,
     rollback_fix as rollback_fix_post,
 )
-from scp.autofix.runner_phases.reality_test import run_reality_test
+
 from scp.autofix.runner_phases.completeness_check import (
     run_completeness_check,
     reopen_as_incomplete,
@@ -88,7 +88,7 @@ __all__ = [
     "run_post_fix_verify",
     "run_full_post_fix_verify",
     "rollback_fix_post",
-    "run_reality_test",
+
     "run_completeness_check",
     "reopen_as_incomplete",
     "validate_bug_lineage",
