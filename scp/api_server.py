@@ -463,9 +463,9 @@ async def lifespan(app: FastAPI):
     # from scp.security.ai_threat_scanner import AIThreatScanner
     # from scp.security.harm_detector import HarmDetector
     
-    audit_fetcher = AuditFetcher()
-    threat_scanner = AIThreatScanner()
-    harm_detector = HarmDetector()
+    # audit_fetcher = AuditFetcher()
+    # threat_scanner = AIThreatScanner()
+    # harm_detector = HarmDetector()
     
     audit_fetcher.start()
     threat_scanner.start()
@@ -2045,6 +2045,7 @@ try:
 except Exception as e:
     _OTEL_STATUS = {"enabled": False, "reason": type(e).__name__}
     logger.warning("[OTel] optional instrumentation unavailable: %s", type(e).__name__)
+
 
 
 
