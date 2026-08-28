@@ -20,39 +20,52 @@ Hệ thống TUYỆT ĐỐI không phải là "V3 Enterprise". Đây là một p
 
 ## Hướng Dẫn Chạy (Quick Start)
 
-### Yêu cầu
-Cài đặt các dependency cần thiết (yêu cầu Python 3.10+):
+### 1. Cài đặt Dependency
+Yêu cầu Python 3.10+. Khuyến nghị dùng môi trường ảo (venv):
 ```bash
+python -m venv venv
+.\venv\Scripts\activate   # Windows
+# source venv/bin/activate # Linux/Mac
+
 pip install -r requirements.txt
 ```
 
-### Cấu hình biến môi trường
-Tạo file `.env` ở thư mục gốc:
+### 2. Cấu hình Biến Môi Trường (ConfigContract)
+SCP áp dụng Zero-Trust ngay từ lúc khởi động. Nếu thiếu biến môi trường, server sẽ từ chối boot.
+Tạo file `.env` tại thư mục gốc:
 ```env
-# Yêu cầu bắt buộc để JWT hoạt động (Zero-Trust)
-SCP_JWT_SECRET="chon-mot-chuoi-bi-mat-tu-tao-ra"
-SCP_ADMIN_KEY="mat-khau-admin-cua-ban"
-SCP_PRODUCTION_MODE=0
-```
+# Tạo bằng: python -c "import secrets; print(secrets.token_hex(32))"
+SCP_JWT_SECRET="chuoi-bi-mat-cua-ban"
 
-### Khởi động Server
-Bạn phải vượt qua `pre_push_gate.ps1` (kịch bản kiểm tra trước khi đẩy code) để đảm bảo server còn sống sót:
+# Tạo bằng: python -c "import secrets; print(secrets.token_urlsafe(24))"
+SCP_ADMIN_KEY="mat-khau-admin-cua-ban"
+```
+*(Lưu ý: Không được dùng các giá trị như `admin`, `password` — ConfigContract sẽ bắt lỗi).*
+
+### 3. Kiểm chứng Toàn Hệ Thống (Pre-Push Gate)
+Trước khi chạy server, hệ thống bắt buộc phải qua bài kiểm tra sức khỏe, bảo mật, và format:
+```powershell
+# Trên Windows PowerShell:
+$env:SCP_JWT_SECRET="chuoi-bi-mat"
+$env:SCP_ADMIN_KEY="mat-khau-admin"
+.\pre_push_gate.ps1
+```
+Gate này sẽ:
+1. Chạy `scripts/check_imports_vs_requirements.py` để chống gãy manifest.
+2. Boot server trên port 8002.
+3. Test Health, cấp JWT Token và test RAG verification path.
+
+### 4. Khởi động Server Thủ Công
 ```bash
 python -m scp 8002
 ```
 
-### Tạo Token và Kiểm chứng chéo (The Loop)
+### 5. Benchmark & Grader Độc Lập
+Để kiểm tra năng lực của SCP mà không bị dính ảo giác "tự chấm điểm", chạy benchmark và grader riêng biệt:
 ```bash
-# Lấy Token từ Endpoint Auth mới
-curl -X POST http://127.0.0.1:8002/auth/token -H "Content-Type: application/json" -d '{"admin_key": "mat-khau-admin-cua-ban"}'
+# 1. Chạy benchmark (lưu kết quả raw)
+python benchmark/run_world_exam.py benchmark/gsm8k_sample_10.jsonl
 
-# Gửi kết quả để Thẩm phán kiểm chứng (Fail-Closed)
-curl -X POST http://127.0.0.1:8002/ask \
-    -H "Authorization: Bearer <TOKEN_VUA_LAY>" \
-    -H "Content-Type: application/json" \
-    -d '{
-        "question": "1+1 bằng mấy?",
-        "contexts": ["1+1=2"],
-        "session_id": "test_01"
-    }'
+# 2. Chấm điểm độc lập bằng Grader
+python benchmark/grader.py raw_results.jsonl --dataset gsm8k
 ```
