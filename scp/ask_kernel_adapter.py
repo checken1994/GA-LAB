@@ -189,10 +189,8 @@ class AskKernelAdapter:
                 "failures": ["missing_answer"],
                 "checked": [],
             }
-        # --- SCP V3 ENTERPRISE: LLM-AS-A-JUDGE ---
-        # Reality > Model: Thay vì đếm từ (Grounded Ratio), dùng LLM chéo để verify
             if not contexts:
-                grounded_ratio = 1.0
+                grounded_ratio = 0.0
             else:
                 import re
                 ans_words = set(re.findall(r"[\wÀ-ỹ]{2,}", answer.lower()))
