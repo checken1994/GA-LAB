@@ -25,7 +25,8 @@ import os
 # These files define the very permissions that constrain SCP. If SCP could modify them,
 # it could escalate its own privileges (e.g., disable verify_admin, change capability levels).
 PROTECTED_PATHS = [
-    "scp/task_kernel.py",`n    "scp/security/capability_epoch.py",
+    "scp/task_kernel.py",
+    "scp/security/capability_epoch.py",
     "scp/security/os_sandbox.py",
     "scp/verifier.py",
     "scp/autofix/policy_gate.py",

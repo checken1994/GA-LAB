@@ -1,0 +1,4573 @@
+Python-dotenv could not parse statement starting at line 62
+Python-dotenv could not parse statement starting at line 63
+Python-dotenv could not parse statement starting at line 64
+Python-dotenv could not parse statement starting at line 65
+Python-dotenv could not parse statement starting at line 66
+Python-dotenv could not parse statement starting at line 67
+Python-dotenv could not parse statement starting at line 68
+Python-dotenv could not parse statement starting at line 69
+Python-dotenv could not parse statement starting at line 70
+Python-dotenv could not parse statement starting at line 71
+Python-dotenv could not parse statement starting at line 72
+Python-dotenv could not parse statement starting at line 73
+Python-dotenv could not parse statement starting at line 74
+Python-dotenv could not parse statement starting at line 75
+Python-dotenv could not parse statement starting at line 76
+Python-dotenv could not parse statement starting at line 77
+Python-dotenv could not parse statement starting at line 78
+2026-08-28 19:23:05,017 | INFO    | scp.api | [Security] HTTPS redirect disabled (set SCP_FORCE_HTTPS=1 in prod)
+2026-08-28 19:23:05,018 | INFO    | scp.api | [Security] CSRF protection: Bearer token auth (attacker cannot forge Authorization header)
+2026-08-28 19:23:05,346 | INFO    | scp.autofix | [R7-Full] IMP-6 (rollback token) + IMP-9 (dry-run) injected into AutoFixEngine
+2026-08-28 19:23:05,374 | INFO    | scp.api | [OTel] tracing disabled: SCP_OTEL_ENABLED=0
+INFO:     Started server process [23388]
+INFO:     Waiting for application startup.
+2026-08-28 19:23:05,375 | INFO    | scp.api | ============================================================
+2026-08-28 19:23:05,375 | INFO    | scp.api | SCP 14.0.0 API Server starting...
+2026-08-28 19:23:05,375 | INFO    | scp.api | ============================================================
+2026-08-28 19:23:05,375 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Judge init dispatched to background thread
+2026-08-28 19:23:05,375 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Yielding NOW \u2502Ă¢â€\x9aÂ¬Ă¢â‚¬Â\x9d port 8000 binds immediately
+2026-08-28 19:23:05,379 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 62
+2026-08-28 19:23:05,379 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 63
+2026-08-28 19:23:05,379 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 64
+2026-08-28 19:23:05,379 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 65
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 66
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 67
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 68
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 69
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 70
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 71
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 72
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 73
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 74
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 75
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 76
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 77
+2026-08-28 19:23:05,380 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 78
+2026-08-28 19:23:05,403 | WARNING | scp.api | [AUTO] Deep audit scheduler failed to start: No module named 'scp.autofix.runner_phases.reality_test'
+2026-08-28 19:23:05,412 | INFO    | scp.api | [AUTO] Attack mode monitor started before lifespan yield (5min interval)
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8002 (Press CTRL+C to quit)
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x3dab8c987e546588726c1bfcbbdad89a",
+        "span_id": "0x0291d0a40b8f0801",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x3376134154013571",
+    "start_time": "2026-08-28T12:23:05.710377Z",
+    "end_time": "2026-08-28T12:23:05.710377Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x3dab8c987e546588726c1bfcbbdad89a",
+        "span_id": "0x2273c5cdfc37d754",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x3376134154013571",
+    "start_time": "2026-08-28T12:23:05.710377Z",
+    "end_time": "2026-08-28T12:23:05.710377Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x3dab8c987e546588726c1bfcbbdad89a",
+        "span_id": "0x3376134154013571",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:05.710377Z",
+    "end_time": "2026-08-28T12:23:05.710377Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x1f6cacaa24444a7d87da326f49a0472b",
+        "span_id": "0x79e64de22150cc35",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xda5abdf2a3fb32fb",
+    "start_time": "2026-08-28T12:23:07.731915Z",
+    "end_time": "2026-08-28T12:23:07.731915Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x1f6cacaa24444a7d87da326f49a0472b",
+        "span_id": "0xaf34fec0593d401d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xda5abdf2a3fb32fb",
+    "start_time": "2026-08-28T12:23:07.731915Z",
+    "end_time": "2026-08-28T12:23:07.731915Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x1f6cacaa24444a7d87da326f49a0472b",
+        "span_id": "0xda5abdf2a3fb32fb",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:07.730914Z",
+    "end_time": "2026-08-28T12:23:07.731915Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x25691b511507aaa01f9baa367379dfc6",
+        "span_id": "0x844fc72eec4ef3c5",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x7c882e93483f3d25",
+    "start_time": "2026-08-28T12:23:09.744692Z",
+    "end_time": "2026-08-28T12:23:09.744692Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x25691b511507aaa01f9baa367379dfc6",
+        "span_id": "0xcb350d40069fda47",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x7c882e93483f3d25",
+    "start_time": "2026-08-28T12:23:09.744692Z",
+    "end_time": "2026-08-28T12:23:09.744692Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x25691b511507aaa01f9baa367379dfc6",
+        "span_id": "0x7c882e93483f3d25",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:09.743691Z",
+    "end_time": "2026-08-28T12:23:09.744692Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+2026-08-28 19:23:10,427 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 62
+2026-08-28 19:23:10,427 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 63
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 64
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 65
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 66
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 67
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 68
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 69
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 70
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 71
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 72
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 73
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 74
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 75
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 76
+2026-08-28 19:23:10,428 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 77
+2026-08-28 19:23:10,429 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 78
+2026-08-28 19:23:10,440 | INFO    | scp.api | Initializing RealityJudge (V98)...
+2026-08-28 19:23:10,440 | ERROR   | scp.api | [R20-ROOT-FIX-REAL] Judge init FAILED: 'RealityJudge' object has no attribute 'slms'
+2026-08-28 19:23:10,440 | ERROR   | scp.api | [R20-ROOT-FIX-REAL] /ask will return 503 until judge is available
+2026-08-28 19:23:10,488 | INFO    | scp.autofix | [TIER3-AUTO] Permission NOT granted — human approval required
+  Source: .env file (SCP_AUTO_APPROVE_TIER3=0 — human approval required)
+  To enable: set SCP_AUTO_APPROVE_TIER3=1 in .env + restart
+  Or runtime: POST /v105/autofix/tier3-auto/1 (no restart needed)
+2026-08-28 19:23:10,488 | INFO    | scp.autofix | [AutoFix] Singleton engine initialized
+2026-08-28 19:23:10,497 | INFO    | scp.autofix.evolution | [EVOLUTION] Singleton engine initialized
+2026-08-28 19:23:10,498 | INFO    | scp.api | [EVOLUTION] Runtime initialized; auto promotion remains env-gated
+2026-08-28 19:23:11,071 | INFO    | scp.autofix.ast_diff_cache | [IMP-13] partition: 1000 scan / 0 cached (force_full=False)
+2026-08-28 19:23:11,072 | INFO    | scp.autofix.runner | [R10 v3 IMP-13] partition: 1000 scan / 0 cached (total=1000)
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x99c4941c63f04ab89a4cab746d25501b",
+        "span_id": "0xb92c9693282a82a8",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x21a55c470b7653fe",
+    "start_time": "2026-08-28T12:23:11.787460Z",
+    "end_time": "2026-08-28T12:23:11.787460Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x99c4941c63f04ab89a4cab746d25501b",
+        "span_id": "0x2b4e11cf9d7f1f81",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x21a55c470b7653fe",
+    "start_time": "2026-08-28T12:23:11.793837Z",
+    "end_time": "2026-08-28T12:23:11.793837Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x99c4941c63f04ab89a4cab746d25501b",
+        "span_id": "0x21a55c470b7653fe",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:11.787460Z",
+    "end_time": "2026-08-28T12:23:11.793837Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xa34ae265bf86d1d06079b7655a109ea2",
+        "span_id": "0x3012a899207b0e23",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x3661a1a4cee16f50",
+    "start_time": "2026-08-28T12:23:13.819213Z",
+    "end_time": "2026-08-28T12:23:13.819213Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xa34ae265bf86d1d06079b7655a109ea2",
+        "span_id": "0x203dbee151eed44a",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x3661a1a4cee16f50",
+    "start_time": "2026-08-28T12:23:13.823723Z",
+    "end_time": "2026-08-28T12:23:13.824722Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0xa34ae265bf86d1d06079b7655a109ea2",
+        "span_id": "0x3661a1a4cee16f50",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:13.819213Z",
+    "end_time": "2026-08-28T12:23:13.824722Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+2026-08-28 19:23:16,314 | INFO    | scp.autofix.runner |  parallel scan done: 1000 files, 123 findings, 8 threads
+2026-08-28 19:23:16,316 | INFO    | scp.api | [STARTUP-GATE] Background scan complete: 123 bugs found
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xcd7d30b238f000d453316daa00ec00e2",
+        "span_id": "0xf59979f63bc218e4",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xa53c1a8ce34aa6c3",
+    "start_time": "2026-08-28T12:23:15.861527Z",
+    "end_time": "2026-08-28T12:23:15.861527Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xcd7d30b238f000d453316daa00ec00e2",
+        "span_id": "0x7b91f2dfc34fb231",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xa53c1a8ce34aa6c3",
+    "start_time": "2026-08-28T12:23:15.865960Z",
+    "end_time": "2026-08-28T12:23:15.865960Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0xcd7d30b238f000d453316daa00ec00e2",
+        "span_id": "0xa53c1a8ce34aa6c3",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:15.861527Z",
+    "end_time": "2026-08-28T12:23:15.865960Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x2b59ccf8867407ba84c28087b58f85a5",
+        "span_id": "0x41d183efd932fe5d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xed75955c6f4b38c6",
+    "start_time": "2026-08-28T12:23:17.878249Z",
+    "end_time": "2026-08-28T12:23:17.878249Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x2b59ccf8867407ba84c28087b58f85a5",
+        "span_id": "0x71a7fb0b21ec9827",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xed75955c6f4b38c6",
+    "start_time": "2026-08-28T12:23:17.878249Z",
+    "end_time": "2026-08-28T12:23:17.878249Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x2b59ccf8867407ba84c28087b58f85a5",
+        "span_id": "0xed75955c6f4b38c6",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:17.878249Z",
+    "end_time": "2026-08-28T12:23:17.878249Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x2b944b3206841bbc2c0b6956f4528969",
+        "span_id": "0x89d28aca49e8ae98",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x4220a26f35fd3228",
+    "start_time": "2026-08-28T12:23:19.893712Z",
+    "end_time": "2026-08-28T12:23:19.894715Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x2b944b3206841bbc2c0b6956f4528969",
+        "span_id": "0x881823ff38a0ee42",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x4220a26f35fd3228",
+    "start_time": "2026-08-28T12:23:19.894715Z",
+    "end_time": "2026-08-28T12:23:19.894715Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x2b944b3206841bbc2c0b6956f4528969",
+        "span_id": "0x4220a26f35fd3228",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:19.893712Z",
+    "end_time": "2026-08-28T12:23:19.894715Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x147bb33774867731acc64e5b33f35979",
+        "span_id": "0x5e80e7fd36c1602c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x1a816891ee628b50",
+    "start_time": "2026-08-28T12:23:21.913237Z",
+    "end_time": "2026-08-28T12:23:21.913237Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x147bb33774867731acc64e5b33f35979",
+        "span_id": "0xeae103cb0bf4bb5e",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x1a816891ee628b50",
+    "start_time": "2026-08-28T12:23:21.913237Z",
+    "end_time": "2026-08-28T12:23:21.913237Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x147bb33774867731acc64e5b33f35979",
+        "span_id": "0x1a816891ee628b50",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:21.909238Z",
+    "end_time": "2026-08-28T12:23:21.913237Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x0d7085481ecca7d1a1291238b8918e9d",
+        "span_id": "0x60b0563e1034c6c2",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x564911e3c5ea62c9",
+    "start_time": "2026-08-28T12:23:23.925411Z",
+    "end_time": "2026-08-28T12:23:23.925411Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x0d7085481ecca7d1a1291238b8918e9d",
+        "span_id": "0xe808c652c96cae1e",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x564911e3c5ea62c9",
+    "start_time": "2026-08-28T12:23:23.925411Z",
+    "end_time": "2026-08-28T12:23:23.925411Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x0d7085481ecca7d1a1291238b8918e9d",
+        "span_id": "0x564911e3c5ea62c9",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:23.924410Z",
+    "end_time": "2026-08-28T12:23:23.925411Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xda87153b94f96cdc4ff4d492cfc999d8",
+        "span_id": "0x36405f7bea35d7bf",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x9feaa382e88707f1",
+    "start_time": "2026-08-28T12:23:25.952295Z",
+    "end_time": "2026-08-28T12:23:25.952295Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xda87153b94f96cdc4ff4d492cfc999d8",
+        "span_id": "0x25f3e0c0715e4551",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x9feaa382e88707f1",
+    "start_time": "2026-08-28T12:23:25.952295Z",
+    "end_time": "2026-08-28T12:23:25.952295Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0xda87153b94f96cdc4ff4d492cfc999d8",
+        "span_id": "0x9feaa382e88707f1",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:25.951293Z",
+    "end_time": "2026-08-28T12:23:25.952295Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x6af49dab7e4dbf69e463e9ad6a954097",
+        "span_id": "0xe9b338e01a95107e",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x04693cf58f326a9a",
+    "start_time": "2026-08-28T12:23:27.968028Z",
+    "end_time": "2026-08-28T12:23:27.968028Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x6af49dab7e4dbf69e463e9ad6a954097",
+        "span_id": "0x4e927514fe411d5d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x04693cf58f326a9a",
+    "start_time": "2026-08-28T12:23:27.968028Z",
+    "end_time": "2026-08-28T12:23:27.968028Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x6af49dab7e4dbf69e463e9ad6a954097",
+        "span_id": "0x04693cf58f326a9a",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:27.968028Z",
+    "end_time": "2026-08-28T12:23:27.968028Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x563761c1444ea0d19c7c7cd2f40b83ae",
+        "span_id": "0xfc31b873b3d997b7",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x98c0a11aa795daea",
+    "start_time": "2026-08-28T12:23:29.984085Z",
+    "end_time": "2026-08-28T12:23:29.984085Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x563761c1444ea0d19c7c7cd2f40b83ae",
+        "span_id": "0xc8d8c6b31a278c18",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x98c0a11aa795daea",
+    "start_time": "2026-08-28T12:23:29.984085Z",
+    "end_time": "2026-08-28T12:23:29.984085Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x563761c1444ea0d19c7c7cd2f40b83ae",
+        "span_id": "0x98c0a11aa795daea",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:29.984085Z",
+    "end_time": "2026-08-28T12:23:29.984085Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xef87954d47de7a003a3c2a28bdb3632a",
+        "span_id": "0x5363b7b36bb4027f",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x5492dcbfbce4a812",
+    "start_time": "2026-08-28T12:23:32.010514Z",
+    "end_time": "2026-08-28T12:23:32.010514Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xef87954d47de7a003a3c2a28bdb3632a",
+        "span_id": "0xfe31b632ab58f7ec",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x5492dcbfbce4a812",
+    "start_time": "2026-08-28T12:23:32.010514Z",
+    "end_time": "2026-08-28T12:23:32.010514Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0xef87954d47de7a003a3c2a28bdb3632a",
+        "span_id": "0x5492dcbfbce4a812",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:32.009512Z",
+    "end_time": "2026-08-28T12:23:32.010514Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x0d673c3ec8fd246c16239ab6f2bbf271",
+        "span_id": "0x25e090704966b67e",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x9cae1a69a3c2ccdb",
+    "start_time": "2026-08-28T12:23:34.038870Z",
+    "end_time": "2026-08-28T12:23:34.038870Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x0d673c3ec8fd246c16239ab6f2bbf271",
+        "span_id": "0x91f97b385579d8e6",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x9cae1a69a3c2ccdb",
+    "start_time": "2026-08-28T12:23:34.039875Z",
+    "end_time": "2026-08-28T12:23:34.039875Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x0d673c3ec8fd246c16239ab6f2bbf271",
+        "span_id": "0x9cae1a69a3c2ccdb",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:34.038870Z",
+    "end_time": "2026-08-28T12:23:34.039875Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+2026-08-28 19:23:36,070 | ERROR   | scp.api | [4-a-001] Background scheduler NOT started: _judge is None after 30s
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xcf6f5f9e44622a69159c9c932f6cb34b",
+        "span_id": "0x1a87aa41322bb24d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xf001b4cd1f77dd62",
+    "start_time": "2026-08-28T12:23:36.065723Z",
+    "end_time": "2026-08-28T12:23:36.065723Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xcf6f5f9e44622a69159c9c932f6cb34b",
+        "span_id": "0xb363573d970f94e6",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xf001b4cd1f77dd62",
+    "start_time": "2026-08-28T12:23:36.065723Z",
+    "end_time": "2026-08-28T12:23:36.070233Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0xcf6f5f9e44622a69159c9c932f6cb34b",
+        "span_id": "0xf001b4cd1f77dd62",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:36.065723Z",
+    "end_time": "2026-08-28T12:23:36.070233Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x49446976f8a4daba361c37c060d63478",
+        "span_id": "0xbbef314f58e03c3b",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x810cedeb3780a004",
+    "start_time": "2026-08-28T12:23:38.079357Z",
+    "end_time": "2026-08-28T12:23:38.079357Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x49446976f8a4daba361c37c060d63478",
+        "span_id": "0x97a914bdbec42b45",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x810cedeb3780a004",
+    "start_time": "2026-08-28T12:23:38.079357Z",
+    "end_time": "2026-08-28T12:23:38.079357Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x49446976f8a4daba361c37c060d63478",
+        "span_id": "0x810cedeb3780a004",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:38.078174Z",
+    "end_time": "2026-08-28T12:23:38.079357Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x8283ccf8e0b44013a9f36a800ca172e9",
+        "span_id": "0x4f470a6f70e265f6",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x286d2ecbde112ced",
+    "start_time": "2026-08-28T12:23:40.096684Z",
+    "end_time": "2026-08-28T12:23:40.096684Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x8283ccf8e0b44013a9f36a800ca172e9",
+        "span_id": "0x9957bff84442e958",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x286d2ecbde112ced",
+    "start_time": "2026-08-28T12:23:40.097199Z",
+    "end_time": "2026-08-28T12:23:40.097199Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x8283ccf8e0b44013a9f36a800ca172e9",
+        "span_id": "0x286d2ecbde112ced",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:40.096153Z",
+    "end_time": "2026-08-28T12:23:40.097199Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x2631b0aed8f7a185b09f273bac30aaa2",
+        "span_id": "0x43c515ae8fc44f29",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xc3119e457d9a87cc",
+    "start_time": "2026-08-28T12:23:42.125324Z",
+    "end_time": "2026-08-28T12:23:42.126325Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x2631b0aed8f7a185b09f273bac30aaa2",
+        "span_id": "0x795f2623b692ca8d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xc3119e457d9a87cc",
+    "start_time": "2026-08-28T12:23:42.126325Z",
+    "end_time": "2026-08-28T12:23:42.126325Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x2631b0aed8f7a185b09f273bac30aaa2",
+        "span_id": "0xc3119e457d9a87cc",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:42.125324Z",
+    "end_time": "2026-08-28T12:23:42.126325Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x9bf81526d6df27f3bab7b2926f45bf91",
+        "span_id": "0x744085eb4c46514c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x3379219976870f44",
+    "start_time": "2026-08-28T12:23:44.148697Z",
+    "end_time": "2026-08-28T12:23:44.148697Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x9bf81526d6df27f3bab7b2926f45bf91",
+        "span_id": "0xb11660e4581671b2",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x3379219976870f44",
+    "start_time": "2026-08-28T12:23:44.148697Z",
+    "end_time": "2026-08-28T12:23:44.148697Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x9bf81526d6df27f3bab7b2926f45bf91",
+        "span_id": "0x3379219976870f44",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:44.148697Z",
+    "end_time": "2026-08-28T12:23:44.148697Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x4b84d43b3762f46eca853a7fc5b27422",
+        "span_id": "0x8c01c85014aa3982",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x06d94c76ddbe0dce",
+    "start_time": "2026-08-28T12:23:46.178322Z",
+    "end_time": "2026-08-28T12:23:46.178322Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x4b84d43b3762f46eca853a7fc5b27422",
+        "span_id": "0x394d43605b78f087",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x06d94c76ddbe0dce",
+    "start_time": "2026-08-28T12:23:46.178322Z",
+    "end_time": "2026-08-28T12:23:46.178322Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x4b84d43b3762f46eca853a7fc5b27422",
+        "span_id": "0x06d94c76ddbe0dce",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:46.177316Z",
+    "end_time": "2026-08-28T12:23:46.178322Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xe933e0fa19ec410d49c1dce48c347d49",
+        "span_id": "0xbe0db5e2f3146291",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xa41b6e1815249e4e",
+    "start_time": "2026-08-28T12:23:48.207234Z",
+    "end_time": "2026-08-28T12:23:48.207234Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xe933e0fa19ec410d49c1dce48c347d49",
+        "span_id": "0x9ce476314814e2cc",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xa41b6e1815249e4e",
+    "start_time": "2026-08-28T12:23:48.207234Z",
+    "end_time": "2026-08-28T12:23:48.207234Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0xe933e0fa19ec410d49c1dce48c347d49",
+        "span_id": "0xa41b6e1815249e4e",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:48.207234Z",
+    "end_time": "2026-08-28T12:23:48.207234Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49535 - "GET /health HTTP/1.1" 200 OK
+2026-08-28 19:23:54,200 | ERROR   | scp.security.auth | verify_admin: invalid auth configuration (SCP_AUTH_TOKEN_SECRET_FILE_UNREADABLE)
+INFO:     127.0.0.1:49535 - "POST /v105/autofix/run-audit HTTP/1.1" 503 Service Unavailable
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x8470632ded9a178cb1deb2c71b563de9",
+        "span_id": "0xe64108f16b13dd08",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xe435054ea3ab7e09",
+    "start_time": "2026-08-28T12:23:50.225806Z",
+    "end_time": "2026-08-28T12:23:50.225806Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x8470632ded9a178cb1deb2c71b563de9",
+        "span_id": "0x4b781110071c04c7",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xe435054ea3ab7e09",
+    "start_time": "2026-08-28T12:23:50.225806Z",
+    "end_time": "2026-08-28T12:23:50.225806Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x8470632ded9a178cb1deb2c71b563de9",
+        "span_id": "0xe435054ea3ab7e09",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:50.225806Z",
+    "end_time": "2026-08-28T12:23:50.225806Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x25f8ef88bb4590fed6a128d89938d3c7",
+        "span_id": "0xdc22f0a63d7bdaba",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x495274e8b07127e6",
+    "start_time": "2026-08-28T12:23:52.244731Z",
+    "end_time": "2026-08-28T12:23:52.254191Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x25f8ef88bb4590fed6a128d89938d3c7",
+        "span_id": "0xb318eb9f1e967586",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x495274e8b07127e6",
+    "start_time": "2026-08-28T12:23:52.254191Z",
+    "end_time": "2026-08-28T12:23:52.254191Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x25f8ef88bb4590fed6a128d89938d3c7",
+        "span_id": "0x495274e8b07127e6",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:52.244731Z",
+    "end_time": "2026-08-28T12:23:52.254191Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "GET /health http send",
+    "context": {
+        "trace_id": "0x12985593158f087c24a18f73f83a9c20",
+        "span_id": "0x1f60276ab30a013d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6935316e1a974de5",
+    "start_time": "2026-08-28T12:23:54.192517Z",
+    "end_time": "2026-08-28T12:23:54.192517Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "GET /health http send",
+    "context": {
+        "trace_id": "0x12985593158f087c24a18f73f83a9c20",
+        "span_id": "0xf80881102a46a14d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6935316e1a974de5",
+    "start_time": "2026-08-28T12:23:54.192517Z",
+    "end_time": "2026-08-28T12:23:54.192517Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "GET /health",
+    "context": {
+        "trace_id": "0x12985593158f087c24a18f73f83a9c20",
+        "span_id": "0x6935316e1a974de5",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:54.127754Z",
+    "end_time": "2026-08-28T12:23:54.192517Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/health",
+        "http.url": "http://127.0.0.1:8002/health",
+        "http.method": "GET",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Bun/1.3.14",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49535,
+        "http.route": "/health",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /v105/autofix/run-audit http receive",
+    "context": {
+        "trace_id": "0x35955d712e87132f32ba5ebe8a7d9594",
+        "span_id": "0x0ab49b4af16f68e9",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6245637ea9500a57",
+    "start_time": "2026-08-28T12:23:54.195513Z",
+    "end_time": "2026-08-28T12:23:54.195513Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /v105/autofix/run-audit http send",
+    "context": {
+        "trace_id": "0x35955d712e87132f32ba5ebe8a7d9594",
+        "span_id": "0x7195a3e72b925e38",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6245637ea9500a57",
+    "start_time": "2026-08-28T12:23:54.200718Z",
+    "end_time": "2026-08-28T12:23:54.200718Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 503
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /v105/autofix/run-audit http send",
+    "context": {
+        "trace_id": "0x35955d712e87132f32ba5ebe8a7d9594",
+        "span_id": "0x12ca38d7d0788658",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6245637ea9500a57",
+    "start_time": "2026-08-28T12:23:54.201719Z",
+    "end_time": "2026-08-28T12:23:54.201719Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /v105/autofix/run-audit",
+    "context": {
+        "trace_id": "0x35955d712e87132f32ba5ebe8a7d9594",
+        "span_id": "0x6245637ea9500a57",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:54.193514Z",
+    "end_time": "2026-08-28T12:23:54.201719Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/v105/autofix/run-audit",
+        "http.url": "http://127.0.0.1:8002/v105/autofix/run-audit",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Bun/1.3.14",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49535,
+        "http.route": "/v105/autofix/run-audit",
+        "http.status_code": 503
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xedb2fdd1db89c42734e45d75c1297bf6",
+        "span_id": "0xdd9c8ff55d161fb7",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x3b354b7559929ebb",
+    "start_time": "2026-08-28T12:23:54.265517Z",
+    "end_time": "2026-08-28T12:23:54.265517Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xedb2fdd1db89c42734e45d75c1297bf6",
+        "span_id": "0x100e229d6ddca9e6",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x3b354b7559929ebb",
+    "start_time": "2026-08-28T12:23:54.265517Z",
+    "end_time": "2026-08-28T12:23:54.265517Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0xedb2fdd1db89c42734e45d75c1297bf6",
+        "span_id": "0x3b354b7559929ebb",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:54.265517Z",
+    "end_time": "2026-08-28T12:23:54.265517Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49538 - "GET /docs HTTP/1.1" 200 OK
+2026-08-28 19:23:55,180 | INFO    | scp.meta.why_gate | [WHY-GATE] Singleton initialized — WHY is now PRIMARY CONTROL GATE
+INFO:     127.0.0.1:49539 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49540 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49541 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49542 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49543 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49544 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49545 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49517 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49546 - "POST /ask HTTP/1.1" 200 OK
+{
+    "name": "GET /docs http send",
+    "context": {
+        "trace_id": "0xfe821db4f6747fe9413f76de6e4bcf53",
+        "span_id": "0xdffa360b17516af5",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x840e91272fb6f474",
+    "start_time": "2026-08-28T12:23:55.154073Z",
+    "end_time": "2026-08-28T12:23:55.154073Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "GET /docs http send",
+    "context": {
+        "trace_id": "0xfe821db4f6747fe9413f76de6e4bcf53",
+        "span_id": "0x9463a95208d22abf",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x840e91272fb6f474",
+    "start_time": "2026-08-28T12:23:55.154073Z",
+    "end_time": "2026-08-28T12:23:55.154073Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "GET /docs",
+    "context": {
+        "trace_id": "0xfe821db4f6747fe9413f76de6e4bcf53",
+        "span_id": "0x840e91272fb6f474",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:55.153075Z",
+    "end_time": "2026-08-28T12:23:55.154073Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "GET",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49538,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0x0b772ee6b9ef540157e283b7a53670ff",
+        "span_id": "0x55b0a18c1bd07112",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xb1adfd6058c40756",
+    "start_time": "2026-08-28T12:23:55.155827Z",
+    "end_time": "2026-08-28T12:23:55.155827Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x0b772ee6b9ef540157e283b7a53670ff",
+        "span_id": "0x8b54d4d79544d7d1",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xb1adfd6058c40756",
+    "start_time": "2026-08-28T12:23:55.718354Z",
+    "end_time": "2026-08-28T12:23:55.718354Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x0b772ee6b9ef540157e283b7a53670ff",
+        "span_id": "0x0e717f446f3f692d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xb1adfd6058c40756",
+    "start_time": "2026-08-28T12:23:55.718354Z",
+    "end_time": "2026-08-28T12:23:55.718354Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0x0b772ee6b9ef540157e283b7a53670ff",
+        "span_id": "0xb1adfd6058c40756",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:55.155827Z",
+    "end_time": "2026-08-28T12:23:55.718354Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49539,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0x7182477d4de473c12ce0d05e31b2c8fe",
+        "span_id": "0xadcb62a5a7959f75",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xf851b5affb72f8f4",
+    "start_time": "2026-08-28T12:23:55.720356Z",
+    "end_time": "2026-08-28T12:23:55.720356Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x7182477d4de473c12ce0d05e31b2c8fe",
+        "span_id": "0x2f967febfb8fc383",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xf851b5affb72f8f4",
+    "start_time": "2026-08-28T12:23:56.261330Z",
+    "end_time": "2026-08-28T12:23:56.261330Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x7182477d4de473c12ce0d05e31b2c8fe",
+        "span_id": "0xc5dce874630c33bd",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xf851b5affb72f8f4",
+    "start_time": "2026-08-28T12:23:56.261330Z",
+    "end_time": "2026-08-28T12:23:56.261330Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0x7182477d4de473c12ce0d05e31b2c8fe",
+        "span_id": "0xf851b5affb72f8f4",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:55.719355Z",
+    "end_time": "2026-08-28T12:23:56.261330Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49540,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0xc95a1abad87ba44fc47634ff0d4e88b8",
+        "span_id": "0x58cd63e72ca77e7e",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x1d760f0b5b804493",
+    "start_time": "2026-08-28T12:23:56.263333Z",
+    "end_time": "2026-08-28T12:23:56.263333Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0xc95a1abad87ba44fc47634ff0d4e88b8",
+        "span_id": "0x5b0266ed90325a89",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x1d760f0b5b804493",
+    "start_time": "2026-08-28T12:23:56.807140Z",
+    "end_time": "2026-08-28T12:23:56.807140Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0xc95a1abad87ba44fc47634ff0d4e88b8",
+        "span_id": "0x080d836dd571a003",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x1d760f0b5b804493",
+    "start_time": "2026-08-28T12:23:56.807140Z",
+    "end_time": "2026-08-28T12:23:56.807140Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0xc95a1abad87ba44fc47634ff0d4e88b8",
+        "span_id": "0x1d760f0b5b804493",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:56.263333Z",
+    "end_time": "2026-08-28T12:23:56.807140Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49541,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xe11b3d16199f9027609cca732e05146a",
+        "span_id": "0x2b1ea393f6c4d03d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xa35aecaf52b98ebf",
+    "start_time": "2026-08-28T12:23:56.807140Z",
+    "end_time": "2026-08-28T12:23:56.807140Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0xe11b3d16199f9027609cca732e05146a",
+        "span_id": "0x7368927813d773c5",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xa35aecaf52b98ebf",
+    "start_time": "2026-08-28T12:23:56.807140Z",
+    "end_time": "2026-08-28T12:23:56.807140Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0xe11b3d16199f9027609cca732e05146a",
+        "span_id": "0xa35aecaf52b98ebf",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:56.807140Z",
+    "end_time": "2026-08-28T12:23:56.807140Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0xc34b7c271db6151c3f90e27a25e053f4",
+        "span_id": "0x351e997dad5685bc",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xeaab9ea8d68ead07",
+    "start_time": "2026-08-28T12:23:56.808852Z",
+    "end_time": "2026-08-28T12:23:56.808852Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0xc34b7c271db6151c3f90e27a25e053f4",
+        "span_id": "0x2a45c81d2be75d90",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xeaab9ea8d68ead07",
+    "start_time": "2026-08-28T12:23:57.361440Z",
+    "end_time": "2026-08-28T12:23:57.361440Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0xc34b7c271db6151c3f90e27a25e053f4",
+        "span_id": "0x01f1e45f78ea5c37",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xeaab9ea8d68ead07",
+    "start_time": "2026-08-28T12:23:57.361440Z",
+    "end_time": "2026-08-28T12:23:57.361440Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0xc34b7c271db6151c3f90e27a25e053f4",
+        "span_id": "0xeaab9ea8d68ead07",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:56.807140Z",
+    "end_time": "2026-08-28T12:23:57.361440Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49542,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0xcaa324acc7dd2694ef49582bbb5fa507",
+        "span_id": "0x732eab61a0f6f32d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x41bcce4c53fb17dd",
+    "start_time": "2026-08-28T12:23:57.363447Z",
+    "end_time": "2026-08-28T12:23:57.363447Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0xcaa324acc7dd2694ef49582bbb5fa507",
+        "span_id": "0x62c80362f990eba0",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x41bcce4c53fb17dd",
+    "start_time": "2026-08-28T12:23:57.962286Z",
+    "end_time": "2026-08-28T12:23:57.962286Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0xcaa324acc7dd2694ef49582bbb5fa507",
+        "span_id": "0xa214faee0278b6aa",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x41bcce4c53fb17dd",
+    "start_time": "2026-08-28T12:23:57.963288Z",
+    "end_time": "2026-08-28T12:23:57.963288Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0xcaa324acc7dd2694ef49582bbb5fa507",
+        "span_id": "0x41bcce4c53fb17dd",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:57.363447Z",
+    "end_time": "2026-08-28T12:23:57.963288Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49543,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0x233069f8fc765670be8b04cda336993a",
+        "span_id": "0xf5e3728d9669edc0",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x4c49d75f62df707b",
+    "start_time": "2026-08-28T12:23:57.964286Z",
+    "end_time": "2026-08-28T12:23:57.964286Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x233069f8fc765670be8b04cda336993a",
+        "span_id": "0x15de9516066e586f",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x4c49d75f62df707b",
+    "start_time": "2026-08-28T12:23:58.533515Z",
+    "end_time": "2026-08-28T12:23:58.533515Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x233069f8fc765670be8b04cda336993a",
+        "span_id": "0x40242da5ef61ee2d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x4c49d75f62df707b",
+    "start_time": "2026-08-28T12:23:58.534071Z",
+    "end_time": "2026-08-28T12:23:58.534071Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0x233069f8fc765670be8b04cda336993a",
+        "span_id": "0x4c49d75f62df707b",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:57.964286Z",
+    "end_time": "2026-08-28T12:23:58.534071Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49544,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0x576d92cc798eca784db183563796de27",
+        "span_id": "0x8df0bbdfd6d773d5",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x483c6f3cb3852712",
+    "start_time": "2026-08-28T12:23:58.535644Z",
+    "end_time": "2026-08-28T12:23:58.535644Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x576d92cc798eca784db183563796de27",
+        "span_id": "0xb96d2b0710de9f98",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x483c6f3cb3852712",
+    "start_time": "2026-08-28T12:23:59.279058Z",
+    "end_time": "2026-08-28T12:23:59.279058Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x576d92cc798eca784db183563796de27",
+        "span_id": "0xd0047d4b63d704a3",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x483c6f3cb3852712",
+    "start_time": "2026-08-28T12:23:59.279058Z",
+    "end_time": "2026-08-28T12:23:59.279058Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0x576d92cc798eca784db183563796de27",
+        "span_id": "0x483c6f3cb3852712",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:58.535644Z",
+    "end_time": "2026-08-28T12:23:59.280059Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49545,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x9595d3583484d061fd44e841cbaacf49",
+        "span_id": "0xb74839570d722721",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x55b2d481b2bd4d84",
+    "start_time": "2026-08-28T12:23:59.280059Z",
+    "end_time": "2026-08-28T12:23:59.280059Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs http send",
+    "context": {
+        "trace_id": "0x9595d3583484d061fd44e841cbaacf49",
+        "span_id": "0x9327b72546d74f03",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x55b2d481b2bd4d84",
+    "start_time": "2026-08-28T12:23:59.280059Z",
+    "end_time": "2026-08-28T12:23:59.280059Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "HEAD /docs",
+    "context": {
+        "trace_id": "0x9595d3583484d061fd44e841cbaacf49",
+        "span_id": "0x55b2d481b2bd4d84",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:59.280059Z",
+    "end_time": "2026-08-28T12:23:59.280059Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/docs",
+        "http.url": "http://127.0.0.1:8002/docs",
+        "http.method": "HEAD",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9168",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49517,
+        "http.route": "/docs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0x7e8df8886bd29edad93ddc6e3d307b41",
+        "span_id": "0x47d5bfff492bc454",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6a4c22833ee7fe43",
+    "start_time": "2026-08-28T12:23:59.281059Z",
+    "end_time": "2026-08-28T12:23:59.281059Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x7e8df8886bd29edad93ddc6e3d307b41",
+        "span_id": "0x2b8c2a3b762f0247",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6a4c22833ee7fe43",
+    "start_time": "2026-08-28T12:23:59.852036Z",
+    "end_time": "2026-08-28T12:23:59.852036Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x7e8df8886bd29edad93ddc6e3d307b41",
+        "span_id": "0x5535b924051dc880",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6a4c22833ee7fe43",
+    "start_time": "2026-08-28T12:23:59.853036Z",
+    "end_time": "2026-08-28T12:23:59.853036Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0x7e8df8886bd29edad93ddc6e3d307b41",
+        "span_id": "0x6a4c22833ee7fe43",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:59.281059Z",
+    "end_time": "2026-08-28T12:23:59.853036Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49546,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0x7094bdb57ed5295041338529a3d62861",
+        "span_id": "0x51575260c3e20194",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x9d81ad8724515ec2",
+    "start_time": "2026-08-28T12:23:59.854039Z",
+    "end_time": "2026-08-28T12:23:59.854039Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+INFO:     127.0.0.1:49547 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49548 - "POST /ask HTTP/1.1" 200 OK
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x7094bdb57ed5295041338529a3d62861",
+        "span_id": "0xa931477ed9a06418",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x9d81ad8724515ec2",
+    "start_time": "2026-08-28T12:24:00.451101Z",
+    "end_time": "2026-08-28T12:24:00.451101Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0x7094bdb57ed5295041338529a3d62861",
+        "span_id": "0x4dda7e15f850a5e3",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x9d81ad8724515ec2",
+    "start_time": "2026-08-28T12:24:00.452106Z",
+    "end_time": "2026-08-28T12:24:00.452106Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0x7094bdb57ed5295041338529a3d62861",
+        "span_id": "0x9d81ad8724515ec2",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:23:59.854039Z",
+    "end_time": "2026-08-28T12:24:00.452106Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49547,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http receive",
+    "context": {
+        "trace_id": "0xc1a64a98cfddfeff5b61f0de52845db6",
+        "span_id": "0x18db9ec613215596",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x452853fa9879b81f",
+    "start_time": "2026-08-28T12:24:00.453103Z",
+    "end_time": "2026-08-28T12:24:00.453103Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0xc1a64a98cfddfeff5b61f0de52845db6",
+        "span_id": "0x55366c9ace3d45be",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x452853fa9879b81f",
+    "start_time": "2026-08-28T12:24:01.043305Z",
+    "end_time": "2026-08-28T12:24:01.043305Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask http send",
+    "context": {
+        "trace_id": "0xc1a64a98cfddfeff5b61f0de52845db6",
+        "span_id": "0x45232c683063c429",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x452853fa9879b81f",
+    "start_time": "2026-08-28T12:24:01.043305Z",
+    "end_time": "2026-08-28T12:24:01.043305Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+
+{
+    "name": "POST /ask",
+    "context": {
+        "trace_id": "0xc1a64a98cfddfeff5b61f0de52845db6",
+        "span_id": "0x452853fa9879b81f",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-08-28T12:24:00.453103Z",
+    "end_time": "2026-08-28T12:24:01.043305Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "127.0.0.1:8002",
+        "net.host.port": 8002,
+        "http.flavor": "1.1",
+        "http.target": "/ask",
+        "http.url": "http://127.0.0.1:8002/ask",
+        "http.method": "POST",
+        "http.server_name": "127.0.0.1:8002",
+        "http.user_agent": "Python-urllib/3.12",
+        "net.peer.ip": "127.0.0.1",
+        "net.peer.port": 49548,
+        "http.route": "/ask",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.37.0",
+            "service.name": "unknown_service"
+        },
+        "schema_url": ""
+    }
+}
+

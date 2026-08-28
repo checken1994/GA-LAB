@@ -2,6 +2,11 @@ import asyncio
 import json
 import time
 import urllib.request
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from scp.security.jwt_guard import create_access_token
+
 import urllib.error
 
 async def run_exam(file_path):
@@ -37,7 +42,8 @@ async def run_exam(file_path):
             "contexts": [f"The correct answer is {data.get('gold_answer', data.get('answer', ''))}"]
         }).encode('utf-8')
         
-        req = urllib.request.Request("http://127.0.0.1:8002/ask", data=body, headers={'Content-Type': 'application/json'}, method="POST")
+        token = create_access_token({"sub": "benchmark-runner"})
+        req = urllib.request.Request("http://127.0.0.1:8002/ask", data=body, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {token}'}, method="POST")
         
         try:
             with urllib.request.urlopen(req) as response:

@@ -24,6 +24,21 @@ from __future__ import annotations
 from scp.security.env_loader import load_selected_env
 load_selected_env()
 
+
+# --- SCP V3 ENTERPRISE IMPORTS ---
+from fastapi import Depends
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter, Histogram
+from fastapi.responses import Response
+from scp.security.jwt_guard import get_current_user
+from scp.observability.telemetry import setup_telemetry
+
+# Enterprise Metrics
+REQUEST_COUNT = Counter("scp_request_count", "Total SCP Requests", ["method", "endpoint"])
+REQUEST_LATENCY = Histogram("scp_request_latency_seconds", "Request latency", ["endpoint"])
+
 import asyncio
 import base64
 import binascii
@@ -768,6 +783,21 @@ app = FastAPI(
     version=_SCP_VERSION,
     lifespan=lifespan,
 )
+
+# --- SCP V3 ENTERPRISE MIDDLEWARE ---
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+try:
+    setup_telemetry(app)
+except Exception as e:
+    logger.warning(f"Telemetry setup skipped: {e}")
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 # [FIX-A P0-3 Bug C] CORS hardening │Ă¢â€Â¬Ă¢â‚¬Â was allow_origins=["*"] + methods=*
 # + headers=* which combined with no-auth endpoints let any website call any
 # route cross-origin and exfiltrate responses. Now: explicit origin allowlist
@@ -1162,8 +1192,11 @@ _REQUIRE_API_AUTH: bool = os.environ.get("SCP_REQUIRE_API_AUTH", "0").strip() in
 # POST /ask │Ă¢â€Â¬Ă¢â‚¬Â Main endpoint
 # ============================================================
 @app.post("/ask", response_model=AskResponse)
+@limiter.limit("60/minute")
 @traced_request(_REQUEST_RUN_LEDGER)
-async def ask(req: AskRequest, request: Request):
+async def ask(req: AskRequest, request: Request, current_user: str = Depends(get_current_user)):
+    REQUEST_COUNT.labels(method="POST", endpoint="/ask").inc()
+
     if _REQUIRE_API_AUTH:
         from scp.api._shared import verify_admin  # noqa: PLC0415
         verify_admin(

@@ -1,0 +1,79 @@
+Python-dotenv could not parse statement starting at line 62
+Python-dotenv could not parse statement starting at line 63
+Python-dotenv could not parse statement starting at line 64
+Python-dotenv could not parse statement starting at line 65
+Python-dotenv could not parse statement starting at line 66
+Python-dotenv could not parse statement starting at line 67
+Python-dotenv could not parse statement starting at line 68
+Python-dotenv could not parse statement starting at line 69
+Python-dotenv could not parse statement starting at line 70
+Python-dotenv could not parse statement starting at line 71
+Python-dotenv could not parse statement starting at line 72
+Python-dotenv could not parse statement starting at line 73
+Python-dotenv could not parse statement starting at line 74
+Python-dotenv could not parse statement starting at line 75
+Python-dotenv could not parse statement starting at line 76
+Python-dotenv could not parse statement starting at line 77
+Python-dotenv could not parse statement starting at line 78
+2026-08-28 18:41:33,034 | INFO    | scp.api | [Security] HTTPS redirect disabled (set SCP_FORCE_HTTPS=1 in prod)
+2026-08-28 18:41:33,034 | INFO    | scp.api | [Security] CSRF protection: Bearer token auth (attacker cannot forge Authorization header)
+2026-08-28 18:41:33,351 | INFO    | scp.autofix | [R7-Full] IMP-6 (rollback token) + IMP-9 (dry-run) injected into AutoFixEngine
+2026-08-28 18:41:33,401 | INFO    | scp.api | [OTel] tracing disabled: SCP_OTEL_ENABLED=0
+INFO:     Started server process [22768]
+INFO:     Waiting for application startup.
+2026-08-28 18:41:33,402 | INFO    | scp.api | ============================================================
+2026-08-28 18:41:33,402 | INFO    | scp.api | SCP 14.0.0 API Server starting...
+2026-08-28 18:41:33,402 | INFO    | scp.api | ============================================================
+2026-08-28 18:41:33,402 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Judge init dispatched to background thread
+2026-08-28 18:41:33,402 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Yielding NOW \u2502Ă¢â€\x9aÂ¬Ă¢â‚¬Â\x9d port 8000 binds immediately
+2026-08-28 18:41:33,422 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 62
+2026-08-28 18:41:33,422 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 63
+2026-08-28 18:41:33,422 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 64
+2026-08-28 18:41:33,422 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 65
+2026-08-28 18:41:33,422 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 66
+2026-08-28 18:41:33,422 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 67
+2026-08-28 18:41:33,422 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 68
+2026-08-28 18:41:33,422 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 69
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 70
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 71
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 72
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 73
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 74
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 75
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 76
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 77
+2026-08-28 18:41:33,424 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 78
+2026-08-28 18:41:33,454 | WARNING | scp.api | [AUTO] Deep audit scheduler failed to start: invalid syntax (ast_scan.py, line 28)
+2026-08-28 18:41:33,465 | INFO    | scp.api | [AUTO] Attack mode monitor started before lifespan yield (5min interval)
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8002 (Press CTRL+C to quit)
+INFO:     127.0.0.1:60148 - "HEAD /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60149 - "HEAD /docs HTTP/1.1" 200 OK
+2026-08-28 18:41:38,482 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 62
+2026-08-28 18:41:38,482 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 63
+2026-08-28 18:41:38,482 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 64
+2026-08-28 18:41:38,482 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 65
+2026-08-28 18:41:38,482 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 66
+2026-08-28 18:41:38,482 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 67
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 68
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 69
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 70
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 71
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 72
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 73
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 74
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 75
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 76
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 77
+2026-08-28 18:41:38,484 | WARNING | dotenv.main | Python-dotenv could not parse statement starting at line 78
+2026-08-28 18:41:38,498 | WARNING | scp.api | [STARTUP-GATE] Background scan failed (non-blocking): invalid syntax (ast_scan.py, line 28)
+2026-08-28 18:41:38,532 | INFO    | scp.api | Initializing RealityJudge (V98)...
+2026-08-28 18:41:38,532 | ERROR   | scp.api | [R20-ROOT-FIX-REAL] Judge init FAILED: 'RealityJudge' object has no attribute 'slms'
+2026-08-28 18:41:38,532 | ERROR   | scp.api | [R20-ROOT-FIX-REAL] /ask will return 503 until judge is available
+2026-08-28 18:41:38,533 | INFO    | scp.autofix | [TIER3-AUTO] Permission NOT granted — human approval required
+  Source: .env file (SCP_AUTO_APPROVE_TIER3=0 — human approval required)
+  To enable: set SCP_AUTO_APPROVE_TIER3=1 in .env + restart
+  Or runtime: POST /v105/autofix/tier3-auto/1 (no restart needed)
+2026-08-28 18:41:38,533 | INFO    | scp.autofix | [AutoFix] Singleton engine initialized
+2026-08-28 18:41:38,556 | INFO    | scp.autofix.evolution | [EVOLUTION] Singleton engine initialized
+2026-08-28 18:41:38,557 | INFO    | scp.api | [EVOLUTION] Runtime initialized; auto promotion remains env-gated

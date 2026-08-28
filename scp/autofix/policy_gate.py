@@ -138,7 +138,7 @@ class ForbiddenPattern:
 
 
 # Constitutional patterns (DNA #4 KILL — never auto-approved).
-FORBIDDEN_PATTERNS: list[ForbiddenPattern] = [
+FORBIDDEN_PATTERNS = (
     ForbiddenPattern(
         name="lower_threshold",
         regex=r"\blower\s+(the\s+)?threshold\b|\bdecrease\s+threshold\b",
@@ -255,7 +255,7 @@ FORBIDDEN_PATTERNS: list[ForbiddenPattern] = [
         description="pickle.load() — arbitrary code execution via deserialization (DNA #4)",
         dna_ref="#4",
     ),
-]
+)
 
 
 # ============================================================

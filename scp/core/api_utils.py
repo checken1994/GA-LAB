@@ -27,6 +27,8 @@ import logging
 import time
 import urllib.error
 import urllib.request
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+
 from typing import Any
 
 logger = logging.getLogger("scp.api_utils")
@@ -117,104 +119,26 @@ def _detect_breaker(url: str):
 import urllib.parse as _url_parse  # noqa: E402  (kept for legacy callers that may `from api_utils import _url_parse`)
 
 
-def fetch_with_retry(url, headers, timeout=10, max_retries=3):
-    """ Fetch URL với retry + circuit breaker.
 
-    [Fix 4-a-005 / Phase 3-A — DNA #5, #14, #19]
-    PREVIOUSLY: this function had its OWN `urllib.request.urlopen` call
-    with only a scheme check (`_validate_url_safe`), NO IP allowlist, NO
-    redirect policy (urllib follows 30x by default), NO size cap. A second
-    fetcher `helpers._safe_fetch_url` had ALL these defenses — divergent
-    impls of "safe URL fetch". DNA #5: scanners saw `_validate_url_safe`
-    and assumed safety. DNA #14: same name "safe fetch" ≠ same safety.
-
-    NOW: the actual HTTP I/O is delegated to the canonical `_safe_fetch_url`
-    in `scp.core.url_fetcher`. This function keeps its circuit-breaker +
-    retry + JSON-parsing contract (returns dict | None), but ALL safety
-    defenses (scheme allowlist, IP range check, redirect re-validation,
-    size cap, no-proxy opener) live in ONE place. If `_safe_fetch_url`
-    adds a new defense, `fetch_with_retry` inherits it automatically.
-
-    Behavior:
-      - Returns parsed JSON dict on success.
-      - Returns None on: SSRF/policy block (logged warning, no retry);
-        HTTP error after retries exhausted; network error after retries
-        exhausted; JSON decode failure (server responded, bad payload).
-      - Circuit breaker: opens after 5 failures per domain, then skip
-        all calls to that domain for cooldown_sec (60s default).
-
-    Args:
-        url: URL to fetch (must be http/https, must NOT resolve to a
-            private/loopback/link-local/reserved IP).
-        headers: IGNORED — _safe_fetch_url uses the canonical
-            _SCP_SAFE_FETCH_UA (strict UA is an SSRF defense; accepting
-            arbitrary caller UAs would re-introduce the divergent-fetcher
-            risk). Kept in signature for backward-compat with callers
-            that pass `{"User-Agent": "..."}`.
-        timeout: per-request timeout in seconds (default 10).
-        max_retries: max retry attempts on HTTP/network error (default 3).
-            SSRF/policy blocks do NOT retry (retrying won't fix policy).
-    """
-    if headers is None:
-        headers = {"User-Agent": "SCP/1.0"}
-
-    #  Check circuit breaker
-    breaker = _detect_breaker(url)
-    if breaker and not breaker.allow():
-        logger.debug(f"[CircuitBreaker] Skip call to {url} (OPEN)")
-        return None
-
-    # [Fix 4-a-005] Lazy import of the canonical safe fetcher (avoids
-    # module-load-time circular import — url_fetcher is leaf-level but
-    # this keeps the dependency direction explicit).
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((urllib.error.URLError, ConnectionError, TimeoutError)),
+    reraise=False
+)
+def fetch_with_retry(url, headers=None, timeout=10, max_retries=3):
+    # --- SCP V3 ENTERPRISE: TENACITY RETRY & CIRCUIT BREAKER ---
     from scp.core.url_fetcher import _safe_fetch_url
-
-    for attempt in range(max_retries):
-        try:
-            # _safe_fetch_url enforces: scheme allowlist + IP/private-range
-            # check + safe-redirect handler (≤5 hops, per-hop re-validation)
-            # + size cap (5MB default) + no-proxy opener + strict UA.
-            # We just JSON-parse the bytes and apply circuit-breaker logic.
-            raw = _safe_fetch_url(url, timeout=timeout)
-            if breaker:
-                breaker.record_success()
-            try:
-                return json.loads(raw.decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError) as e:
-                # [V104.34 #41] Server responded with valid HTTP 200 but the
-                # body wasn't valid JSON. Treat as successful fetch (breaker
-                # happy) — the API was reachable, just bad payload.
-                logger.warning(f"[fetch_with_retry] JSON decode failed for {url}: {e}")
-                return None
-        except ValueError as e:
-            # _safe_fetch_url raises ValueError for BOTH policy violations
-            # (SSRF blocks) AND wrapped HTTP/network errors. Distinguish:
-            msg = str(e)
-            msg_lower = msg.lower()
-            is_http_error = msg_lower.startswith("http error:")
-            is_fetch_error = msg_lower.startswith("fetch error:")
-            if is_http_error or is_fetch_error:
-                # Server-side or network error → record breaker failure + retry.
-                if breaker:
-                    breaker.record_failure(reason=msg[:100])
-                if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)
-                continue
-            # SSRF/policy block (e.g., "host resolves to disallowed IP range",
-            # "scheme not allowed", "missing hostname", "invalid url",
-            # "DNS resolution failed", "no DNS records", "unparseable IP",
-            # "redirect ...", "response exceeds max_bytes=...").
-            # Do NOT retry (retrying won't fix a policy block) and do NOT
-            # record breaker failure (the API is fine; the URL is the problem).
-            logger.warning(f"[SSRF] {url} blocked by _safe_fetch_url: {msg}")
-            return None
-        except OSError as e:
-            # Belt-and-suspenders: _safe_fetch_url wraps OSError as
-            # ValueError("fetch error: ..."), but if a new error type
-            # sneaks through, catch it here. Treat as network failure.
-            if breaker:
-                breaker.record_failure(reason=str(e)[:100])
-            if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)
-            continue
-    return None
+    try:
+        raw_bytes = _safe_fetch_url(url)
+        return json.loads(raw_bytes.decode("utf-8"))
+    except ValueError as e:
+        # SSRF / Policy violation. Do not retry.
+        logger.warning(f"Policy violation fetching {url}: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        logger.warning(f"JSON decode failed for {url}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Transient error fetching {url}: {e}")
+        raise  # Reraise to trigger Tenacity retry

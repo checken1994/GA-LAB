@@ -34,10 +34,6 @@ def _dump(obj: Any) -> dict[str, Any]:
     return dict(vars(obj))
 
 
-def _terms(text: str) -> set[str]:
-    return set(re.findall(r"[\w\u00C0-\u1EF9]+|\d+", (text or "").lower()))
-
-
 class AskKernelAdapter:
     """Durable lifecycle gate around the existing context-backed /ask path.
 
@@ -193,9 +189,20 @@ class AskKernelAdapter:
                 "failures": ["missing_context_or_answer"],
                 "checked": [],
             }
-        evidence_terms = set().union(*(_terms(value) for value in contexts))
-        answer_terms = _terms(answer)
-        grounded_ratio = len(answer_terms & evidence_terms) / max(1, len(answer_terms))
+        # --- SCP V3 ENTERPRISE: LLM-AS-A-JUDGE ---
+        # Reality > Model: Thay vì đếm từ (Grounded Ratio), dùng LLM chéo để verify
+        try:
+            from scp.autofix.llm_fix import _call_openrouter
+            prompt = f"Evidence: {contexts}\n\nAnswer: {answer}\n\nDoes the evidence fully support the answer? Reply YES or NO."
+            llm_reply = _call_openrouter(prompt, max_tokens=10)
+            if llm_reply and "YES" in llm_reply.upper():
+                grounded_ratio = 1.0
+            else:
+                grounded_ratio = 0.0
+        except Exception:
+            # Fallback nếu LLM Judge sập -> fail closed
+            grounded_ratio = 0.0
+
         checks = {
             "verdict_pass": verdict == "PASS",
             "governance_uphold": governance == "UPHOLD",

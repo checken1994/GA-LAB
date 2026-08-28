@@ -1,0 +1,159 @@
+Python-dotenv could not parse statement starting at line 62
+Python-dotenv could not parse statement starting at line 63
+Python-dotenv could not parse statement starting at line 64
+Python-dotenv could not parse statement starting at line 65
+Python-dotenv could not parse statement starting at line 66
+Python-dotenv could not parse statement starting at line 67
+Python-dotenv could not parse statement starting at line 68
+Python-dotenv could not parse statement starting at line 69
+Python-dotenv could not parse statement starting at line 70
+Python-dotenv could not parse statement starting at line 71
+Python-dotenv could not parse statement starting at line 72
+Python-dotenv could not parse statement starting at line 73
+Python-dotenv could not parse statement starting at line 74
+Python-dotenv could not parse statement starting at line 75
+Python-dotenv could not parse statement starting at line 76
+Python-dotenv could not parse statement starting at line 77
+Python-dotenv could not parse statement starting at line 78
+2026-08-28 18:41:10,445 | INFO    | scp.api | [Security] HTTPS redirect disabled (set SCP_FORCE_HTTPS=1 in prod)
+2026-08-28 18:41:10,445 | INFO    | scp.api | [Security] CSRF protection: Bearer token auth (attacker cannot forge Authorization header)
+2026-08-28 18:41:10,780 | INFO    | scp.autofix | [R7-Full] IMP-6 (rollback token) + IMP-9 (dry-run) injected into AutoFixEngine
+2026-08-28 18:41:10,809 | INFO    | scp.api | [OTel] tracing disabled: SCP_OTEL_ENABLED=0
+INFO:     Started server process [23844]
+INFO:     Waiting for application startup.
+2026-08-28 18:41:10,810 | INFO    | scp.api | ============================================================
+2026-08-28 18:41:10,810 | INFO    | scp.api | SCP 14.0.0 API Server starting...
+2026-08-28 18:41:10,810 | INFO    | scp.api | ============================================================
+ERROR:    Traceback (most recent call last):
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\check\Downloads\scp\scp\api_server.py", line 471, in lifespan
+    threat_scanner.start()
+    ^^^^^^^^^^^^^^
+NameError: name 'threat_scanner' is not defined. Did you mean: 'threat_router'?
+
+ERROR:    Application startup failed. Exiting.
