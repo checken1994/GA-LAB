@@ -6,7 +6,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any
 
 # Enterprise Security: The JWT Secret should ideally come from environment variables.
-JWT_SECRET = os.environ.get("SCP_JWT_SECRET", "super-secret-scp-v3-enterprise-key")
+JWT_SECRET = os.environ.get("SCP_JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError("[SECURITY FATAL] SCP_JWT_SECRET is not set in environment. Zero-Trust requires a secure token secret.")
+
 JWT_ALGORITHM = "HS256"
 
 security = HTTPBearer()

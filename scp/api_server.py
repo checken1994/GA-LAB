@@ -513,7 +513,7 @@ async def lifespan(app: FastAPI):
             app.state.judge_ready = True
             app.state.startup_status = "ready"
             app.state.readiness_reason = None
-            logger.info(f"[R20-ROOT-FIX-REAL] Judge ready: {len(judge.slms)} SLMs")
+            logger.info(f"[R20-ROOT-FIX-REAL] Judge ready: {len(getattr(judge, 'domain_experts', []))} SLMs")
             logger.info(f"[R20-ROOT-FIX-REAL] V98 status: {judge.get_v98_status()}")
             # [4-a-001] Background scheduler start is deferred to the lifespan
             # post-yield block (which runs inside the running event loop).
@@ -1191,6 +1191,22 @@ _REQUIRE_API_AUTH: bool = os.environ.get("SCP_REQUIRE_API_AUTH", "0").strip() in
 
 # POST /ask │Ă¢â€Â¬Ă¢â‚¬Â Main endpoint
 # ============================================================
+
+from pydantic import BaseModel
+class TokenRequest(BaseModel):
+    admin_key: str
+
+@app.post("/auth/token")
+def login_for_access_token(req: TokenRequest):
+    expected_key = os.environ.get("SCP_ADMIN_KEY", "admin")
+    if req.admin_key != expected_key:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Incorrect admin key")
+    from scp.security.jwt_guard import create_access_token
+    access_token = create_access_token(data={"sub": "admin"})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 @app.post("/ask", response_model=AskResponse)
 @limiter.limit("60/minute")
 @traced_request(_REQUEST_RUN_LEDGER)
@@ -1919,7 +1935,7 @@ async def health_detailed():
             "runtime_routing": {
                 "math_probe_route": list(judge._route_question("2+2")),
                 "domain_expert_loaded": "math" in judge.domain_experts,
-                "math_slm_loaded": "math" in judge.slms,
+                "math_slm_loaded": "math" in getattr(judge, 'domain_experts', {}),
             },
             "background_scheduler_started": _sched_started,
         }

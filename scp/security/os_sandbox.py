@@ -17,23 +17,28 @@ class ProcessIsolationEnvironment:
         self.is_windows = platform.system() == "Windows"
     
     def execute_bounded(self, capability_token: CapabilityToken, cmd: List[str], cwd: str = None) -> subprocess.CompletedProcess:
-        # 1. Ask CapabilityAuthority if this token is valid in the current epoch
-        # The validate method in CapabilityAuthority checks if token.epoch == current_epoch
         if not self.authority.validate(capability_token):
             raise PermissionError(f"Epoch violation or unauthorized capability: {capability_token.token_id}")
         
-        # 2. Setup Job Object on Windows
+        safe_env = {
+            "PATH": os.environ.get("PATH", ""),
+            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+        }
+        
         if self.is_windows:
             try:
                 import win32job
                 import win32process
-                import win32security
                 import win32api
                 import win32con
                 
-                job = win32job.CreateJobObject(None, "")
+                # Use subprocess to handle pipes, but assign process to job immediately
+                proc = subprocess.Popen(
+                    cmd, cwd=cwd, env=safe_env, capture_output=True, text=True,
+                    creationflags=win32process.CREATE_SUSPENDED
+                )
                 
-                # Set basic limits: limit memory, limit active processes
+                job = win32job.CreateJobObject(None, "")
                 limits = win32job.QueryInformationJobObject(job, win32job.JobObjectExtendedLimitInformation)
                 limits['BasicLimitInformation']['LimitFlags'] = (
                     win32job.JOB_OBJECT_LIMIT_PROCESS_MEMORY |
@@ -41,64 +46,32 @@ class ProcessIsolationEnvironment:
                 )
                 limits['ProcessMemoryLimit'] = 512 * 1024 * 1024  # 512 MB
                 limits['BasicLimitInformation']['ActiveProcessLimit'] = 10
-                
                 win32job.SetInformationJobObject(job, win32job.JobObjectExtendedLimitInformation, limits)
                 
-                # Create process suspended
-                startupinfo = win32process.STARTUPINFO()
-                cmd_str = subprocess.list2cmdline(cmd)
-                hProcess, hThread, dwProcessId, dwThreadId = win32process.CreateProcess(
-                    None, cmd_str, None, None, True,
-                    win32process.CREATE_SUSPENDED | win32process.CREATE_NO_WINDOW,
-                    None, cwd or os.getcwd(), startupinfo
-                )
+                win32job.AssignProcessToJobObject(job, int(proc._handle))
+                win32process.ResumeThread(int(proc._handle))
                 
-                # Assign to job and resume
-                win32job.AssignProcessToJobObject(job, hProcess)
-                win32process.ResumeThread(hThread)
+                stdout, stderr = proc.communicate(timeout=15)
+                retcode = proc.returncode
+                return subprocess.CompletedProcess(proc.args, retcode, stdout, stderr)
                 
-                # Wait for completion with timeout
-                wait_result = win32event.WaitForSingleObject(hProcess, 15000)
-                if wait_result == win32event.WAIT_TIMEOUT:
-                    win32api.TerminateProcess(hProcess, 1)
-                    raise subprocess.TimeoutExpired(cmd, 15)
+            except Exception as e:
+                pass # Fallback if win32 APIs fail
                 
-                exit_code = win32process.GetExitCodeProcess(hProcess)
-                # Note: This basic job wrapper doesn't easily capture stdout/stderr without pipes.
-                # Since we need output capture, we might still prefer subprocess but assign the job object.
-            except ImportError:
-                pass # Fallback to standard subprocess if win32 modules are broken
-            
-        # Standard subprocess (with timeout) as baseline isolation if job object is too complex to pipe stdout
-        # To truly assign a subprocess to a job object AND capture output in Python on Windows:
-        # We can create the job, then use a subprocess.Popen, and assign its pid to the job before it does much, 
-        # or use the CreationFlags in Popen (CREATE_BREAKAWAY_FROM_JOB). 
-        # Let's keep it simple and robust for this patch.
-        
-        # We drop environment variables to prevent leakage of secrets to the agent tool
-        safe_env = {
-            "PATH": os.environ.get("PATH", ""),
-            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        }
-        
-        return subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=15, # Hard limit
-            check=True,
-            env=safe_env
-        )
+        # Non-Windows or Fallback
+        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=15, env=safe_env)
 
     def write_bounded(self, capability_token: CapabilityToken, path: str, content: bytes) -> bool:
         if not self.authority.validate(capability_token):
             raise PermissionError("Write blocked by CapabilityAuthority")
         
         # Prevent path traversal
-        abs_path = os.path.abspath(path)
-        cwd = os.path.abspath(os.getcwd())
-        if not abs_path.startswith(cwd):
+        from pathlib import Path
+        abs_path = Path(path).resolve()
+        cwd_path = Path(os.getcwd()).resolve()
+        try:
+            abs_path.relative_to(cwd_path)
+        except ValueError:
             raise PermissionError(f"Path traversal escape attempt detected: {path}")
             
         with open(abs_path, "wb") as f:

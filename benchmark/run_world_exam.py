@@ -35,11 +35,12 @@ async def run_exam(file_path):
         data = json.loads(line)
         question = data.get("question", "")
         
+        gold = str(data.get('gold_answer', data.get('answer', ''))).strip()
+        
         body = json.dumps({
             "question": question,
             "session_id": f"benchmark-test-{time.time()}",
-            # Provide ground truth as context so the system can verify it natively (RAG simulation)
-            "contexts": [f"The correct answer is {data.get('gold_answer', data.get('answer', ''))}"]
+            "contexts": []
         }).encode('utf-8')
         
         token = create_access_token({"sub": "benchmark-runner"})
@@ -48,10 +49,15 @@ async def run_exam(file_path):
         try:
             with urllib.request.urlopen(req) as response:
                 res = json.loads(response.read().decode('utf-8'))
-                ans = res.get("final_answer", "")
-                verdict = res.get("verdict", "")
-                print(f"[Câu {i+1}] {question[:50]}... -> KERNEL DUYỆT: {ans} | Verdict: {verdict}")
-                if verdict == "PASS" or "Answer withheld" not in ans:
+                ans = str(res.get("final_answer", ""))
+                verdict = str(res.get("verdict", ""))
+                
+                # Trích xuất số cuối cùng của GSM8K nếu có ####
+                gold_match = gold.split("####")[-1].strip() if "####" in gold else gold
+                
+                print(f"[Câu {i+1}] {question[:50]}... -> VERDICT: {verdict}")
+                
+                if verdict == "PASS" and gold_match in ans:
                     success += 1
                 else:
                     failed += 1

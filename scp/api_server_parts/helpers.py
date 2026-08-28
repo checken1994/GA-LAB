@@ -277,7 +277,7 @@ def get_judge() -> RealityJudge:
             # [Task 19-B] Lazy import — avoids circular dependency
             from scp.runtime.judge import RealityJudge as _RealityJudge
             _judge = _RealityJudge()
-            logger.info(f"RealityJudge ready: {len(_judge.slms)} SLMs, V98 modules={_judge.get_v98_status() is not None}")
+            logger.info(f"RealityJudge ready: {len(getattr(_judge, 'domain_experts', []))} SLMs, V98 modules={_judge.get_v98_status() is not None}")
         # [V104.36 #56-wire] Create PredictiveOrchestrator WITH production judge
         # TẠI SAO: must happen AFTER _judge is set, so SelfLearner gets real judge.v13
         try:
