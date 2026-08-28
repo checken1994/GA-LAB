@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-27T16:45:13.116630+00:00",
-  "captured_commit": "539a9289ad1bd4e9670b253a0da45cf4ea631c23",
-  "captured_parent": "7378a7479f466f2509eba775c0f96428f03e6a96",
-  "captured_tree": "7913e7e749a4bed994f3aa67b2ed76847f334650",
-  "tracked_count": 1357,
-  "inventory_sha256": "0d3319b15021c826e914dcff0350f45b109435f57244f1989d31e747a07f9441",
+  "generated_at_utc": "2026-08-28T05:26:17.160583+00:00",
+  "captured_commit": "0c98e7f1d975ef26340af73382eb04bd4516502a",
+  "captured_parent": "a582b8b6133eb3476262ffed7262c9473534bb0f",
+  "captured_tree": "116e0df43d91d4f03e4dfac738f0f0b794cfe06e",
+  "tracked_count": 1351,
+  "inventory_sha256": "d7876d8163a0b4631822c3cf440229bd5a9415776bfbac8d90337f06e5e0abce",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -14,9 +14,9 @@
       "sha256": "815b4a0f665281b75b1e8f5a8439693d9f349ecf843ce9473cd3d4bff396fc05"
     },
     "scp/api_server.py": {
-      "blob": "b9bbb22afe37fa1a577018303e09f143227ef27c",
-      "bytes": 99368,
-      "sha256": "42f9149bc1f6a6d8abc181cc97ab6ebba06b3b160e2b68ff21917b2fb07cccbb"
+      "blob": "31d2789b33be22b13d3d180766b8e4881aaabef6",
+      "bytes": 99262,
+      "sha256": "2d06f455eb74171e54086445e83843d5731abb785a0f3f2329a72c8203405ff5"
     },
     "scp/task_kernel.py": {
       "blob": "a63c5c8adf8465f4dc4f3b9cdc603339a6205dc5",
@@ -3148,7 +3148,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d053bd2e7a18dd688861b49174f4ea491aede0b3",
+      "blob": "b7248c5fe9731eaff5154cde24e1f0f49d79b823",
       "path": "scp/__main__.py"
     },
     {
@@ -3202,13 +3202,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4ad50e1285865ba8c26e097c067877c0c1dd534c",
+      "blob": "e6b9a1388d724ebc9a9232c9d2a6ee017c86c084",
       "path": "scp/api/routes/admin_v100.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "51df0d31f2d60ee78dbd7fe86e326b14a02fcb8c",
+      "blob": "050cd7cac98471df05e063c53db6a970cb2a67fe",
       "path": "scp/api/routes/admin_v98.py"
     },
     {
@@ -3244,7 +3244,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bed599492151cccb2f51ec8cebeb7cb607b3ca5e",
+      "blob": "da1bfb2b2260ba19d5a80b8fba2a9d3f61395e64",
       "path": "scp/api/routes/hands_routes.py"
     },
     {
@@ -3268,7 +3268,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a0337b66cc0f4dcc39b11b518253d26f5b4e7553",
+      "blob": "8655f7da2291a556c618e3212c9c9a48a98876e7",
       "path": "scp/api/routes/prediction_routes.py"
     },
     {
@@ -3286,19 +3286,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "41b9f8fe408b297dfa1d10598cdad4758acad864",
+      "blob": "1d34f50163ff93a5816e47fc1985bc8dfadb5926",
       "path": "scp/api/routes/v102_v103_routes.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7521dd4bdf26d24f1e6fd913ebc6ce5f7c81dd18",
+      "blob": "cd37ab110e7e64b2f0e35ea60956d045cffb2e33",
       "path": "scp/api/routes/v104_routes.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f53d9e40b62c24e4a8658ef0d386be7ec7e763e5",
+      "blob": "6ed9e620aef73730411ec1a93e712c8685d757d0",
       "path": "scp/api/routes/v105_routes.py"
     },
     {
@@ -3310,13 +3310,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "552af4673c2fbf28d20c99b1930aac3d9acbe1ac",
+      "blob": "d612f1e4607f4fe770f1e3dcc0e3ad8b9810983d",
       "path": "scp/api/webhook.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b9bbb22afe37fa1a577018303e09f143227ef27c",
+      "blob": "31d2789b33be22b13d3d180766b8e4881aaabef6",
       "path": "scp/api_server.py"
     },
     {
@@ -5740,18 +5740,6 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "31848c97c21d1954768771570567f73be0294ad4",
-      "path": "scp/runtime/slms_parts/astronomyslm.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "5b192ca749f4d3ccc082ff78a9a7a523c99275ad",
-      "path": "scp/runtime/slms_parts/biologyslm.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "c68ca79600505a1824c7460fc4c26df95799f302",
       "path": "scp/runtime/slms_parts/chemistryslm.py"
     },
@@ -5782,32 +5770,8 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bd651fff22880dd738e0b05d5c1b4b3f01179017",
-      "path": "scp/runtime/slms_parts/geographyslm.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "a8292a4e70852ca3be14d8025a66cc04c6f2813d",
-      "path": "scp/runtime/slms_parts/historyslm.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "291ad35bf3f8eb498d709b1bc623b17eb65b4d4b",
-      "path": "scp/runtime/slms_parts/mathslm.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "afc0aba0c07e2139a0fb3926f259cbb9547c809e",
       "path": "scp/runtime/slms_parts/misc_slms2.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "1493b1749042e155af5c12d716c7d214573f7986",
-      "path": "scp/runtime/slms_parts/realityslm.py"
     },
     {
       "mode": "100644",
@@ -6544,7 +6508,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8d5b9b27456be81a8c6d0a92f1535fa7cf8f857f",
+      "blob": "11f97daf39cd1b9060bb5d13a42389a55d292a21",
       "path": "scripts/ops/scp_247_install.ps1"
     },
     {
@@ -6862,7 +6826,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "671b348e565428dd1ea4d17f778c819291b8e124",
+      "blob": "aaae4cec6a848818ce115fd3375b829fa3ace8bc",
       "path": "tests/reality-tests/reality_4-a-003.py"
     },
     {
@@ -7558,7 +7522,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f82ed08cedde189e860b9b8847528a4065675de6",
+      "blob": "647f58556251e8659d33066ff9f0056543dbb49f",
       "path": "tests/test_identity_naming_contract.py"
     },
     {
