@@ -1,8 +1,0 @@
-{
-  "total_gold_rows": 50,
-  "dataset_sha256": "4dacd4f05768bec7f3271de36c3c7f91022a097f38332720fb68af98984c3acd",
-  "extraction_timestamp": "2026-08-26T05:45:52.101951+00:00",
-  "extractor_version": "SCP-Gold-Extractor-v2.0",
-  "gate_status": "OPEN_FOR_RAGAS",
-  "ragas_gate": "OPEN"
-}

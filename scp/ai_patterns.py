@@ -387,6 +387,8 @@ class TreeOfThoughts:
                     elif "CONFIDENCE:" in line_upper:
                         try:
                             conf_str = line.split(":")[-1].strip()
+                            if "-" in conf_str:
+                                conf_str = conf_str.split("-")[0].strip() # Lấy cận dưới nếu LLM sinh ra dải
                             parsed = float(conf_str)
                             if 0.0 <= parsed <= 1.0:
                                 conf = parsed
