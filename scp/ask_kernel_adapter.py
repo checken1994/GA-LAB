@@ -35,7 +35,7 @@ def _dump(obj: Any) -> dict[str, Any]:
 
 
 def _terms(text: str) -> set[str]:
-    return set(re.findall(r"[\wÀ-ỹ]{4,}", (text or "").lower()))
+    return set(re.findall(r"[\w\u00C0-\u1EF9]+|\d+", (text or "").lower()))
 
 
 class AskKernelAdapter:
@@ -362,5 +362,6 @@ def json_bytes(value: Any) -> bytes:
     import json
 
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
 
 
