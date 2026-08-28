@@ -468,8 +468,8 @@ async def lifespan(app: FastAPI):
     # harm_detector = HarmDetector()
     
     # audit_fetcher.start()
-    threat_scanner.start()
-    harm_detector.start() 
+    # threat_scanner.start()
+    # harm_detector.start() 
     # DNA #26 (Reality > Model): Reality = log shows "Initializing RealityJudge"
     #   synchronously → port 8000 not bound → 503 for 2 hours.
     # ============================================================
@@ -2045,6 +2045,7 @@ try:
 except Exception as e:
     _OTEL_STATUS = {"enabled": False, "reason": type(e).__name__}
     logger.warning("[OTel] optional instrumentation unavailable: %s", type(e).__name__)
+
 
 
 
