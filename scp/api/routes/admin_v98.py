@@ -1,18 +1,18 @@
 """
-[Task 7-A] V98 Security endpoints Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
+[Task 7-A] V98 Security endpoints │Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
 
 TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: api_server.py 2,285 LOC god file. TĂ„â€Ă‚Â¡ch 8 routes /v98/* vĂ„â€Ă‚Â o module
-nĂ„â€Ă‚Â y. Backward-compatible Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
+nĂ„â€Ă‚Â y. Backward-compatible │Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
 
 Routes:
-  POST /v98/analyze-session      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Rogue AI detection on session
-  POST /v98/run-simulation       Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Trigger threat simulation
-  POST /v98/run-intel-crawl      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Trigger threat intel crawl
-  GET  /v98/status               Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â All V98 module status
-  GET  /v98/counter/stats        Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Counter response stats
-  GET  /v98/canary/triggers      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Canary token triggers
-  GET  /v98/error-store/stats    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â ErrorStore stats
-  GET  /v98/attack-memory/stats  Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â AttackPatternMemory stats
+  POST /v98/analyze-session      │Ă¢â€Â¬Ă¢â‚¬Â Rogue AI detection on session
+  POST /v98/run-simulation       │Ă¢â€Â¬Ă¢â‚¬Â Trigger threat simulation
+  POST /v98/run-intel-crawl      │Ă¢â€Â¬Ă¢â‚¬Â Trigger threat intel crawl
+  GET  /v98/status               │Ă¢â€Â¬Ă¢â‚¬Â All V98 module status
+  GET  /v98/counter/stats        │Ă¢â€Â¬Ă¢â‚¬Â Counter response stats
+  GET  /v98/canary/triggers      │Ă¢â€Â¬Ă¢â‚¬Â Canary token triggers
+  GET  /v98/error-store/stats    │Ă¢â€Â¬Ă¢â‚¬Â ErrorStore stats
+  GET  /v98/attack-memory/stats  │Ă¢â€Â¬Ă¢â‚¬Â AttackPatternMemory stats
 """
 from __future__ import annotations
 

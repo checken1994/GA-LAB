@@ -1,27 +1,27 @@
 """
-[Task 8-A] V104 endpoints Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
+[Task 8-A] V104 endpoints │Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
 
 TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: api_server.py 2,144 LOC god file. TĂ„â€Ă‚Â¡ch 16 routes /v104/* vĂ„â€Ă‚Â o module
-nĂ„â€Ă‚Â y. Backward-compatible Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
+nĂ„â€Ă‚Â y. Backward-compatible │Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
 
 Routes:
-  GET  /v104/status                          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â V104 modules status
-  POST /v104/multi-turn/check                Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Multi-turn attack pattern check
-  POST /v104/image/check                     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Image jailbreak via OCR
-  POST /v104/voice/check                     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Voice jailbreak via Whisper ASR
-  GET  /v104/cross-language/transfer         Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Transfer VN patterns to target langs
-  GET  /v104/explain                         Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Verdict explanation in Vietnamese
-  POST /v104/fact-check                      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Real-time fact check
-  POST /v104/learn/ollama                    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Ollama learning loop
-  POST /v104/learn/local                     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Local file learning
-  POST /v104/learn/news                      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â News learning loop
-  POST /v104/learn/all                       Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â All 3 learning loops
-  GET  /v104/learn/status                    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Real Learning Engine status
-  GET  /v104/learn/matrix                    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â 14 countries Ă„â€Ă¢â‚¬â€ 5 domains matrix
-  POST /v104/learn/ollama-matrix             Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Full matrix coverage (70 questions)
-  POST /v104/learn/fast                      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Fast learning cycle (parallel)
-  GET  /v104/learn/fast/status               Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Fast Learning Engine stats
-  GET  /v104/learn/fast/benchmark            Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â V104.1 sequential vs V104.2 parallel benchmark
+  GET  /v104/status                          │Ă¢â€Â¬Ă¢â‚¬Â V104 modules status
+  POST /v104/multi-turn/check                │Ă¢â€Â¬Ă¢â‚¬Â Multi-turn attack pattern check
+  POST /v104/image/check                     │Ă¢â€Â¬Ă¢â‚¬Â Image jailbreak via OCR
+  POST /v104/voice/check                     │Ă¢â€Â¬Ă¢â‚¬Â Voice jailbreak via Whisper ASR
+  GET  /v104/cross-language/transfer         │Ă¢â€Â¬Ă¢â‚¬Â Transfer VN patterns to target langs
+  GET  /v104/explain                         │Ă¢â€Â¬Ă¢â‚¬Â Verdict explanation in Vietnamese
+  POST /v104/fact-check                      │Ă¢â€Â¬Ă¢â‚¬Â Real-time fact check
+  POST /v104/learn/ollama                    │Ă¢â€Â¬Ă¢â‚¬Â Ollama learning loop
+  POST /v104/learn/local                     │Ă¢â€Â¬Ă¢â‚¬Â Local file learning
+  POST /v104/learn/news                      │Ă¢â€Â¬Ă¢â‚¬Â News learning loop
+  POST /v104/learn/all                       │Ă¢â€Â¬Ă¢â‚¬Â All 3 learning loops
+  GET  /v104/learn/status                    │Ă¢â€Â¬Ă¢â‚¬Â Real Learning Engine status
+  GET  /v104/learn/matrix                    │Ă¢â€Â¬Ă¢â‚¬Â 14 countries Ă„â€Ă¢â‚¬â€ 5 domains matrix
+  POST /v104/learn/ollama-matrix             │Ă¢â€Â¬Ă¢â‚¬Â Full matrix coverage (70 questions)
+  POST /v104/learn/fast                      │Ă¢â€Â¬Ă¢â‚¬Â Fast learning cycle (parallel)
+  GET  /v104/learn/fast/status               │Ă¢â€Â¬Ă¢â‚¬Â Fast Learning Engine stats
+  GET  /v104/learn/fast/benchmark            │Ă¢â€Â¬Ă¢â‚¬Â V104.1 sequential vs V104.2 parallel benchmark
 """
 from __future__ import annotations
 
@@ -112,19 +112,19 @@ async def v104_image_check(
             return JSONResponse(status_code=413, content={"error": "Image payload too large"})
         except ValueError:
             return JSONResponse(status_code=400, content={"error": "Invalid image_base64"})
-        # [Fix 4-a-015] detect() runs OCR (Tesseract) Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â blocking CPU work.
+        # [Fix 4-a-015] detect() runs OCR (Tesseract) │Ă¢â€Â¬Ă¢â‚¬Â blocking CPU work.
         # Wrap in asyncio.to_thread so the event loop is not blocked while
-        # OCR runs (DNA #9 no harm Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â slow /v104/image/check would stall all
+        # OCR runs (DNA #9 no harm │Ă¢â€Â¬Ă¢â‚¬Â slow /v104/image/check would stall all
         # other async requests, including /health).
         result = await asyncio.to_thread(_shared._image_detector.detect, image_bytes=image_bytes)
     elif image_url:
-        # [FIX-A P0-2] Was urllib.request.urlopen(image_url) Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â accepted
+        # [FIX-A P0-2] Was urllib.request.urlopen(image_url) │Ă¢â€Â¬Ă¢â‚¬Â accepted
         # file:// (LFI), http://169.254.169.254/ (SSRF), internal IPs, followed
         # redirects, no size cap, blocked event loop. Now: _shared._safe_fetch_url +
         # asyncio.to_thread + generic 400 on policy violation (no URL echo).
         try:
             image_bytes = await asyncio.to_thread(_shared._safe_fetch_url, image_url)
-            # [Fix 4-a-015] same fix Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
+            # [Fix 4-a-015] same fix │Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
             result = await asyncio.to_thread(_shared._image_detector.detect, image_bytes=image_bytes)
         except ValueError:
             logger.warning("/v104/image/check image_url rejected by _shared._safe_fetch_url policy")
@@ -164,19 +164,19 @@ async def v104_voice_check(
             return JSONResponse(status_code=413, content={"error": "Audio payload too large"})
         except ValueError:
             return JSONResponse(status_code=400, content={"error": "Invalid audio_base64"})
-        # [Fix 4-a-015] detect() runs Whisper ASR Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â blocking CPU work.
+        # [Fix 4-a-015] detect() runs Whisper ASR │Ă¢â€Â¬Ă¢â‚¬Â blocking CPU work.
         # Wrap in asyncio.to_thread so the event loop is not blocked while
-        # Whisper transcribes (DNA #9 no harm Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â slow /v104/voice/check would
+        # Whisper transcribes (DNA #9 no harm │Ă¢â€Â¬Ă¢â‚¬Â slow /v104/voice/check would
         # stall all other async requests, including /health).
         result = await asyncio.to_thread(_shared._voice_detector.detect, audio_bytes=audio_bytes)
     elif audio_url:
         # [FIX-A P0-2] Was passing audio_url as a local file path to the
-        # detector Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â failed silently AND allowed SSRF (detector may have
+        # detector │Ă¢â€Â¬Ă¢â‚¬Â failed silently AND allowed SSRF (detector may have
         # fetched internally). Now: fetch via _shared._safe_fetch_url (scheme/IP/
         # redirect/size defenses, non-blocking) then pass audio_bytes=...
         try:
             audio_bytes = await asyncio.to_thread(_shared._safe_fetch_url, audio_url)
-            # [Fix 4-a-015] same fix Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
+            # [Fix 4-a-015] same fix │Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
             result = await asyncio.to_thread(_shared._voice_detector.detect, audio_bytes=audio_bytes)
         except ValueError:
             logger.warning("/v104/voice/check audio_url rejected by _shared._safe_fetch_url policy")
@@ -233,7 +233,7 @@ async def v104_explain(
 @router.post("/v104/fact-check")
 @traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_fact_check")
 async def v104_fact_check(text: str, question: str = "", _admin: bool = Depends(verify_admin)):
-    """V104: Real-time fact check Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extract claims + verify."""
+    """V104: Real-time fact check │Ă¢â€Â¬Ă¢â‚¬Â extract claims + verify."""
     results = await _shared._fact_checker.check_text(text, question)
     return {
         "claims_found": len(results),
@@ -245,7 +245,7 @@ async def v104_fact_check(text: str, question: str = "", _admin: bool = Depends(
 @router.post("/v104/learn/ollama")
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_ollama")
 async def v104_learn_ollama(count: int = 10, _admin: bool = Depends(verify_admin)):
-    """V104.1 FIX: Trigger Ollama learning loop Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c."""
+    """V104.1 FIX: Trigger Ollama learning loop │Ă¢â€Â¬Ă¢â‚¬Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c."""
     results = await _shared._real_learning.ollama_learning_cycle(count=count)
     return results
 
@@ -253,7 +253,7 @@ async def v104_learn_ollama(count: int = 10, _admin: bool = Depends(verify_admin
 @router.post("/v104/learn/local")
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_local")
 async def v104_learn_local(_admin: bool = Depends(verify_admin)):
-    """V104 FIX: Trigger local file learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â scan data/ → verify → KB."""
+    """V104 FIX: Trigger local file learning │Ă¢â€Â¬Ă¢â‚¬Â scan data/ → verify → KB."""
     results = await _shared._real_learning.local_learning_cycle()
     return results
 
@@ -261,7 +261,7 @@ async def v104_learn_local(_admin: bool = Depends(verify_admin)):
 @router.post("/v104/learn/news")
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_news")
 async def v104_learn_news(_admin: bool = Depends(verify_admin)):
-    """V104 FIX: Trigger news learning Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â fetch RSS → verify → KB."""
+    """V104 FIX: Trigger news learning │Ă¢â€Â¬Ă¢â‚¬Â fetch RSS → verify → KB."""
     results = await _shared._real_learning.news_learning_cycle()
     return results
 
@@ -337,7 +337,7 @@ async def v104_learn_ollama_matrix(_admin: bool = Depends(verify_admin)):
 @router.post("/v104/learn/fast")
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v1042_learn_fast")
 async def v1042_learn_fast(count: int = 50, _admin: bool = Depends(verify_admin)):
-    """V104.2 NEW: Fast learning cycle Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â parallel 10 concurrent Ollama + 5 Wiki.
+    """V104.2 NEW: Fast learning cycle │Ă¢â€Â¬Ă¢â‚¬Â parallel 10 concurrent Ollama + 5 Wiki.
 
     Default count=50. Skip cĂ„â€Ă‚Â¢u Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â£ cĂ„â€Ă‚Â³ trong KB. Sinh cĂ„â€Ă‚Â¢u hÄ‚Â¡Ă‚Â»Ă‚Âi Level-2 compounding.
     Adaptive interval 1-30 min tĂ„â€Ă‚Â¹y throughput.

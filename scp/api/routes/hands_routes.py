@@ -1,4 +1,4 @@
-"""SCP Hands v3.2Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Å“v3.6 local-only action and planner endpoints."""
+"""SCP Hands v3.2│Ă¢â€Â¬Ă¢â‚¬Å“v3.6 local-only action and planner endpoints."""
 from __future__ import annotations
 
 import hmac

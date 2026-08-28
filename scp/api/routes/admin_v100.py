@@ -1,19 +1,19 @@
 """
-[Task 7-A] V100 Knowledge endpoints Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
+[Task 7-A] V100 Knowledge endpoints │Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
 
 TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: api_server.py 2,285 LOC god file. TĂ„â€Ă‚Â¡ch 9 routes /v100/* vĂ„â€Ă‚Â o module
-nĂ„â€Ă‚Â y. Backward-compatible Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
+nĂ„â€Ă‚Â y. Backward-compatible │Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
 
 Routes:
-  GET  /v100/status               Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â V100 knowledge + timing modules status
-  POST /v100/crawl                Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Trigger scheduled data crawl
-  GET  /v100/antibodies/stats     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â DomainAntibodySystem stats
-  POST /v100/antibodies/check     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Run antibodies on a question + answer
-  GET  /v100/knowledge/stats      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â DomainKnowledgeStore stats
-  GET  /v100/knowledge/search     Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Search knowledge base
-  GET  /v100/h8/stats             Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â H8 RedTeamBridge stats
-  GET  /v100/h8/bypasses          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Get recent bypasses
-  GET  /v100/h8/analyses          Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Get recent bypass analyses
+  GET  /v100/status               │Ă¢â€Â¬Ă¢â‚¬Â V100 knowledge + timing modules status
+  POST /v100/crawl                │Ă¢â€Â¬Ă¢â‚¬Â Trigger scheduled data crawl
+  GET  /v100/antibodies/stats     │Ă¢â€Â¬Ă¢â‚¬Â DomainAntibodySystem stats
+  POST /v100/antibodies/check     │Ă¢â€Â¬Ă¢â‚¬Â Run antibodies on a question + answer
+  GET  /v100/knowledge/stats      │Ă¢â€Â¬Ă¢â‚¬Â DomainKnowledgeStore stats
+  GET  /v100/knowledge/search     │Ă¢â€Â¬Ă¢â‚¬Â Search knowledge base
+  GET  /v100/h8/stats             │Ă¢â€Â¬Ă¢â‚¬Â H8 RedTeamBridge stats
+  GET  /v100/h8/bypasses          │Ă¢â€Â¬Ă¢â‚¬Â Get recent bypasses
+  GET  /v100/h8/analyses          │Ă¢â€Â¬Ă¢â‚¬Â Get recent bypass analyses
 """
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ async def v100_crawl(max_per_domain: int = 3, _admin: bool = Depends(verify_admi
 @traced_request(_ADMIN_V100_LEDGER, require_write=False, action="antibody_stats")
 async def antibody_stats():
     """DomainAntibodySystem stats."""
-    # Antibodies run inline, not stored as instance Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â return static stats
+    # Antibodies run inline, not stored as instance │Ă¢â€Â¬Ă¢â‚¬Â return static stats
     return {
         "total_antibodies": 38,
         "domains": ["medical", "finance", "legal", "security", "environment", "tech", "general"],
@@ -142,7 +142,7 @@ async def h8_bypasses(limit: int = 20):
 @router.get("/v100/h8/analyses", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 @traced_request(_ADMIN_V100_LEDGER, require_write=False, action="h8_analyses")
 async def h8_analyses(limit: int = 20):
-    """Get recent bypass analyses (chiÄ‚Â¡Ă‚Â»Ă‚Âu 2 Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â 'tÄ‚Â¡Ă‚ÂºĂ‚Â¡i sao fail?')."""
+    """Get recent bypass analyses (chiÄ‚Â¡Ă‚Â»Ă‚Âu 2 │Ă¢â€Â¬Ă¢â‚¬Â 'tÄ‚Â¡Ă‚ÂºĂ‚Â¡i sao fail?')."""
     judge = get_judge()
     if not judge.h8_redteam:
         raise HTTPException(status_code=503, detail="H8RedTeamBridge not available")

@@ -129,8 +129,10 @@ def test_minimal_health_note_is_utf8_and_user_visible_contract_is_clean():
 
 
 def test_cli_docstring_matches_canonical_default_port():
+    # [Fix R5] Port unification: 8002 is now canonical across all components
+    # (supervisor, dashboard, CI, Dockerfile, Python entry point).
+    # Running 'python -m scp' without a port now starts on 8002, making it
+    # visible to the dashboard which proxies to 8002.
     source = (ROOT / "scp" / "__main__.py").read_text(encoding="utf-8")
-    assert "Defaults to port 8000" in source
-    assert "127.0.0.1:8000 (default)" in source
-    assert "Defaults to port 8002" not in source
-    assert "127.0.0.1:8002 (default)" not in source
+    assert "Defaults to port 8002" in source
+    assert "Defaults to port 8000" not in source

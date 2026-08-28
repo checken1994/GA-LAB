@@ -14,6 +14,11 @@ $RecoveryWatchdog = Join-Path $Root 'scripts\ops\scp_247_recovery_watchdog.ps1'
 $PrivateDir = Join-Path $Root '.private-secrets\release-audit\scp-247'
 $LogDir = Join-Path $PrivateDir 'logs'
 $Manifest = Join-Path $PrivateDir 'install-manifest.json'
+# Resolve the PowerShell host executable used to launch the supervisor.
+# pwsh.exe (PowerShell 7+) is preferred; fall back to Windows PowerShell.
+$pwsh = (Get-Command 'pwsh.exe'        -ErrorAction SilentlyContinue)?.Source
+if (-not $pwsh) { $pwsh = (Get-Command 'powershell.exe' -ErrorAction SilentlyContinue)?.Source }
+if (-not $pwsh) { throw 'Cannot locate pwsh.exe or powershell.exe — cannot register scheduled task.' }
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $pythonw = Join-Path $Root 'scp\venv\Scripts\pythonw.exe'

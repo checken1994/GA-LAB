@@ -1,18 +1,18 @@
 """
-[Task 8-A] V102 + V103 endpoints Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
+[Task 8-A] V102 + V103 endpoints │Ă¢â€Â¬Ă¢â‚¬Â extracted from api_server.py
 
 TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: api_server.py god file. TĂ„â€Ă‚Â¡ch 7 routes /v102/* + /v103/* vĂ„â€Ă‚Â o module
-nĂ„â€Ă‚Â y. Backward-compatible Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
+nĂ„â€Ă‚Â y. Backward-compatible │Ă¢â€Â¬Ă¢â‚¬Â public API paths/methods unchanged.
 
 Routes:
-  GET  /v102/orchestrator/stats    Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â PipelineOrchestrator stats
-  GET  /v102/notifications/recent  Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Recent user notifications
-  GET  /v103/storage/stats         Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â StorageManager stats
-  POST /v103/storage/maintain      Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Trigger storage maintenance
-  POST /v103/gcg/test              Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Generate GCG adversarial attacks
-  GET  /v103/attacks/crawled       Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â List crawled attacks
-  POST /v103/attacks/crawl         Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â Force crawl attacks
-  GET  /v103/status                Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â AttackCrawler + ThreatSimulator status
+  GET  /v102/orchestrator/stats    │Ă¢â€Â¬Ă¢â‚¬Â PipelineOrchestrator stats
+  GET  /v102/notifications/recent  │Ă¢â€Â¬Ă¢â‚¬Â Recent user notifications
+  GET  /v103/storage/stats         │Ă¢â€Â¬Ă¢â‚¬Â StorageManager stats
+  POST /v103/storage/maintain      │Ă¢â€Â¬Ă¢â‚¬Â Trigger storage maintenance
+  POST /v103/gcg/test              │Ă¢â€Â¬Ă¢â‚¬Â Generate GCG adversarial attacks
+  GET  /v103/attacks/crawled       │Ă¢â€Â¬Ă¢â‚¬Â List crawled attacks
+  POST /v103/attacks/crawl         │Ă¢â€Â¬Ă¢â‚¬Â Force crawl attacks
+  GET  /v103/status                │Ă¢â€Â¬Ă¢â‚¬Â AttackCrawler + ThreatSimulator status
 """
 from __future__ import annotations
 
@@ -35,12 +35,12 @@ router = APIRouter(tags=["v102", "v103"])
 @router.get("/v102/orchestrator/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 @traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="orchestrator_stats")
 async def orchestrator_stats():
-    """PipelineOrchestrator stats Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â precision/recall/F1."""
-    # Orchestrator runs per-query Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â return last known metrics
+    """PipelineOrchestrator stats │Ă¢â€Â¬Ă¢â‚¬Â precision/recall/F1."""
+    # Orchestrator runs per-query │Ă¢â€Â¬Ă¢â‚¬Â return last known metrics
     judge = get_judge()
     return {
         "metrics": judge.get_v98_status(),  # placeholder
-        "message": "Orchestrator tracks per-query metrics Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â see /v100/status for module stats",
+        "message": "Orchestrator tracks per-query metrics │Ă¢â€Â¬Ă¢â‚¬Â see /v100/status for module stats",
     }
 
 
@@ -57,7 +57,7 @@ async def notifications_recent(limit: int = 20):
 @router.get("/v103/storage/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 @traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="storage_stats")
 async def storage_stats():
-    """StorageManager stats Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â disk usage, rotation, archival."""
+    """StorageManager stats │Ă¢â€Â¬Ă¢â‚¬Â disk usage, rotation, archival."""
     from scp.runtime.storage_manager import StorageManager
     sm = StorageManager(data_dir="data")
     return sm.stats()

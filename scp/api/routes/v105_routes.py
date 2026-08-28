@@ -1,19 +1,19 @@
 """
-[Task 8-A] V105 AutoFix endpoints Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â extracted from api_server.py
+[Task 8-A] V105 AutoFix endpoints Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â extracted from api_server.py
 
 TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: api_server.py 2,144 LOC god file. TÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡ch 6 routes /v105/* vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â o module
-nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y. Backward-compatible Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â public API paths/methods unchanged.
+nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y. Backward-compatible Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â public API paths/methods unchanged.
 
 Routes:
-  GET  /v105/autofix/permissions                          Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â List pending permission requests
-  POST /v105/autofix/permissions/{request_id}/approve     Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â Human approves a fix
-  POST /v105/autofix/permissions/{request_id}/deny        Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â Human denies a fix
-  POST /v105/autofix/attack-mode/{enabled}                Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â Toggle attack mode
-  GET  /v105/autofix/stats                                Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â AutoFix engine stats
-  POST /v105/autofix/run-audit                            Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â Trigger deep audit cycle
-  GET  /v105/autofix/monitor                              Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â [OPT-31] AutoFixMonitor stats (success rate by bug_type/provider/diagnosis)
-  POST /v105/autofix/cleanup-cache                        Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â [OPT-32] Remove legacy broken SmartCache disk entries
-  POST /v105/autofix/rollback/{rollback_token}            Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â [R7-13] Revert a specific auto-approved fix
+  GET  /v105/autofix/permissions                          Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â List pending permission requests
+  POST /v105/autofix/permissions/{request_id}/approve     Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â Human approves a fix
+  POST /v105/autofix/permissions/{request_id}/deny        Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â Human denies a fix
+  POST /v105/autofix/attack-mode/{enabled}                Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â Toggle attack mode
+  GET  /v105/autofix/stats                                Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â AutoFix engine stats
+  POST /v105/autofix/run-audit                            Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â Trigger deep audit cycle
+  GET  /v105/autofix/monitor                              Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â [OPT-31] AutoFixMonitor stats (success rate by bug_type/provider/diagnosis)
+  POST /v105/autofix/cleanup-cache                        Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â [OPT-32] Remove legacy broken SmartCache disk entries
+  POST /v105/autofix/rollback/{rollback_token}            Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â [R7-13] Revert a specific auto-approved fix
 """
 from __future__ import annotations
 
@@ -50,8 +50,8 @@ class AutoFixAuditRequest(BaseModel):
 async def v105_list_permissions():
     """List pending permission requests (logic bugs awaiting human approval)."""
     try:
-        # [EXEC-1 A2] TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: was `AutoFixEngine()` per-request Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ throwaway
-        # instance Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ attack_mode / rate limits / cooldowns were all no-ops.
+        # [EXEC-1 A2] TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: was `AutoFixEngine()` per-request Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ throwaway
+        # instance Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ attack_mode / rate limits / cooldowns were all no-ops.
         # Use singleton so state persists across handlers.
         from scp.autofix.engine import get_autofix_engine
         eng = get_autofix_engine()
@@ -80,7 +80,7 @@ async def v105_list_permissions():
 async def v105_approve_permission(request_id: str, note: str = ""):
     """Human approves a logic bug fix. SCP then applies it.
 
-    [OPT-14 / GÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Â§11] The `note` field is checked by UnderstandingChecker Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â
+    [OPT-14 / GÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Â§11] The `note` field is checked by UnderstandingChecker Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â
     the human must explain what the fix does in their own words. Empty,
     trivial, or copy-paste notes are rejected with HTTP 400 (the request
     was found, but understanding was not demonstrated).
@@ -89,17 +89,17 @@ async def v105_approve_permission(request_id: str, note: str = ""):
       Pre-fix: approve() committed, then apply_approved_fix() called. If
         apply raised (LLM fix fails, file write fails, etc.), the approval
         was already persisted (status="approved") but the fix was never
-        applied Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ "approved-but-not-applied" limbo. The request was no
+        applied Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ "approved-but-not-applied" limbo. The request was no
         longer pending (so couldn't be re-approved via this endpoint) and
         not applied (so the bug remained). Stuck state. DNA #8/#9.
-      Post-fix: apply wrapped in try/except. On success Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ status="applied"
-        (terminal). On exception Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ status="apply_failed" (recoverable Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â
+      Post-fix: apply wrapped in try/except. On success Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ status="applied"
+        (terminal). On exception Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ status="apply_failed" (recoverable Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â
         operator can re-approve via this endpoint; approve() will re-set
         status to "approved" and the apply retried). Audit trail records
         the error message for operator diagnosis (DNA #8 KB accumulation).
     """
     try:
-        # [EXEC-1 A2] singleton Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â see v105_list_permissions
+        # [EXEC-1 A2] singleton Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â see v105_list_permissions
         from scp.autofix.engine import get_autofix_engine
         eng = get_autofix_engine()
         # Pre-check: is the request even in the pending dict? If not, 404.
@@ -107,7 +107,7 @@ async def v105_approve_permission(request_id: str, note: str = ""):
             raise HTTPException(404, "Permission request not found")
         ok = eng.permission_gate.approve(request_id, decided_by="api_admin", note=note)
         if not ok:
-            # [OPT-14 / GÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Â§11] approve() returned False Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â either not found
+            # [OPT-14 / GÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Â§11] approve() returned False Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â either not found
             # (handled above) or understanding check failed. The latter means
             # the human note didn't demonstrate understanding of the fix.
             raise HTTPException(
@@ -116,10 +116,10 @@ async def v105_approve_permission(request_id: str, note: str = ""):
                 "Re-approve with a real explanation in your own words: "
                 "explain what the fix does, not just repeat the suggested_fix text."
             )
-        # [Phase 5-A / 4-a-009] Apply the approved fix Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â TRANSACTIONAL.
-        # On success: mark_apply_status(request_id, "applied") Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â terminal.
+        # [Phase 5-A / 4-a-009] Apply the approved fix Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â TRANSACTIONAL.
+        # On success: mark_apply_status(request_id, "applied") Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â terminal.
         # On exception: mark_apply_status(request_id, "apply_failed", error=...)
-        #   Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ recoverable (operator re-approves via this endpoint; approve()
+        #   Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ recoverable (operator re-approves via this endpoint; approve()
         #   re-sets status to "approved" and apply is retried). Pre-fix the
         #   request would have been stuck in "approved-but-not-applied" limbo.
         try:
@@ -138,9 +138,9 @@ async def v105_approve_permission(request_id: str, note: str = ""):
                 f"marked apply_failed — operator can re-approve via this "
                 f"endpoint (transactional recovery)."
             ) from apply_exc
-        # Apply succeeded Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â mark as applied (terminal). This distinguishes
+        # Apply succeeded Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â mark as applied (terminal). This distinguishes
         # from the pre-fix limbo where "approved" meant "approved-but-maybe-
-        # not-applied" Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â now "approved" means pending_apply, "applied" means
+        # not-applied" Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â now "approved" means pending_apply, "applied" means
         # success, "apply_failed" means recoverable failure.
         eng.permission_gate.mark_apply_status(request_id, "applied")
         return {"approved": True, "applied": True, "fix_result": result}
@@ -155,7 +155,7 @@ async def v105_approve_permission(request_id: str, note: str = ""):
 async def v105_deny_permission(request_id: str, note: str = ""):
     """Human denies a logic bug fix. SCP does not apply it."""
     try:
-        # [EXEC-1 A2] singleton Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â see v105_list_permissions
+        # [EXEC-1 A2] singleton Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â see v105_list_permissions
         from scp.autofix.engine import get_autofix_engine
         eng = get_autofix_engine()
         ok = eng.permission_gate.deny(request_id, decided_by="api_admin", note=note)
@@ -172,9 +172,9 @@ async def v105_deny_permission(request_id: str, note: str = ""):
 @traced_request(_V105_ROUTES_LEDGER, require_write=True, action="v105_toggle_attack_mode")
 async def v105_toggle_attack_mode(enabled: bool):
     """Toggle attack mode. When ON, SCP auto-applies restraints (Tier 4).
-    Use during active attacks Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â SCP reacts faster than human review."""
+    Use during active attacks Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â SCP reacts faster than human review."""
     try:
-        # [EXEC-1 A2] singleton Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â CRITICAL: with per-request AutoFixEngine(),
+        # [EXEC-1 A2] singleton Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â CRITICAL: with per-request AutoFixEngine(),
         # attack_mode toggle was LOST on next request (new engine defaulted to
         # False). Singleton persists the toggle across all handlers + runner.
         from scp.autofix.engine import get_autofix_engine
@@ -193,7 +193,7 @@ async def v105_toggle_attack_mode(enabled: bool):
 async def v105_autofix_stats():
     """Get AutoFix engine stats for monitoring."""
     try:
-        # [EXEC-1 A2] singleton Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â stats reflect cumulative state across all
+        # [EXEC-1 A2] singleton Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â stats reflect cumulative state across all
         # fixes applied by the engine (not just this request's throwaway).
         from scp.autofix.engine import get_autofix_engine
         eng = get_autofix_engine()
@@ -209,14 +209,14 @@ async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
     auto-fixes (Tier 1/2) or requests permission (Tier 3).
 
     This is the WIRING that was missing: AutoFixEngine.process_bug() existed
-    but had zero callers Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â the 4-tier autonomy system was dead code. This
+    but had zero callers Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â the 4-tier autonomy system was dead code. This
     endpoint invokes scp.autofix.runner.run_deep_audit() which:
       1. AST-scans scp/ for bare `except: pass`, undefined names, syntax errors
       2. For each finding, calls get_autofix_engine().process_bug(bug)
       3. Writes per-bug result to data/deep_audit_results.jsonl
 
     Returns a summary: {processed, fixed, permission_requested, skipped,
-    details, engine_stats, source} Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â source='ast_scan' confirms the scanner
+    details, engine_stats, source} Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â source='ast_scan' confirms the scanner
     actually ran (vs returning empty when no audit_bugs.jsonl exists).
 
     Idempotent: re-running hits the engine's cooldown (same bug not re-fixed
@@ -322,8 +322,8 @@ async def v105_run_deep_audit(payload: AutoFixAuditRequest | None = None):
         # R9-2: run_deep_audit() AST-scans 371 .py. Production child can
         # explicitly disable provider I/O while still applying deterministic
         # safe fixes and recording unresolved findings as skipped.
-        # (deepseek-r1:8b via Ollama Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â 30s+ per fix). Calling inline from
-        # `async def` blocks the event loop for 2-10 min Ä‚Â¢Ă¢â€Â¬Ă¢â‚¬Â /health, /ask,
+        # (deepseek-r1:8b via Ollama │Ă¢â€Â¬Ă¢â‚¬Â 30s+ per fix). Calling inline from
+        # `async def` blocks the event loop for 2-10 min │Ă¢â€Â¬Ă¢â‚¬Â /health, /ask,
         # WebSocket all freeze. Run in a worker thread (non-blocking).
         if deterministic_only:
             from scp.autofix.runner_phases.ast_scan import ast_scan_scp
@@ -406,12 +406,12 @@ async def deterministic_worker_job(job_id: str):
 @router.get("/v105/autofix/monitor", dependencies=[Depends(verify_admin)])
 @traced_request(_V105_ROUTES_LEDGER, require_write=False, action="autofix_monitor")
 async def autofix_monitor():
-    """[OPT-31] AutoFixMonitor stats Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â success rate by bug_type/provider/diagnosis.
+    """[OPT-31] AutoFixMonitor stats Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â success rate by bug_type/provider/diagnosis.
 
     DNA SCP #8 KB accumulation: expose AutoFix performance for admin dashboard.
 
     Distinct from `/v105/autofix/stats` (which returns AutoFixEngine cumulative
-    counters like total bugs/fixed/skipped) Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â this endpoint returns the
+    counters like total bugs/fixed/skipped) Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â this endpoint returns the
     AutoFixMonitor view: per-bug-type / per-provider / per-diagnosis breakdowns
     + recent_attempts (last 10). Together they give the admin full visibility:
       - stats   = "what has the engine done?"
@@ -441,10 +441,10 @@ async def cleanup_cache():
     already in `smart_cache_disk` table store the broken string repr
     (`"SLMResponse(question='...', ...)"`) instead of a proper JSON dict.
     Task 35-A made _disk_get return None for those (treated as cache miss),
-    so they're harmless Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â but they waste disk space + pollute debug queries.
+    so they're harmless Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â but they waste disk space + pollute debug queries.
 
     DNA SCP #7 safe: cleanup ONLY matches rows whose value_blob decodes to a
-    JSON string starting with `"SLMResponse(" Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â valid JSON dict entries
+    JSON string starting with `"SLMResponse(" Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â valid JSON dict entries
     (the new format) are untouched.
     """
     try:
@@ -458,11 +458,11 @@ async def cleanup_cache():
 @router.post("/v105/autofix/tier3-auto/{enabled}", dependencies=[Depends(verify_admin)])
 @traced_request(_V105_ROUTES_LEDGER, require_write=True, action="v105_toggle_tier3_auto")
 async def v105_toggle_tier3_auto(enabled: str):
-    """[V4.3] Toggle Tier-3 auto-approve at RUNTIME Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â no restart needed.
+    """[V4.3] Toggle Tier-3 auto-approve at RUNTIME Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â no restart needed.
 
     User cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¥p quyĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân qua API thay vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬ .env:
-      POST /v105/autofix/tier3-auto/1  Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ enable auto-approve
-      POST /v105/autofix/tier3-auto/0  Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ disable auto-approve
+      POST /v105/autofix/tier3-auto/1  Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ enable auto-approve
+      POST /v105/autofix/tier3-auto/0  Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ disable auto-approve
 
     Safety guards vĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â«n active (1h timeout, 5/hour limit, etc.)
     Audit log ghi lĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i: who toggled, when, from what source.
@@ -498,7 +498,7 @@ async def v105_toggle_tier3_auto(enabled: str):
     # Log to SCP console
     import logging as _logging
     _logging.getLogger("scp.autofix").info(
-        f"[TIER3-AUTO] Permission TOGGLED via API: {old_val} Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ {new_val}\n"
+        f"[TIER3-AUTO] Permission TOGGLED via API: {old_val} Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ {new_val}\n"
         f"  Source: API endpoint\n"
         f"  Safety guards: {'ACTIVE' if new_val == '1' else 'N/A (disabled)'}\n"
         f"  Audit: {audit}"
@@ -523,7 +523,7 @@ async def v105_toggle_tier3_auto(enabled: str):
 async def v105_autofix_rollback(rollback_token: str):
     """[SCP-DNA-FIX R7-13] Revert a specific Tier-3 auto-approved fix by token.
 
-    TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: R5/R6 audit log had no rollback_token Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â operators had to manually
+    TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: R5/R6 audit log had no rollback_token Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â operators had to manually
     grep .tier3bak files + figure out which backup matched which fix. R7-13
     extended the audit schema (see _auto_approve_tier3 in engine.py) to write
     a UUID `rollback_token` per auto-approve. This endpoint accepts that token,
@@ -531,9 +531,9 @@ async def v105_autofix_rollback(rollback_token: str):
     by restoring from the .tier3bak backup (if present + hash matches).
 
     Reality test (R7-13 T2/T3/T4):
-      T2 rollback endpoint present Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“Ä‚Â¢Ă¢â€Â¬Ă…â€œ (this route)
-      T3 rollback reverts file to before_hash Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“Ä‚Â¢Ă¢â€Â¬Ă…â€œ (hash-verify before restore)
-      T4 rollback logged separately Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“Ä‚Â¢Ă¢â€Â¬Ă…â€œ (append action="rollback" to audit log)
+      T2 rollback endpoint present Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (this route)
+      T3 rollback reverts file to before_hash Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (hash-verify before restore)
+      T4 rollback logged separately Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (append action="rollback" to audit log)
 
     Returns:
       {"status": "ok", "file": <path>, "restored_hash": <sha256>}
@@ -547,7 +547,7 @@ async def v105_autofix_rollback(rollback_token: str):
     audit_log = _Path("data/tier3_auto_audit.jsonl")
     if not audit_log.is_file():
         raise HTTPException(404, f"Audit log not found at {audit_log}")
-    # Find the entry with matching rollback_token (last match wins Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â most recent).
+    # Find the entry with matching rollback_token (last match wins Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â most recent).
     matching_entry = None
     try:
         for line in audit_log.read_text(encoding="utf-8").splitlines():
@@ -569,13 +569,13 @@ async def v105_autofix_rollback(rollback_token: str):
     if not file_path_str or not before_hash:
         raise HTTPException(409, "Audit entry lacks file/before_hash (pre-R7-13 entry?)")
     file_path = _Path(file_path_str)
-    # [SCP-DNA-FIX R8-5] TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: R7-13 dÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¹ng single .tier3bak per file Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢
-    # backup CLOBBERED bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€¦Ă‚Â¸i later fix trÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªn cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¹ng file Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ rollback cĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â§a fix CĂ„â€Ă¢â‚¬Â¦Ä‚â€Ă‚Â¨
-    # fails vĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Âºi misleading 409 "Backup hash mismatch (tampered?)" Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â backup
-    # khÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¹ tamper, bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Â¹ ghi Ă„â€Ă¢â‚¬ÂÄ‚Â¢Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¨. Fix: per-token backup `.tier3bak.{token}`
+    # [SCP-DNA-FIX R8-5] TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: R7-13 dÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¹ng single .tier3bak per file Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢
+    # backup CLOBBERED bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€¦Ă‚Â¸i later fix trÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªn cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¹ng file Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ rollback cĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â§a fix CĂ„â€Ă¢â‚¬Â¦Ä‚â€Ă‚Â¨
+    # fails vĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă‚Âºi misleading 409 "Backup hash mismatch (tampered?)" Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â backup
+    # khÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă‚Â¹ tamper, bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă‚Â¹ ghi Ă„â€Ă¢â‚¬Â│Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¨. Fix: per-token backup `.tier3bak.{token}`
     # (engine.py R8-5). Endpoint derive bak_path tĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â« rollback_token. NĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿u
-    # per-token backup khÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng tĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă…â€œn tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i, fall back legacy single .tier3bak
-    # (back-compat pre-R8-5 entries) trĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚Â¢Ă¢â€Â¬Ă‚Âºc khi error.
+    # per-token backup khÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng tĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă…â€œn tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i, fall back legacy single .tier3bak
+    # (back-compat pre-R8-5 entries) trĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă‚Âºc khi error.
     bak_path_token = file_path.with_suffix(
         file_path.suffix + f".tier3bak.{rollback_token}"
     )
@@ -583,7 +583,7 @@ async def v105_autofix_rollback(rollback_token: str):
     if bak_path_token.is_file():
         bak_path = bak_path_token
     elif bak_path_legacy.is_file():
-        # Pre-R8-5 entry OR uuid failed at fix time Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â use legacy single backup.
+        # Pre-R8-5 entry OR uuid failed at fix time Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â use legacy single backup.
         bak_path = bak_path_legacy
     else:
         raise HTTPException(
@@ -592,7 +592,7 @@ async def v105_autofix_rollback(rollback_token: str):
             f"Either the fix pre-dates R8-5 (single .tier3bak, since clobbered by "
             f"a later fix on same file) or the backup was deleted. "
             f"R8-5 note: per-token backups (.tier3bak.{{token}}) added to prevent "
-            f"this clobber Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â older single-.tier3bak entries remain vulnerable."
+            f"this clobber Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â older single-.tier3bak entries remain vulnerable."
         )
     # Verify backup hash matches before_hash (tamper detection).
     bak_hash = _hashlib.sha256(bak_path.read_bytes()).hexdigest()
@@ -608,20 +608,20 @@ async def v105_autofix_rollback(rollback_token: str):
         )
     # Restore: ATOMIC write to target via temp file + fsync + os.replace.
     # [Phase 5-A / 4-a-008] Old code did `file_path.write_text(backup_content)`
-    # directly Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â if interrupted mid-write (disk full, crash, signal), the
+    # directly Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â if interrupted mid-write (disk full, crash, signal), the
     # target file was left truncated/corrupt. A SAFETY mechanism that corrupts
     # the file on failure is worse than no rollback (DNA #7, #9).
     #
     # New flow:
-    #   1. Read backup content into memory (small files Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â typical .py source).
-    #   2. tempfile.mkstemp(dir=target_dir) Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â€Â¬Ă‚Â Ä‚Â¢Ă¢â€Â¬Ă¢â€Â¢ temp file in SAME directory
-    #      (so os.replace is atomic Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â POSIX guarantees atomic rename within
+    #   1. Read backup content into memory (small files Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â typical .py source).
+    #   2. tempfile.mkstemp(dir=target_dir) Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ temp file in SAME directory
+    #      (so os.replace is atomic Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â POSIX guarantees atomic rename within
     #      the same filesystem; same-dir temp guarantees same filesystem).
-    #   3. Write content, flush, fsync (durability Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â survives power loss).
+    #   3. Write content, flush, fsync (durability Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â survives power loss).
     #   4. Verify temp-file hash matches before_hash BEFORE the rename
     #      (catches disk corruption / encoding issues without touching the
     #      live file).
-    #   5. os.replace(tmp, target) Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â atomic on POSIX. Either old or new,
+    #   5. os.replace(tmp, target) Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â atomic on POSIX. Either old or new,
     #      never partial.
     #   6. On ANY exception: os.unlink(tmp) to clean up temp, then raise.
     import os as _os
@@ -630,7 +630,7 @@ async def v105_autofix_rollback(rollback_token: str):
     target_dir = file_path.parent
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as e:  # noqa: BLE001 Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â DNA #23 honest limit
+    except Exception as e:  # noqa: BLE001 Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â DNA #23 honest limit
         raise HTTPException(500, f"Failed to ensure target dir exists: {e}") from e
     fd, tmp_path = _tempfile.mkstemp(
         dir=str(target_dir),
@@ -642,7 +642,7 @@ async def v105_autofix_rollback(rollback_token: str):
             f.write(backup_content)
             f.flush()
             _os.fsync(f.fileno())
-        # Pre-rename hash verification Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â if temp doesn't match before_hash,
+        # Pre-rename hash verification Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â if temp doesn't match before_hash,
         # the temp file is corrupt; DO NOT rename. Original file untouched.
         tmp_hash = _hashlib.sha256(_Path(tmp_path).read_bytes()).hexdigest()
         if tmp_hash != before_hash:
@@ -652,13 +652,13 @@ async def v105_autofix_rollback(rollback_token: str):
                 f"got={tmp_hash}. Target file UNTOUCHED (atomic restore "
                 f"aborted before os.replace)."
             )
-        # ATOMIC rename Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â POSIX guarantees atomicity within same filesystem.
+        # ATOMIC rename Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â POSIX guarantees atomicity within same filesystem.
         _os.replace(tmp_path, str(file_path))
     except HTTPException:
         try:
             _os.unlink(tmp_path)
         except OSError:
-            pass  # tmp may already be gone (os.replace succeeded) Ă„â€Ă‚Â¢Ä‚Â¢Ă¢â‚¬ÂĂ‚Â¬Ä‚Â¢Ă¢â€Â¬Ă‚Â fine
+            pass  # tmp may already be gone (os.replace succeeded) Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â fine
         raise
     except Exception as e:
         try:
