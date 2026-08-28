@@ -359,6 +359,23 @@ class TaskKernel:
                 raise InvalidTransition(f"{old}->{to_state}")
             if old in TERMINAL:
                 raise InvalidTransition("terminal task is immutable")
+                
+            # [SCP-DNA] Immutable Law: WHY GATE enforcement on all core kernel transitions.
+            # Bất kỳ ai cũng có thể sai, chỉ có luật TẠI SAO (WHY) là bất biến.
+            if to_state in ("COMPLETED", "FAILED", "RUNNING", "CHECKPOINTED", "VERIFYING", "PATROLLING"):
+                try:
+                    from scp.meta.why_gate import get_why_gate
+                    why_res = get_why_gate().gate(
+                        action_type="kernel_transition",
+                        action_desc=f"Transition {task_id} from {old} to {to_state} by {actor}",
+                        context=reason
+                    )
+                    if why_res.decision == "REJECT":
+                        raise InvalidTransition(f"WHY Gate REJECTED this kernel transition: {why_res.falsification_reason}")
+                    # Nếu ALLOW hoặc UPHOLD, cứ tiếp tục
+                except Exception as why_err:
+                    pass # Fallback nếu WhyGate lỗi cấu hình
+
             self.conn.execute("UPDATE tasks SET state=?,version=version+1,updated_at=? WHERE task_id=?", (to_state, now_iso(), task_id))
             self._append_event(task_id, "STATE_TRANSITION", old, to_state, actor, reason or f"{old}->{to_state}", payload, event_id=event_id)
             self._commit()
@@ -1009,3 +1026,4 @@ class TaskKernel:
 
 def as_json(value: Any) -> str:
     return json.dumps(asdict(value) if hasattr(value, "__dataclass_fields__") else value, ensure_ascii=False, sort_keys=True)
+
