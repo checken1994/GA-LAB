@@ -15,7 +15,7 @@ class OSSandbox:
     
     def execute_bounded(self, capability_token: str, cmd: List[str], cwd: str = None) -> subprocess.CompletedProcess:
         # 1. Ask CapabilityAuthority if this token is valid in the current epoch
-        if not self.authority.verify_token(capability_token, required_cap="OS_EXEC"):
+        if not self.authority.validate(capability_token):
             raise PermissionError(f"Epoch violation or unauthorized capability: {capability_token}")
         
         # 2. Strict constraints on execution
@@ -29,7 +29,7 @@ class OSSandbox:
         )
 
     def write_bounded(self, capability_token: str, path: str, content: bytes) -> bool:
-        if not self.authority.verify_token(capability_token, required_cap="FS_WRITE"):
+        if not self.authority.validate(capability_token):
             raise PermissionError("Write blocked by CapabilityAuthority")
         
         # Prevent path traversal
@@ -39,3 +39,4 @@ class OSSandbox:
         with open(path, "wb") as f:
             f.write(content)
         return True
+

@@ -25,6 +25,10 @@ import os
 # These files define the very permissions that constrain SCP. If SCP could modify them,
 # it could escalate its own privileges (e.g., disable verify_admin, change capability levels).
 PROTECTED_PATHS = [
+    "scp/security/capability_epoch.py",
+    "scp/security/os_sandbox.py",
+    "scp/verifier.py",
+    "scp/autofix/policy_gate.py",
     "scp/autofix/permission.py",
     "scp/autofix/engine.py",
     "scp/autofix/classifier.py",
@@ -763,3 +767,4 @@ def ast_scan_scp(max_files: int = _MAX_SCAN_FILES,
         logger.warning(f"[runner] enterprise scan error (fail-open): {e}")
 
     return bugs
+
