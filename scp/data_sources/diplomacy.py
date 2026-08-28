@@ -1,4 +1,4 @@
-"""[V96] DiplomacyDataSource"""
+""" DiplomacyDataSource"""
 import logging
 import re as _re
 

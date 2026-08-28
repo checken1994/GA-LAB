@@ -104,7 +104,7 @@ class CodeEvolutionAgent:
             self._fixes_skipped += 1
             return result
 
-        # Step 4: Apply fix (with backup) — [P2-15 FIX] _apply_fix now returns
+        # Step 4: Apply fix (with backup) —  _apply_fix now returns
         # True only if the code was ACTUALLY patched (not just commented).
         filepath = SCP_ROOT / bug["file"]
         backup = self._backup_file(filepath)
@@ -126,7 +126,7 @@ class CodeEvolutionAgent:
         test_result = self._run_tests()
 
         # Step 6: Commit or rollback
-        # [P2-15 FIX] Only auto-commit if AUTO_MODE is enabled. In manual mode,
+        #  Only auto-commit if AUTO_MODE is enabled. In manual mode,
         # leave the patch on disk + log for human review (operator decides whether
         # to commit). Was: committed regardless of AUTO_MODE → auto-commits in
         # manual mode, defeating the purpose of the flag.
@@ -311,7 +311,7 @@ FIX:"""
     def _apply_fix(self, filepath: Path, fix: str) -> bool:
         """Apply fix to file. Returns True if actually patched, False if queued for review.
 
-        [P2-15 FIX] TẠI SAO: the old implementation APPENDED the LLM fix as a
+         TẠI SAO: the old implementation APPENDED the LLM fix as a
         `# comment` at the end of the file — it did NOT patch the code. Tests
         then ran on UNMODIFIED code (passed trivially), and `_commit_fix`
         committed a no-op comment while reporting `fix_applied=True`. The entire

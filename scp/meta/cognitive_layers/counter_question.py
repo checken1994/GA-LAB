@@ -96,7 +96,7 @@ class CounterQuestionEngine:
             ("temporal", "Giá trị theo epoch nào? (J2000, J2050)", "Planetary positions change over epochs"),
             ("assumption", "Khối lượng riêng trung bình hay tại bề mặt?", "Different measurements, different values"),
         ],
-        # [V50] V46 domains — new reframing patterns
+        #  V46 domains — new reframing patterns
         "medical": [
             ("temporal", "Hướng dẫn điều trị năm nào? (y văn cập nhật liên tục)", "Outdated guidelines may be wrong"),
             ("scope_narrowing", "Liều cho người trưởng thành hay trẻ em?", "Dosage differs by age/weight"),
@@ -138,7 +138,7 @@ class CounterQuestionEngine:
                 potential_to_invalidate=True,  # All counter-questions can potentially invalidate
             ))
 
-        # [V50] If ≥2 counter-questions suggest ambiguity, enqueue for auto-verify
+        #  If ≥2 counter-questions suggest ambiguity, enqueue for auto-verify
         # Ambiguity = scope_narrowing AND assumption_challenging both present
         ambiguity_types = {r.reframing_type for r in results}
         if "scope_narrowing" in ambiguity_types and "assumption_challenging" in ambiguity_types:
@@ -148,7 +148,7 @@ class CounterQuestionEngine:
 
     def _enqueue_for_reverification(self, question: str, domain: str,
                                      counter_questions: list[CounterQuestion]):
-        """[V50] When ambiguity detected, enqueue question for re-verification queue.
+        """ When ambiguity detected, enqueue question for re-verification queue.
 
         CuriosityAsker can pick this up and re-ask the question with different framings
         to actively probe for the truth, instead of just downgrading verdict.

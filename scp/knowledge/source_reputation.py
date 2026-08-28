@@ -542,7 +542,7 @@ class ReputationStore:
                 return int(row["correct_count"] or 0) + int(row["incorrect_count"] or 0)
         except Exception as exc:  # pragma: no cover - defensive
             logger.debug(
-                f"[R7-4] get_outcome_count failed for source={source!r} "
+                f" get_outcome_count failed for source={source!r} "
                 f"domain={domain!r}: {exc}"
             )
             return 0

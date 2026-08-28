@@ -34,7 +34,7 @@ import logging
 import math
 import re
 
-# [P2-18 FIX] TẠI SAO: V104.19 #4 tried to fix the stdlib `statistics` module
+#  TẠI SAO: V104.19 #4 tried to fix the stdlib `statistics` module
 # being shadowed by scp.data_sources.statistics (same top-level name). The fix
 # used `import statistics as _stdlib_stats` INSIDE the function — but this STILL
 # resolves the name `statistics` through sys.modules, which by that point
@@ -223,7 +223,7 @@ class ResponseMonitor:
                 # Don't cache fallback — we want to recompute as data grows
                 return baseline
             else:
-                # [P2-18 FIX] _stdlib_stats imported at module top (before scp.data_sources
+                #  _stdlib_stats imported at module top (before scp.data_sources
                 # can pollute sys.modules['statistics']). V104.19 #4's inline import
                 # was unreliable — it still resolved through the polluted sys.modules.
                 baseline = {

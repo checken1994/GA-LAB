@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] MathDataSource - Data source cho Toán học
+ MathDataSource - Data source cho Toán học
 Note: Math SLM uses MathEvaluator directly, this is for completeness.
 """
 

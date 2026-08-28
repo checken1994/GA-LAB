@@ -11,7 +11,7 @@ Contact: scp-vietnam@example.com
 
 """
 Brain package - Knowledge and reasoning
-[G3-STUB] LearningEngine, ReasoningEngine, SCPV14Brain removed (dead on /ask).
+ LearningEngine, ReasoningEngine, SCPV14Brain removed (dead on /ask).
 Only KnowledgeStore + ErrorStore (from error_store.py) are live.
 """
 from .brain import KnowledgeStore

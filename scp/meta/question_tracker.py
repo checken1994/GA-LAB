@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V45] Question Tracker — phân loại câu hỏi: NEW / REPEAT / INTERNAL.
+ Question Tracker — phân loại câu hỏi: NEW / REPEAT / INTERNAL.
 
 3 Loại câu hỏi:
   - NEW      : Câu hỏi mới (chưa từng thấy trong history)

@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] EnergyDataSource - Data source cho Năng lượng
+ EnergyDataSource - Data source cho Năng lượng
 """
 
 import logging

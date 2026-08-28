@@ -340,11 +340,11 @@ class ImmutableAuditLog:
                 try:
                     os.chmod(self.log_file, 0o644)
                 except Exception as _chmod_err:  # noqa: BLE001
-                    # [R18-FIX-7] BEFORE: silent except:pass → audit log may be
+                    #  BEFORE: silent except:pass → audit log may be
                     # world-readable/writable → integrity gap (DNA #6, #8).
                     # AFTER: log warning so operator knows permissions are wrong.
                     logger.warning(
-                        f"[R18-FIX-7] chmod 0o644 failed for audit log {self.log_file}: {_chmod_err} — "
+                        f" chmod 0o644 failed for audit log {self.log_file}: {_chmod_err} — "
                         f"audit log may have incorrect permissions. Operator should check."
                     )
             # Read last line to get its hash for chaining.

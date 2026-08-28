@@ -249,7 +249,7 @@ def evaluate_questions(url: str, token: str, categories: list[str], full_mode: b
     results = []
     headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-    # [R17-FIX-7] --full mode: use iso_comprehensive.jsonl (143 questions, 15 categories)
+    #  --full mode: use iso_comprehensive.jsonl (143 questions, 15 categories)
     if full_mode:
         q_file = BENCHMARK_DIR / "iso_comprehensive.jsonl"
         if not q_file.exists():
@@ -495,7 +495,7 @@ def main():
     print(f"{'=' * 60}")
 
     # Save
-    # [R17-FIX-4] Create output directory if it doesn't exist.
+    #  Create output directory if it doesn't exist.
     # BEFORE: FileNotFoundError if results/ dir missing.
     # AFTER: auto-create parent dir.
     _output_path = Path(args.output)

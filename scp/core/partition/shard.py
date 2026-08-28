@@ -189,7 +189,7 @@ class DataPartitioner:
     def bypasses_archive_path(self, date_str: str) -> Path:
         return self.data_dir / "bypasses" / "archive" / f"{date_str}.jsonl.gz"
 
-    # [V9.1-UPGRADE] DataQualityScoring layer — cùng cấp WHY (2-layer: action + self-verify).
+    #  DataQualityScoring layer — cùng cấp WHY (2-layer: action + self-verify).
     def _score_data_quality(self, bypass_record: dict) -> tuple[float, str]:
         """Score data quality of a bypass record (0.0-1.0).
 
@@ -210,7 +210,7 @@ class DataPartitioner:
             _checks_total = 0
             _reasons = []
 
-            # [V9.1-UPGRADE] Check 1: attack_type valid (not empty, not None)
+            #  Check 1: attack_type valid (not empty, not None)
             _checks_total += 1
             _attack_type = bypass_record.get("attack_type", "")
             if _attack_type and isinstance(_attack_type, str) and _attack_type.strip():
@@ -226,7 +226,7 @@ class DataPartitioner:
             else:
                 _reasons.append("empty attack_type")
 
-            # [V9.1-UPGRADE] Check 2: question meaningful (>5 chars, not spam)
+            #  Check 2: question meaningful (>5 chars, not spam)
             _checks_total += 1
             _question = bypass_record.get("question", "")
             if _question and isinstance(_question, str):
@@ -243,7 +243,7 @@ class DataPartitioner:
             else:
                 _reasons.append("empty question")
 
-            # [V9.1-UPGRADE] Check 3: signature unique (not duplicate in last 100 records)
+            #  Check 3: signature unique (not duplicate in last 100 records)
             _checks_total += 1
             _signatures = bypass_record.get("signatures", "")
             if _signatures:
@@ -321,7 +321,7 @@ class DataPartitioner:
                         else:
                             _reasons.append(f"signature duplicate (last {_lines_seen} records across {_dup_window_days}d)")
                     except Exception as _dup_err:
-                        logger.debug(f"[V9.1-UPGRADE] duplicate check failed (fail-open, award half): {_dup_err}")
+                        logger.debug(f" duplicate check failed (fail-open, award half): {_dup_err}")
                         _score += 0.175  # half credit (can't verify uniqueness)
                         _checks_passed += 1
                 else:
@@ -338,10 +338,10 @@ class DataPartitioner:
             return _score, _reason
 
         except Exception as _score_err:
-            logger.debug(f"[V9.1-UPGRADE] _score_data_quality error (fail-open, 0.5): {_score_err}")
+            logger.debug(f" _score_data_quality error (fail-open, 0.5): {_score_err}")
             return 0.5, f"scoring error (fail-open): {_score_err}"
 
-    # [V9.1-UPGRADE] Audit log helper for V9.1 self-verify layer.
+    #  Audit log helper for V9.1 self-verify layer.
     def _audit_v91(self, event: str, payload: dict) -> None:
         try:
             _entry = {
@@ -354,14 +354,14 @@ class DataPartitioner:
             with open(_audit_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(_entry, ensure_ascii=False) + "\n")
         except Exception as _audit_err:
-            logger.debug(f"[V9.1-UPGRADE] audit log error (fail-open): {_audit_err}")
+            logger.debug(f" audit log error (fail-open): {_audit_err}")
 
     def write_bypass(self, bypass_record: dict, when: Optional[datetime] = None) -> None:
         """Append 1 bypass vào bypasses/{today}.jsonl.
 
         [V9.0-WHY-GATE] WHY gates data storage — don't store bypasses WHY rejects.
 
-        [V9.1-UPGRADE] DataQualityScoring — score quality before storing.
+         DataQualityScoring — score quality before storing.
         Quality < 0.3 → reject (don't store junk).
         """
         # [V9.0-WHY-GATE] WHY gates data storage
@@ -378,12 +378,12 @@ class DataPartitioner:
         except Exception as _why_err:
             logger.debug(f"[V9.0-WHY-GATE] WHY Gate error (non-blocking): {_why_err}")
 
-        # [V9.1-UPGRADE] DataQualityScoring — self-verify quality trước khi store.
+        #  DataQualityScoring — self-verify quality trước khi store.
         try:
             _quality, _q_reason = self._score_data_quality(bypass_record)
             if _quality < 0.3:
                 logger.info(
-                    f"[V9.1-UPGRADE] Bypass rejected by quality score "
+                    f" Bypass rejected by quality score "
                     f"(score={_quality:.2f} < 0.3): {_q_reason}"
                 )
                 self._audit_v91("data_quality_reject", {
@@ -396,7 +396,7 @@ class DataPartitioner:
                 "quality": _quality, "reason": _q_reason,
             })
         except Exception as _quality_call_err:
-            logger.debug(f"[V9.1-UPGRADE] _score_data_quality call error (fail-open): {_quality_call_err}")
+            logger.debug(f" _score_data_quality call error (fail-open): {_quality_call_err}")
 
         if when is None:
             when = datetime.now()

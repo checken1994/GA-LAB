@@ -43,7 +43,7 @@ class Claim:
     confidence: float = 0.5
     verified: bool | None = None
     verification_detail: str = ""
-    evidence_ref: str = ""  # [R17-FIX-3] which evidence piece verified this claim
+    evidence_ref: str = ""  #  which evidence piece verified this claim
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,7 +59,7 @@ class Claim:
             "confidence": self.confidence,
             "verified": self.verified,
             "verification_detail": self.verification_detail,
-            "evidence_ref": self.evidence_ref,  # [R17-FIX-3]
+            "evidence_ref": self.evidence_ref,  # 
         }
 
 
@@ -411,7 +411,7 @@ class ClaimVerifier:
     def summarize(self, claims: list[Claim]) -> dict[str, Any]:
         """Summarize verification results.
 
-        [R17-FIX-2] Added 'unverified' alias for 'unknown' — used by judgecore_mixin
+         Added 'unverified' alias for 'unknown' — used by judgecore_mixin
         governance logic (UPHOLD if >50% claims unverified).
         """
         total = len(claims)
@@ -423,7 +423,7 @@ class ClaimVerifier:
             "verified": verified,
             "refuted": refuted,
             "unknown": unknown,
-            "unverified": unknown,  # [R17-FIX-2] alias — "unknown" = "unverified"
+            "unverified": unknown,  #  alias — "unknown" = "unverified"
             "verification_rate": round(verified / total, 2) if total > 0 else 0,
             "refutation_rate": round(refuted / total, 2) if total > 0 else 0,
             "details": [c.to_dict() for c in claims],

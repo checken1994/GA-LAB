@@ -11,7 +11,7 @@ All changes are in `/home/z/my-project/scp/autofix/`.
 
 ---
 
-## [v4] — 2026-08-08 (R9)
+##  — 2026-08-08 (R9)
 
 ### Added — 6 new files
 

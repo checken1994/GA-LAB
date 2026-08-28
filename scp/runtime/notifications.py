@@ -140,7 +140,7 @@ class UserNotificationSystem:
         Returns:
             Dict with delivery status per channel
 
-        [P1-7 FIX] TẠI SAO: `event_type` and `severity` had no defaults, but all
+         TẠI SAO: `event_type` and `severity` had no defaults, but all
         3 call sites in judge.py (KILL, bypass, canary) omit `event_type` and rely
         on kwargs for the rest → TypeError: missing 1 required positional argument
         → swallowed by `except Exception as e: pass` → Bug CV was cosmetically "fixed"

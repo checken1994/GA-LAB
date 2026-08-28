@@ -17,7 +17,7 @@ logger = logging.getLogger("scp.slms")
 
 
 # ============================================================
-# GEOGRAPHY SLM — [v27] New — uses local DB + REST Countries + Wikipedia
+# GEOGRAPHY SLM —  New — uses local DB + REST Countries + Wikipedia
 # ============================================================
 class GeographySLM(BaseSLM):
     """SLM chuyên về địa lý — dùng local DB + REST Countries API."""
@@ -285,7 +285,7 @@ class GeographySLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("GeoSLM", question)
@@ -482,7 +482,7 @@ class GeographySLM(BaseSLM):
             slm_name=self.name, processing_time=time.time() - start,
         )
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("GeoSLM", question, resp, evidence.get("source", "LocalDB"))
@@ -497,12 +497,12 @@ class GeographySLM(BaseSLM):
 
 
 # ============================================================
-# HISTORY SLM — [v27] New — uses local DB + Wikipedia
+# HISTORY SLM —  New — uses local DB + Wikipedia
 # ============================================================
 
 
 # ============================================================
-# HISTORY SLM — [v27] New — uses local DB + Wikipedia
+# HISTORY SLM —  New — uses local DB + Wikipedia
 # ============================================================
 class HistorySLM(BaseSLM):
     """SLM chuyên về lịch sử — dùng local DB + Wikipedia fallback."""
@@ -574,7 +574,7 @@ class HistorySLM(BaseSLM):
             '2016': 'AlphaGo đánh bại Lee Sedol tại Go',
             '2020': 'Đại dịch COVID-19',
             '2022': 'ChatGPT ra mắt, bắt đầu kỷ nguyên AI',
-            # [V63] Add missing years
+            #  Add missing years
             '1925': 'Phan Bội Châu bị bắt, phong trào độc lập Việt Nam',
             '1921': 'Đảng Cộng sản Trung Quốc thành lập',
             '1881': 'Alexander II của Nga bị ám sát',
@@ -667,7 +667,7 @@ class HistorySLM(BaseSLM):
             r'who\s+is\s+(.+?)\??$',
             r'who\s+was\s+(.+?)\??$',
             r'when\s+did\s+(.+?)\s+(?:happen|occur|take\s+place)',
-            # [V74] Birth year pattern
+            #  Birth year pattern
             r'when\s+was\s+(.+?)\s+born',
             r'(.+?)\s+sinh\s+năm\s+nào',
         ]
@@ -685,7 +685,7 @@ class HistorySLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("HistorySLM", question)
@@ -729,7 +729,7 @@ class HistorySLM(BaseSLM):
                         evidence = {"source": "LocalDB", "entity": entity, "value": val}
                         break
 
-        # [V74] Birth year pattern — "When was X born?" / "X sinh năm nào?"
+        #  Birth year pattern — "When was X born?" / "X sinh năm nào?"
         # Was: HistorySLM only knows Vietnamese historical events
         # Now: query Wikidata REST API for entity, extract birth year from description
         if not answer:
@@ -739,7 +739,7 @@ class HistorySLM(BaseSLM):
                 entity = birth_match.group(1) or birth_match.group(2)
                 entity = entity.strip().rstrip('?').strip()
                 try:
-                    # [V74] Use Wikidata search + REST API (no rate limit issues like Wikipedia Action API)
+                    #  Use Wikidata search + REST API (no rate limit issues like Wikipedia Action API)
                     import json as _json
                     import urllib.parse
                     import urllib.request
@@ -801,7 +801,7 @@ class HistorySLM(BaseSLM):
             slm_name=self.name, processing_time=time.time() - start,
         )
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("HistorySLM", question, resp, evidence.get("source", "LocalDB"))
@@ -816,5 +816,5 @@ class HistorySLM(BaseSLM):
 
 
 # ============================================================
-# CHEMISTRY SLM — [v28] PubChem + local KB
+# CHEMISTRY SLM —  PubChem + local KB
 # ============================================================

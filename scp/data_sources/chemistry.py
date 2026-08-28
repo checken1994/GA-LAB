@@ -329,7 +329,7 @@ class ChemistryDataSource(IDataSource):
             'acetylsalicylic acid': {'formula': 'C9H8O4', 'molar_mass': 180.158, 'type': 'drug'},
             'paracetamol': {'formula': 'C8H9NO2', 'molar_mass': 151.163, 'type': 'drug'},
             'acetaminophen': {'formula': 'C8H9NO2', 'molar_mass': 151.163, 'type': 'drug'},
-            # [V63] Missing compounds
+            #  Missing compounds
             'starch': {'formula': '(C6H10O5)n', 'molar_mass': 162.14, 'type': 'polysaccharide'},
             'cellulose': {'formula': '(C6H10O5)n', 'molar_mass': 162.14, 'type': 'polysaccharide'},
             'collagen': {'formula': 'complex', 'molar_mass': 300000, 'type': 'protein'},

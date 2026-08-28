@@ -19,11 +19,12 @@ STATES = {
     "HUMAN_REVIEW", "RETRY_SCHEDULED", "COMPLETED", "FAILED", "CANCELLED",
 }
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED"}
+ACTIVE_STATES = {"RUNNING", "PATROLLING", "VERIFYING", "RECONCILING", "RECOVERING"}
 ALLOWED_TRANSITIONS = {
     "CREATED": {"PLANNING", "CANCELLED"},
     "PLANNING": {"READY", "WAITING_APPROVAL", "FAILED", "CANCELLED"},
     "WAITING_APPROVAL": {"READY", "CANCELLED"},
-    "READY": {"QUEUED", "CANCELLED"},
+    "READY": {"QUEUED", "PATROLLING", "CANCELLED"},
     "QUEUED": {"LEASED", "CANCELLED"},
     "LEASED": {"RUNNING", "RECOVERING", "CANCELLED"},
     "RUNNING": {"WAITING_TOOL", "VERIFYING", "CHECKPOINTED", "RECOVERING", "HUMAN_REVIEW", "FAILED", "CANCELLED"},
@@ -32,6 +33,7 @@ ALLOWED_TRANSITIONS = {
     "CHECKPOINTED": {"RUNNING", "QUEUED", "CANCELLED"},
     "UNKNOWN": {"RECONCILING", "HUMAN_REVIEW", "RECOVERING", "FAILED", "CANCELLED"},
     "HUMAN_REVIEW": {"READY", "CANCELLED", "FAILED"},
+        "PATROLLING": {"RUNNING", "RECOVERING", "CANCELLED", "FAILED", "CHECKPOINTED"},
     "RECOVERING": {"RECONCILING", "CHECKPOINTED", "QUEUED", "HUMAN_REVIEW", "FAILED"},
     "RECONCILING": {"RECOVERING", "CHECKPOINTED", "QUEUED", "HUMAN_REVIEW", "FAILED", "CANCELLED"},
     "RETRY_SCHEDULED": {"QUEUED", "FAILED", "CANCELLED"},
@@ -921,6 +923,38 @@ class TaskKernel:
             self._commit();return self.get_task(task_id)
         except Exception:
             self._rollback();raise
+
+    
+    def auto_reconcile_orphans(self, actor: str = "kernel_watchdog") -> list[str]:
+        '''Tự động rà soát các task bị mồ côi (chết do crash, mất kết nối) và đưa vào RECONCILING'''
+        orphans = []
+        try:
+            self.conn.execute("BEGIN IMMEDIATE")
+            # Tìm các task đang LEASED, RUNNING, PATROLLING nhưng đã quá hạn lease (60 giây mặc định)
+            rows = self.conn.execute('''
+                SELECT task_id, state 
+                FROM tasks 
+                WHERE state IN ('LEASED', 'RUNNING', 'PATROLLING') 
+                  AND (strftime('%s', 'now') - strftime('%s', updated_at)) > 60
+            ''').fetchall()
+            
+            for r in rows:
+                tid = r["task_id"]
+                # 1. Chuyển sang UNKNOWN
+                self.conn.execute("UPDATE tasks SET state='UNKNOWN', updated_at=datetime('now') WHERE task_id=?", (tid,))
+                self._append_event(tid, "STATE_TRANSITION", r["state"], "UNKNOWN", actor, "ORPHAN_TIMEOUT", {})
+                
+                # 2. Quyết định phục hồi
+                decision = self.recovery_decision("LOST_RESPONSE", True, "UNKNOWN")
+                if decision.state_directive == "RECONCILING":
+                    self.conn.execute("UPDATE tasks SET state='RECONCILING', updated_at=datetime('now') WHERE task_id=?", (tid,))
+                    self._append_event(tid, "STATE_TRANSITION", "UNKNOWN", "RECONCILING", actor, "AUTO_RECONCILE_INITIATED", {})
+                orphans.append(tid)
+            self._commit()
+        except Exception as e:
+            self._rollback()
+            raise
+        return orphans
 
     def get_task(self, task_id: str) -> dict[str, Any]: return dict(self._task(task_id))
     def get_events(self, task_id: str) -> list[dict[str, Any]]: return [dict(x) for x in self.conn.execute("SELECT * FROM events WHERE task_id=? ORDER BY seq",(task_id,)).fetchall()]

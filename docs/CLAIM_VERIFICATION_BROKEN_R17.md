@@ -125,7 +125,7 @@ ground_truth = {}
 for hit in v100_kb_hits:
     ground_truth[hit.source] = hit.answer
 # 2. SLM responses — extract evidence from each SLM's response
-# [R17-FIX-1] BEFORE: SLM evidence was DISCARDED. ClaimVerifier only had KB hits.
+#  BEFORE: SLM evidence was DISCARDED. ClaimVerifier only had KB hits.
 #   If question had no KB hit → ground_truth empty → all claims "no ground truth".
 #   AFTER: SLM evidence (value, source, unit) is normalized into ground_truth.
 #   Each SLM's evidence field provides {value, source, unit} — we map to
@@ -156,10 +156,10 @@ v100_claims = self.claim_verifier.verify(v100_claims, ground_truth)
 # BEFORE (buggy):
 if v100_claim_summary["refuted"] > 0:
     verdict.confidence *= 0.5
-    verdict.reasoning += f" | [V100] {v100_claim_summary['refuted']} claims refuted"
+    verdict.reasoning += f" |  {v100_claim_summary['refuted']} claims refuted"
 
 # AFTER (R17-FIX-2):
-# [R17-FIX-2] BEFORE: only downgrade confidence ×0.5 if claims REFUTED.
+#  BEFORE: only downgrade confidence ×0.5 if claims REFUTED.
 #   If claims were "unverified" (verified=None) → NO action → PASS stays PASS.
 #   This is FALSE CONFIDENCE — SCP returns PASS on unverified claims.
 #   AFTER: UPHOLD (downgrade to UNKNOWN) if >50% claims unverified.
@@ -172,14 +172,14 @@ _total = _verified + _unverified + _refuted
 if _refuted > 0:
     # Claims REFUTED — confidence ×0.5 (existing behavior)
     verdict.confidence *= 0.5
-    verdict.reasoning += f" | [V100] {_refuted} claims refuted"
+    verdict.reasoning += f" |  {_refuted} claims refuted"
 
 if _total > 0 and _unverified / _total > 0.5:
     # >50% claims UNVERIFIED — UPHOLD (can't confirm answer is correct)
-    # [R17-FIX-2] DNA #22: PASS ≠ TRUE. "Can't verify" ≠ "verified".
+    #  DNA #22: PASS ≠ TRUE. "Can't verify" ≠ "verified".
     # Same semantic inversion fix as R14 WhyGate KB1 + R16 P2-2.
     logger.warning(
-        f"[R17-FIX-2] {_unverified}/{_total} claims unverified — "
+        f" {_unverified}/{_total} claims unverified — "
         f"UPHOLD verdict from {verdict.verdict} to UNKNOWN"
     )
     if verdict.verdict == "PASS":
@@ -208,7 +208,7 @@ class Claim:
     confidence: float = 0.5
     verified: bool | None = None
     verification_detail: str = ""
-    evidence_ref: str = ""  # [R17-FIX-3] NEW: which evidence piece verified this claim
+    evidence_ref: str = ""  #  NEW: which evidence piece verified this claim
 ```
 
 ---

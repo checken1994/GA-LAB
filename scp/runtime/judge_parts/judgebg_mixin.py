@@ -57,7 +57,7 @@ class JudgeBgMixin:
     """Mixin for RealityJudge — provides schedule_background_jobs."""
 
     async def schedule_background_jobs(self):
-        """[V98] Start background scheduler for ThreatSimulator + ThreatIntelCrawler.
+        """ Start background scheduler for ThreatSimulator + ThreatIntelCrawler.
 
         Runs indefinitely (until cancelled). Should be started by run_247.py.
 
@@ -65,7 +65,7 @@ class JudgeBgMixin:
           - ThreatSimulator: every 6 hours
           - ThreatIntelCrawler: every 12 hours
         """
-        logger.info("[V98] Background scheduler started")
+        logger.info(" Background scheduler started")
         sim_interval = int(os.environ.get("SCP_THREAT_SIMULATOR_INTERVAL", "600"))  # [SCP-DNA-FIX R12-17] 600s default (was 10s — caused startup stuck: 200 attacks × healing loop every 10s = CPU saturation)
         sim_count = int(os.environ.get("SCP_THREAT_SIMULATOR_COUNT", "200"))  # V103: 200 attacks/cycle
         intel_interval = 12 * 3600  # 12 hours
@@ -73,7 +73,7 @@ class JudgeBgMixin:
         last_intel = 0
 
         if sim_interval <= 0:
-            logger.info("[V98] ThreatSimulator DISABLED (SCP_THREAT_SIMULATOR_INTERVAL=0)")
+            logger.info(" ThreatSimulator DISABLED (SCP_THREAT_SIMULATOR_INTERVAL=0)")
 
         while True:
             now = time.time()
@@ -82,18 +82,18 @@ class JudgeBgMixin:
                 try:
                     report = await self.run_threat_simulation(count=sim_count)
                     if report:
-                        logger.info(f"[V98] ThreatSimulator: {report.get('bypass_found', 0)} bypasses found ({sim_count} attacks)")
+                        logger.info(f" ThreatSimulator: {report.get('bypass_found', 0)} bypasses found ({sim_count} attacks)")
                     last_sim = now
                 except Exception as e:
-                    logger.warning(f"[V98] ThreatSimulator error: {e}")
+                    logger.warning(f" ThreatSimulator error: {e}")
 
             if now - last_intel >= intel_interval:
                 try:
                     updates = await self.run_threat_intel_crawl()
-                    logger.info(f"[V98] ThreatIntelCrawler: {len(updates)} sources crawled")
+                    logger.info(f" ThreatIntelCrawler: {len(updates)} sources crawled")
                     last_intel = now
                 except Exception as e:
-                    logger.warning(f"[V98] ThreatIntelCrawler error: {e}")
+                    logger.warning(f" ThreatIntelCrawler error: {e}")
 
             # [V104.42 #AV] TẠI SAO: ReVerify process_pending was never in background
             # scheduler → queue fills with pending, never processed on /ask 24/7 runtime.

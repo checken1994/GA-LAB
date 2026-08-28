@@ -64,7 +64,7 @@ class MetaFalsifier:
             "temporal_check",         # still true?
             "authority_check",        # source authoritative?
         ],
-        # [V50] Domain-specific attack vectors for V46 domains
+        #  Domain-specific attack vectors for V46 domains
         "medical_fact": [
             "source_agreement",
             "medical_guideline_currency",  # hướng dẫn điều trị còn hiệu lực?

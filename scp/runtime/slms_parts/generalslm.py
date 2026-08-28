@@ -102,7 +102,7 @@ class BaseSLM(ABC):
     def _healing_retry_slm(self, issue: dict) -> bool:
         """[V88 FIX] Clear smart cache for failed questions so they get re-processed."""
         try:
-            # _run_periodic_cleanup()  # [V89] deduplicated - function not available
+            # _run_periodic_cleanup()  #  deduplicated - function not available
             logger.info("[HEALING] Cleared smart cache for 50 recent failed questions")
             return True
         except Exception as e:
@@ -159,7 +159,7 @@ class BaseSLM(ABC):
 
 class GeneralSLM(BaseSLM):
     """
-    [V73] General Knowledge SLM — handles type classification, name meanings,
+     General Knowledge SLM — handles type classification, name meanings,
     "Tell me about X", "What type of thing is X" questions.
 
     Strategy: extract entity, query Wikipedia summary, return first sentence

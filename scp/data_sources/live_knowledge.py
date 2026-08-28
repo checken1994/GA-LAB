@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V46] LiveKnowledgeFetcher — RAG via 4 APIs (Wikipedia + Wikidata + arXiv + DuckDuckGo).
+ LiveKnowledgeFetcher — RAG via 4 APIs (Wikipedia + Wikidata + arXiv + DuckDuckGo).
 
 Giải quyết vấn đề "bỏ đó nằm im": Khi local DB không có câu trả lời, fetch online.
 
@@ -673,7 +673,7 @@ def main():
         print("Usage: python -m scp.data_sources.live_knowledge 'query' [--domain X]")
         return
 
-    print("\n  [V46] LiveKnowledgeFetcher")
+    print("\n   LiveKnowledgeFetcher")
     print(f"  Query:  {args.query}")
     print(f"  Domain: {args.domain or 'auto'}")
     print(f"  Refresh: {args.refresh}")

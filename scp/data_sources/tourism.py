@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] TourismDataSource - Data source cho Du lịch
+ TourismDataSource - Data source cho Du lịch
 """
 
 import logging

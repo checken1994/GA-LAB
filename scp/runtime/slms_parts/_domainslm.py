@@ -102,7 +102,7 @@ class BaseSLM(ABC):
     def _healing_retry_slm(self, issue: dict) -> bool:
         """[V88 FIX] Clear smart cache for failed questions so they get re-processed."""
         try:
-            # _run_periodic_cleanup()  # [V89] deduplicated - function not available
+            # _run_periodic_cleanup()  #  deduplicated - function not available
             logger.info("[HEALING] Cleared smart cache for 50 recent failed questions")
             return True
         except Exception as e:
@@ -180,7 +180,7 @@ class _DomainSLM(BaseSLM):
         # Strip common prefixes
         q = re.sub(r'^(?:ai\s+là|what\s+is|what\s+are|kể\s+tên|cho\s+biết|tìm\s+hiểu)\s+', '', q, flags=re.IGNORECASE)
         q = re.sub(r'^(?:tác\s+dụng|chức\s+năng|đặc\s+điểm|thông\s+tin)\s+(?:của\s+)?', '', q, flags=re.IGNORECASE)
-        # [V63] Extract entity from common patterns
+        #  Extract entity from common patterns
         # "X được thành lập năm nào?" → X
         m = re.match(r'(.+?)\s+(?:được\s+thành\s+lập|thành\s+lập|được\s+tạo|tạo\s+ra|phát\s+hành|ra\s+đời)', q, re.IGNORECASE)
         if m:

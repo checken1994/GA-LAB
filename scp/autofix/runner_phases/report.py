@@ -54,14 +54,14 @@ def run_full_scan(include_ast: bool = True, max_bugs: int = 0) -> dict:
         CrossFuncTaintScanner,
         DeadCodeScanner,
         DeadSLMScanner,
-        HypothesisScanner,  # [R12-7] wire IMP-5
+        HypothesisScanner,  #  wire IMP-5
         LogicFlowScanner,
         NullSafetyScanner,
         PerformanceScanner,
         RaceConditionScanner,
         ResourceLeakScanner,
         RoutingGapScanner,
-        ScannerSelfAudit,  # [R12-7] wire IMP-10
+        ScannerSelfAudit,  #  wire IMP-10
         SchemaMismatchScanner,
         SecurityScanner,
         SemanticIntentScanner,
@@ -211,7 +211,7 @@ def run_single_scanner(scanner_name: str) -> list[BugReport]:
     if name in ("xss", "xss_vulnerability", "xss-vulnerability", "xssvulnerability"):
         from scp.autofix.scanners import XSSScanner
         return XSSScanner().scan()
-    # [R12-7] 2 previously-dead scanners — now wireable individually
+    #  2 previously-dead scanners — now wireable individually
     if name in ("hypothesis", "hypothesis_scanner", "hypothesis-scanner"):
         from scp.autofix.scanners import HypothesisScanner
         return HypothesisScanner().scan()

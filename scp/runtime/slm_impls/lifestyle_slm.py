@@ -22,7 +22,7 @@ logger = logging.getLogger("scp.slms")
 
 class GeneralSLM(BaseSLM):
     """
-    [V73] General Knowledge SLM — handles type classification, name meanings,
+     General Knowledge SLM — handles type classification, name meanings,
     "Tell me about X", "What type of thing is X" questions.
 
     Strategy: extract entity, query Wikipedia summary, return first sentence
@@ -134,7 +134,7 @@ class GeneralSLM(BaseSLM):
 
 class ReligionSLM(BaseSLM):
     """
-    [V73] Religion/Literature SLM — Bible verses, quotes, scriptures.
+     Religion/Literature SLM — Bible verses, quotes, scriptures.
     Uses bible-api.com for verse lookup.
     """
     def __init__(self, config: Optional[dict] = None):
@@ -192,7 +192,7 @@ class ReligionSLM(BaseSLM):
 
 class FoodSLM(BaseSLM):
     """
-    [V73] Food & Recipe SLM — recipes, nutrition, cocktails.
+     Food & Recipe SLM — recipes, nutrition, cocktails.
     Uses cached MealDB/CocktailDB/Fruityvice data from external_questions.
     """
     def __init__(self, config: Optional[dict] = None):
@@ -305,7 +305,7 @@ class FoodSLM(BaseSLM):
 
 class CitySLM(BaseSLM):
     """
-    [V73] City SLM — populations, areas, timezones for cities (vs GeographySLM
+     City SLM — populations, areas, timezones for cities (vs GeographySLM
     which only handles countries via REST Countries API).
     Uses Open-Meteo geocoding + Wikidata.
     """
@@ -369,12 +369,12 @@ class CitySLM(BaseSLM):
 
 
 # ============================================================
-# [V78] NEW SLMs — fill coverage gaps from deep check
+#  NEW SLMs — fill coverage gaps from deep check
 # ============================================================
 
 class HolidaySLM(BaseSLM):
     """
-    [V78] Holiday SLM — public holidays via date.nager.at API.
+     Holiday SLM — public holidays via date.nager.at API.
     Handles: "What is a public holiday in X?" (X = country code)
     """
     def __init__(self, config: Optional[dict] = None):
@@ -463,7 +463,7 @@ class HolidaySLM(BaseSLM):
 
 class AnimalFactsSLM(BaseSLM):
     """
-    [V78] Animal Facts SLM — cat/dog facts via kinduff/catfact APIs.
+     Animal Facts SLM — cat/dog facts via kinduff/catfact APIs.
     Handles: "Tell me a fact about cats/dogs."
     """
     def __init__(self, config: Optional[dict] = None):
@@ -504,7 +504,7 @@ class AnimalFactsSLM(BaseSLM):
 
         elif 'fact about dogs' in q or 'dog fact' in q:
             try:
-                # [V79] dog-api.kinduff.com returns empty facts — use some-random-api instead
+                #  dog-api.kinduff.com returns empty facts — use some-random-api instead
                 req = urllib.request.Request(
                     "https://some-random-api.com/animal/dog",
                     headers={'User-Agent': 'SCP-V79-Bot/1.0'}
@@ -541,7 +541,7 @@ class AnimalFactsSLM(BaseSLM):
 
 class AdviceSLM(BaseSLM):
     """
-    [V78] Advice SLM — life advice via adviceslip.com API.
+     Advice SLM — life advice via adviceslip.com API.
     Handles: "What is a piece of useful life advice?"
     """
     def __init__(self, config: Optional[dict] = None):
@@ -599,7 +599,7 @@ class AdviceSLM(BaseSLM):
 
 class ChuckNorrisSLM(BaseSLM):
     """
-    [V78] Chuck Norris SLM — jokes via chucknorris.io API.
+     Chuck Norris SLM — jokes via chucknorris.io API.
     Handles: "Tell me a Chuck Norris fact."
     """
     def __init__(self, config: Optional[dict] = None):

@@ -1,4 +1,4 @@
-"""[V96] EcommerceDataSource"""
+""" EcommerceDataSource"""
 import logging
 
 from scp.interfaces.data_source import IDataSource

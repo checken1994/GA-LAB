@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] BiologyDataSource - Data source cho Sinh học
+ BiologyDataSource - Data source cho Sinh học
 """
 
 import logging

@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V46] MedicalDataSource — Y tế & Sức khỏe
+ MedicalDataSource — Y tế & Sức khỏe
 Bao gồm: bệnh常见, thuốc, cơ thể người, chỉ số sức khỏe, vaccine.
 Fallback: LiveKnowledgeFetcher (Wikipedia + MedlinePlus).
 """

@@ -62,8 +62,8 @@ from scp.core.conflict_resolver import resolve_value
 # WEATHER MULTI-SOURCE
 # ============================================================
 def _geocode_city(city: str) -> tuple[float, float] | None:
-    """Geocode city → (lat, lon) via Open-Meteo. [V32] Cached 7 days."""
-    # [V32] Check cache first — cities don't move, cache 7 days
+    """Geocode city → (lat, lon) via Open-Meteo.  Cached 7 days."""
+    #  Check cache first — cities don't move, cache 7 days
     try:
         from scp.core.smart_cache import get_smart_cache
         cached = get_smart_cache().get("geocode", city.lower())
@@ -78,7 +78,7 @@ def _geocode_city(city: str) -> tuple[float, float] | None:
         if data and data.get("results"):
             r = data["results"][0]
             coords = (r["latitude"], r["longitude"])
-            # [V32] Cache 7 days
+            #  Cache 7 days
             try:
                 from scp.core.smart_cache import get_smart_cache
                 get_smart_cache().set("geocode", city.lower(), coords, "LocalDB")
@@ -91,8 +91,8 @@ def _geocode_city(city: str) -> tuple[float, float] | None:
 
 
 def _fetch_openmeteo(lat: float, lon: float) -> dict | None:
-    """Open-Meteo current weather. [V36] Cache 30min per location."""
-    # [V36] Check cache first
+    """Open-Meteo current weather.  Cache 30min per location."""
+    #  Check cache first
     try:
         from scp.core.smart_cache import get_smart_cache
         cache_key = f"weather_{lat:.2f}_{lon:.2f}"
@@ -107,7 +107,7 @@ def _fetch_openmeteo(lat: float, lon: float) -> dict | None:
         data = fetch_with_retry(url, {"User-Agent": "SCP-V29/1.0"}, timeout=8)
         if data and "current" in data:
             result = {"value": float(data["current"]["temperature_2m"]), "source": "Open-Meteo"}
-            # [V36] Cache 30min
+            #  Cache 30min
             try:
                 from scp.core.smart_cache import get_smart_cache
                 get_smart_cache().set("openmeteo", f"weather_{lat:.2f}_{lon:.2f}", result, "Open-Meteo")
@@ -164,7 +164,7 @@ def fetch_weather_multi(city: str) -> dict[str, Any]:
     """
     Fetch temperature từ 3 sources, trả consensus value.
 
-    [V32] Parallel fetch — gọi 3 sources song song.
+     Parallel fetch — gọi 3 sources song song.
     Speedup: 5s → 1.8s (~65% faster).
 
     Returns:
@@ -187,7 +187,7 @@ def fetch_weather_multi(city: str) -> dict[str, Any]:
     all_values: list[dict] = []
     succeeded: list[str] = []
 
-    # [V32] Strategy: Open-Meteo primary (~500ms), chỉ gọi Archive nếu fail
+    #  Strategy: Open-Meteo primary (~500ms), chỉ gọi Archive nếu fail
     # Speed: 500ms thay vì 2s (4x faster)
 
     # Source 1: Open-Meteo (primary — fast)
@@ -350,12 +350,12 @@ def fetch_chemistry_multi(compound: str) -> dict[str, Any]:
     """
     Fetch molecular weight từ PubChem + Wikidata.
 
-    [V32] Parallel fetch — 2 sources song song.
+     Parallel fetch — 2 sources song song.
     """
     all_values: list[dict] = []
     succeeded: list[str] = []
 
-    # [V32] Parallel fetch
+    #  Parallel fetch
     import threading
     from concurrent.futures import ThreadPoolExecutor, as_completed
 

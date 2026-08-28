@@ -1,4 +1,4 @@
-"""[G3-STUB] brain.py — re-exports KnowledgeStore + init_knowledge_db stub.
+""" brain.py — re-exports KnowledgeStore + init_knowledge_db stub.
 
 Previous version: 796 LOC with SCPV14Brain, LearningEngine, ReasoningEngine,
 KnowledgeStore (SQLite-backed). All dead on /ask path — only brain/error_store.py

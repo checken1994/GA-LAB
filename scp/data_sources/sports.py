@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V46] SportsDataSource — Thể thao & Giải trí
+ SportsDataSource — Thể thao & Giải trí
 Bao gồm: Olympic, FIFA World Cup, athletes, sports rules.
 Fallback: LiveKnowledgeFetcher (Wikipedia).
 """
@@ -51,7 +51,7 @@ class SportsDataSource(IDataSource):
                                  'top_country': 'USA'},
             'moscow 1980': {'year': 1980, 'city': 'Moscow', 'country': 'USSR',
                             'top_country': 'USSR', 'note': 'Boycott by USA'},
-            # [V63] Add "olympic YYYY" aliases
+            #  Add "olympic YYYY" aliases
             'olympic 2024': {'year': 2024, 'city': 'Paris', 'country': 'France', 'top_country': 'USA'},
             'olympic 2020': {'year': 2021, 'city': 'Tokyo', 'country': 'Japan', 'top_country': 'USA'},
             'olympic 2016': {'year': 2016, 'city': 'Rio de Janeiro', 'country': 'Brazil', 'top_country': 'USA'},

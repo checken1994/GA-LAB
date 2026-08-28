@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] HeritageDataSource - Data source cho Di sản văn hóa
+ HeritageDataSource - Data source cho Di sản văn hóa
 """
 
 import logging

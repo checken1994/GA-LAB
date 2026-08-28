@@ -21,7 +21,7 @@ logger = logging.getLogger("scp.real_fetcher")
 try:
     import requests
     HAS_REQUESTS = True
-    # [V70] Persistent session for connection pooling — reuses TCP connections
+    #  Persistent session for connection pooling — reuses TCP connections
     _SESSION = requests.Session()
     _SESSION.headers.update({
         'User-Agent': 'SCP-V70-Bot/1.0 (https://scp-vietnam.example.com; '
@@ -38,7 +38,7 @@ try:
 except Exception:
     _DB_AVAILABLE = False
 
-# [V70] Source health tracking — skip sources that fail 3 times in a row
+#  Source health tracking — skip sources that fail 3 times in a row
 # [EXEC-3] _SOURCE_HEALTH_LOCK must be a real Lock — it is mutated from
 # ThreadPoolExecutor workers. Was None → race condition on _SOURCE_HEALTH dict.
 _SOURCE_HEALTH: dict[str, int] = {}  # source_name → consecutive_failures
@@ -69,7 +69,7 @@ def init_external_questions_db():
                 UNIQUE(question)
             )
         """)
-        # [V72] Indexes for fast get_unused() and stats queries
+        #  Indexes for fast get_unused() and stats queries
         db_exec("CREATE INDEX IF NOT EXISTS idx_eq_used ON external_questions(used, fetched_at)")
         db_exec("CREATE INDEX IF NOT EXISTS idx_eq_source ON external_questions(source)")
         db_exec("CREATE INDEX IF NOT EXISTS idx_eq_domain ON external_questions(domain)")
@@ -80,7 +80,7 @@ def init_external_questions_db():
 # ============================================================
 # HTTP Helper
 # ============================================================
-# [V70] Reduced timeout from 15s → 5s. With parallel fetching, slow sources
+#  Reduced timeout from 15s → 5s. With parallel fetching, slow sources
 # don't block others — 5s is enough for fast sources, slow ones get skipped.
 _DEFAULT_TIMEOUT = 3  # [V88 BOOST] 3s (was 5s) — fail fast, don't block cycle
 
@@ -89,7 +89,7 @@ def _http_get_json(url: str, timeout: int = _DEFAULT_TIMEOUT, headers: Optional[
     """GET request, return parsed JSON. Returns None on error or timeout."""
     try:
         if HAS_REQUESTS and _SESSION is not None:
-            # [V70] Use persistent session — connection pooling reduces overhead ~30%
+            #  Use persistent session — connection pooling reduces overhead ~30%
             r = _SESSION.get(url, timeout=timeout, headers=headers or {})
             if r.status_code == 200:
                 try:
@@ -180,7 +180,7 @@ def _clean(s: str, maxlen: int = 500) -> str:
 # ============================================================
 def _extract_specific_fact(title: str, extract: str, lang: str) -> Optional[tuple]:
     """
-    [V71] Extract 1 specific fact (question, real_value) from a Wikipedia extract.
+     Extract 1 specific fact (question, real_value) from a Wikipedia extract.
 
     Returns: (question, real_value) or None if no extractable fact.
     Strategy:

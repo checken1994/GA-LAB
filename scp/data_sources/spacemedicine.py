@@ -1,4 +1,4 @@
-"""[V96] SpaceMedicineDataSource"""
+""" SpaceMedicineDataSource"""
 import logging
 
 from scp.interfaces.data_source import IDataSource

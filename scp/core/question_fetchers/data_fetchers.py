@@ -22,10 +22,10 @@ from scp.core.question_fetchers._common import (
 
 def fetch_nasa_apod(n: int = 3) -> list[dict]:
     """NASA Astronomy Picture of the Day.
-    [V78] Skip if source has failed recently (NASA DEMO_KEY rate limit: 30/hour, 50/day).
+     Skip if source has failed recently (NASA DEMO_KEY rate limit: 30/hour, 50/day).
     """
     results = []
-    # [V78] Check source health — skip if failed 3+ times
+    #  Check source health — skip if failed 3+ times
     # [ROOT-FIX 3] Use _SOURCE_HEALTH_LOCK — was declared but never used → race with
     # ThreadPoolExecutor workers in RealQuestionFetcher.fetch() that mutate the same dict.
     with _SOURCE_HEALTH_LOCK:

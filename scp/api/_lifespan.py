@@ -52,7 +52,7 @@ logger = logging.getLogger("scp.api")
 @asynccontextmanager
 
 def _get_judge_lazy():
-    """Get judge if ready, else return None. [R18-FIX-2]"""
+    """Get judge if ready, else return None. """
     try:
         from scp.api_server_parts.helpers import _judge
         return _judge
@@ -208,8 +208,8 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
     # This is ACCEPTABLE — benchmark polls /health, not /ask.
 
     # Yield immediately — let uvicorn bind port + accept /health requests
-    logger.info("[R18-FIX-2] Yielding lifespan NOW — port will bind immediately")
-    logger.info("[R18-FIX-2] get_judge() will run in background thread")
+    logger.info(" Yielding lifespan NOW — port will bind immediately")
+    logger.info(" get_judge() will run in background thread")
 
     # Start get_judge() in background thread (non-blocking)
     import threading as _threading_mod_r18
@@ -218,8 +218,8 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
         """Init judge in background — /ask will 503 until ready, /health works immediately."""
         try:
             judge = get_judge()
-            logger.info(f"[R18-FIX-2] Judge ready: {len(judge.slms)} SLMs")
-            logger.info(f"[R18-FIX-2] V98 status: {judge.get_v98_status()}")
+            logger.info(f" Judge ready: {len(judge.slms)} SLMs")
+            logger.info(f" V98 status: {judge.get_v98_status()}")
 
             try:
                 # schedule_background_jobs needs event loop — create one for this thread
@@ -228,17 +228,17 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                 _a_r18.set_event_loop(_loop)
                 _task = _loop.run_until_complete(judge.schedule_background_jobs())
                 _background_task_holder["task"] = _task
-                logger.info("[R18-FIX-2] Background scheduler started (ThreatSimulator 6h + IntelCrawler 12h)")
+                logger.info(" Background scheduler started (ThreatSimulator 6h + IntelCrawler 12h)")
 
-                # [R18-FIX-4] Wire V100 knowledge-crawler scheduler (was DEAD — DNA #19).
+                #  Wire V100 knowledge-crawler scheduler (was DEAD — DNA #19).
                 if hasattr(judge, "schedule_v100_background_jobs"):
                     _v100_task = _loop.run_until_complete(judge.schedule_v100_background_jobs())
                     _background_task_holder["v100_jobs"] = _v100_task
-                    logger.info("[R18-FIX-4] V100 knowledge-crawler scheduler started (6h interval)")
+                    logger.info(" V100 knowledge-crawler scheduler started (6h interval)")
                 else:
-                    logger.warning("[R18-FIX-4] schedule_v100_background_jobs not available on judge")
+                    logger.warning(" schedule_v100_background_jobs not available on judge")
 
-                # [R19-FIX-3] Wire ExternalTrustRoot — register anchor files + 24h verify (DNA #19).
+                #  Wire ExternalTrustRoot — register anchor files + 24h verify (DNA #19).
                 # BEFORE: register_file + verify_all_baselines had 0 callers → tamper detection dead.
                 # AFTER: register constitution + external_audit tests at startup, verify every 24h.
                 try:
@@ -256,16 +256,16 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                     for _af in _anchor_files:
                         if _trust.register_file(_af):
                             _registered += 1
-                    logger.info(f"[R19-FIX-3] ExternalTrustRoot: {_registered}/{len(_anchor_files)} anchor files registered")
+                    logger.info(f" ExternalTrustRoot: {_registered}/{len(_anchor_files)} anchor files registered")
 
                     # Initial verification at startup
                     _results = _trust.verify_all_baselines()
                     _all_ok = all(_results.values()) if _results else True
                     if _all_ok:
-                        logger.info(f"[R19-FIX-3] Startup integrity check: PASS ({len(_results)} files)")
+                        logger.info(f" Startup integrity check: PASS ({len(_results)} files)")
                     else:
                         _bad = [k for k, v in _results.items() if not v]
-                        logger.error(f"[R19-FIX-3] STARTUP INTEGRITY CHECK FAILED: {_bad}")
+                        logger.error(f" STARTUP INTEGRITY CHECK FAILED: {_bad}")
 
                     # Schedule 24h periodic verification
                     def _trust_verify_loop():
@@ -276,11 +276,11 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                                 _r = _trust.verify_all_baselines()
                                 if not all(_r.values()):
                                     _bad = [k for k, v in _r.items() if not v]
-                                    logger.error(f"[R19-FIX-3] TAMPER DETECTED: {_bad}")
+                                    logger.error(f" TAMPER DETECTED: {_bad}")
                                 else:
-                                    logger.info(f"[R19-FIX-3] 24h integrity check: PASS ({len(_r)} files)")
+                                    logger.info(f" 24h integrity check: PASS ({len(_r)} files)")
                             except Exception as _e:
-                                logger.warning(f"[R19-FIX-3] Integrity check error: {_e}")
+                                logger.warning(f" Integrity check error: {_e}")
                             _t.sleep(86400)  # 24h
 
                     _trust_thread = _threading_mod_r18.Thread(
@@ -289,9 +289,9 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                     _trust_thread.start()
                     _background_task_holder["trust_verify"] = _trust_thread
                 except Exception as _trust_err:
-                    logger.warning(f"[R19-FIX-3] ExternalTrustRoot init failed: {_trust_err}")
+                    logger.warning(f" ExternalTrustRoot init failed: {_trust_err}")
 
-                # [R19-FIX-4] Wire domain_store.verify_all_baselines (DNA #19).
+                #  Wire domain_store.verify_all_baselines (DNA #19).
                 # BEFORE: verify_all_baselines had 0 callers → domain file tamper detection dead.
                 # AFTER: periodic 24h verification (runs alongside _trust_verify_loop).
                 try:
@@ -308,11 +308,11 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                                         if isinstance(_r, dict):
                                             _bad = [k for k, v in _r.items() if isinstance(v, dict) and not v.get("ok", True)]
                                             if _bad:
-                                                logger.warning(f"[R19-FIX-4] Domain store baseline mismatches: {_bad}")
+                                                logger.warning(f" Domain store baseline mismatches: {_bad}")
                                             else:
-                                                logger.info(f"[R19-FIX-4] Domain store 24h check: PASS")
+                                                logger.info(f" Domain store 24h check: PASS")
                                     except Exception as _e:
-                                        logger.warning(f"[R19-FIX-4] Domain store verify error: {_e}")
+                                        logger.warning(f" Domain store verify error: {_e}")
                                     _t.sleep(86400)
 
                             _ds_thread = _threading_mod_r18.Thread(
@@ -320,15 +320,15 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                             )
                             _ds_thread.start()
                             _background_task_holder["ds_verify"] = _ds_thread
-                            logger.info("[R19-FIX-4] Domain store baseline verifier scheduled (24h)")
+                            logger.info(" Domain store baseline verifier scheduled (24h)")
                 except Exception as _ds_err:
-                    logger.warning(f"[R19-FIX-4] Domain store verify wire failed: {_ds_err}")
+                    logger.warning(f" Domain store verify wire failed: {_ds_err}")
 
             except Exception as e:
-                logger.warning(f"[R18-FIX-2] Background scheduler failed: {e}")
+                logger.warning(f" Background scheduler failed: {e}")
         except Exception as e:
-            logger.error(f"[R18-FIX-2] Judge init FAILED: {e}")
-            logger.error("[R18-FIX-2] /ask will return 503 until judge is available")
+            logger.error(f" Judge init FAILED: {e}")
+            logger.error(" /ask will return 503 until judge is available")
 
     _judge_thread = _threading_mod_r18.Thread(
         target=_init_judge_background,
@@ -336,9 +336,9 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
         daemon=True,
     )
     _judge_thread.start()
-    logger.info("[R18-FIX-2] Judge init dispatched to background thread")
+    logger.info(" Judge init dispatched to background thread")
 
-    # [R18-FIX-2] Background scheduler now started inside _init_judge_background()
+    #  Background scheduler now started inside _init_judge_background()
     # (was: asyncio.create_task here — but `judge` isn't available synchronously anymore)
     # The background thread will start schedule_background_jobs() after judge is ready.
 
@@ -407,7 +407,7 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                 await asyncio.sleep(3600)  # 1h (matches AsnDetector._tor_last_refresh TTL)
 
         _tor_task = asyncio.create_task(_tor_refresh_loop())
-        # [R7-2] Keep a STRONG reference in a module-level set so the asyncio GC
+        #  Keep a STRONG reference in a module-level set so the asyncio GC
         # cannot reap the task before completion (RUF006). add_done_callback discards
         # the ref on completion AND logs any unexpected exception (defensive — the
         # loop body already swallows, but a CancelledError or BaseException would
@@ -418,14 +418,14 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
             _tor_refresh_tasks.discard(t)
             if not t.cancelled() and t.exception() is not None:
                 logger.warning(
-                    f"[R7-2] Tor refresh task ended with exception: {t.exception()!r} "
+                    f" Tor refresh task ended with exception: {t.exception()!r} "
                     f"— Tor exit-node detection may degrade to always-False."
                 )
 
         _tor_task.add_done_callback(_tor_task_done)
         _background_task_holder["tor_refresh"] = _tor_task
 
-        # [R7-2] Healthcheck: WARN if _tor_exits empty after 5min startup.
+        #  Healthcheck: WARN if _tor_exits empty after 5min startup.
         async def _tor_healthcheck():
             await asyncio.sleep(300)  # 5min warm-up (refresh_loop runs at +30s, so it
                                        # has had 4.5min to fetch + populate _tor_exits)
@@ -435,12 +435,12 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
                     _exits = getattr(_asn, "_tor_exits", None) if _asn else None
                     if not _exits:
                         logger.warning(
-                            "[R7-2] Tor exit-node list is EMPTY after startup warm-up — "
+                            " Tor exit-node list is EMPTY after startup warm-up — "
                             "is_tor(ip) is returning False for ALL IPs. Tor detection is "
                             "SILENTLY DEAD. Check network egress to check.torproject.org."
                         )
                 except Exception as _e:
-                    logger.debug(f"[R7-2] Tor healthcheck error: {_e}")
+                    logger.debug(f" Tor healthcheck error: {_e}")
                 await asyncio.sleep(3600)  # check hourly
 
         _tor_hc_task = asyncio.create_task(_tor_healthcheck())
@@ -454,7 +454,7 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
 
     # [SCP-DNA-FIX R6-7] Source: vulture (Category B dead safety control) + grep verify.
     # TẠI SAO: judge.schedule_v100_background_jobs() (judge.py:1079) was NEVER called.
-    # [R18-FIX-2] This now runs inside _init_judge_background() thread (after judge ready)
+    #  This now runs inside _init_judge_background() thread (after judge ready)
     # — was: asyncio.create_task here, but `judge` is async-init now.
     # The V100 scheduler will start in the background thread after judge is ready.
     # If /ask is called before judge ready → 503 (acceptable, /health still 200).
@@ -626,7 +626,7 @@ async def lifespan(app: FastAPI, *, get_judge, _background_task_holder: dict):
             _time.sleep(180)  # 3min warm-up (let judge fully init + first verdicts land)
             while True:
                 try:
-                    # [R18-FIX-2] Get judge lazily (may not be ready yet)
+                    #  Get judge lazily (may not be ready yet)
                     _j = None
                     try:
                         _j = get_judge()

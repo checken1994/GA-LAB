@@ -210,7 +210,7 @@ class WikipediaDataSource:
 
     def _extract_entity(self, question: str) -> str:
         """
-        [v27] Trích entity (chủ thể) từ câu hỏi — hỗ trợ VN + EN.
+         Trích entity (chủ thể) từ câu hỏi — hỗ trợ VN + EN.
         Trả về chuỗi dùng để search Wikipedia.
         """
         clean_q = re.sub(r'[?¿!]', '', question).strip()
@@ -269,7 +269,7 @@ class WikipediaDataSource:
 
     def verify(self, question, ai_answer):
         """
-        [v27] Verify AI answer bằng Wikipedia.
+         Verify AI answer bằng Wikipedia.
         Cải thiện: trích entity tốt hơn, hỗ trợ câu hỏi VN + EN.
         """
         if not ai_answer or not ai_answer.strip():
@@ -319,6 +319,6 @@ class WikipediaDataSource:
             return (VERDICT_UNKNOWN, f"Wikipedia partial match {ratio*100:.0f}%", wiki_data["extract"][:200])
         return (VERDICT_FAIL, f"Wikipedia mismatch {ratio*100:.0f}% (title={wiki_data.get('title','?')[:50]})", wiki_data["extract"][:200])
 
-# [V35] DELETED: RealityEngine class — dead code (V14 era, all checkers empty)
+#  DELETED: RealityEngine class — dead code (V14 era, all checkers empty)
 # Replaced by: DirectAPIVerifier (V27) + 11 SLMs (V27-V29) + multi-source (V29.1)
 # Kept WikipediaDataSource above (still used by adversary_verifier)

@@ -137,7 +137,7 @@ CISA_VENDOR_PROFILES = {
 
 
 def _boost_confidence_with_intel(threat_type: str, signals: dict, base_confidence: float) -> float:
-    """[V2] Boost confidence using honeypot patterns + ATT&CK + CISA KEV.
+    """ Boost confidence using honeypot patterns + ATT&CK + CISA KEV.
 
     TẠI SAO: v1 used generic ATT&CK signatures → confidence 0.41 (too low
     for escalation threshold 0.7). v2 adds real-world honeypot indicators
@@ -207,7 +207,7 @@ class AttackPredictor:
     Does NOT predict: human identities, lethal outcomes.
     """
 
-    # [V9.1-UPGRADE] Valid threat types for prediction verification
+    #  Valid threat types for prediction verification
     VALID_THREAT_TYPES = frozenset({
         "ddos", "apt", "supply_chain", "zero_day", "prompt_injection",
         # Aliases (normalized in _verify_prediction)
@@ -217,7 +217,7 @@ class AttackPredictor:
     def __init__(self):
         self._history: list[dict] = []
 
-    # [V9.1-UPGRADE] PredictionVerification layer — cùng cấp WHY (2-layer: action + self-verify).
+    #  PredictionVerification layer — cùng cấp WHY (2-layer: action + self-verify).
     # TẠI SAO: WHY gate (v9.0) hỏi "có nên predict không?" (action layer — necessity +
     # falsification). _verify_prediction hỏi "prediction này có đáng tin không?"
     # (verify layer). WHY + verify = cùng độ sâu (2 layer mỗi cái).
@@ -239,7 +239,7 @@ class AttackPredictor:
         - is_valid=True → prediction OK to act on
         """
         try:
-            # [V9.1-UPGRADE] Check 1: confidence > 0.5 (don't act on weak predictions)
+            #  Check 1: confidence > 0.5 (don't act on weak predictions)
             # TẠI SAO: prediction with conf ≤ 0.5 = "coin flip" — acting on it
             # wastes resources (false positives) and erodes trust. Spec V9.1
             # says "if not, don't act".
@@ -250,7 +250,7 @@ class AttackPredictor:
             if _conf <= 0.5:
                 return False, f"confidence too low ({_conf:.2f} ≤ 0.5) — don't act"
 
-            # [V9.1-UPGRADE] Check 2: threat_type is valid (one of the 5 known types)
+            #  Check 2: threat_type is valid (one of the 5 known types)
             # TẠI SAO: predictor must not return arbitrary types — only DDoS, APT,
             # SupplyChain, ZeroDay, PromptInjection (per SCP scope).
             _tt = (threat_type or "").strip().lower().replace("-", "_")
@@ -260,7 +260,7 @@ class AttackPredictor:
                     f"{sorted(self.VALID_THREAT_TYPES)}"
                 )
 
-            # [V9.1-UPGRADE] Check 3: cross-check với historical data
+            #  Check 3: cross-check với historical data
             # TẠI SAO: nếu đã predict threat_type này trước đây và prediction
             # was consistently wrong (low follow-through rate) → flag as unverified.
             # Tính "historical accuracy": of past predictions of this threat_type,
@@ -299,14 +299,14 @@ class AttackPredictor:
                         f"insufficient history ({len(_past_same_type)} past, need ≥3 for cross-check)"
                     )
             except Exception as _hist_err:
-                logger.debug(f"[V9.1-UPGRADE] historical cross-check failed (fail-open): {_hist_err}")
+                logger.debug(f" historical cross-check failed (fail-open): {_hist_err}")
                 return True, f"verified OK (conf={_conf:.2f}, type={_tt}) — history check error (fail-open)"
 
         except Exception as _verify_err:
-            logger.debug(f"[V9.1-UPGRADE] _verify_prediction error (fail-open): {_verify_err}")
+            logger.debug(f" _verify_prediction error (fail-open): {_verify_err}")
             return True, f"verify error (fail-open): {_verify_err}"
 
-    # [V9.1-UPGRADE] Audit log helper for V9.1 self-verify layer.
+    #  Audit log helper for V9.1 self-verify layer.
     def _audit_v91(self, event: str, payload: dict) -> None:
         try:
             import json as _json
@@ -324,7 +324,7 @@ class AttackPredictor:
             with open(_audit_path, "a", encoding="utf-8") as f:
                 f.write(_json.dumps(_entry, ensure_ascii=False) + "\n")
         except Exception as _audit_err:
-            logger.debug(f"[V9.1-UPGRADE] audit log error (fail-open): {_audit_err}")
+            logger.debug(f" audit log error (fail-open): {_audit_err}")
 
     def _score_threat_type(self, signals: dict, threat_type: str) -> float:
         """Calculate weighted score for a threat type given signals."""
@@ -459,7 +459,7 @@ class AttackPredictor:
         except Exception as _why_err:
             logger.debug(f"[V9.0-WHY-GATE] WHY Gate error (non-blocking, default allow): {_why_err}")
 
-        # [V9.1-UPGRADE] PredictionVerification layer — self-verify SAU khi predict.
+        #  PredictionVerification layer — self-verify SAU khi predict.
         # TẠI SAO: WHY gate (v9.0) hỏi "có nên predict không?" (action layer).
         # _verify_prediction hỏi "prediction này có đáng tin không?" (verify layer).
         # WHY + verify = cùng độ sâu (2 layer) như WHY (necessity + falsification).
@@ -475,7 +475,7 @@ class AttackPredictor:
             _verify_ok, _verify_reason = self._verify_prediction(best_type, confidence, probability)
             if not _verify_ok:
                 logger.info(
-                    f"[V9.1-UPGRADE] Prediction rejected by verify for {best_type} "
+                    f" Prediction rejected by verify for {best_type} "
                     f"(prob={probability:.2f}, conf={confidence:.2f}) — {_verify_reason}"
                 )
                 self._audit_v91("prediction_verify_reject", {
@@ -497,7 +497,7 @@ class AttackPredictor:
                 "probability": probability, "reason": _verify_reason,
             })
         except Exception as _verify_call_err:
-            logger.debug(f"[V9.1-UPGRADE] _verify_prediction call error (fail-open): {_verify_call_err}")
+            logger.debug(f" _verify_prediction call error (fail-open): {_verify_call_err}")
 
         logger.info(f"[Predictor] Forecast: {best_type} prob={probability:.2f} conf={confidence:.2f}")
         return forecast

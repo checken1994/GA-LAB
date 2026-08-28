@@ -1,5 +1,5 @@
 """
-[V9.1-UPGRADE] ImpactPrioritization layer — cùng cấp WHY (2-layer: action + self-verify).
+ ImpactPrioritization layer — cùng cấp WHY (2-layer: action + self-verify).
 
 TẠI SAO: WHY gate (v9.0) hỏi "có nên fix bug này không?" (action layer — necessity +
 falsification). _prioritize_bugs hỏi "fix bug nào TRƯỚC?" (verify/prioritize layer).
@@ -37,7 +37,7 @@ def _prioritize_bugs(bugs: list) -> list:
         On any error → fail-open (return original list order).
     """
     try:
-        # [V9.1-UPGRADE] Bug type → impact priority mapping
+        #  Bug type → impact priority mapping
         # CRITICAL: security bugs (CWE-based) + race conditions
         # HIGH: type/null safety (can crash production)
         # MEDIUM: SQL injection + resource leak (data/DoS risk)
@@ -109,10 +109,10 @@ def _prioritize_bugs(bugs: list) -> list:
                     },
                 }, ensure_ascii=False) + "\n")
         except Exception as _audit_err:
-            logger.debug(f"[V9.1-UPGRADE] prioritize audit log error (fail-open): {_audit_err}")
+            logger.debug(f" prioritize audit log error (fail-open): {_audit_err}")
 
         logger.info(
-            f"[V9.1-UPGRADE] Prioritized {len(_prioritized)} bugs: "
+            f" Prioritized {len(_prioritized)} bugs: "
             f"CRITICAL={_impact_counts.get(4,0)}, HIGH={_impact_counts.get(3,0)}, "
             f"MEDIUM={_impact_counts.get(2,0)}, LOW={_impact_counts.get(1,0)}, "
             f"UNKNOWN={_impact_counts.get(0,0)}"
@@ -120,5 +120,5 @@ def _prioritize_bugs(bugs: list) -> list:
         return _prioritized
 
     except Exception as _prio_err:
-        logger.debug(f"[V9.1-UPGRADE] _prioritize_bugs error (fail-open, original order): {_prio_err}")
+        logger.debug(f" _prioritize_bugs error (fail-open, original order): {_prio_err}")
         return list(bugs)  # fail-open — return original order

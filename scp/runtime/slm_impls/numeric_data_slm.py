@@ -31,7 +31,7 @@ class FinanceSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V30] Smart cache với per-source TTL
+        #  Smart cache với per-source TTL
         try:
             from scp.core.smart_cache import get_smart_cache
             cache = get_smart_cache()
@@ -109,7 +109,7 @@ class FinanceSLM(BaseSLM):
         resp = SLMResponse(question=question, answer=answer, confidence=confidence,
                            domain="finance", reasoning=reasoning, evidence=evidence,
                            slm_name=self.name, processing_time=time.time() - start)
-        # [V30] Save to smart cache với source-based TTL
+        #  Save to smart cache với source-based TTL
         try:
             source = evidence.get("source", "")
             cache.set("slm:FinanceSLM", question, resp, source)
@@ -166,7 +166,7 @@ class WeatherSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V30] Smart cache check
+        #  Smart cache check
         try:
             from scp.core.smart_cache import get_smart_cache
             cached = get_smart_cache().get("slm:WeatherSLM", question)
@@ -241,7 +241,7 @@ class WeatherSLM(BaseSLM):
 
 
 # ============================================================
-# LOGIC SLM — [v28] Boolean/comparison (deterministic)
+# LOGIC SLM —  Boolean/comparison (deterministic)
 # ============================================================
 class LogicSLM(BaseSLM):
     """SLM chuyên về logic — dùng math_evaluator cho boolean/comparison."""
@@ -254,7 +254,7 @@ class LogicSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("LogicSLM", question)
@@ -333,7 +333,7 @@ class LogicSLM(BaseSLM):
             slm_name=self.name, processing_time=time.time() - start,
         )
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("LogicSLM", question, resp, evidence.get("source", "PythonAST"))
@@ -347,7 +347,7 @@ class LogicSLM(BaseSLM):
 
 
 # ============================================================
-# STATISTICS SLM — [v28] Mean/median/variance/std (deterministic)
+# STATISTICS SLM —  Mean/median/variance/std (deterministic)
 # ============================================================
 class StatisticsSLM(BaseSLM):
     """SLM chuyên về thống kê — deterministic Python math."""
@@ -362,7 +362,7 @@ class StatisticsSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("StatsSLM", question)
@@ -439,7 +439,7 @@ class StatisticsSLM(BaseSLM):
             slm_name=self.name, processing_time=time.time() - start,
         )
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("StatsSLM", question, resp, evidence.get("source", "PythonMath"))

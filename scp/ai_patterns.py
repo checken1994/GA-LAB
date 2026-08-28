@@ -57,7 +57,7 @@ EXPLANATION: <giải thích ngắn gọn>"""
 
     @classmethod
     def augment_prompt(cls, question: str, answer: str) -> tuple[str, str]:
-        """[R19-FIX-5] DEPRECATED — 0 callers (vulture confirmed).
+        """ DEPRECATED — 0 callers (vulture confirmed).
         Kept for backward compat. Use RealityJudge._llm_verify_reality_check instead.
         """
         user_prompt = (
@@ -92,7 +92,7 @@ class SelfConsistency:
         system_prompt: str,
         n_samples: int | None = None,
     ) -> dict:
-        """[R19-FIX-5] DEPRECATED — 0 callers (vulture confirmed).
+        """ DEPRECATED — 0 callers (vulture confirmed).
         Superseded by RealityJudge multi-SLM consensus (R8+). Kept for backward compat.
         """
         """Verify answer using self-consistency voting.

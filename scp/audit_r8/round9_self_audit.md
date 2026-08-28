@@ -195,7 +195,7 @@ $ grep -n 'R7-4\|COLD_START' /home/z/my-project/scp/knowledge/source_reputation.
 509:    # [SCP-DNA-FIX R7-4] Cold-start support: outcome-count accessor.
 518:    COLD_START_THRESHOLD = 10  # ≥10 outcomes → mature; <10 → cold-start (neutral)
 521:        """[SCP-DNA-FIX R7-4] Returns total observations (correct + incorrect)
-545:                f"[R7-4] get_outcome_count failed for source={source!r} "
+545:                f" get_outcome_count failed for source={source!r} "
 ```
 
 **Verdict:** FALSE.
@@ -279,7 +279,7 @@ The "Now rewrites" phrasing is definitive: this is NEW code added by R7-Full, no
 $ grep -n 'R7-9\|triggers_file\|atomic.*rename' /home/z/my-project/scp/security/canary_monitor.py
 224:        [SCP-DNA-FIX R7-9] Prune both memory (self.tokens) AND disk (triggers_file).
 228:        file → disk leak. Now rewrites triggers_file atomically (.tmp + rename)
-240:            # [R7-9] Prune disk: rewrite triggers_file without expired tokens.
+240:            #  Prune disk: rewrite triggers_file without expired tokens.
 257:                    tmp = self.triggers_file.with_suffix(".tmp")
 259:                    tmp.replace(self.triggers_file)  # atomic rename
 ```

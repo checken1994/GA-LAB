@@ -1,4 +1,4 @@
-"""[V96] AudioVideoDataSource"""
+""" AudioVideoDataSource"""
 import logging
 
 from scp.interfaces.data_source import IDataSource

@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] ReligionDataSource - Data source cho Tôn giáo
+ ReligionDataSource - Data source cho Tôn giáo
 """
 
 import logging

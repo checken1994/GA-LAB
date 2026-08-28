@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V46] ArtsDataSource — Nghệ thuật & Thiết kế
+ ArtsDataSource — Nghệ thuật & Thiết kế
 Bao gồm: painters, art movements, music composers, films, design principles.
 Fallback: LiveKnowledgeFetcher (Wikipedia).
 """

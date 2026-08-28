@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] LogicDataSource - Data source cho Logic và Toán rời rạc
+ LogicDataSource - Data source cho Logic và Toán rời rạc
 """
 
 import logging

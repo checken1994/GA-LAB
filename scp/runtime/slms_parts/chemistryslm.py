@@ -108,7 +108,7 @@ class BaseSLM(ABC):
     def _healing_retry_slm(self, issue: dict) -> bool:
         """[V88 FIX] Clear smart cache for failed questions so they get re-processed."""
         try:
-            # _run_periodic_cleanup()  # [V89] deduplicated - function not available
+            # _run_periodic_cleanup()  #  deduplicated - function not available
             logger.info("[HEALING] Cleared smart cache for 50 recent failed questions")
             return True
         except Exception as e:
@@ -185,9 +185,9 @@ class ChemistrySLM(BaseSLM):
             r'molecular\s+weight\s+of\s+(.+?)\??$',
             r'molar\s+mass\s+of\s+(.+?)\??$',
             r'phân\s+tử\s+lượng\s+(?:của\s+)?(.+?)(?:\s+là|\?|$)',
-            # [V58] Add formula pattern — "công thức của X là gì"
+            #  Add formula pattern — "công thức của X là gì"
             r'(?:công\s+thức|formula)\s+(?:của\s+|of\s+)?(.+?)(?:\s+là\s+gì|\s+is\s+what|\?|$)',
-            # [V59] Add pattern: "X có công thức gì?" — subject before "có công thức"
+            #  Add pattern: "X có công thức gì?" — subject before "có công thức"
             r'(.+?)\s+có\s+công\s+thức\s+gì',
             r'(.+?)\s+có\s+công\s+thức\s+là\s+gì',
         ]
@@ -201,7 +201,7 @@ class ChemistrySLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V30] Smart cache check
+        #  Smart cache check
         try:
             from scp.core.smart_cache import get_smart_cache
             cached = get_smart_cache().get("slm:ChemSLM", question)
@@ -222,7 +222,7 @@ class ChemistrySLM(BaseSLM):
         reasoning = ""
         evidence: dict[str, Any] = {}
 
-        # [V60] If question asks for formula, return formula not molar mass
+        #  If question asks for formula, return formula not molar mass
         is_formula_question = any(kw in question.lower() for kw in ['công thức', 'formula'])
 
         if compound and is_formula_question:
@@ -258,7 +258,7 @@ class ChemistrySLM(BaseSLM):
             except Exception as e:
                 logger.warning(f"Silent except: {e}")
 
-            # 1.5) [V63] Check ChemistryDataSource local DB BEFORE calling PubChem API
+            # 1.5)  Check ChemistryDataSource local DB BEFORE calling PubChem API
             if not answer:
                 try:
                     from scp.data_sources.chemistry import ChemistryDataSource

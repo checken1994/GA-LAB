@@ -28,8 +28,8 @@ class MathSLM(BaseSLM):
 
     def __init__(self, config: Optional[dict] = None):
         super().__init__(name="MathSLM", domain="math", config=config)
-        # [V35] RealityEngine deleted (dead code)
-        # [v27] Import deterministic evaluator
+        #  RealityEngine deleted (dead code)
+        #  Import deterministic evaluator
         from scp.core.math_evaluator import MathEvalError, evaluate_expression, extract_math_expression, verify_math
         self._extract_expr = extract_math_expression
         self._eval_expr = evaluate_expression
@@ -38,7 +38,7 @@ class MathSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("MathSLM", question)
@@ -53,7 +53,7 @@ class MathSLM(BaseSLM):
             self._end_timer(start, True)
             return cached_legacy
 
-        # [v27] Deterministic path — NO LLM
+        #  Deterministic path — NO LLM
         expr = self._extract_expr(question)
         if not expr:
             resp = SLMResponse(
@@ -121,7 +121,7 @@ class MathSLM(BaseSLM):
             processing_time=time.time() - start,
         )
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("MathSLM", question, resp, "PythonAST")
@@ -204,7 +204,7 @@ class BiologySLM(BaseSLM):
             "kích thước mắt": ("eye_diameter_mm", 24),
             "số lượng tế bào vị giác": ("taste_receptor_cells", 50000),
             "chiều dài tủy sống": ("spinal_cord_length_cm", 45),
-            # [V49] Organelle functions — match benchmark questions
+            #  Organelle functions — match benchmark questions
             "mitochondria": ("mitochondria_function", "Powerhouse of cell"),
             "chloroplast": ("chloroplast_function", "Photosynthesis"),
             "nucleus": ("nucleus_function", "Cell control center"),
@@ -217,24 +217,24 @@ class BiologySLM(BaseSLM):
             "rna viết tắt": ("rna_abbreviation", "Ribonucleic acid"),
             "atp viết tắt": ("atp_abbreviation", "Adenosine triphosphate"),
             "viết tắt": ("abbreviation_lookup", None),  # placeholder, handle below
-            # [V49] DNA base pairs
+            #  DNA base pairs
             "cặp base": ("dna_base_pairs", 4),
             "dna base": ("dna_base_pairs", 4),
             "base pairs": ("dna_base_pairs", 4),
-            # [V49] Organism info
+            #  Organism info
             "escherichia coli": ("e_coli", "Bacterium"),
             "e coli": ("e_coli", "Bacterium"),
             "homo sapiens": ("homo_sapiens", "Human"),
             "mus musculus": ("mus_musculus", "House mouse"),
             "danio rerio": ("danio_rerio", "Zebrafish"),
-            # [V49] Biological processes
+            #  Biological processes
             "quang hợp": ("photosynthesis", "Glucose and O2"),
             "photosynthesis": ("photosynthesis", "Glucose and O2"),
             "respiration": ("respiration", "CO2 and H2O and ATP"),
             "quan hệ nhiễm sắc": ("mitosis", "Two identical daughter cells"),
             "mitosis": ("mitosis", "Two identical daughter cells"),
             "meiosis": ("meiosis", "Four genetically different gametes"),
-            # [V52] More biology facts — match benchmark questions
+            #  More biology facts — match benchmark questions
             "dna có cấu trúc": ("dna_structure", "Double helix"),
             "dna structure": ("dna_structure", "Double helix"),
             "enzyme là": ("enzyme_def", "Catalyst"),
@@ -248,7 +248,7 @@ class BiologySLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("BioSLM", question)
@@ -303,7 +303,7 @@ class BiologySLM(BaseSLM):
             # GBIF integration would require new intent extraction logic
             pass
 
-        # [V75] PokeAPI integration — "What type is the Pokemon X?"
+        #  PokeAPI integration — "What type is the Pokemon X?"
         # Was: BiologySLM only knows human anatomy facts
         # Now: query PokeAPI for Pokemon type
         if not answer:
@@ -330,7 +330,7 @@ class BiologySLM(BaseSLM):
                     reasoning = f"PokeAPI error: {e}"
                     confidence = 0.0
 
-        # [V75] Fruityvice fallback — "What is the nutritional value of X?" if X is a fruit
+        #  Fruityvice fallback — "What is the nutritional value of X?" if X is a fruit
         if not answer and 'nutritional value' in q_lower:
             import re as _re
             m = _re.search(r'nutritional\s+value\s+of\s+(\w+)', q_lower)
@@ -366,7 +366,7 @@ class BiologySLM(BaseSLM):
                            domain="biology", reasoning=reasoning, evidence=evidence,
                            slm_name=self.name, processing_time=time.time() - start)
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("BioSLM", question, resp, evidence.get("source", "InternalKB"))
@@ -388,5 +388,5 @@ class BiologySLM(BaseSLM):
 
 
 # ============================================================
-# CHEMISTRY SLM — [v28] PubChem + local KB
+# CHEMISTRY SLM —  PubChem + local KB
 # ============================================================

@@ -13,7 +13,7 @@ Routes:
   POST /v105/autofix/run-audit                            Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â Trigger deep audit cycle
   GET  /v105/autofix/monitor                              Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â [OPT-31] AutoFixMonitor stats (success rate by bug_type/provider/diagnosis)
   POST /v105/autofix/cleanup-cache                        Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â [OPT-32] Remove legacy broken SmartCache disk entries
-  POST /v105/autofix/rollback/{rollback_token}            Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â [R7-13] Revert a specific auto-approved fix
+  POST /v105/autofix/rollback/{rollback_token}            Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â  Revert a specific auto-approved fix
 """
 from __future__ import annotations
 
@@ -684,9 +684,9 @@ async def v105_autofix_rollback(rollback_token: str):
         with open(audit_log, "a", encoding="utf-8") as f:
             f.write(_json.dumps(rollback_entry, ensure_ascii=False) + "\n")
     except Exception as _e:
-        logger.warning(f"[R7-13] Failed to log rollback entry: {_e}")
+        logger.warning(f" Failed to log rollback entry: {_e}")
     logger.info(
-        f"[R7-13] Rollback SUCCESS: token={rollback_token} file={file_path_str} "
+        f" Rollback SUCCESS: token={rollback_token} file={file_path_str} "
         f"restored_hash={restored_hash[:12]}..."
     )
     return {

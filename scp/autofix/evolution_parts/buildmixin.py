@@ -106,7 +106,7 @@ class EvolutionEngineBuildMixin:
             _backup_content = target_path.read_text(encoding="utf-8")  # [V9.1] for rollback
         target_path.write_text(code, encoding="utf-8")
 
-        # [V9.1-UPGRADE] EvolutionValidation layer — self-verify module SAU khi write.
+        #  EvolutionValidation layer — self-verify module SAU khi write.
         # TẠI SAO: WHY gate (v9.0) hỏi "có nên build module này không?" (action layer —
         # necessity + falsification). _validate_evolved_module hỏi "module vừa build
         # có thực sự work không? Có interfaces đúng không? Có break tests không?"
@@ -117,7 +117,7 @@ class EvolutionEngineBuildMixin:
             _validate_ok, _validate_reason = self._validate_evolved_module(spec, target_path)
             if not _validate_ok:
                 logger.warning(
-                    f"[V9.1-UPGRADE] Evolved module validation FAILED for {spec.name}: "
+                    f" Evolved module validation FAILED for {spec.name}: "
                     f"{_validate_reason} — ROLLING BACK"
                 )
                 self._audit_v91("evolution_validate_fail_rollback", {
@@ -128,13 +128,13 @@ class EvolutionEngineBuildMixin:
                 try:
                     if _backup_existed and _backup_content is not None:
                         target_path.write_text(_backup_content, encoding="utf-8")
-                        logger.info(f"[V9.1-UPGRADE] Rollback OK (restored backup) for {spec.name}")
+                        logger.info(f" Rollback OK (restored backup) for {spec.name}")
                     else:
                         if target_path.exists():
                             target_path.unlink()
-                        logger.info(f"[V9.1-UPGRADE] Rollback OK (deleted new file) for {spec.name}")
+                        logger.info(f" Rollback OK (deleted new file) for {spec.name}")
                 except Exception as _rb_err:
-                    logger.error(f"[V9.1-UPGRADE] Rollback FAILED for {spec.name}: {_rb_err}")
+                    logger.error(f" Rollback FAILED for {spec.name}: {_rb_err}")
                 self._rejected_by_why += 1  # count as rejected
                 self._write_rejected(action_desc, f"v91_validate_failed: {_validate_reason}")
                 return {
@@ -147,7 +147,7 @@ class EvolutionEngineBuildMixin:
                 "reason": _validate_reason,
             })
         except Exception as _validate_call_err:
-            logger.debug(f"[V9.1-UPGRADE] _validate_evolved_module call error (fail-open): {_validate_call_err}")
+            logger.debug(f" _validate_evolved_module call error (fail-open): {_validate_call_err}")
 
         # Wire (optional)
         wiring_results = []
@@ -199,7 +199,7 @@ class EvolutionEngineBuildMixin:
           4. Quick smoke test — call a no-op function or instantiate class
         """
         try:
-            # [V9.1-UPGRADE] Check 1: ast.parse — file must be valid Python
+            #  Check 1: ast.parse — file must be valid Python
             try:
                 import ast as _ast
                 _code = filepath.read_text(encoding="utf-8")
@@ -209,7 +209,7 @@ class EvolutionEngineBuildMixin:
             except Exception as _parse_err:
                 return False, f"parse check failed: {_parse_err}"
 
-            # [V9.1-UPGRADE] Check 2: importlib.import_module — module can be imported
+            #  Check 2: importlib.import_module — module can be imported
             # TẠI SAO: syntax OK ≠ importable. Module might have missing deps,
             # circular imports, or runtime errors at module level. Test bằng cách
             # import thật (fail-open if import machinery unavailable).
@@ -229,7 +229,7 @@ class EvolutionEngineBuildMixin:
             except Exception as _import_err:
                 return False, f"import setup failed: {_import_err}"
 
-            # [V9.1-UPGRADE] Check 3: required interfaces present (check via AST)
+            #  Check 3: required interfaces present (check via AST)
             # TẠI SAO: spec.interfaces lists the public functions/classes the module
             # MUST expose. Walk the AST and check each interface name exists as a
             # top-level def/class assignment.
@@ -255,10 +255,10 @@ class EvolutionEngineBuildMixin:
                         f"(defined: {sorted(_defined_names)[:10]}...)"
                     )
             except Exception as _iface_err:
-                logger.debug(f"[V9.1-UPGRADE] interface check failed (fail-open): {_iface_err}")
+                logger.debug(f" interface check failed (fail-open): {_iface_err}")
                 # Fail-open — can't check interfaces, don't block
 
-            # [V9.1-UPGRADE] Check 4: quick smoke test — instantiate/evaluate safely
+            #  Check 4: quick smoke test — instantiate/evaluate safely
             # TẠI SAO: module can have valid syntax + interfaces but still crash
             # at runtime (e.g., NameError in default arg, KeyError in module-level
             # dict comprehension). Quick test: try to exec module in isolated
@@ -276,14 +276,14 @@ class EvolutionEngineBuildMixin:
                     return False, "module has no function/class definitions (empty module?)"
                 # Docstring is recommended but not strictly required
                 if not _has_docstring:
-                    logger.debug(f"[V9.1-UPGRADE] module {spec.name} has no docstring (warning)")
+                    logger.debug(f" module {spec.name} has no docstring (warning)")
             except Exception as _smoke_err:
-                logger.debug(f"[V9.1-UPGRADE] smoke test failed (fail-open): {_smoke_err}")
+                logger.debug(f" smoke test failed (fail-open): {_smoke_err}")
 
             return True, "module validated OK (syntax + importable + interfaces + smoke)"
 
         except Exception as _validate_err:
-            logger.debug(f"[V9.1-UPGRADE] _validate_evolved_module error (fail-open): {_validate_err}")
+            logger.debug(f" _validate_evolved_module error (fail-open): {_validate_err}")
             return True, f"validate error (fail-open): {_validate_err}"
 
 

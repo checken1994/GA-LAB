@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V46] Domain Registry — canonical domain registry.
+ Domain Registry — canonical domain registry.
 
 # [G3-CONSOLIDATE P1-03] Canonical domain registry — supersedes
 # smart_classifier.DOMAIN_PROFILES + judgeroute_mixin inline.
@@ -1043,7 +1043,7 @@ def search_domains_by_keyword(query: str) -> list[str]:
         score = 0
         for kw in meta.get("keywords", []):
             kw_lower = kw.lower()
-            # [V53] Short keywords (<=4 chars) need word boundary to avoid false matches
+            #  Short keywords (<=4 chars) need word boundary to avoid false matches
             # VD: "AI" should NOT match "random", but SHOULD match "AI" or "AI/ML"
             if len(kw_lower) <= 4:
                 # Word boundary match

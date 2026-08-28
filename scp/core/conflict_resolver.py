@@ -110,7 +110,7 @@ def get_source_weight(source: str | None, value_dict: dict | None = None) -> flo
     (suspect → half vote; verified → full vote; blocked → caller filters out
     before resolve_value sees them).
     """
-    # [R7-6] Apply caller-provided effective_weight as a MULTIPLIER on top of
+    #  Apply caller-provided effective_weight as a MULTIPLIER on top of
     # the hardcoded SOURCE_WEIGHTS baseline. This preserves backward-compat
     # (callers that don't pass effective_weight get the same weight as before)
     # while letting the watchlist tier-aware gate weaken suspect sources.
@@ -127,7 +127,7 @@ def get_source_weight(source: str | None, value_dict: dict | None = None) -> flo
     # Direct match
     if source in SOURCE_WEIGHTS:
         return SOURCE_WEIGHTS[source] * _effective_multiplier
-    # [V48] Partial match — find longest matching source name
+    #  Partial match — find longest matching source name
     best_weight = 0.5
     best_len = 0
     for src_name, weight in SOURCE_WEIGHTS.items():
@@ -189,7 +189,7 @@ def resolve_majority_vote(values: list[dict]) -> ConflictResult:
                               False, 0, values, "No valid values")
 
     # Find value with most votes (weighted by source confidence)
-    # [R7-6] Pass value_dict so get_source_weight honors effective_weight multiplier.
+    #  Pass value_dict so get_source_weight honors effective_weight multiplier.
     best_val_str = ""
     best_weight = -1.0
     for val_str, group in by_value.items():
@@ -228,7 +228,7 @@ def resolve_weighted_avg(values: list[dict]) -> ConflictResult:
     for v in values:
         f = _to_float(v.get("value"))
         if f is not None:
-            w = get_source_weight(v.get("source"), v)  # [R7-6] pass value_dict
+            w = get_source_weight(v.get("source"), v)  #  pass value_dict
             nums.append((f, w, v.get("source", "?")))
 
     if not nums:
@@ -395,7 +395,7 @@ def log_conflict(entity: str, attribute: str, values: list[dict],
                         "strategy": resolved.strategy}),
             entity.lower(), attribute
         ))
-        # [R7-8] If UPDATE matched 0 rows, INSERT a new row (don't silent fail).
+        #  If UPDATE matched 0 rows, INSERT a new row (don't silent fail).
         # db_exec() returns int (rowcount) directly.
         rowcount = cursor if isinstance(cursor, int) else getattr(cursor, "rowcount", None)
         if rowcount == 0:
@@ -409,8 +409,8 @@ def log_conflict(entity: str, attribute: str, values: list[dict],
                             "strategy": resolved.strategy}),
                 _time.time()
             ))
-            logger.debug(f"[R7-8] log_conflict: INSERTed new row for entity='{entity}' attr='{attribute}' (UPDATE matched 0)")
-            # [R7-8] Track fallback metric for observability — how often the
+            logger.debug(f" log_conflict: INSERTed new row for entity='{entity}' attr='{attribute}' (UPDATE matched 0)")
+            #  Track fallback metric for observability — how often the
             # silent no-op path was hit. Operators can query this counter to
             # see how many conflicts had no pre-existing knowledge_summaries row
             # (which usually means entity fallback to question text is firing).
@@ -423,7 +423,7 @@ def log_conflict(entity: str, attribute: str, values: list[dict],
             except Exception as _metric_err:
                 logger.debug(f"[conflict_resolver] metric tracking fallback failed: {_metric_err}")
         else:
-            # [R7-8] Track UPDATE path too — lets operators see the ratio.
+            #  Track UPDATE path too — lets operators see the ratio.
             try:
                 _metrics = getattr(log_conflict, "_metrics", None)
                 if _metrics is None:

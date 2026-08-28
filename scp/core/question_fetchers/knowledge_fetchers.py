@@ -22,7 +22,7 @@ from scp.core.question_fetchers._common import (
 
 def fetch_wikipedia_random(lang: str = "vi", n: int = 5) -> list[dict]:
     """
-    [V71] Fetch N random Wikipedia articles IN PARALLEL.
+     Fetch N random Wikipedia articles IN PARALLEL.
     Extract specific facts instead of "Tell me about X" questions.
     """
     results = []
@@ -38,7 +38,7 @@ def fetch_wikipedia_random(lang: str = "vi", n: int = 5) -> list[dict]:
         if not title or not extract or len(extract) < 30:
             return None
         url = data.get("content_urls", {}).get("desktop", {}).get("page", "")
-        # [V71] Try to extract specific fact
+        #  Try to extract specific fact
         fact = _extract_specific_fact(title, extract, lang)
         if fact:
             question, real_value = fact
@@ -51,7 +51,7 @@ def fetch_wikipedia_random(lang: str = "vi", n: int = 5) -> list[dict]:
                 "category": data.get("type", "standard"),
             }
         else:
-            # [V71] Fallback: ask for short description (1 sentence)
+            #  Fallback: ask for short description (1 sentence)
             first_sent = extract.split('.')[0] + '.'
             if len(first_sent) > 30 and len(first_sent) < 300:
                 if lang == "vi":
@@ -68,7 +68,7 @@ def fetch_wikipedia_random(lang: str = "vi", n: int = 5) -> list[dict]:
                 }
         return None
 
-    # [V71] Parallel fetch N articles
+    #  Parallel fetch N articles
     with ThreadPoolExecutor(max_workers=min(n, 5)) as executor:
         futures = [executor.submit(_fetch_one_wiki, i) for i in range(n)]
         for future in as_completed(futures, timeout=30):

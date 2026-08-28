@@ -121,12 +121,12 @@ class CalibrationEngine:
         "math", "logic", "statistics", "reality", "biology",
         "geography", "history", "chemistry", "weather",
         "finance", "conversion", "unknown",
-        # [V79] Added V46 domains
+        #  Added V46 domains
         "medical", "technology", "sports", "legal", "arts",
-        # [V79] Added V73+ domains
+        #  Added V73+ domains
         "general", "entertainment", "religion", "food", "city",
         "astronomy",
-        # [V79] Added V78 domains
+        #  Added V78 domains
         "holiday", "animal_facts", "advice", "chuck_norris",
     ]
 
@@ -174,12 +174,12 @@ class CalibrationEngine:
                     question: str = "", cycle_id: int = 0) -> None:
         """Log 1 verdict vào calibration history.
 
-        [V32] Buffer in-memory, batch INSERT mỗi 20 verdicts.
-        [V39] Skip for deterministic domains — saves 60% DB writes.
+         Buffer in-memory, batch INSERT mỗi 20 verdicts.
+         Skip for deterministic domains — saves 60% DB writes.
         [V41.1] Skip PARTIAL/UNKNOWN/CONFLICT — only log PASS/FAIL.
                 PARTIAL = "chưa đủ điều kiện", không phải "sai" → không nên giảm confidence.
         """
-        # [V39] Skip logging for deterministic — they're always right, no calibration needed
+        #  Skip logging for deterministic — they're always right, no calibration needed
         if domain in ("math", "logic", "statistics", "reality"):
             return
 
@@ -219,7 +219,7 @@ class CalibrationEngine:
         #   - High confidence (conf > 0.7) + FAIL → MAY be false FAIL → NOT always correct
         #   - Low confidence (conf <= 0.5) + any → uncertain → not counted
         #
-        # [V82] New logic: FAIL is NOT automatically correct
+        #  New logic: FAIL is NOT automatically correct
         #   - PASS + conf > 0.5 → correct (SCP confirmed AI)
         #   - FAIL + conf > 0.7 → correct ONLY if we can verify AI was wrong
         #     Since we can't verify, treat as 50/50 → don't count (None)
@@ -443,7 +443,7 @@ class CalibrationEngine:
                 else:
                     factor = max(0.5, accuracy)  # Proportional to accuracy
 
-                # [V82] Removed V47 "preserve verified knowledge" override
+                #  Removed V47 "preserve verified knowledge" override
                 # Was: if fail_rate >= 0.40 and slm_caught_rate >= 0.70 → factor = 1.0
                 # This always triggered (SLM always conf > 0.7) → factor always 1.0
                 # Now: factor reflects actual pass_rate vs confidence

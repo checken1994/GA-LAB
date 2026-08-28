@@ -455,7 +455,7 @@ class FastLearningEngine:
                 entity = row["entity"]
                 row["value"]
                 # Sinh câu hỏi sâu hơn từ fact đã biết
-                # [P2-18 FIX] TẠI SAO: _store_kb lowercases the entity before INSERT
+                #  TẠI SAO: _store_kb lowercases the entity before INSERT
                 # (entity_lower = entity.lower()[:500]), but this loop checked
                 # `if country in entity` with COUNTRIES containing proper-case names
                 # ("Việt Nam"). Since stored entity is lowercase, "Việt Nam" never
@@ -594,7 +594,7 @@ class FastLearningEngine:
             logger.debug(f"Wikipedia verify failed: {e}")
             return {"verified": False, "confidence": 0.0}
 
-    # [V9.1-UPGRADE] LearningVerification layer — cùng cấp WHY (2-layer: action + self-verify).
+    #  LearningVerification layer — cùng cấp WHY (2-layer: action + self-verify).
     # TẠI SAO: WHY gate decides "có nên store không?" (action). _verify_learned_fact
     # decides "fact này CÓ ĐÚNG không khi đã quyết định store?" (self-verify).
     # WHY = necessity + falsification (trước action). Verify = cross-check (sau action).
@@ -615,7 +615,7 @@ class FastLearningEngine:
           3. Source sanity — source not from a blacklisted origin
         """
         try:
-            # [V9.1-UPGRADE] Check 1: basic validation
+            #  Check 1: basic validation
             if not entity or not isinstance(entity, str) or not entity.strip():
                 return False, "empty entity (spam/junk)", -1.0
             if not value or not isinstance(value, str) or len(value.strip()) < 2:
@@ -628,7 +628,7 @@ class FastLearningEngine:
             if len(set(_stripped)) < 3:
                 return False, "value too low entropy (spam/repeat)", -1.0
 
-            # [V9.1-UPGRADE] Check 2: cross-check with KB (2nd source)
+            #  Check 2: cross-check with KB (2nd source)
             # TẠI SAO: KB itself is the best "2nd source" available offline —
             # if KB already has a fact for this entity, we can cross-check.
             try:
@@ -658,7 +658,7 @@ class FastLearningEngine:
                     "entity": entity[:100], "source": source,
                     "error": type(_kb_err).__name__,
                 })
-                logger.error(f"[V9.1-UPGRADE] KB cross-check failed; fact rejected: {_kb_err}")
+                logger.error(f" KB cross-check failed; fact rejected: {_kb_err}")
                 return False, "KB cross-check infrastructure error", -1.0
 
         except Exception as _verify_err:
@@ -666,10 +666,10 @@ class FastLearningEngine:
                 "entity": entity[:100], "source": source,
                 "error": type(_verify_err).__name__,
             })
-            logger.error(f"[V9.1-UPGRADE] Verification failed; fact rejected: {_verify_err}")
+            logger.error(f" Verification failed; fact rejected: {_verify_err}")
             return False, "verification infrastructure error", -1.0
 
-    # [V9.1-UPGRADE] Audit log helper for V9.1 self-verify layer.
+    #  Audit log helper for V9.1 self-verify layer.
     # TẠI SAO: same pattern as why_gate_audit.jsonl — every verify decision logged
     # for forensic review. Fail-open: log failure must not break learning.
     def _audit_v91(self, event: str, payload: dict) -> bool:
@@ -686,7 +686,7 @@ class FastLearningEngine:
                 f.write(_json.dumps(_entry, ensure_ascii=False) + "\n")
             return True
         except Exception as _audit_err:
-            logger.error(f"[V9.1-UPGRADE] audit log error: {_audit_err}")
+            logger.error(f" audit log error: {_audit_err}")
             return False
 
     def _store_kb(self, entity: str, attribute: str, value: str, source: str, confidence: float) -> bool:
@@ -720,7 +720,7 @@ class FastLearningEngine:
             return False
 
         try:
-            # [V104.46 #CF] [P2-18 FIX] Check SourceWatchlist before writing to KB.
+            # [V104.46 #CF]  Check SourceWatchlist before writing to KB.
             # TẠI SAO: V104.46 #CF fix constructed `SourceWatchlist()` with NO args,
             # but the constructor requires `store: ReputationStore` → TypeError →
             # caught by except → "fail-open" logged → BUT the error path skipped
@@ -741,7 +741,7 @@ class FastLearningEngine:
                 logger.error(f"[V104.46 #CF] Watchlist check error; KB write blocked: {_wl_err}")
                 return False
 
-            # [V9.1-UPGRADE] LearningVerification layer — self-verify trước khi store.
+            #  LearningVerification layer — self-verify trước khi store.
             # TẠI SAO: WHY gate (v9.0) hỏi "có nên store không?" (action layer).
             # _verify_learned_fact hỏi "fact này đúng không?" (verify layer).
             # WHY + verify = cùng cấp độ sâu (2-layer action+self-verify) như WHY
@@ -751,7 +751,7 @@ class FastLearningEngine:
                 _is_valid, _verify_reason, _conf_adj = self._verify_learned_fact(entity, value, source)
                 if not _is_valid:
                     logger.info(
-                        f"[V9.1-UPGRADE] FastLearning fact rejected by verify: "
+                        f" FastLearning fact rejected by verify: "
                         f"entity={entity[:30]}, reason={_verify_reason}"
                     )
                     self._audit_v91("fast_learning_verify_reject", {
@@ -766,7 +766,7 @@ class FastLearningEngine:
                         # Cap at 0.5 for unverified facts (per V9.1 spec)
                         confidence = min(confidence, 0.5)
                         logger.info(
-                            f"[V9.1-UPGRADE] FastLearning fact downgraded to "
+                            f" FastLearning fact downgraded to "
                             f"unverified (conf={confidence:.2f}): entity={entity[:30]}, "
                             f"reason={_verify_reason}"
                         )
@@ -781,7 +781,7 @@ class FastLearningEngine:
                     "entity": entity[:100], "source": source,
                     "error": type(_verify_call_err).__name__,
                 })
-                logger.error(f"[V9.1-UPGRADE] Verification error; KB write blocked: {_verify_call_err}")
+                logger.error(f" Verification error; KB write blocked: {_verify_call_err}")
                 return False
 
             # [V104.24 #5] [AUDIT-2 FIX] Use db_exec with db_path=self.scp_db_path.
@@ -1401,7 +1401,7 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                         _consecutive_429 += 1
                         if _consecutive_429 >= 3:
                             logger.warning(
-                                f"[R17-FIX-10] {_consecutive_429} consecutive cycles with 0 verified "
+                                f" {_consecutive_429} consecutive cycles with 0 verified "
                                 f"(likely OpenRouter 429) — backing off 10 min"
                             )
                             heartbeat_sleep(engine._telemetry, 600, status="IDLE")

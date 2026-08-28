@@ -288,7 +288,7 @@ def run_once(
     except Exception as _why_err:
         logger.debug(f"[V9.0-WHY-GATE] WHY Gate error (non-blocking, default allow): {_why_err}")
 
-    # [V9.1-UPGRADE] ImpactPrioritization — prioritize bugs by impact (CRITICAL first).
+    #  ImpactPrioritization — prioritize bugs by impact (CRITICAL first).
     # TẠI SAO: WHY gate filters "should we fix this?" (action). Prioritization
     # decides "fix in what ORDER?" (verify/impact layer). WHY + prioritize = 2 layer.
     # CRITICAL (security/race) fixed before LOW (dead code/perf) — even with
@@ -298,11 +298,11 @@ def run_once(
         bugs = _prioritize_bugs(bugs)
         if len(bugs) != _bugs_before:
             logger.warning(
-                f"[V9.1-UPGRADE] _prioritize_bugs changed bug count "
+                f" _prioritize_bugs changed bug count "
                 f"({_bugs_before} → {len(bugs)}) — unexpected, investigate"
             )
     except Exception as _prio_call_err:
-        logger.debug(f"[V9.1-UPGRADE] _prioritize_bugs call error (fail-open): {_prio_call_err}")
+        logger.debug(f" _prioritize_bugs call error (fail-open): {_prio_call_err}")
 
     engine = get_autofix_engine()
 
@@ -315,7 +315,7 @@ def run_once(
     #         we don't want to brick the runner if the permission system has a bug,
     #         but operator sees the warning in logs.
     #
-    # [R18-FIX-3] ROOT FIX: use-before-def bug (DNA #22 — PASS ≠ TRUE).
+    #  ROOT FIX: use-before-def bug (DNA #22 — PASS ≠ TRUE).
     # BEFORE: summary["pending_permissions"] = ... was 9 lines BEFORE summary = {...}
     #         defined. Broad except at L287 caught NameError → logged "fail-open"
     #         → permission count NEVER recorded in audit summary.
@@ -325,7 +325,7 @@ def run_once(
         "processed": 0, "fixed": 0, "permission_requested": 0,
         "skipped": 0, "denied": 0, "details": [], "engine_stats": {},
         "source": source,
-        "pending_permissions": 0,  # [R18-FIX-3] initialize here, populated below
+        "pending_permissions": 0,  #  initialize here, populated below
     }
 
     try:
@@ -567,7 +567,7 @@ def _main() -> int:
     # [OPT-18-SCANNER] 1 NEW scanner flag for CWE-79 (XSS)
     parser.add_argument("--scan-xss", action="store_true",
                         help="Run XSSScanner only (CWE-79 reflected/stored XSS)")
-    # [R12-7] 2 previously-dead scanners — now wireable via CLI
+    #  2 previously-dead scanners — now wireable via CLI
     parser.add_argument("--scan-hypothesis", action="store_true",
                         help="Run HypothesisScanner only (property-based bug discovery)")
     parser.add_argument("--scan-self-audit", action="store_true",
@@ -679,7 +679,7 @@ def _main() -> int:
         (args.scan_dead_code, "dead_code"),
         # [OPT-18-SCANNER] 1 new scanner flag
         (args.scan_xss, "xss"),
-        # [R12-7] 2 previously-dead scanners — now wireable via CLI
+        #  2 previously-dead scanners — now wireable via CLI
         (args.scan_hypothesis, "hypothesis"),
         (args.scan_self_audit, "self_audit"),
     ]

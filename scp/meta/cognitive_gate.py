@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V45] Cognitive Gate — Cognitive layers AFFECT VERDICT.
+ Cognitive Gate — Cognitive layers AFFECT VERDICT.
 
 Trước V45: MetaFalsifier/CounterQuestion/ProofGraph chỉ display, không affect verdict
 V45: Cognitive Gate downgrade verdict khi:
@@ -16,7 +16,7 @@ V45: Cognitive Gate downgrade verdict khi:
   - CounterQuestion: phát hiện ambiguity → PASS → PARTIAL
   - RecursiveWhy: depth < 1 (chưa trace tới axiom) → PASS → PARTIAL
 
-[V50] Improvements:
+ Improvements:
   - RecursiveWhy returns "trusted_source" for PubChem/CODATA/etc → no more downgrade
   - Domain-specific CRITICAL_VECTORS for medical/legal/arts/sports/tech (V46 domains)
   - CognitiveGate logs every downgrade to DB (cognitive_gate_log table)
@@ -48,7 +48,7 @@ CRITICAL_VECTORS = {
     "codata_constants": {"source_agreement"},
     "biological_database": {"source_agreement"},
     "live_api_data": {"source_agreement", "temporal_freshness"},
-    # [V50] V46 domain-specific critical vectors
+    #  V46 domain-specific critical vectors
     "medical_fact": {"medical_guideline_currency", "dosage_range_check"},
     "legal_fact": {"jurisdiction_check", "effective_date_check"},
     "art_attribution": {"attribution_consensus", "period_consistency"},
@@ -80,13 +80,13 @@ class CognitiveGate:
             "downgraded_to_unknown": 0,
             "downgraded_to_partial": 0,
             "unchanged": 0,
-            "false_downgrades": 0,  # [V50] downgrade bị ReVerify chứng minh sai
-            "confirmed_downgrades": 0,  # [V50] downgrade đúng (ReVerify vẫn FAIL)
+            "false_downgrades": 0,  #  downgrade bị ReVerify chứng minh sai
+            "confirmed_downgrades": 0,  #  downgrade đúng (ReVerify vẫn FAIL)
         }
         self._init_db()
 
     def _init_db(self):
-        """[V50] Create cognitive_gate_log table for audit trail."""
+        """ Create cognitive_gate_log table for audit trail."""
         if not _DB_AVAILABLE:
             return
         try:
@@ -118,7 +118,7 @@ class CognitiveGate:
     def _log_downgrade(self, question: str, domain: str,
                        original: str, gated: str, reasons: list[str],
                        evidence_type: str = ""):
-        """[V50] Log downgrade to DB for audit + false_downgrade_rate tracking."""
+        """ Log downgrade to DB for audit + false_downgrade_rate tracking."""
         if not _DB_AVAILABLE:
             return
         try:
@@ -137,7 +137,7 @@ class CognitiveGate:
     def _log_evaluated(self, question: str, domain: str,
                        original: str, gated: str, reasons: list[str],
                        evidence_type: str = ""):
-        """[V65] Log EVERY evaluation (not just downgrades) for audit."""
+        """ Log EVERY evaluation (not just downgrades) for audit."""
         if not _DB_AVAILABLE:
             return
         try:
@@ -154,7 +154,7 @@ class CognitiveGate:
 
     def record_reverify_outcome(self, question: str, reverify_verdict: str):
         """
-        [V50] Called by ReVerifyScheduler when a downgraded verdict is re-verified.
+         Called by ReVerifyScheduler when a downgraded verdict is re-verified.
 
         If reverify_verdict == PASS → previous downgrade was FALSE → increment false_downgrades.
         If reverify_verdict in (FAIL, UNKNOWN) → downgrade was correct → increment confirmed.
@@ -162,7 +162,7 @@ class CognitiveGate:
         if not _DB_AVAILABLE:
             return
         try:
-            # [P2-21 FIX] TẠI SAO: the old query used `WHERE question LIKE ?` with
+            #  TẠI SAO: the old query used `WHERE question LIKE ?` with
             # parameter `question[:100]` (no wildcards). In SQLite, `LIKE` without
             # `%`/`_` wildcards behaves as an EXACT match on the full column value.
             # But the stored question could be >100 chars (if logged in full) OR
@@ -209,8 +209,8 @@ class CognitiveGate:
         cognitive_result: Optional[dict[str, Any]],
         evidence_type: str = "",
         sources_succeeded: Optional[list[str]] = None,
-        question: str = "",   # [V50] for logging
-        domain: str = "",     # [V50] for logging
+        question: str = "",   #  for logging
+        domain: str = "",     #  for logging
     ) -> tuple[str, list[str], str]:
         """
         Evaluate verdict qua cognitive gate.
@@ -353,7 +353,7 @@ class CognitiveGate:
                 reasons.append(
                     f"RecursiveWhy: depth={depth}, terminated at '{terminated_at}' (not trusted)"
                 )
-            # [V50] trusted_source and axiom are GOOD — no flag
+            #  trusted_source and axiom are GOOD — no flag
             # (V48 had: `if not is_verified_source and depth < 2` — needed verified_sources list)
 
         # 5. Source count check
@@ -370,7 +370,7 @@ class CognitiveGate:
         # Decide downgrade level
         if not reasons:
             self.stats["unchanged"] += 1
-            # [V65] Log even when unchanged — for audit trail
+            #  Log even when unchanged — for audit trail
             self._log_evaluated(question, domain, original_verdict, verdict, [], evidence_type)
             return verdict, [], original_verdict
 
@@ -382,7 +382,7 @@ class CognitiveGate:
             self.stats["downgraded_to_partial"] += 1
             gated = "PARTIAL"
 
-        # [V50] Log the downgrade to DB + structured log
+        #  Log the downgrade to DB + structured log
         self._log_downgrade(question, domain, original_verdict, gated, reasons, evidence_type)
         return gated, reasons, original_verdict
 

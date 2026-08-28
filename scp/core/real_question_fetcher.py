@@ -2,7 +2,7 @@
 SCP - Viet Nam | Self-Correcting Pipeline
 Copyright (c) 2026 SCP Vietnam Project. All Rights Reserved.
 
-[V67] Real Question Fetcher — 100% câu hỏi THẬT từ 12+ nguồn web đa lĩnh vực.
+ Real Question Fetcher — 100% câu hỏi THẬT từ 12+ nguồn web đa lĩnh vực.
 
 [Task 9-B] Refactored: fetch_* functions extracted to core/question_fetchers/
 subpackage. This file re-exports them for backward compatibility (external
@@ -127,9 +127,9 @@ class RealQuestionFetcher:
     def fetch_and_store(self, n: int = 30) -> dict[str, int]:
         """
         [V70→V71] Fetch N real questions from all sources IN PARALLEL, save to DB.
-        [V71] Batch-capable sources (OpenTDB, Trivia, Fruityvice, etc.) get more questions per call.
+         Batch-capable sources (OpenTDB, Trivia, Fruityvice, etc.) get more questions per call.
         """
-        # [V71] Sources that can fetch MANY questions in 1 API call → give them more
+        #  Sources that can fetch MANY questions in 1 API call → give them more
         BATCH_SOURCES = {
             "opentdb": 200,        # [V93.1] 50/call × 4
             "trivia_api": 200,     # [V93.1] 50/call × 4
@@ -159,7 +159,7 @@ class RealQuestionFetcher:
         all_questions: list[dict] = []
         all_start = time.time()
 
-        # [V70] Filter out sources that have failed 3+ times in a row
+        #  Filter out sources that have failed 3+ times in a row
         active_sources = []
         for source_name, fetcher_fn in self.FETCHERS:
             # [ROOT-FIX 3] Lock-protected read — _SOURCE_HEALTH is mutated by
@@ -172,7 +172,7 @@ class RealQuestionFetcher:
             per_source = BATCH_SOURCES.get(source_name, default_per_source)
             active_sources.append((source_name, fetcher_fn, per_source))
 
-        # [V70] Parallel fetch with ThreadPoolExecutor
+        #  Parallel fetch with ThreadPoolExecutor
         def _fetch_one(source_name, fetcher_fn, per_source):
             try:
                 if source_name == "wikipedia_vi":
@@ -201,7 +201,7 @@ class RealQuestionFetcher:
                 executor.submit(_fetch_one, name, fn, ps)
                 for name, fn, ps in active_sources
             ]
-            # [V75] Increased timeout from 30s → 120s to handle interval=2000+
+            #  Increased timeout from 30s → 120s to handle interval=2000+
             # (each source may need to make 50-100 API calls sequentially within itself)
             # Don't raise on timeout — just skip slow sources
             done_futures = []
@@ -209,7 +209,7 @@ class RealQuestionFetcher:
                 for future in as_completed(futures, timeout=30):  # [V88 BOOST] 20s (was 120s)
                     done_futures.append(future)
                     try:
-                        source_name, qs, err = future.result(timeout=10)  # [V88] per-future timeout
+                        source_name, qs, err = future.result(timeout=10)  #  per-future timeout
                         if err:
                             logger.warning(f"  {source_name}: FAILED - {err}")
                         else:
@@ -220,13 +220,13 @@ class RealQuestionFetcher:
             except TimeoutError:
                 # Some sources timed out — log and continue with what we have
                 timed_out = [f for f in futures if f not in done_futures]
-                logger.warning(f"  [V75] {len(timed_out)} sources timed out after 120s — continuing with {len(all_questions)} questions")
+                logger.warning(f"   {len(timed_out)} sources timed out after 120s — continuing with {len(all_questions)} questions")
                 # Cancel pending futures
                 for f in timed_out:
                     f.cancel()
 
         fetch_elapsed = time.time() - all_start
-        logger.info(f"[V70] Parallel fetch: {len(all_questions)} questions in {fetch_elapsed:.1f}s "
+        logger.info(f" Parallel fetch: {len(all_questions)} questions in {fetch_elapsed:.1f}s "
                     f"from {len(active_sources)}/{len(self.FETCHERS)} sources")
 
         # Store to DB

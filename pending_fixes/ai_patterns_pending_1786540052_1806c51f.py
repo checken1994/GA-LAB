@@ -5,7 +5,7 @@
 # <<<<<<< SEARCH
 # @classmethod
 # def augment_prompt(cls, question: str, answer: str) -> tuple[str, str]:
-#     """[R19-FIX-5] DEPRECATED — 0 callers (vulture confirmed).
+#     """ DEPRECATED — 0 callers (vulture confirmed).
 #     Kept for backward compat. Use RealityJudge._llm_verify_reality_check instead.
 #     """
 #     user_prompt = (f"Câu hỏi: {question[:500]}\n{f"Câu trả lời cần kiểm tra: {answer[:500]}\n\n{f"Hãy phân tích từng bước và kết luận."}"
@@ -14,7 +14,7 @@
 # <<<<<<< SEARCH
 # @classmethod
 # def verify_with_voting(cls, llm_client, question: str, answer: str, system_prompt: str, n_samples: int | None = None) -> dict:
-#     """[R19-FIX-5] DEPRECATED — 0 callers (vulture confirmed).
+#     """ DEPRECATED — 0 callers (vulture confirmed).
 #     Superseded by RealityJudge multi-SLM consensus (R8+). Kept for backward compat.
 #     """
 #     return {}

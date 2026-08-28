@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] PsychologyDataSource - Data source cho Tâm lý học
+ PsychologyDataSource - Data source cho Tâm lý học
 """
 
 import logging

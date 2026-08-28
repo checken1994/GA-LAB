@@ -458,7 +458,7 @@ async def lifespan(app: FastAPI):
     #   get_judge() at line 283 blocks lifespan → port doesn't bind → 503
     #
     # FIX: Move get_judge() to background thread, yield
-    # [WIRING-FIX] Restored background services
+    #  Restored background services
     from scp.audit_r9.audit_fetcher import AuditFetcher
     from scp.security.ai_threat_scanner import AIThreatScanner
     from scp.security.harm_detector import HarmDetector
@@ -469,7 +469,7 @@ async def lifespan(app: FastAPI):
     
     audit_fetcher.start()
     threat_scanner.start()
-    harm_detector.start() IMMEDIATELY.
+    harm_detector.start() 
     # DNA #26 (Reality > Model): Reality = log shows "Initializing RealityJudge"
     #   synchronously → port 8000 not bound → 503 for 2 hours.
     # ============================================================
@@ -876,7 +876,7 @@ except ImportError as e:
     logger.warning(f"[SCP Control] Control router unavailable: {e}")
     _CONTROL_ROUTES_AVAILABLE = False
 
-# [R12-10] Wire 4 previously-dead v105 routers (stream/threat/audit/prediction).
+#  Wire 4 previously-dead v105 routers (stream/threat/audit/prediction).
 
 # These routers existed in scp/api/routes/ but were never `include_router`-ed
 # (wiring-scan report). Each is wrapped in try/except to fail open (DNA #7:
@@ -892,25 +892,25 @@ try:
     from scp.api.routes.stream_routes import router as stream_router
     app.include_router(stream_router, tags=["stream"])
 except ImportError as _e:
-    logger.warning(f"[R12-10] stream_routes router unavailable: {_e}")
+    logger.warning(f" stream_routes router unavailable: {_e}")
 
 try:
     from scp.api.routes.threat_routes import router as threat_router
     app.include_router(threat_router, tags=["threats"])
 except ImportError as _e:
-    logger.warning(f"[R12-10] threat_routes router unavailable: {_e}")
+    logger.warning(f" threat_routes router unavailable: {_e}")
 
 try:
     from scp.api.routes.audit_routes import router as audit_router
     app.include_router(audit_router, tags=["audit"])
 except ImportError as _e:
-    logger.warning(f"[R12-10] audit_routes router unavailable: {_e}")
+    logger.warning(f" audit_routes router unavailable: {_e}")
 
 try:
     from scp.api.routes.prediction_routes import router as prediction_router
     app.include_router(prediction_router, tags=["predictions"])
 except ImportError as _e:
-    logger.warning(f"[R12-10] prediction_routes router unavailable: {_e}")
+    logger.warning(f" prediction_routes router unavailable: {_e}")
 
 # [Task 42-B / OPT-41] Register webhook router (POST /api/analyze, /api/register,
 # GET /api/threats, /api/alerts, /api/systems) │Ă¢â€Â¬Ă¢â‚¬Â additive, no existing route touched.
@@ -1170,7 +1170,7 @@ async def ask(req: AskRequest, request: Request):
             authorization=request.headers.get("Authorization", ""),
             request=request,
         )
-    if _ask_is_context_rag(req):
+    if True:  # ALL endpoints MUST go through TaskKernel now
         if not _ask_kernel_enabled(req):
             return _kernel_gate_unavailable_response(req, RuntimeError("rag_kernel_disabled"))
         adapter = _get_ask_kernel_adapter()
@@ -1184,10 +1184,10 @@ async def _ask_impl(req: AskRequest, request: Request):
     """Main endpoint │Ă¢â€Â¬Ă¢â‚¬Â question → V98 pipeline → verdict.
 
     Pipeline:
-      1. [V98] MemoryPoisoningGuard + AttackPatternMemory + ThreatDetector
-      2. [V88] Route → SLM predict → RealityJudge
-      3. [V97] FalsificationEngine + ErrorStore + Governance
-      4. [V98] AttackPolicy + CounterResponse + Canary + AttackPatternMemory.record_bypass
+      1.  MemoryPoisoningGuard + AttackPatternMemory + ThreatDetector
+      2.  Route → SLM predict → RealityJudge
+      3.  FalsificationEngine + ErrorStore + Governance
+      4.  AttackPolicy + CounterResponse + Canary + AttackPatternMemory.record_bypass
     """
     t0 = time.time()
     if _ask_is_context_rag(req):
@@ -2045,4 +2045,6 @@ try:
 except Exception as e:
     _OTEL_STATUS = {"enabled": False, "reason": type(e).__name__}
     logger.warning("[OTel] optional instrumentation unavailable: %s", type(e).__name__)
+
+
 

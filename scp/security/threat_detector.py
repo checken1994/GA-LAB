@@ -245,7 +245,7 @@ class AsnDetector:
         vpn_indicators = ["vpn", "proxy", "nordvpn", "expressvpn", "surfshark"]
         is_vpn = any(v in rdns_lower for v in vpn_indicators)
 
-        # [P2-22 FIX] TẠI SAO: V104.38 assumed "no PTR record → datacenter →
+        #  TẠI SAO: V104.38 assumed "no PTR record → datacenter →
         # ai_agent_2026 → block". This is a FALSE POSITIVE factory:
         #   - Many legitimate corporate/mobile/IPv6 networks have no PTR.
         #   - DNS lookup can transiently fail (timeout, recursive resolver issue).

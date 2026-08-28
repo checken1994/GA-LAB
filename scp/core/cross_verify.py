@@ -137,7 +137,7 @@ def cross_verify_entity(entity: str, question: str = "") -> dict[str, Any]:
     # 2+ sources: check agreement
     values = [r["value"] for r in results]
 
-    # [V91] Step 1: Check if entity name appears in ALL source texts
+    #  Step 1: Check if entity name appears in ALL source texts
     entity_lower = entity.lower()
     all_contain_entity = all(re.search(r"\b" + re.escape(entity_lower) + r"\b", str(v).lower()[:200]) for v in values)  # [V104.37 #84] TẠI SAO: substring "in" matched "running"
     if all_contain_entity:
@@ -147,7 +147,7 @@ def cross_verify_entity(entity: str, question: str = "") -> dict[str, Any]:
         return {"value": values[best_idx], "sources": [r["source"] for r in results],
                 "confidence": 0.75, "conflict": False, "raw_results": results}
 
-    # [V91] Step 2: Check if any key numbers are shared
+    #  Step 2: Check if any key numbers are shared
     all_numbers = []
     for v in values:
         nums = set(re.findall(r'\d+\.?\d*', str(v)))
@@ -161,7 +161,7 @@ def cross_verify_entity(entity: str, question: str = "") -> dict[str, Any]:
             return {"value": values[0], "sources": [r["source"] for r in results],
                     "confidence": 0.85, "conflict": False, "raw_results": results}
 
-    # [V91] Step 3: Check string overlap
+    #  Step 3: Check string overlap
     from difflib import SequenceMatcher
     similarities = []
     for i in range(len(values)):
@@ -365,7 +365,7 @@ def cross_verify_book(title: str) -> dict[str, Any]:
         return {"value": val, "sources": [src],
                 "confidence": conf, "conflict": False, "raw_results": results}
 
-    # [V91] Extract author from Open Library result (most reliable)
+    #  Extract author from Open Library result (most reliable)
     open_lib_result = next((r for r in results if r["source"] == "OpenLibrary"), None)
     if open_lib_result:
         # Open Library format: "Author: X, First published: Y"
@@ -379,7 +379,7 @@ def cross_verify_book(title: str) -> dict[str, Any]:
             return {"value": f"Author: {author}", "sources": [r["source"] for r in results],
                     "confidence": confidence, "conflict": False, "raw_results": results}
 
-    # [V91] If no Open Library, try to extract author from Wikipedia/Wikidata text
+    #  If no Open Library, try to extract author from Wikipedia/Wikidata text
     import re as _re
     for r in results:
         text = str(r["value"])

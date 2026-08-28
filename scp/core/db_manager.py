@@ -113,7 +113,7 @@ def _get_path_conn(db_path: str) -> sqlite3.Connection:
     return conn
 
 def get_db():
-    """Persistent connection + thread lock. [V42] SQLite PRAGMA tuned for speed.
+    """Persistent connection + thread lock.  SQLite PRAGMA tuned for speed.
 
     [R16-ROOT-FIX-4] Integrity check on first connect.
     BEFORE: DB corruption ("database disk image is malformed") was only caught
@@ -131,7 +131,7 @@ def get_db():
             _preflight_integrity_check()
             _persistent_conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
             _persistent_conn.row_factory = sqlite3.Row
-            # [V42] Performance PRAGMAs — 10x faster writes
+            #  Performance PRAGMAs — 10x faster writes
             _persistent_conn.execute("PRAGMA journal_mode=WAL")
             _persistent_conn.execute("PRAGMA synchronous=NORMAL")
             _persistent_conn.execute("PRAGMA cache_size=-128000")  # [V90 OPT] 128MB cache
@@ -277,10 +277,10 @@ def db_batch_flush() -> int:
     finally:
         _db_lock.release()
 
-_read_lock = threading.Lock()  # [V89] Light lock for reads — WAL allows concurrent reads
+_read_lock = threading.Lock()  #  Light lock for reads — WAL allows concurrent reads
 
 def db_query_all(sql: str, params=(), db_path: Optional[str] = None) -> list[dict]:
-    # [V89] Don't use _db_lock for reads on the GLOBAL conn — WAL allows
+    #  Don't use _db_lock for reads on the GLOBAL conn — WAL allows
     # concurrent reads. Only protect against connection creation race.
     # [FIX-CRIT-135 BUG 4] TẠI SAO: when db_path is provided, we MUST NOT use
     # _read_lock — that lock is NOT shared with db_exec's _db_lock, so the
@@ -301,7 +301,7 @@ def db_query_all(sql: str, params=(), db_path: Optional[str] = None) -> list[dic
         return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 def db_query_one(sql: str, params=(), db_path: Optional[str] = None) -> Optional[dict]:
-    # [V89] Light lock for reads on the GLOBAL conn.
+    #  Light lock for reads on the GLOBAL conn.
     # [FIX-CRIT-135 BUG 4] per-path branch MUST use _db_lock (see db_query_all).
     if db_path:
         _db_lock.acquire()
@@ -349,20 +349,20 @@ def checkpoint_wal():
         logger.debug(f"[V104.37] core/db_manager.py: e={e}")
 
 def vacuum_db():
-    """[V81] VACUUM database để reclaim disk space.
+    """ VACUUM database để reclaim disk space.
     Run định kỳ (mỗi 1000 cycles hoặc khi DB > 100MB).
     """
     try:
         conn = get_db()
         conn.execute("VACUUM")
-        logger.info("[V81] DB VACUUM complete")
+        logger.info(" DB VACUUM complete")
         return True
     except Exception as e:
-        logger.warning(f"[V81] VACUUM error: {e}")
+        logger.warning(f" VACUUM error: {e}")
         return False
 
 def get_db_size_mb() -> float:
-    """[V81] Get DB file size in MB."""
+    """ Get DB file size in MB."""
     try:
         import os
         return os.path.getsize(str(DB_PATH)) / (1024 * 1024)
@@ -372,7 +372,7 @@ def get_db_size_mb() -> float:
 def init_db():
     """Initialize all V14 tables + V62 all module tables."""
     db_exec("""CREATE TABLE IF NOT EXISTS memory (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, question TEXT, ai_answer TEXT, frame TEXT, verdict TEXT, reason TEXT, status TEXT DEFAULT 'active', recovered_at TEXT)""")
-    # [V89] Ensure meta_goals table exists (was only created by meta.py init)
+    #  Ensure meta_goals table exists (was only created by meta.py init)
     db_exec("""CREATE TABLE IF NOT EXISTS meta_goals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT DEFAULT 'goal',
@@ -409,7 +409,7 @@ def init_db():
     except Exception as e:
         logger.debug(f"[V104.37] core/db_manager.py: e={e}")
 
-    # [V36] Knowledge versioning — history of changes
+    #  Knowledge versioning — history of changes
     db_exec("""
         CREATE TABLE IF NOT EXISTS knowledge_versions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -425,13 +425,13 @@ def init_db():
     """)
     db_exec("CREATE INDEX IF NOT EXISTS idx_kv_entity ON knowledge_versions(entity, attribute)")
 
-    # [V62] Create ALL tables from all modules — central init
+    #  Create ALL tables from all modules — central init
     # This ensures system_test passes without needing to init each module individually
     _init_all_module_tables()
 
 
 def _init_all_module_tables():
-    """[V62] Create all tables from all modules — using EXACT schemas from each module."""
+    """ Create all tables from all modules — using EXACT schemas from each module."""
     # [V104.49 FIX-C] Migrate legacy verdict_cache schema BEFORE creating the canonical one.
     # This must run first so the CREATE TABLE IF NOT EXISTS below is a no-op when migration
     # already rebuilt the table, and so a legacy DB with the wrong columns gets upgraded
@@ -466,7 +466,7 @@ def _init_all_module_tables():
         # [ROOT-FIX 1] Single source of truth. All 5 historical CREATE sites now use
         # the same `_KNOWLEDGE_CANONICAL_DDL` constant imported from this module.
         _KNOWLEDGE_CANONICAL_DDL,
-        # [V69] ALTER for legacy DBs missing columns (idempotent — `_migrate_knowledge_schema`
+        #  ALTER for legacy DBs missing columns (idempotent — `_migrate_knowledge_schema`
         # handles full rebuild, but these ALTERs provide a fast no-op path for already-correct
         # tables that just need a single column added).
         "ALTER TABLE knowledge ADD COLUMN times_wrong INTEGER DEFAULT 0",
@@ -552,7 +552,7 @@ def _init_all_module_tables():
             compressed_at TEXT,
             UNIQUE(entity, attribute)
         )""",
-        # [V73] ALTER for legacy DBs that have old schema
+        #  ALTER for legacy DBs that have old schema
         "ALTER TABLE knowledge_summaries ADD COLUMN entity TEXT",
         "ALTER TABLE knowledge_summaries ADD COLUMN attribute TEXT",
         "ALTER TABLE knowledge_summaries ADD COLUMN occurrences INTEGER DEFAULT 0",
@@ -791,7 +791,7 @@ def _init_all_module_tables():
             logger.debug(f"[V104.37] core/db_manager.py: e={e}")
 
     # Create indexes
-    # [V72] Added composite indexes for common query patterns:
+    #  Added composite indexes for common query patterns:
     #   - question_log by timestamp + domain (for "recent questions in domain X")
     #   - question_events by source + timestamp (for "real_fetcher questions in last hour")
     #   - external_questions by used + fetched_at (for "get N unused real questions")
@@ -826,20 +826,20 @@ def _init_all_module_tables():
         # live_knowledge_cache
         "CREATE INDEX IF NOT EXISTS idx_lkc_hash ON live_knowledge_cache(query_hash)",
         "CREATE INDEX IF NOT EXISTS idx_lkc_domain ON live_knowledge_cache(domain)",
-        # [V72] external_questions — critical for RealQuestionFetcher.get_unused()
+        #  external_questions — critical for RealQuestionFetcher.get_unused()
         "CREATE INDEX IF NOT EXISTS idx_eq_used ON external_questions(used, fetched_at)",
         "CREATE INDEX IF NOT EXISTS idx_eq_source ON external_questions(source)",
         "CREATE INDEX IF NOT EXISTS idx_eq_domain ON external_questions(domain)",
-        # [V72] error_history — composite for "FAIL count per domain" queries
+        #  error_history — composite for "FAIL count per domain" queries
         "CREATE INDEX IF NOT EXISTS idx_eh_domain_verdict ON error_history(domain, final_verdict)",
         "CREATE INDEX IF NOT EXISTS idx_eh_ts ON error_history(timestamp)",
-        # [V72] knowledge — for "is this entity already verified?" lookups
+        #  knowledge — for "is this entity already verified?" lookups
         "CREATE INDEX IF NOT EXISTS idx_k_entity ON knowledge(entity)",
         "CREATE INDEX IF NOT EXISTS idx_k_source ON knowledge(source)",
-        # [V72] experiences — for "recent experiences" queries
+        #  experiences — for "recent experiences" queries
         "CREATE INDEX IF NOT EXISTS idx_exp_ts ON experiences(timestamp)",
         "CREATE INDEX IF NOT EXISTS idx_exp_domain ON experiences(domain)",
-        # [V72] calibration_history — for "recent calibration per domain"
+        #  calibration_history — for "recent calibration per domain"
         "CREATE INDEX IF NOT EXISTS idx_ch_domain_ts ON calibration_history(domain, timestamp)",
     ]
     for idx_sql in indexes:

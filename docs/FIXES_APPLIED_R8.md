@@ -278,13 +278,13 @@ stale from cold start — exactly the failure R7-7 was supposed to catch.
 **Fix applied:**
 ```python
 # Before
-last_success = 0.0  # [R7-7] tracks staleness for 12h healthcheck
+last_success = 0.0  #  tracks staleness for 12h healthcheck
 backoff = 60
 while True:
     now = time.time()
     if last_success > 0 and (now - last_success) > 12 * 3600:
         logger.warning(
-            f"[R7-7] V100 crawler STALE — no successful crawl in "
+            f" V100 crawler STALE — no successful crawl in "
             f"{(now - last_success) / 3600:.1f}h. Knowledge base may be outdated. "
             ...
         )
@@ -292,7 +292,7 @@ while True:
 # After — track scheduler start; cold-start case fires WARN after 12h too
 last_success = 0.0
 backoff = 60
-_scheduler_started_at = time.time()  # [R8-4] new
+_scheduler_started_at = time.time()  #  new
 while True:
     now = time.time()
     if last_success > 0:
@@ -303,7 +303,7 @@ while True:
         _cold_start = True
     if (now - _stale_since) > 12 * 3600:
         logger.warning(
-            f"[R7-7] V100 crawler STALE — no successful crawl in "
+            f" V100 crawler STALE — no successful crawl in "
             f"{(now - _stale_since) / 3600:.1f}h"
             f" (cold_start={_cold_start}). Knowledge base may be outdated. "
             f"Check network egress + data source availability."
@@ -542,13 +542,13 @@ def execute_pending_plans(self, limit=10, worker_id=None):
 def __init__(self):
     init_db()
     init_why_db()
-    # [R8-7] Eager-init the in-process lock at construction time (NOT lazy).
+    #  Eager-init the in-process lock at construction time (NOT lazy).
     import threading as _threading
     self._execute_pending_lock = _threading.Lock()
 
 def execute_pending_plans(self, limit=10, worker_id=None):
     import threading as _threading  # noqa: F401 — kept for back-compat
-    # [R8-7] Lock is now eager-initialized in __init__ (no lazy hasattr).
+    #  Lock is now eager-initialized in __init__ (no lazy hasattr).
     ...
     with self._execute_pending_lock:
         ...

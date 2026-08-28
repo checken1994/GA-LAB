@@ -83,14 +83,14 @@ class CognitiveEngine:
 
     Flow:
         1. WHY Engine creates VerificationPlan (V34)
-        2. [V37] MetaFalsifier checks plan completeness
-        3. [V37] CounterQuestionEngine generates alternative framings
+        2.  MetaFalsifier checks plan completeness
+        3.  CounterQuestionEngine generates alternative framings
         4. RealityJudge executes (existing)
-        5. [V37] UnknownStateClassifier classifies UNKNOWN
-        6. [V37] ProofGraphBuilder creates dependency DAG
-        7. [V37] RecursiveWhyEngine traces trust to axiom
+        5.  UnknownStateClassifier classifies UNKNOWN
+        6.  ProofGraphBuilder creates dependency DAG
+        7.  RecursiveWhyEngine traces trust to axiom
 
-    [V50] Per-layer enable/disable via config hoặc env var:
+     Per-layer enable/disable via config hoặc env var:
         SCP_COGNITIVE_LAYERS=meta_falsifier,counter_question,proof_graph,recursive_why,unknown_state
         (default: all enabled)
         SCP_COGNITIVE_LAYERS=none → disable all (raw SLM mode)
@@ -106,12 +106,12 @@ class CognitiveEngine:
         self.counter_question = CounterQuestionEngine()
         self.proof_builder = ProofGraphBuilder()
         self.recursive_why = RecursiveWhyEngine()
-        # [V50] Per-layer enable/disable
+        #  Per-layer enable/disable
         self.enabled_layers = self._load_layer_config()
 
     @staticmethod
     def _load_layer_config() -> set:
-        """[V50] Load which cognitive layers are enabled.
+        """ Load which cognitive layers are enabled.
 
         Reads SCP_COGNITIVE_LAYERS env var:
             - "all" (default) → all 5 layers
@@ -180,7 +180,7 @@ class CognitiveEngine:
                 domain=domain,
                 why_threshold=why_threshold,
                 evidence=evidence,
-                question=question,  # [V50] for pending_resolutions enqueue
+                question=question,  #  for pending_resolutions enqueue
             )
             if unknown:
                 result["unknown_state"] = {

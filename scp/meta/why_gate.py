@@ -296,7 +296,7 @@ class WhyGate:
                     f"defer fix until thorns subside (DNA #9 No harm)"
                 )
                 logger.warning(
-                    f"[R12-19] WHY gate REJECTED action due to behavioral thorns: "
+                    f" WHY gate REJECTED action due to behavioral thorns: "
                     f"{_thorns} thorns, intensity={_thorn_intensity:.2f}"
                 )
         except Exception as _bm_e:

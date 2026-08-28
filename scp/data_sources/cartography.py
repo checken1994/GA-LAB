@@ -1,4 +1,4 @@
-"""[V96] CartographyDataSource"""
+""" CartographyDataSource"""
 import logging
 import re
 

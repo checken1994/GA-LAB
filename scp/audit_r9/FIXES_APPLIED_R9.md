@@ -377,7 +377,7 @@ import threading  # added at line 11
         # RuntimeError: list changed size during iteration (list iterator
         # caches ob_size). Lock guards BOTH mutation + snapshot-before-iterate.
         self._verdict_history_lock = threading.Lock()
-        self.registry = None  # [v27] Deprecated checker_factory
+        self.registry = None  #  Deprecated checker_factory
 ```
 
 `runtime/judge.py` `get_stats()` (lines 1174-1190):

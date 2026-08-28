@@ -449,7 +449,7 @@ class H8RedTeamBridge:
                         logger.debug(f"[V104.37] security/h8_redteam_bridge.py: e={e}")
                     # [V108 FIX] Also add to keyword index for immediate matching.
                     # Extract keyword from pattern for fast lookup.
-                    # [P2-24 FIX] TẠI SAO: the keyword-index update was OUTSIDE the
+                    #  TẠI SAO: the keyword-index update was OUTSIDE the
                     # `if self.attack_memory:` block AND referenced `rule` (only defined
                     # inside that block) + `keyword` (only defined inside the inner
                     # `if kw_match:`). On the fp_rejected / insufficient_data / no-memory

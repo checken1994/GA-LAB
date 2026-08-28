@@ -65,7 +65,7 @@ class UnknownStateClassifier:
                  evidence: dict, question: str = "") -> UnknownState | None:
         """Classify UNKNOWN verdict.
 
-        [V50] When can_be_resolved=True, also enqueues to pending_resolutions table
+         When can_be_resolved=True, also enqueues to pending_resolutions table
               so CuriosityAsker can pick up and retry later.
         """
         if verdict != "UNKNOWN":
@@ -128,7 +128,7 @@ class UnknownStateClassifier:
                 resolution_strategy="Manual review required",
             )
 
-        # [V50] If resolvable, enqueue to pending_resolutions for CuriosityAsker
+        #  If resolvable, enqueue to pending_resolutions for CuriosityAsker
         if unknown_state.can_be_resolved and question:
             self._enqueue_pending_resolution(question, domain, unknown_state)
 
@@ -136,7 +136,7 @@ class UnknownStateClassifier:
 
     def _enqueue_pending_resolution(self, question: str, domain: str,
                                      unknown_state: UnknownState):
-        """[V50] Add resolvable UNKNOWN to pending_resolutions table.
+        """ Add resolvable UNKNOWN to pending_resolutions table.
 
         CuriosityAsker reads this table and prioritizes re-asking these questions
         to close the UNKNOWN → Pending → Retry → Knowledge loop.

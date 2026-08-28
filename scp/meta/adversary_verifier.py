@@ -302,7 +302,7 @@ class AdversaryVerifier:
     # MAIN — verify
     # ============================================================
     def _fetch_adversary_wikipedia(self, entity: str) -> dict | None:
-        """[V91] Generic Wikipedia adversary for ALL domains."""
+        """ Generic Wikipedia adversary for ALL domains."""
         try:
             import urllib.parse
 
@@ -342,7 +342,7 @@ class AdversaryVerifier:
         adversary_values: list[dict] = []
         strategy = "no_adversary"
 
-        # [P0-5 FIX] TẠI SAO: `base_conf` was previously only defined at line ~412
+        #  TẠI SAO: `base_conf` was previously only defined at line ~412
         # (AFTER the `if not adversary_values: return` early-return below), so the
         # early-return referenced an undefined name → NameError → swallowed by
         # upstream except → for EVERY domain without a registered adversary
@@ -423,7 +423,7 @@ class AdversaryVerifier:
                 adversary_values=[],
                 final_value=primary_value,
                 final_confidence=base_conf,  # [V104.30 #1] was: max(0.85, weight) → PASS ảo. Keep SLM base_conf.
-                # OLD FLOOR: max(0.85, get_source_weight(primary_source)),  # [V48] floor at 0.85
+                # OLD FLOOR: max(0.85, get_source_weight(primary_source)),  #  floor at 0.85
                 conflict_detected=False,
                 # [SCP-DNA-FIX R14-BUG001] was: agreement_score=1.0 (LIE — implies
                 # "perfect agreement" when no adversary ran). Now: 0.0 + verified=False
@@ -470,7 +470,7 @@ class AdversaryVerifier:
             agreement = 1.0 - (len(unique) - 1) / max(1, len(all_values))
 
         # Boost confidence if agreement high
-        # [P0-5 FIX] base_conf already computed at top of verify() (before early-return).
+        #  base_conf already computed at top of verify() (before early-return).
         if agreement > 0.95:
             final_conf = min(0.99, base_conf + 0.05)
         elif agreement > 0.85:

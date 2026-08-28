@@ -72,7 +72,7 @@ from scp.core.db_manager import (
 
 logger = logging.getLogger("scp.v14")
 
-# [V90] Extracted modules
+#  Extracted modules
 from scp.runtime.judge import JudgeVerdict
 
 # [Task 10-B Modularity Refactor B] Re-export extracted helpers — backward compat.
@@ -112,7 +112,7 @@ class SCPV14ProcessMixin:
             Question -> Antibody -> SLMs -> Judge -> Reality verify -> Self-Healing
                      -> RealityAnchor -> KnowledgeStore -> HypothesisZone -> Experience
 
-        [V68] Added `source` parameter for accurate QuestionTracker labeling:
+         Added `source` parameter for accurate QuestionTracker labeling:
             - "real_fetcher" — from RealQuestionFetcher (V67+, real web questions)
             - "curiosity"    — from CuriosityAsker (V68+, only pre-existing meta_curiosity)
             - "external"     — user manually asking (cycle_count == 0)
@@ -127,7 +127,7 @@ class SCPV14ProcessMixin:
         if self.cycle_count % 2000 == 0:  # [V90 OPT] — ran 40x per batch!
             import gc
             gc.collect()
-        if self.cycle_count % 2000 == 0:  # [V89] was %100 — ran 4x per batch!
+        if self.cycle_count % 2000 == 0:  #  was %100 — ran 4x per batch!
             # Clear SLM response caches to free RAM
             for slm in self.judge.slms.values():
                 slm.response_cache.clear()
@@ -138,7 +138,7 @@ class SCPV14ProcessMixin:
             except Exception:
                 logger.exception("[engine.py:647] silenced exception")
 
-        # [V39] Auto-cleanup history tables every 10 cycles — prevent 1GB/day growth
+        #  Auto-cleanup history tables every 10 cycles — prevent 1GB/day growth
         if self.cycle_count % 2000 == 0:  # [V90 OPT] — ran 40x per batch!
             try:
                 # [Z.ai-P0-FIX #28] TẠI SAO: import db_exec KHÔNG alias trong if block
@@ -153,7 +153,7 @@ class SCPV14ProcessMixin:
                     ("verdict_cache", 500),
                     ("smart_cache_disk", 200),
                     ("predictions", 200),
-                    ("error_history", 5000),  # [V85] was 500 — SCP forgot old errors too fast
+                    ("error_history", 5000),  #  was 500 — SCP forgot old errors too fast
                     ("falsification_history", 200),
                     ("experiences", 500),  # [V41.2] Add experiences — was missing, caused 25MB DB
                     ("reverify_queue", 100),
@@ -173,7 +173,7 @@ class SCPV14ProcessMixin:
             except Exception:
                 logger.exception("[engine.py:677] silenced exception")
 
-        # [V39] VACUUM every 500 cycles to reclaim disk space (not too frequent — VACUUM is expensive)
+        #  VACUUM every 500 cycles to reclaim disk space (not too frequent — VACUUM is expensive)
         if self.cycle_count % 500 == 0:
             try:
                 import sqlite3
@@ -241,7 +241,7 @@ class SCPV14ProcessMixin:
                 logger.warning(f"Antibody check failed: {e}")
 
         # Step 1: Judge (includes SLM routing + cross-check + reality verify)
-        # [V68] Pass source through to judge() for accurate QuestionTracker labeling
+        #  Pass source through to judge() for accurate QuestionTracker labeling
         verdict = self.judge.judge(question, ai_answer, cycle_count=self.cycle_count,
                                     source=source)
 
@@ -265,7 +265,7 @@ class SCPV14ProcessMixin:
                 strategy_name = heal_result.get('strategy', 'none')
                 success = heal_result.get('success', False)
                 logger.info(f"Self-healing: {strategy_name} -> {'OK' if success else 'FAIL'}")
-                # [V89] Create meta_goal for high_error_rate issues
+                #  Create meta_goal for high_error_rate issues
                 if issue["type"] == "high_error_rate" and success:
                     try:
                         from scp.meta.meta import GoalMemory
@@ -356,7 +356,7 @@ class SCPV14ProcessMixin:
             except Exception as e:
                 logger.warning(f"V13 error_history record failed: {e}")
 
-        # [V89] Save PASS verdicts to memory table for future recovery reference
+        #  Save PASS verdicts to memory table for future recovery reference
         if verdict.verdict == "PASS" and ai_answer:
             try:
                 db_exec("""INSERT INTO memory (timestamp, question, ai_answer, frame, verdict, reason, status)

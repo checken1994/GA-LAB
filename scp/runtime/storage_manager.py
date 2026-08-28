@@ -186,7 +186,7 @@ class StorageManager:
             try:
                 size_mb = f.stat().st_size / (1024 * 1024)
                 if size_mb > self.ROTATE_SIZE_MB:
-                    # [R8-3] Shift generations BEFORE writing new .1.gz.
+                    #  Shift generations BEFORE writing new .1.gz.
                     # Build paths .1.gz .. .{MAX_GENERATIONS}.gz.
                     gz_paths = [
                         f.with_suffix(f.suffix + f".{gen}.gz")

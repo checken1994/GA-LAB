@@ -798,7 +798,7 @@ class PredictiveOrchestrator:
 
 
 # ============================================================
-# [V36] AUTO-VERIFY SCHEDULER — verifies pending predictions
+#  AUTO-VERIFY SCHEDULER — verifies pending predictions
 # ============================================================
 class PredictionScheduler:
     """

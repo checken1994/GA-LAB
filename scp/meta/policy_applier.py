@@ -269,7 +269,7 @@ class PolicyApplier:
         if not principle_ids:
             return
 
-        # [V104.39 #B-success] [P0-5 FIX] TẠI SAO: previously this block was
+        # [V104.39 #B-success]  TẠI SAO: previously this block was
         # mis-indented INSIDE the `if not principle_ids:` body (after the return),
         # making it unreachable → `success` was never assigned → NameError at the
         # `if success is None` check below, swallowed by except → the ENTIRE
@@ -409,7 +409,7 @@ class PolicyApplier:
 
     def _auto_delete_dead_principles(self, threshold: float = 0.3,
                                       min_applied: int = 10) -> int:
-        """[V36] Auto-delete principles with success_rate < threshold AND applied >= min_applied.
+        """ Auto-delete principles with success_rate < threshold AND applied >= min_applied.
 
         [SCP-DNA-FIX 4-b-019] This method is now ONLY called from
         `prune_dead_principles()` (explicit operator action). It is NOT

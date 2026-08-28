@@ -26,7 +26,7 @@ class ConversionSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V30] Smart cache check
+        #  Smart cache check
         try:
             from scp.core.smart_cache import get_smart_cache
             cached = get_smart_cache().get("slm:ConvSLM", question)
@@ -42,7 +42,7 @@ class ConversionSLM(BaseSLM):
             return cached_legacy
 
         # [V29.1] Multi-source crypto + currency (cross-validation)
-        # [V51] Unit conversion (km→m, mile→km, etc.) using ConversionDataSource
+        #  Unit conversion (km→m, mile→km, etc.) using ConversionDataSource
         import re
         answer = ""
         confidence = 0.0
@@ -222,7 +222,7 @@ class ConversionSLM(BaseSLM):
 
 class EntertainmentSLM(BaseSLM):
     """
-    [V73] Entertainment SLM — TV shows, movies, jokes, celebrities.
+     Entertainment SLM — TV shows, movies, jokes, celebrities.
     Uses Wikipedia + TVMaze cache for fact lookup.
     """
     def __init__(self, config: Optional[dict] = None):
@@ -250,7 +250,7 @@ class EntertainmentSLM(BaseSLM):
 
         # Extract show name from "Tell me about the TV show: X."
         entity = None
-        # [V91] "Who wrote X?" / "Author of X?" → book lookup
+        #  "Who wrote X?" / "Author of X?" → book lookup
         m = re.match(r'who\s+wrote\s+(.+?)\?*$', q, re.IGNORECASE)
         if m:
             book_title = m.group(1).strip().rstrip('?').strip()
@@ -305,7 +305,7 @@ class EntertainmentSLM(BaseSLM):
             confidence = 0.3
             reasoning = "Joke pattern — cannot verify punchline objectively"
 
-        # [V75] SWAPI integration — "Tell me about the Star Wars X: Y"
+        #  SWAPI integration — "Tell me about the Star Wars X: Y"
         # Was: EntertainmentSLM only had Wikipedia fallback
         # Now: query SWAPI directly for Star Wars entities
         if not answer:
@@ -417,7 +417,7 @@ class EntertainmentSLM(BaseSLM):
             try:
                 data = self._wiki.fetch(entity)
                 if data and data.get("extract"):
-                    # [V91] Only use Wikipedia if no cross-verify answer yet
+                    #  Only use Wikipedia if no cross-verify answer yet
                     if not answer:
                         answer = data["extract"][:300]
                         confidence = 0.65
@@ -445,7 +445,7 @@ class EntertainmentSLM(BaseSLM):
 
 class UniversalSLM(BaseSLM):
     """
-    [V81] Universal SLM — Wikidata fallback cho mọi entity.
+     Universal SLM — Wikidata fallback cho mọi entity.
     Handles ANY question by extracting entity + querying Wikidata.
 
     Strategy:
@@ -663,4 +663,4 @@ class UniversalSLM(BaseSLM):
         return 0.65 if answer else 0.0
 
 
-# [V96] New SLMs using DataSource pattern
+#  New SLMs using DataSource pattern

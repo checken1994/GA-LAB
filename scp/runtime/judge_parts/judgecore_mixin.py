@@ -173,29 +173,29 @@ class JudgeCoreMixin:
 
         V29 / V98 / V100 flow (preserved from earlier docstring, kept for context):
             1. Route → domains
-            2. [V29] PolicyApplier: adjust threshold + prefer sources based on principles
+            2.  PolicyApplier: adjust threshold + prefer sources based on principles
             3. SLM predict
-            4. [V29] Adversary verify: cross-validate với source khác
+            4.  Adversary verify: cross-validate với source khác
             5. Reality check (DirectAPIVerifier)
-            6. [V29] VerdictPredictor: skip API nếu prediction confidence cao
-            7. [V29] PolicyApplier.record_outcome: feedback loop
+            6.  VerdictPredictor: skip API nếu prediction confidence cao
+            7.  PolicyApplier.record_outcome: feedback loop
             8. Build verdict
 
         V98 additions (preserved):
-            0a. [V98] MemoryPoisoningGuard — check question for poisoning patterns
-            0b. [V98] AttackPatternMemory — check against known attack rules
-            0c. [V98] ThreatDetector + AttackClassifierEngine — if v98_context has IP/headers
-            9a. [V98] AttackPolicyEngine — decide counter phase
-            9b. [V98] CounterResponseEngine — execute counter
-            9c. [V98] CanaryTokenMonitor — generate canary if Phase 2+
-            9d. [V98] AttackPatternMemory.record_bypass — if bypass detected
+            0a.  MemoryPoisoningGuard — check question for poisoning patterns
+            0b.  AttackPatternMemory — check against known attack rules
+            0c.  ThreatDetector + AttackClassifierEngine — if v98_context has IP/headers
+            9a.  AttackPolicyEngine — decide counter phase
+            9b.  CounterResponseEngine — execute counter
+            9c.  CanaryTokenMonitor — generate canary if Phase 2+
+            9d.  AttackPatternMemory.record_bypass — if bypass detected
 
         Args:
             question: Câu hỏi
             ai_answer: Câu trả lời của AI (nếu có, để verify)
             cycle_count: Số cycle hiện tại từ SCPV14
-            source: [V68] Nguồn câu hỏi — "real_fetcher" / "curiosity" / "external" / "generator"
-            v98_context: [V98] Optional context dict with IP, headers, session_id for security modules
+            source:  Nguồn câu hỏi — "real_fetcher" / "curiosity" / "external" / "generator"
+            v98_context:  Optional context dict with IP, headers, session_id for security modules
                          {"ip": str, "headers": dict, "session_id": str, "body": str}
 
         Returns: JudgeVerdict
@@ -203,7 +203,7 @@ class JudgeCoreMixin:
         ts = datetime.now().isoformat()
         _judge_start_perf = time.perf_counter()  # [V93.9] measure total judge() duration
 
-        # [V100] Per-phase timer — 11 timestamps
+        #  Per-phase timer — 11 timestamps
         from scp.runtime.timing_and_restart import PhaseTimer, QueryTimeoutError, check_timeout
         _v100_timer = PhaseTimer()
 
@@ -212,7 +212,7 @@ class JudgeCoreMixin:
         # and feedback record_outcome (line ~2108). All must use the SAME env var.
         _enable_closed_loop = os.environ.get("SCP_ENABLE_CLOSED_LOOP", "1") == "1"
 
-        # [P0-4 FIX] TẠI SAO: Multiple V104.40-V104.45 "fixes" (bugs K/CB/BX/BA) reference
+        #  TẠI SAO: Multiple V104.40-V104.45 "fixes" (bugs K/CB/BX/BA) reference
         # `verdict`, `verdict_type`, `reasoning` BEFORE they are assigned:
         #   - Step 0b (UnifiedDetector, ~line 1365): `verdict.evidence[...]` before verdict created (~2251)
         #   - Step 5.5 (Adversary, ~line 1794): `if verdict_type == "PASS"` before Step 6 sets it
@@ -252,7 +252,7 @@ class JudgeCoreMixin:
         self._check_knowledge_conflicts(why_result, why_plan, question, _pre_verdict_evidence)
 
         # ============================================================
-        # [V100] PHASE 1: KNOWLEDGE RETRIEVAL — check KB before SLM
+        #  PHASE 1: KNOWLEDGE RETRIEVAL — check KB before SLM
         # ============================================================
         v100_kb_hits = []
         with _v100_timer.phase("knowledge"):
@@ -260,7 +260,7 @@ class JudgeCoreMixin:
                 try:
                     v100_kb_hits = self.domain_knowledge_store.search(question, domain="", limit=3)
                     if v100_kb_hits:
-                        logger.debug(f"[V100] KB hit: {len(v100_kb_hits)} records for '{question[:50]}'")
+                        logger.debug(f" KB hit: {len(v100_kb_hits)} records for '{question[:50]}'")
                         # [V104.43 #BI] TẠI SAO: was only logging KB hits, never short-circuit.
                         # Comment "check KB before SLM" was misleading — KB was metadata only.
                         # Fix: if highest-tier hit with high confidence, use it as answer directly.
@@ -275,9 +275,9 @@ class JudgeCoreMixin:
                             reasoning = f"KB short-circuit: tier={_hit_tier} conf={_hit_conf:.2f} (cached authoritative)"
                             logger.info(f"[V104.43 #BI] KB short-circuit: tier={_hit_tier} conf={_hit_conf:.2f}")
                 except Exception as e:
-                    logger.debug(f"[V100] KB search error: {e}")
+                    logger.debug(f" KB search error: {e}")
 
-        # [V100] Check 10s timeout after knowledge phase
+        #  Check 10s timeout after knowledge phase
         try:
             check_timeout(_v100_timer.finish(), "knowledge")
         except QueryTimeoutError as e:
@@ -289,7 +289,7 @@ class JudgeCoreMixin:
         # UnifiedDetector, ThreatDetector — an attacker who poisoned the KB
         # once got permanent PASS bypass).
         # ============================================================
-        # [V98] STEP 0: INPUT DETECTION — chạy TRƯỚC khi route SLMs
+        #  STEP 0: INPUT DETECTION — chạy TRƯỚC khi route SLMs
         # ============================================================
         v98_threat_signal = None
         v98_classification = None
@@ -303,24 +303,24 @@ class JudgeCoreMixin:
                 session_id = (v98_context or {}).get("session_id", f"cycle_{cycle_count}")
                 v98_guard_verdict = self.memory_guard.check(session_id, question)
                 if v98_guard_verdict.is_poisoned:
-                    logger.warning(f"[V98] MemoryPoisoningGuard: risk={v98_guard_verdict.risk_score} patterns={v98_guard_verdict.detected_patterns}")
+                    logger.warning(f" MemoryPoisoningGuard: risk={v98_guard_verdict.risk_score} patterns={v98_guard_verdict.detected_patterns}")
                     if v98_guard_verdict.recommendation == "clear":
                         # Severe poisoning → early FAIL
                         v98_early_fail = True
             except Exception as e:
-                logger.debug(f"[V98] MemoryPoisoningGuard error: {e}")
+                logger.debug(f" MemoryPoisoningGuard error: {e}")
 
         # 0b. AttackPatternMemory — check against known attack rules
         if self.attack_memory:
             try:
                 v98_attack_match = self.attack_memory.check_against_rules(question)
                 if v98_attack_match.get("matched"):
-                    logger.info(f"[V98] AttackPatternMemory match: rule={v98_attack_match.get('rule_id')}")
+                    logger.info(f" AttackPatternMemory match: rule={v98_attack_match.get('rule_id')}")
                     # [V104.18 #1 FIX] Promoted rule match → early FAIL (was: log only)
                     if v98_attack_match.get("promoted", False):
                         v98_early_fail = True
             except Exception as e:
-                logger.debug(f"[V98] AttackPatternMemory error: {e}")
+                logger.debug(f" AttackPatternMemory error: {e}")
 
         # [V104.43 #CB] [P0-4/P1-6 FIX] TẠI SAO: UnifiedPatternDetector was
         # initialized but never called on hot path → unified patterns dead.
@@ -374,13 +374,13 @@ class JudgeCoreMixin:
                     v98_classification = self.attack_classifier.classify(v98_threat_signal)
                     _td_pool.shutdown(wait=False)
                 except Exception as e:
-                    logger.debug(f"[V98] ThreatDetector error: {e}")
+                    logger.debug(f" ThreatDetector error: {e}")
 
                 if v98_classification and v98_classification.severity == "critical":
-                    logger.warning(f"[V98] Critical threat: actor={v98_classification.actor} attack={v98_classification.attack_type}")
+                    logger.warning(f" Critical threat: actor={v98_classification.actor} attack={v98_classification.attack_type}")
                     v98_early_fail = True
             except Exception as e:
-                logger.debug(f"[V98] ThreatDetector error: {e}")
+                logger.debug(f" ThreatDetector error: {e}")
 
         # Early FAIL nếu memory poisoning severe HOẶC critical threat detected
         if v98_early_fail:
@@ -565,7 +565,7 @@ class JudgeCoreMixin:
             except Exception as e:
                 logger.debug(f"PolicyApplier error: {e}")
 
-        # [P1-6 FIX] Apply ErrorStoreIndex similar-FAIL threshold boost AFTER
+        #  Apply ErrorStoreIndex similar-FAIL threshold boost AFTER
         # domain-tolerance + PolicyApplier resets. TẠI SAO: V104.44 #BX computed
         # `adjusted_threshold = max(0.65, self.confidence_threshold + 0.1)` but it
         # was immediately overwritten by lines 1509 (self.confidence_threshold) and
@@ -664,7 +664,7 @@ class JudgeCoreMixin:
                 return {"domain": domain, "error": "no SLM", "confidence": 0.0}
 
         if len(domains) == 1:
-            # [V88] Multi-SLM consensus: always add a second opinion
+            #  Multi-SLM consensus: always add a second opinion
             # Was: only call 1 SLM → no cross-verification → "no ground truth"
             # Now: if only 1 domain routed, also call "universal" or "general" as 2nd opinion
             primary_domain = domains[0]
@@ -692,7 +692,7 @@ class JudgeCoreMixin:
                         })
 
         if not slm_responses:
-            # [V110] SLM không có answer → gọi LLM (Ollama/OpenRouter)
+            #  SLM không có answer → gọi LLM (Ollama/OpenRouter)
             if self.llm_client:
                 try:
                     import asyncio as _a
@@ -731,7 +731,7 @@ class JudgeCoreMixin:
                             cross_validation={}, slm_scores={}, timestamp=ts,
                         )
                 except Exception as e:
-                    logger.debug(f"[V110] LLM fallback error: {e}")
+                    logger.debug(f" LLM fallback error: {e}")
 
             return JudgeVerdict(
                 question=question, slm_responses=[], final_answer="[SCP] Tôi không có đủ thông tin để trả lời câu hỏi này. Không có SLM nào có dữ liệu liên quan đến lĩnh vực này.",
@@ -760,7 +760,7 @@ class JudgeCoreMixin:
 
         is_consistent = self._check_consistency(valid_responses)
 
-        # [V29] Step 3.5: ConflictResolver — nếu có nhiều SLM responses với values khác nhau
+        #  Step 3.5: ConflictResolver — nếu có nhiều SLM responses với values khác nhau
         # → dùng ConflictResolver để pick winner
         if len(valid_responses) >= 2:
             try:
@@ -798,11 +798,11 @@ class JudgeCoreMixin:
                     values_for_resolution.append({
                         "value": val,
                         "source": _src,
-                        "effective_weight": _ew,  # [R7-6] used by conflict_resolver
+                        "effective_weight": _ew,  #  used by conflict_resolver
                     })
                 if _blocked_in_vote:
                     logger.info(
-                        f"[R7-6] Skipped {len(_blocked_in_vote)} blocked source(s) in "
+                        f" Skipped {len(_blocked_in_vote)} blocked source(s) in "
                         f"consensus voting: {_blocked_in_vote[:3]}"
                     )
                     verdict.evidence.setdefault("consensus_blocked_sources", _blocked_in_vote[:10])
@@ -824,7 +824,7 @@ class JudgeCoreMixin:
                         _entity = valid_responses[0].get("evidence", {}).get("entity") or question[:60]
                         _log_conflict(_entity, "value", values_for_resolution, conflict_result)
                     except Exception as _le:
-                        logger.debug(f"[R6-8] log_conflict failed: {_le}")
+                        logger.debug(f" log_conflict failed: {_le}")
                     # [V91 FIX] Actually USE the conflict resolution result!
                     if conflict_result.conflict_detected:
                         # Sources disagree → reduce confidence proportional to disagreement
@@ -894,11 +894,11 @@ class JudgeCoreMixin:
                                 _worst_rep = min(_mature_reps)
                             else:
                                 _worst_rep = 1.0  # all cold-start → neutral, no drag
-                            # [R7-4] Track cold-start metric for observability.
+                            #  Track cold-start metric for observability.
                             if _cold_start_count > 0:
                                 verdict.evidence.setdefault("cold_start_sources", _cold_start_count)
                                 logger.debug(
-                                    f"[R7-4] {_cold_start_count}/{len(values_for_resolution)} "
+                                    f" {_cold_start_count}/{len(values_for_resolution)} "
                                     f"sources in cold-start (<{getattr(_rep_store, 'COLD_START_THRESHOLD', 10)} "
                                     f"outcomes) — skipped from worst-rep scaling"
                                 )
@@ -907,11 +907,11 @@ class JudgeCoreMixin:
                                 confidence = max(0.1, confidence * (0.3 + 0.7 * _worst_rep))
                                 if _worst_rep < 0.4:
                                     logger.info(
-                                        f"[R6-4] Low-reputation source (rep={_worst_rep:.2f}) "
+                                        f" Low-reputation source (rep={_worst_rep:.2f}) "
                                         f"dragged confidence to {confidence:.2f}"
                                     )
                     except Exception as _re:
-                        logger.debug(f"[R6-4] reputation scaling failed: {_re}")
+                        logger.debug(f" reputation scaling failed: {_re}")
             except Exception as e:
                 logger.debug(f"ConflictResolver error: {e}")
 
@@ -968,7 +968,7 @@ class JudgeCoreMixin:
         _routed_fallback_domain = domains[0] if domains else "unknown"
         primary_domain = primary.get("domain", _routed_fallback_domain) if primary else _routed_fallback_domain
         final_answer = primary.get("answer", "") if primary else ""
-        # [P2-19 FIX] TẠI SAO: `confidence_boost` was computed above (consensus
+        #  TẠI SAO: `confidence_boost` was computed above (consensus
         # bonus: +0.05 per agreeing SLM) but NEVER applied — line 1831 overwrote
         # `confidence = primary.get("confidence", 0)` without adding the boost.
         # The consensus bonus was dead code. Fix: apply it here, capped at 0.95.
@@ -1102,10 +1102,10 @@ class JudgeCoreMixin:
                     confidence = min(confidence, 0.4)
                     # Fall through to normal verdict path (adversary, WHY, etc.)
 
-        # [V29] Step 5.5: Adversary verify — cross-validate với source khác
+        #  Step 5.5: Adversary verify — cross-validate với source khác
         # Chỉ chạy nếu SLM primary có real value và không skip API
         # [V29.2] Mở rộng cho history/biology/reality/geography (Wikipedia adversary)
-        # [V32] Skip adversary khi confidence đã rất cao (>0.92) — tiết kiệm 100-300ms
+        #  Skip adversary khi confidence đã rất cao (>0.92) — tiết kiệm 100-300ms
         adversary_result = None
         # [V104.40 #K-skip] TẠI SAO: V91 skipped adversary when confidence >= 0.92.
         # This is BACKWARDS — overconfident SLM is exactly when skeptical cross-check
@@ -1131,7 +1131,7 @@ class JudgeCoreMixin:
                         #   or REDUCE only if it finds a CONFLICT (different value)
                         #   If adversary can't verify (no conflict, no agreement) → keep SLM confidence
                         if adv.conflict_detected and adv.agreement_score < 0.85:
-                            # [V104.40 #K] [P0-4 FIX] TẠI SAO: was `if verdict_type == "PASS":
+                            # [V104.40 #K]  TẠI SAO: was `if verdict_type == "PASS":
                             # verdict_type = "CONFLICT"` — but verdict_type is None here (Step 5.5
                             # runs BEFORE Step 6 sets verdict_type) → NameError → swallowed by
                             # except → adversary conflict signal never reached the verdict state
@@ -1154,7 +1154,7 @@ class JudgeCoreMixin:
                         if os.environ.get('SCP_DEBUG_CONF'):
                             import sys as _sys
                             print(f'  [DBG] Adversary no_values, final_conf={adv.final_confidence}', file=_sys.stderr)
-                        # [V48] Only update confidence if adversary is MORE confident (cross-checked)
+                        #  Only update confidence if adversary is MORE confident (cross-checked)
                         # Otherwise preserve SLM confidence
                         if adv.final_confidence > confidence:
                             confidence = adv.final_confidence
@@ -1177,7 +1177,7 @@ class JudgeCoreMixin:
             # SLM says answer is X, but did AI say X?
             slm_answer = final_answer
             if ai_answer and slm_answer:
-                # [V73] FIRST: Try value extraction for question-type-aware comparison
+                #  FIRST: Try value extraction for question-type-aware comparison
                 # Was (V51-V72): only numeric comparison + text overlap
                 #   → "calories=52" (AI) vs "Apple family Rosaceae calories=52 sugar=10.3g..."
                 #     → SLM picks wrong number (0.3) → FAIL (wrong!)
@@ -1201,7 +1201,7 @@ class JudgeCoreMixin:
 
                 # If value extraction didn't give a clear answer, use legacy comparison
                 if verdict_type is None:
-                    # [V51] Special handling for math: extract ONLY result (after '=')
+                    #  Special handling for math: extract ONLY result (after '=')
                     import re
                     # If SLM answer has '=', extract only the part after '='
                     slm_result_part = slm_answer
@@ -1216,9 +1216,9 @@ class JudgeCoreMixin:
                     ai_nums = re.findall(num_pattern, ai_result_part)
 
                     if slm_nums and ai_nums:
-                        # [V51] For math, take the FIRST (and usually only) number from result
+                        #  For math, take the FIRST (and usually only) number from result
                         # For multi-number answers (astronomy), find closest
-                        ai_val = float(ai_nums[0])  # [V51] was [-1], should be [0] for result
+                        ai_val = float(ai_nums[0])  #  was [-1], should be [0] for result
                         best_slm_val = None
                         best_diff = float('inf')
                         for sn in slm_nums:
@@ -1242,7 +1242,7 @@ class JudgeCoreMixin:
                         abs_max = max(abs(slm_val), abs(ai_val))
                         rel_diff = abs_diff / max(abs_max, 1e-300)
 
-                        # [V51] Tighter tolerance:
+                        #  Tighter tolerance:
                         # - For |val| >= 1: 0.5% relative tolerance
                         # - For 0 < |val| < 1: 1% relative tolerance (was 0.5%, too loose for tiny numbers)
                         # - For scientific notation (val very small/large): ALWAYS use relative
@@ -1254,7 +1254,7 @@ class JudgeCoreMixin:
                         else:
                             tolerance = abs_max * 0.02  # 2% relative for very small
 
-                        # [V51] For very large/small (scientific notation), use stricter relative check
+                        #  For very large/small (scientific notation), use stricter relative check
                         is_sci = abs_max > 1e6 or (abs_max > 0 and abs_max < 1e-3)
                         if is_sci:
                             # Scientific notation: 1% relative tolerance
@@ -1274,10 +1274,10 @@ class JudgeCoreMixin:
                         # [V51 FIX] No numbers — FULL string comparison, not just last word
                         # Trước V51: chỉ compare last word → "Mexico City" vs "Nowhere City" → "city"=="city" → PASS (wrong!)
                         # V51: require full answer string match (or substring)
-                        slm_str = slm_answer.strip().lower().rstrip('.?!,;:').replace('.', '')  # [V90] strip periods
-                        ai_str = ai_answer.strip().lower().rstrip('.?!,;:').replace('.', '')  # [V90] strip periods
+                        slm_str = slm_answer.strip().lower().rstrip('.?!,;:').replace('.', '')  #  strip periods
+                        ai_str = ai_answer.strip().lower().rstrip('.?!,;:').replace('.', '')  #  strip periods
 
-                        # [V51] Strip common prefixes like "thủ đô của X là" to compare only the answer
+                        #  Strip common prefixes like "thủ đô của X là" to compare only the answer
                         answer_prefixes = [
                             r'^thủ đô của \w+ là\s+',
                             r'^capital of \w+ is\s+',
@@ -1287,7 +1287,7 @@ class JudgeCoreMixin:
                             slm_str = re.sub(pat, '', slm_str).strip()
                             ai_str = re.sub(pat, '', ai_str).strip()
 
-                        # [V73] Value extraction — extract comparable values BEFORE compare
+                        #  Value extraction — extract comparable values BEFORE compare
                         # Was: compare raw text "SLM says '5.6834e+26 (loại: gas giant)' vs AI 'planet'"
                         #   → overlap 0% → FAIL (wrong!)
                         # Now: extract specific value (year, number, type) → compare values
@@ -1302,18 +1302,18 @@ class JudgeCoreMixin:
                             ai_compare = ai_str
                             slm_compare = slm_str
 
-                        # [V73] Direct value match — if extracted values match exactly, PASS
+                        #  Direct value match — if extracted values match exactly, PASS
                         if ai_value and slm_value and ai_value.lower() == slm_value.lower():
                             verdict_type = "PASS"
                             reasoning = f"Value match: '{ai_value}' == '{slm_value}'"
                         elif not ai_compare or not slm_compare:
-                            # [V51] Empty answer → FAIL (was PASS)
+                            #  Empty answer → FAIL (was PASS)
                             verdict_type = "FAIL"
                             reasoning = "Empty answer from SLM or AI"
                         elif ai_str in slm_str or slm_str in ai_str:
                             # Check that the match is substantial (not just "city" matching "city")
                             match_len = min(len(ai_str), len(slm_str))
-                            if match_len >= 3:  # [V51] require at least 3 chars match
+                            if match_len >= 3:  #  require at least 3 chars match
                                 verdict_type = "PASS"
                                 reasoning = "Các SLM đồng thuận (string match), đạt ngưỡng tin cậy"
                             else:
@@ -1357,7 +1357,7 @@ class JudgeCoreMixin:
                                     verdict_type = "FAIL"
                                     reasoning = f"SLM says '{slm_str[:30]}', AI says '{ai_str[:30]}' (string mismatch)"
             else:
-                # [V51] No AI answer or no SLM answer
+                #  No AI answer or no SLM answer
                 # [V104.40 #M] TẠI SAO: V90 LEARN let SLM self-confirm (is_correct=True,
                 # verdict=PASS) when no AI answer — VIOLATES Evidence-First / No-Hallucination.
                 # SLM output became "real_value" with source="slm_self" → knowledge contaminated
@@ -1466,7 +1466,7 @@ class JudgeCoreMixin:
                         "human_decision_required": True,
                     }
             else:
-                # [V87] Check if we have enough evidence
+                #  Check if we have enough evidence
                 # If only 1 SLM responded AND no reality_check → INSUFFICIENT_EVIDENCE
                 # SCP should not PASS/FAIL without cross-verification
                 num_slm_answers = len([r for r in valid_responses if r.get("answer")])
@@ -1627,7 +1627,7 @@ class JudgeCoreMixin:
         # [V90 OPT] Skip similar_errors — DB query per question, low value
         similar_errors = []
 
-        # [P0-4 FIX] Apply adversary conflict flag NOW — after Step 6 finalized
+        #  Apply adversary conflict flag NOW — after Step 6 finalized
         # verdict_type, before building JudgeVerdict. TẠI SAO: V104.40 #K tried to
         # set CONFLICT at Step 5.5 (line ~1854) but verdict_type was None then.
         # Now verdict_type is set (PASS/FAIL/UNKNOWN/PARTIAL/SPECULATIVE/CONFLICT).
@@ -1704,7 +1704,7 @@ class JudgeCoreMixin:
                 "consistency": is_consistent,
                 "slm_count": len(slm_responses),
                 "valid_slm_count": len(valid_responses),
-                **_pre_verdict_evidence,  # [P0-4 FIX] merge UnifiedDetector + ErrorStoreIndex evidence
+                **_pre_verdict_evidence,  #  merge UnifiedDetector + ErrorStoreIndex evidence
                 **({"speculative_mode": verdict_evidence_spec} if verdict_evidence_spec is not None and verdict_type == "SPECULATIVE" else {}),
             },
             domain=primary_domain,
@@ -1745,7 +1745,7 @@ class JudgeCoreMixin:
         except Exception as _why_err:
             logger.debug(f"[V9.0-WHY-GATE] WHY Gate error (non-blocking): {_why_err}")
 
-        # [V29] Feedback loop: record outcome to PolicyApplier
+        #  Feedback loop: record outcome to PolicyApplier
         # để principles cập nhật success_rate
         # [V104.39 #A] Re-enabled feedback loop (was: if False)
         if _enable_closed_loop and self.policy_applier and applied_principle_ids:
@@ -1754,7 +1754,7 @@ class JudgeCoreMixin:
             except Exception as e:
                 logger.debug(f"PolicyApplier record_outcome error: {e}")
 
-        # [V29] Add adversary + prediction info to verdict evidence
+        #  Add adversary + prediction info to verdict evidence
         if adversary_result:
             verdict.evidence["adversary"] = {
                 "primary_value": adversary_result.primary_value,
@@ -1799,7 +1799,7 @@ class JudgeCoreMixin:
         # _apply_why_confidence_adjust() to reduce judge() CC.
         self._apply_why_confidence_adjust(verdict, why_plan, why_result)
 
-        # [V34] Add WHY Engine plan to verdict evidence
+        #  Add WHY Engine plan to verdict evidence
         # [Task 45-B] WHY-plan-to-verdict block extracted to _attach_why_to_verdict()
         # to reduce judge() CC. Returns possibly-updated confidence.
         confidence = self._attach_why_to_verdict(
@@ -1817,7 +1817,7 @@ class JudgeCoreMixin:
             if len(self.verdict_history) > 100:
                 self.verdict_history = self.verdict_history[-100:]  # [FIX LEAK] Cap to 100
 
-        # [V37] Cognitive Engine — 5 layers analysis
+        #  Cognitive Engine — 5 layers analysis
         # [V104.47 #5] TẠI SAO: was `if self.cognitive and why_plan:` → cognitive
         # dead when why_plan=None (default before V104.46). Now closed-loop is ON
         # by default, but why_plan can still be None on error. Fix: run cognitive
@@ -1828,7 +1828,7 @@ class JudgeCoreMixin:
             verdict, why_plan, question, primary_domain, confidence, primary, slm_responses, reality_check
         )
 
-        # [V45] Cognitive Gate — cognitive layers AFFECT verdict
+        #  Cognitive Gate — cognitive layers AFFECT verdict
         # MetaFalsifier/CounterQuestion/ProofGraph/RecursiveWhy có thể downgrade verdict
         # [Task 45-B] Cognitive Gate block extracted to _apply_cognitive_gate()
         # to reduce judge() CC. Returns possibly-updated confidence.
@@ -1836,7 +1836,7 @@ class JudgeCoreMixin:
             verdict, why_plan, confidence, question, primary_domain, slm_responses
         )
 
-        # [V35] Save prediction for future verification (Predictive module activated)
+        #  Save prediction for future verification (Predictive module activated)
         # Chỉ save cho real-time domains (weather/crypto/currency) — chúng thay đổi theo thời gian
         # → có thể verify lại sau 1h/1d/1w để xem prediction có đúng không
         if (self.predictor and verdict.verdict == "PASS"
@@ -1925,10 +1925,10 @@ class JudgeCoreMixin:
         # [V83 FIX] Don't save questions that are just numbers (Star Wars heights)
         #   → was saving "180", "190" as verified_value (garbage)
         if verdict.verdict == "PASS" and confidence > 0.5:
-            # [V83] Skip curiosity re-ask questions
+            #  Skip curiosity re-ask questions
             if question.lower().startswith("kiểm tra lại:"):
                 pass  # Don't save curiosity questions to knowledge
-            # [V83] Skip questions where ai_answer is just a number (likely SWAPI garbage)
+            #  Skip questions where ai_answer is just a number (likely SWAPI garbage)
             elif ai_answer and ai_answer.strip().isdigit() and len(ai_answer.strip()) <= 4:
                 pass  # Don't save bare numbers as knowledge
             else:
@@ -1936,7 +1936,7 @@ class JudgeCoreMixin:
                 real_val = verdict.reality_check.get("real_value") if verdict.reality_check else None
                 source = verdict.reality_check.get("source", "") if verdict.reality_check else ""
 
-                # [V78] Fallback: extract from SLM responses if reality_check empty
+                #  Fallback: extract from SLM responses if reality_check empty
                 if real_val is None and verdict.slm_responses:
                     for r in verdict.slm_responses:
                         ev = r.get("evidence", {})
@@ -1945,7 +1945,7 @@ class JudgeCoreMixin:
                             source = ev.get("source", r.get("slm_name", "SLM"))
                             break
 
-                # [V78] Fallback: use ai_answer as the value (it's verified by PASS)
+                #  Fallback: use ai_answer as the value (it's verified by PASS)
                 if real_val is None and ai_answer:
                     real_val = ai_answer[:200]
                     source = source or "verified_ai_answer"
@@ -1994,7 +1994,7 @@ class JudgeCoreMixin:
                         # Skip knowledge write — can't store without proper entity
                         pass
                     else:
-                        # [V104.42 #AH] [P1-6 FIX] TẠI SAO: V104.42 #AH fix tried to
+                        # [V104.42 #AH]  TẠI SAO: V104.42 #AH fix tried to
                         # check the watchlist before KB writes, but constructed
                         # `SourceWatchlist()` with NO args (constructor requires
                         # `store: ReputationStore`) → TypeError → except swallowed
@@ -2022,7 +2022,7 @@ class JudgeCoreMixin:
                                     _action = _ing.get("action", "?")
                                     if _action != "commit":
                                         logger.info(
-                                            f"[R6-6] Ingestion decision for source={source}: "
+                                            f" Ingestion decision for source={source}: "
                                             f"action={_action} weight={_ing.get('effective_weight')} "
                                             f"require_verification={_ing.get('require_verification')} "
                                             f"reason={_ing.get('reason', '')[:80]}"
@@ -2033,7 +2033,7 @@ class JudgeCoreMixin:
                                         "require_verification": _ing.get("require_verification"),
                                     })
                             except Exception as _ie:
-                                logger.debug(f"[R6-6] ingestion_decision logging failed: {_ie}")
+                                logger.debug(f" ingestion_decision logging failed: {_ie}")
                             if _watchlist and _watchlist.is_blocked(source):
                                 logger.warning(f"[V104.42 #AH] Knowledge write blocked by watchlist: source={source}")
                                 pass  # skip to except/else
@@ -2074,8 +2074,8 @@ class JudgeCoreMixin:
                 # (system thinks it learned but didn't).
                 logger.warning(f"[judge] knowledge save outer block failed: {e}")
 
-        # [V65] ExperienceEngine — learn from every verdict
-        # [V84] Skip empty questions — was saving experiences with "" question
+        #  ExperienceEngine — learn from every verdict
+        #  Skip empty questions — was saving experiences with "" question
         if self.experience is not None and question and len(question.strip()) > 0:
             try:
                 real_val = verdict.reality_check.get("real_value") if verdict.reality_check else None
@@ -2100,11 +2100,11 @@ class JudgeCoreMixin:
             except Exception as e:
                 logger.debug(f"ExperienceEngine learn error: {e}")
 
-        # [V97] FalsificationEngine — translate verdict sang skeptical status
+        #  FalsificationEngine — translate verdict sang skeptical status
         # [Task 45-B] Falsification block extracted to _run_falsification() to reduce judge() CC.
         self._run_falsification(verdict, question, ai_answer)
 
-        # [V97] ErrorStore — record nếu verdict FAIL hoặc low confidence
+        #  ErrorStore — record nếu verdict FAIL hoặc low confidence
         if self.error_store and (verdict.verdict in ("FAIL", "CONFLICT") or verdict.confidence < 0.5):
             try:
                 self.error_store.add(
@@ -2119,9 +2119,9 @@ class JudgeCoreMixin:
                     },
                 )
             except Exception as e:
-                logger.debug(f"[V97] ErrorStore add error: {e}")
+                logger.debug(f" ErrorStore add error: {e}")
 
-        # [V97] Governance — apply UPHOLD/KILL/ESCALATE decision
+        #  Governance — apply UPHOLD/KILL/ESCALATE decision
         if self.governance:
             try:
                 # Build antibody_results from the actual SLM records. The
@@ -2177,10 +2177,10 @@ class JudgeCoreMixin:
                         verdict.evidence["human_review_required"] = True
                         logger.info(f"[V104.40] Governance ESCALATE: {gov_decision.reason}")
             except Exception as e:
-                logger.debug(f"[V97] Governance decide error: {e}")
+                logger.debug(f" Governance decide error: {e}")
 
         # ============================================================
-        # [V98] STEP 9: COUNTER RESPONSE — chạy SAU Governance
+        #  STEP 9: COUNTER RESPONSE — chạy SAU Governance
         # ============================================================
 
         # 9a. AttackPolicyEngine — decide counter phase
@@ -2219,7 +2219,7 @@ class JudgeCoreMixin:
                 )
                 verdict.evidence["v98_attack_policy"] = v98_policy.to_dict()
             except Exception as e:
-                logger.debug(f"[V98] AttackPolicyEngine error: {e}")
+                logger.debug(f" AttackPolicyEngine error: {e}")
 
         # 9b. CounterResponseEngine — execute counter if phase > 0
         if v98_policy and v98_policy.phase > 0 and self.counter_response:
@@ -2253,7 +2253,7 @@ class JudgeCoreMixin:
                             }
                 except RuntimeError as re:
                     # [V104.33 #16] If event loop already running, fall back to thread pool
-                    logger.debug(f"[V98] CounterResponse asyncio.run fallback: {re}")
+                    logger.debug(f" CounterResponse asyncio.run fallback: {re}")
                     import concurrent.futures as _cf
                     try:
                         _cr_pool = _cf.ThreadPoolExecutor(max_workers=1)
@@ -2275,9 +2275,9 @@ class JudgeCoreMixin:
                                     "canary_token": v98_counter_result.canary_token,
                                 }
                     except Exception as e2:
-                        logger.debug(f"[V98] CounterResponse thread fallback error: {e2}")
+                        logger.debug(f" CounterResponse thread fallback error: {e2}")
             except Exception as e:
-                logger.debug(f"[V98] CounterResponseEngine error: {e}")
+                logger.debug(f" CounterResponseEngine error: {e}")
 
         # 9c. CanaryTokenMonitor — generate canary if Phase 2+
         if v98_policy and v98_policy.phase >= 2 and self.canary_monitor:
@@ -2286,7 +2286,7 @@ class JudgeCoreMixin:
                 canary = self.canary_monitor.generate(attacker_ip)
                 verdict.evidence["v98_canary_token"] = canary.token
             except Exception as e:
-                logger.debug(f"[V98] CanaryTokenMonitor error: {e}")
+                logger.debug(f" CanaryTokenMonitor error: {e}")
 
         # 9d. AttackPatternMemory — record bypass if verdict=PASS but attack detected
         if self.attack_memory and verdict.verdict == "PASS":
@@ -2337,7 +2337,7 @@ class JudgeCoreMixin:
                             # critical bypass alerts.
                             logger.warning(f"[judge] bypass_detected notify failed: {e}")
                 except Exception as e:
-                    logger.debug(f"[V98] AttackPatternMemory record error: {e}")
+                    logger.debug(f" AttackPatternMemory record error: {e}")
 
         # 9e. Store V98 input detection results in evidence
         if v98_guard_verdict:
@@ -2350,10 +2350,10 @@ class JudgeCoreMixin:
             verdict.evidence["v98_attack_match"] = v98_attack_match
 
         # ============================================================
-        # [V100] PHASE 6: CLAIM EXTRACTION + ANTIBODIES + VERIFICATION
+        #  PHASE 6: CLAIM EXTRACTION + ANTIBODIES + VERIFICATION
         # ============================================================
         with _v100_timer.phase("extraction"):
-            # [V103] DomainAntibodySystem — chạy 38 antibodies với domain filter
+            #  DomainAntibodySystem — chạy 38 antibodies với domain filter
             # [Task 45-B] Antibody block extracted to _run_antibodies() to reduce judge() CC.
             # [G5-FIX] Pass ai_answer so closure words in the AI's ORIGINAL claim
             # are detected (not just verdict.final_answer which is SCP's response).
@@ -2363,7 +2363,7 @@ class JudgeCoreMixin:
                 try:
                     v100_claims = self.claim_extractor.extract(verdict.final_answer, question)
                     if self.claim_verifier and v100_claims:
-                        # [R17-FIX-1] Build ground truth from KB hits + SLM evidence.
+                        #  Build ground truth from KB hits + SLM evidence.
                         # BEFORE: only KB hits → ground_truth empty for new questions
                         #         → all claims "verified=None" → PASS (false confidence).
                         # AFTER:  SLM evidence (value, source, unit) normalized into
@@ -2381,7 +2381,7 @@ class JudgeCoreMixin:
                         for hit in v100_kb_hits:
                             ground_truth[hit.source] = hit.answer
                         # 2. SLM responses — extract evidence from each SLM
-                        # [R17-FIX-1] BEFORE: SLM evidence DISCARDED. ClaimVerifier
+                        #  BEFORE: SLM evidence DISCARDED. ClaimVerifier
                         #   only had KB hits. If no KB hit → claims unverified → PASS.
                         #   AFTER: SLM evidence flows into ground_truth.
                         for _slm_resp in (slm_responses or []):
@@ -2416,7 +2416,7 @@ class JudgeCoreMixin:
                         v100_claim_summary = self.claim_verifier.summarize(v100_claims)
                         verdict.evidence["v100_claims"] = v100_claim_summary
 
-                        # [R17-FIX-2] Governance based on claim verification status.
+                        #  Governance based on claim verification status.
                         # BEFORE: only ×0.5 if claims REFUTED. If claims UNVERIFIED
                         #   (verified=None) → NO action → PASS stays PASS (false confidence).
                         # AFTER: UPHOLD (UNKNOWN) if >50% claims unverified.
@@ -2429,12 +2429,12 @@ class JudgeCoreMixin:
                         if _refuted > 0:
                             # Claims REFUTED — confidence ×0.5 (existing behavior)
                             verdict.confidence *= 0.5
-                            verdict.reasoning += f" | [V100] {_refuted} claims refuted"
+                            verdict.reasoning += f" |  {_refuted} claims refuted"
 
                         if _total > 0 and _unverified / _total > 0.5 and not (_math_verdict == "PASS" and verdict.verdict == "PASS"):
                             # >50% claims UNVERIFIED — UPHOLD (can't confirm answer)
                             logger.warning(
-                                f"[R17-FIX-2] {_unverified}/{_total} claims unverified — "
+                                f" {_unverified}/{_total} claims unverified — "
                                 f"UPHOLD verdict from {verdict.verdict} to UNKNOWN"
                             )
                             if verdict.verdict == "PASS":
@@ -2444,10 +2444,10 @@ class JudgeCoreMixin:
                                     f" | [R17] UPHOLD: {_unverified}/{_total} claims unverified"
                                 )
                 except Exception as e:
-                    logger.debug(f"[V100] Claim extraction error: {e}")
+                    logger.debug(f" Claim extraction error: {e}")
 
         # ============================================================
-        # [V107] PHASE 6.5: LOGICAL AUDITOR — kiểm tra lỗi logic sâu
+        #  PHASE 6.5: LOGICAL AUDITOR — kiểm tra lỗi logic sâu
         # ============================================================
         with _v100_timer.phase("falsification"):  # reuse falsification phase
             if self.logical_auditor and self.logical_auditor.should_audit(verdict.verdict, verdict.final_answer):
@@ -2466,9 +2466,9 @@ class JudgeCoreMixin:
                     self._apply_logical_audit(verdict, audit_result)
                     _pool.shutdown(wait=False)
                 except Exception as e:
-                    logger.debug(f"[V107] LogicalAuditor error: {e}")
+                    logger.debug(f" LogicalAuditor error: {e}")
 
-        # [V106] SelfQuestioningEngine — SCP tự hỏi "Tại Sao?"
+        #  SelfQuestioningEngine — SCP tự hỏi "Tại Sao?"
         if self.self_questioning and verdict.verdict in ("PASS", "FAIL", "SPECULATIVE"):
             try:
                 sq_result = self.self_questioning.question(
@@ -2486,10 +2486,10 @@ class JudgeCoreMixin:
                     verdict.confidence = sq_result.revised_confidence
                     verdict.reasoning += f" | [V106 SelfQuestion] {sq_result.self_critique[:100]}"
             except Exception as e:
-                logger.debug(f"[V106] SelfQuestioning error: {e}")
+                logger.debug(f" SelfQuestioning error: {e}")
 
         # ============================================================
-        # [V100] PHASE 10: LEARNING — KB save on PASS + H8 bypass analysis
+        #  PHASE 10: LEARNING — KB save on PASS + H8 bypass analysis
         # ============================================================
         with _v100_timer.phase("learning"):
             # [V100 FIX] Save PASS to KnowledgeStore (V63 bug: 0 knowledge saved)
@@ -2506,9 +2506,9 @@ class JudgeCoreMixin:
                         verified_by=["scp_pipeline"],
                     )
                 except Exception as e:
-                    logger.debug(f"[V100] KB save error: {e}")
+                    logger.debug(f" KB save error: {e}")
 
-            # [V100] Record normal question for H8 FP testing
+            #  Record normal question for H8 FP testing
             if self.h8_redteam and verdict.verdict == "PASS":
                 try:
                     self.h8_redteam.record_normal_question(question[:200])
@@ -2517,7 +2517,7 @@ class JudgeCoreMixin:
                     # recording errors silently → false-positive baseline never grows.
                     logger.warning(f"[judge] h8_redteam.record_normal_question failed: {e}")
 
-            # [V100] H8 RedTeamBridge — bypass detection + analysis chiều 2
+            #  H8 RedTeamBridge — bypass detection + analysis chiều 2
             if self.h8_redteam:
                 try:
                     h8_record = self.h8_redteam.record_bypass(
@@ -2533,10 +2533,10 @@ class JudgeCoreMixin:
                         verdict.evidence["v100_bypass_id"] = h8_record.bypass_id
                         verdict.evidence["v100_canary_token"] = h8_record.canary_token
                 except Exception as e:
-                    logger.debug(f"[V100] H8 error: {e}")
+                    logger.debug(f" H8 error: {e}")
 
         # ============================================================
-        # [V100] PHASE 11: OUTPUT — phase timings + KB hits in evidence
+        #  PHASE 11: OUTPUT — phase timings + KB hits in evidence
         # ============================================================
         with _v100_timer.phase("output"):
             v100_timings = _v100_timer.finish()
@@ -2591,7 +2591,7 @@ class JudgeCoreMixin:
                                          if _heal_result else "NO_STRATEGY")
                             _success = _heal_result.get("success", False) if _heal_result else False
 
-                            # [V104.47 #10] [P2-14 FIX] TẠI SAO: V104.45 measured
+                            # [V104.47 #10]  TẠI SAO: V104.45 measured
                             # verdict_improved as "issue type was confidence-related" —
                             # still a proxy. V104.47 #10 added a real re-check (re-run
                             # primary SLM, compare confidence) BUT gated it on issue
@@ -2897,7 +2897,7 @@ class JudgeCoreMixin:
                 return True, "MathSLM: no expression extracted, trusting SLM (logged)"
 
             if "ConversionSLM" in slm_name:
-                # [R18-FIX-5] Complete reality check for ConversionSLM (was trust-only).
+                #  Complete reality check for ConversionSLM (was trust-only).
                 # BEFORE: `return True, "trusting SLM (logged)"` — false confidence (DNA #22).
                 # AFTER: extract numeric value from answer, check if question contains
                 #        conversion pattern (X unit to Y unit), verify answer is plausible.
@@ -2922,7 +2922,7 @@ class JudgeCoreMixin:
                 return True, "ConversionSLM: no numeric value extracted, trusting SLM (logged)"
 
             if "StatisticsSLM" in slm_name:
-                # [R18-FIX-5] Complete reality check for StatisticsSLM (was trust-only).
+                #  Complete reality check for StatisticsSLM (was trust-only).
                 # BEFORE: `return True, "trusting SLM (logged)"` — false confidence.
                 # AFTER: check answer is numeric and in plausible range (0-1 for probability, non-negative for count).
                 if _ans_num is not None:
@@ -2942,7 +2942,7 @@ class JudgeCoreMixin:
                 return True, "StatisticsSLM: no numeric value extracted, trusting SLM (logged)"
 
             if "LogicSLM" in slm_name:
-                # [R18-FIX-5] Complete reality check for LogicSLM (was trust-only).
+                #  Complete reality check for LogicSLM (was trust-only).
                 # BEFORE: `return True, "trusting SLM (logged)"` — false confidence.
                 # AFTER: check answer is True/False or 0/1 (logic statements are boolean).
                 _ans_lower = _ans_str.lower()
@@ -2952,7 +2952,7 @@ class JudgeCoreMixin:
                 if any(op in _ans_str for op in ["∧", "∨", "¬", "→", "↔", "AND", "OR", "NOT", "True", "False"]):
                     return True, "LogicSLM: answer contains logic operators"
                 # Otherwise: can't verify — log warning but don't fail (DNA #7 fail-open)
-                logger.warning(f"[R18-FIX-5] LogicSLM answer '{_ans_str[:50]}' not verifiable — trusting (logged)")
+                logger.warning(f" LogicSLM answer '{_ans_str[:50]}' not verifiable — trusting (logged)")
                 return True, "LogicSLM: answer format not recognized, trusting SLM (logged)"
 
             return True, f"Unknown deterministic SLM '{slm_name}', trusting (logged)"
@@ -2987,7 +2987,7 @@ class JudgeCoreMixin:
         inline (~100 lines, ~10 branches). Mutates verdict.evidence in place.
         ADDITIVE: same logic, same guards, same logging — only relocated.
         """
-        # [V97] FalsificationEngine — translate verdict sang skeptical status
+        #  FalsificationEngine — translate verdict sang skeptical status
         if self.falsification:
             try:
                 falsif_result = self.falsification.translate_old_verdict(
@@ -3042,13 +3042,13 @@ class JudgeCoreMixin:
                             "note": falsif_result.get("note", "")[:200],
                         })
                         logger.warning(
-                            f"[R6-5] Falsification requires human review: status={_fs_enum.value} "
+                            f" Falsification requires human review: status={_fs_enum.value} "
                             f"q={question[:60]!r} conf={verdict.confidence:.2f} — escalated to Dead Man's Switch"
                         )
                 except Exception as _fe:
-                    logger.debug(f"[R6-5] falsification escalation failed: {_fe}")
+                    logger.debug(f" falsification escalation failed: {_fe}")
             except Exception as e:
-                logger.debug(f"[V97] Falsification translate error: {e}")
+                logger.debug(f" Falsification translate error: {e}")
 
         # [FIX-CRIT-135 BUG 5] TẠI SAO: FalsificationEngine.measure_deviation()
         # and generate_contradiction_report() existed (fully implemented, smoke-
@@ -3125,12 +3125,12 @@ class JudgeCoreMixin:
                             _report["contradictions"][:5]
                         )
                         logger.info(
-                            f"[V97] FalsificationEngine: "
+                            f" FalsificationEngine: "
                             f"{len(_report['contradictions'])} contradiction(s) "
                             f"detected (max_dev={_dev.get('max_deviation')})"
                         )
             except Exception as e:
-                logger.debug(f"[V97] Falsification report error: {e}")
+                logger.debug(f" Falsification report error: {e}")
 
     def _run_antibodies(self, verdict, question, ai_answer=""):
         """[Task 45-B] DomainAntibodySystem — run 38 antibodies + downgrade/KILL.
@@ -3149,7 +3149,7 @@ class JudgeCoreMixin:
         Fix: scan BOTH ai_answer AND verdict.final_answer; union the flagged
         results so closure words in either trigger downgrade.
         """
-        # [V103] DomainAntibodySystem — chạy 38 antibodies với domain filter
+        #  DomainAntibodySystem — chạy 38 antibodies với domain filter
         # [G5-FIX] Scan ai_answer too (the AI's original claim) — not just
         # verdict.final_answer (SCP's response, which may be a fallback).
         if not self.antibody_system:
@@ -3219,7 +3219,7 @@ class JudgeCoreMixin:
                     verdict.evidence["antibody_kill"] = True
                     logger.info(f"[V104.41 #AF] Antibody CRITICAL override: {_prev_verdict} → FAIL (abstain)")
         except Exception as e:
-            logger.debug(f"[V103] Antibody check error: {e}")
+            logger.debug(f" Antibody check error: {e}")
 
     def _attach_why_to_verdict(self, verdict, why_plan, why_result, confidence,
                                 question, ai_answer, primary_domain):
@@ -3273,7 +3273,7 @@ class JudgeCoreMixin:
                     verdict.confidence = max(verdict.confidence, why_result.get("confidence", 0.5))
                     verdict.reasoning += f" | WHY Engine PASS: {why_result.get('reasoning', '')[:100]}"
 
-            # [V34] Self-Suspend mechanism (L4) — nếu WHY plan chỉ ra falsification risk
+            #  Self-Suspend mechanism (L4) — nếu WHY plan chỉ ra falsification risk
             # và verdict = PASS nhưng confidence < threshold → mark for re-verification
             if (verdict.verdict == "PASS" and confidence < why_plan.confidence_threshold
                     and why_plan.evidence_type not in ("deterministic_calculation",
@@ -3285,7 +3285,7 @@ class JudgeCoreMixin:
                 }
                 logger.info(f"Self-Suspend: {verdict.verdict} but confidence low — marked for re-verification")
 
-                # [V36] Enqueue for auto re-verification
+                #  Enqueue for auto re-verification
                 if self.reverify_scheduler:
                     try:
                         reverify_id = self.reverify_scheduler.enqueue_if_needed(
@@ -3358,7 +3358,7 @@ class JudgeCoreMixin:
         """
         if self.cognitive:
             try:
-                # [V49] why_plan có thể là dict (khi loaded từ cache) hoặc object
+                #  why_plan có thể là dict (khi loaded từ cache) hoặc object
                 if hasattr(why_plan, 'evidence_type'):
                     evidence_type = why_plan.evidence_type
                 elif isinstance(why_plan, dict):
@@ -3370,7 +3370,7 @@ class JudgeCoreMixin:
                     "codata_constants", "biological_database"
                 )
 
-                # [V49] Always run full cognitive analysis — don't skip for high confidence
+                #  Always run full cognitive analysis — don't skip for high confidence
                 primary_source = ""
                 if primary:
                     primary_source = primary.get("evidence", {}).get("source", "")
@@ -3381,7 +3381,7 @@ class JudgeCoreMixin:
                         sources_failed.append(r.get("domain", "?"))
                     elif r.get("evidence", {}).get("sources_succeeded"):
                         sources_succeeded.extend(r["evidence"]["sources_succeeded"])
-                    # [V48] Also include evidence source for CognitiveGate verified-source check
+                    #  Also include evidence source for CognitiveGate verified-source check
                     if r.get("evidence", {}).get("source"):
                         sources_succeeded.append(r["evidence"]["source"])
                     elif r.get("answer"):
@@ -3405,7 +3405,7 @@ class JudgeCoreMixin:
                         cognitive_result["deterministic"] = True
                     verdict.evidence["cognitive"] = cognitive_result
 
-                    # [V49] Debug visibility — log which layers ran
+                    #  Debug visibility — log which layers ran
                     layers_ran = []
                     if cognitive_result.get("meta_falsification"):
                         layers_ran.append("MetaFalsifier")
@@ -3419,7 +3419,7 @@ class JudgeCoreMixin:
                         layers_ran.append("RecursiveWhy")
                     logger.info(f"[Cognitive V49] Layers ran: {', '.join(layers_ran) or 'none'} | domain={primary_domain} conf={confidence:.2f}")
                 else:
-                    # [V38] Lightweight cognitive — chỉ RecursiveWhy (fast, no DB)
+                    #  Lightweight cognitive — chỉ RecursiveWhy (fast, no DB)
                     if primary:
                         primary_source = primary.get("evidence", {}).get("source", "")
                         if primary_source:
@@ -3473,8 +3473,8 @@ class JudgeCoreMixin:
                     cognitive_result=cognitive_result,
                     evidence_type=evidence_type,
                     sources_succeeded=sources_succeeded_for_gate,
-                    question=question,    # [V50] for logging
-                    domain=primary_domain,  # [V50] for logging
+                    question=question,    #  for logging
+                    domain=primary_domain,  #  for logging
                 )
                 if gated_verdict != verdict.verdict:
                     verdict.evidence["cognitive_gate"] = {

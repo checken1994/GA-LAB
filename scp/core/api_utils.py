@@ -68,7 +68,7 @@ class APICache:
 
 
 # ============================================================
-# [V29] CIRCUIT BREAKER REGISTRY — auto-detect API by URL
+#  CIRCUIT BREAKER REGISTRY — auto-detect API by URL
 # ============================================================
 def _detect_breaker(url: str):
     """Detect appropriate circuit breaker dựa trên URL."""
@@ -118,7 +118,7 @@ import urllib.parse as _url_parse  # noqa: E402  (kept for legacy callers that m
 
 
 def fetch_with_retry(url, headers, timeout=10, max_retries=3):
-    """[V29] Fetch URL với retry + circuit breaker.
+    """ Fetch URL với retry + circuit breaker.
 
     [Fix 4-a-005 / Phase 3-A — DNA #5, #14, #19]
     PREVIOUSLY: this function had its OWN `urllib.request.urlopen` call
@@ -158,7 +158,7 @@ def fetch_with_retry(url, headers, timeout=10, max_retries=3):
     if headers is None:
         headers = {"User-Agent": "SCP/1.0"}
 
-    # [V29] Check circuit breaker
+    #  Check circuit breaker
     breaker = _detect_breaker(url)
     if breaker and not breaker.allow():
         logger.debug(f"[CircuitBreaker] Skip call to {url} (OPEN)")

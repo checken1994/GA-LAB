@@ -102,7 +102,7 @@ class BaseSLM(ABC):
     def _healing_retry_slm(self, issue: dict) -> bool:
         """[V88 FIX] Clear smart cache for failed questions so they get re-processed."""
         try:
-            # _run_periodic_cleanup()  # [V89] deduplicated - function not available
+            # _run_periodic_cleanup()  #  deduplicated - function not available
             logger.info("[HEALING] Cleared smart cache for 50 recent failed questions")
             return True
         except Exception as e:
@@ -159,7 +159,7 @@ class BaseSLM(ABC):
 
 class EntertainmentSLM(BaseSLM):
     """
-    [V73] Entertainment SLM — TV shows, movies, jokes, celebrities.
+     Entertainment SLM — TV shows, movies, jokes, celebrities.
     Uses Wikipedia + TVMaze cache for fact lookup.
     """
     def __init__(self, config: Optional[dict] = None):
@@ -187,7 +187,7 @@ class EntertainmentSLM(BaseSLM):
 
         # Extract show name from "Tell me about the TV show: X."
         entity = None
-        # [V91] "Who wrote X?" / "Author of X?" → book lookup
+        #  "Who wrote X?" / "Author of X?" → book lookup
         m = re.match(r'who\s+wrote\s+(.+?)\?*$', q, re.IGNORECASE)
         if m:
             book_title = m.group(1).strip().rstrip('?').strip()
@@ -242,7 +242,7 @@ class EntertainmentSLM(BaseSLM):
             confidence = 0.3
             reasoning = "Joke pattern — cannot verify punchline objectively"
 
-        # [V75] SWAPI integration — "Tell me about the Star Wars X: Y"
+        #  SWAPI integration — "Tell me about the Star Wars X: Y"
         # Was: EntertainmentSLM only had Wikipedia fallback
         # Now: query SWAPI directly for Star Wars entities
         if not answer:
@@ -354,7 +354,7 @@ class EntertainmentSLM(BaseSLM):
             try:
                 data = self._wiki.fetch(entity)
                 if data and data.get("extract"):
-                    # [V91] Only use Wikipedia if no cross-verify answer yet
+                    #  Only use Wikipedia if no cross-verify answer yet
                     if not answer:
                         answer = data["extract"][:300]
                         confidence = 0.65

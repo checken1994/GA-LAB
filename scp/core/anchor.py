@@ -90,7 +90,7 @@ class RealityAnchor:
             try:
                 sha = self._compute_sha(entity, attr, value)
                 db_exec(
-                    # [P1-8 FIX] TẠI SAO: V104.37 #78 fix embedded a Python `#` comment
+                    #  TẠI SAO: V104.37 #78 fix embedded a Python `#` comment
                     # INSIDE the SQL string literal. SQLite does NOT treat `#` as a
                     # comment → syntax error → except swallowed it → CODATA constants
                     # NEVER seeded → verify() always returned `no_anchor` → the ENTIRE
@@ -168,7 +168,7 @@ class RealityAnchor:
     def add_anchor(self, entity: str, attribute: str, value, source: str = "user") -> bool:
         """Add a new anchor.
 
-        [P1-8 FIX] TẠI SAO: was `INSERT OR REPLACE` — allowed anyone to overwrite
+         TẠI SAO: was `INSERT OR REPLACE` — allowed anyone to overwrite
         CODATA / seeded constants, defeating the "anchor" guarantee. Now uses
         `INSERT OR IGNORE`: if (entity, attribute) already exists, the existing
         anchor is preserved and we return False (caller knows it was a duplicate).

@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] StatisticsDataSource - Data source cho Thống kê
+ StatisticsDataSource - Data source cho Thống kê
 """
 
 import logging

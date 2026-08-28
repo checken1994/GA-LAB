@@ -59,7 +59,7 @@ def _run_vulture_cross_file(method_name: str) -> bool:
         # If method_name appears in vulture output → still dead
         return method_name not in result.stdout
     except Exception as e:
-        logger.warning("[R7-12] vulture cross-file unavailable; verification is UNVERIFIED: %s", type(e).__name__)
+        logger.warning(" vulture cross-file unavailable; verification is UNVERIFIED: %s", type(e).__name__)
         return False
 
 
@@ -88,7 +88,7 @@ def _try_import_module(file_path: str) -> tuple[bool, str]:
         return False, f"SyntaxError: {e}"
     except Exception as e:
         # A module-level exception means the patched module was not verified.
-        logger.warning("[R7-12] import check failed; verification is UNVERIFIED: %s", type(e).__name__)
+        logger.warning(" import check failed; verification is UNVERIFIED: %s", type(e).__name__)
         return False, f"module import failed: {type(e).__name__}"
 
 
@@ -114,7 +114,7 @@ def _try_hypothesis_test(file_path: str) -> tuple[bool, str]:
             return True, "hypothesis tests pass"
         return False, f"hypothesis tests failed: {result.stdout[-500:]}"
     except Exception as e:
-        logger.warning("[R7-12] hypothesis test unavailable; verification is UNVERIFIED: %s", type(e).__name__)
+        logger.warning(" hypothesis test unavailable; verification is UNVERIFIED: %s", type(e).__name__)
         return False, f"UNVERIFIED: hypothesis test unavailable ({type(e).__name__})"
 
 
@@ -171,7 +171,7 @@ def run_post_fix_verify(
         if not hyp_ok:
             all_ok = False
 
-    reason = f"[R7-12] post_fix_verify for {bug_id}: {'ALL PASS' if all_ok else 'FAILED'}"
+    reason = f" post_fix_verify for {bug_id}: {'ALL PASS' if all_ok else 'FAILED'}"
     logger.info(reason)
 
     return {
@@ -217,12 +217,12 @@ def rollback_fix(file_path: str, backup_path: str | None = None) -> bool:
         for backup in candidates:
             if backup.exists():
                 shutil.copy2(backup, target)
-                logger.info(f"[R7-12] Rolled back {file_path} from {backup}")
+                logger.info(f" Rolled back {file_path} from {backup}")
                 return True
-        logger.warning(f"[R7-12] No backup found for {file_path}")
+        logger.warning(f" No backup found for {file_path}")
         return False
     except Exception as e:
-        logger.error(f"[R7-12] Rollback failed: {e}\n{_tb.format_exc()}")
+        logger.error(f" Rollback failed: {e}\n{_tb.format_exc()}")
         return False
 
 

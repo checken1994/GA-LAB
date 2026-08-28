@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] AerospaceDataSource - Data source cho Hàng không vũ trụ
+ AerospaceDataSource - Data source cho Hàng không vũ trụ
 """
 
 import logging

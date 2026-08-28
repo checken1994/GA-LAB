@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] EducationDataSource - Data source cho Giáo dục
+ EducationDataSource - Data source cho Giáo dục
 """
 
 import logging

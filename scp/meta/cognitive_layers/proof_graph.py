@@ -159,13 +159,13 @@ class ProofGraphBuilder:
 
         graph.evaluate()
 
-        # [V50] Save graph to DB for history/analysis
+        #  Save graph to DB for history/analysis
         self._save_graph_to_db(graph, getattr(plan, 'question', ''), verdict, confidence)
 
         return graph
 
     def _save_graph_to_db(self, graph, question: str, verdict: str, confidence: float):
-        """[V50] Persist ProofGraph to proof_graph_history table."""
+        """ Persist ProofGraph to proof_graph_history table."""
         try:
             from scp.core.db_manager import db_exec, init_db
             init_db()

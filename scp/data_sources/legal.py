@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V46] LegalDataSource — Luật & Hành chính
+ LegalDataSource — Luật & Hành chính
 Bao gồm: Vietnamese law basics, international law, rights, contracts.
 Fallback: LiveKnowledgeFetcher (Wikipedia).
 """

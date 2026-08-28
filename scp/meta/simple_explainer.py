@@ -67,7 +67,7 @@ class SimpleExplainer:
         elif verdict == "FAIL":
             one_line = "❌ SCP xác định câu trả lời này SAI."
         elif verdict == "PARTIAL":
-            # [P0-5 FIX] TẠI SAO: V104.34 #59 fix was incomplete — it set color="yellow"
+            #  TẠI SAO: V104.34 #59 fix was incomplete — it set color="yellow"
             # but forgot to set `one_line` → NameError at `medium = one_line + ...` below,
             # swallowed by upstream except → every PARTIAL verdict (very common after
             # CognitiveGate downgrades) crashed the explainer silently. Fix: set one_line.

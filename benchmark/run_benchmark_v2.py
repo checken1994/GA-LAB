@@ -33,7 +33,7 @@ from typing import Any
 
 import requests
 
-# [R17-FIX-8] Import random question generator
+#  Import random question generator
 try:
     from benchmark.question_generator import generate_random_questions, save_questions_to_jsonl
 except ImportError:
@@ -508,13 +508,13 @@ def evaluate_questions_v2(url: str, token: str, categories: list[str], inject_co
         token: auth token
         categories: question categories (used if random_questions is None)
         inject_corrupted: whether to inject corrupted_answer for self-correction test
-        random_questions: [R17-FIX-8] if provided, use these generated questions
+        random_questions:  if provided, use these generated questions
                           instead of loading from JSONL files
     """
     results = []
     headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-    # [R17-FIX-8] Support random question mode
+    #  Support random question mode
     if random_questions is not None:
         # Group by category for reporting
         by_cat: dict[str, list] = {}
@@ -648,13 +648,13 @@ def evaluate_attacks_v2(url: str, token: str, categories: list[str],
     """Evaluate attacks with proper BLOCKED/BYPASSED/ERROR/TIMEOUT classification.
 
     Args:
-        random_attacks: [R17-FIX-8] if provided, use these generated attacks
+        random_attacks:  if provided, use these generated attacks
                         instead of loading from JSONL files
     """
     results = []
     headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-    # [R17-FIX-8] Support random attack mode
+    #  Support random attack mode
     if random_attacks is not None:
         by_cat: dict[str, list] = {}
         for a in random_attacks:
@@ -843,7 +843,7 @@ def main():
     parser.add_argument("--no-corruption", action="store_true", help="Skip self-correction test")
     parser.add_argument("--evaluation-mode", choices=["auto", "factual_only", "self_correction", "verifier_consistency", "security"], default="auto", help="Separate benchmark meaning; auto preserves legacy flags")
     parser.add_argument("--output", default="results_v2/scp_results.json")
-    # [R17-FIX-8] Random question generation
+    #  Random question generation
     parser.add_argument("--random", action="store_true",
                         help="Generate random questions (not static dataset) — each run tests different questions")
     parser.add_argument("--seed", type=int, default=None,
@@ -854,7 +854,7 @@ def main():
     parser.add_argument("--num-attacks", type=int, default=5, help="Number of random attacks")
     parser.add_argument("--save-questions", default=None,
                         help="Save generated questions to JSONL (for reproducibility audit)")
-    # [R18-FIX-1] Auto-start SCP if not running
+    #  Auto-start SCP if not running
     parser.add_argument("--auto-start", action="store_true",
                         help="Auto-start SCP server if not running (launches start-scp.bat/sh)")
     args = parser.parse_args()
@@ -882,7 +882,7 @@ def main():
         print(f"  Attacks: {args.attacks}")
     print(f"  Self-correction: {'OFF' if args.no_corruption else 'ON (inject corrupted_answer)'}")
 
-    # [R17-FIX-8] Generate random questions if --random flag
+    #  Generate random questions if --random flag
     random_questions = None
     random_attacks = None
     if args.random:
@@ -906,7 +906,7 @@ def main():
             print(f"  💾 Questions saved to: {args.save_questions} (+ _attacks.jsonl)")
 
     # Check server — with auto-start option (R18-FIX-1)
-    # [R18-FIX-1] Missing piece: benchmark assumes SCP is running.
+    #  Missing piece: benchmark assumes SCP is running.
     # BEFORE: if SCP not running → "Cannot connect" → user stuck
     # AFTER:  if --auto-start flag → benchmark launches SCP automatically
     #         + waits for /health + retries up to 60s

@@ -160,7 +160,7 @@ except (ImportError, ModuleNotFoundError) as _e:
 except Exception as _e:
     # DNA #23: SCP module may import successfully but fail at runtime if its
     # internal deps (requests, httpx, etc.) aren't installed. The SCP module
-    # catches ImportError internally and logs "[V97] DataSource import error"
+    # catches ImportError internally and logs " DataSource import error"
     # but then downstream code fails with a non-ImportError exception
     # (NameError, AttributeError, etc. when the unimported module is used).
     # Tests 1+2 already prove the fix statically. Skip gracefully on ANY

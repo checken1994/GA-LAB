@@ -79,7 +79,7 @@ class RecursiveWhyEngine:
         "CODATA": "CODATA constants are internationally agreed standards",
     }
 
-    # [V50] Authoritative empirical sources — high trust, terminate as "trusted_source".
+    #  Authoritative empirical sources — high trust, terminate as "trusted_source".
     # These are EXTERNAL institutional/scientific authorities whose data is the
     # de-facto ground truth for their domain. Not axioms (math), but trusted
     # enough to stop the why-chain.
@@ -110,7 +110,7 @@ class RecursiveWhyEngine:
         "Beaufort Scale (Local)": "Beaufort scale (local copy)",
         "Standard Statistical Tables (Local)": "Standard statistical tables (local copy)",
         "Mathematical Constants (Local)": "Mathematical constants (local copy)",
-        # [V51] SLM internal knowledge bases (kept — these ARE authoritative
+        #  SLM internal knowledge bases (kept — these ARE authoritative
         # within the SCP system's own curated KB; they're "manually verified"
         # in the same way NIST constants are manually verified).
         "internal_kb": "Internal knowledge base (curated biology/medical facts)",
@@ -202,7 +202,7 @@ class RecursiveWhyEngine:
         current_source = primary_source
         current_question = f"Tại sao {question}?"
 
-        # [V50] Check authoritative sources FIRST — before multi-source pattern check
+        #  Check authoritative sources FIRST — before multi-source pattern check
         # because "weighted(PubChem)" should match PubChem in AUTHORITATIVE_SOURCES
         if current_source:
             src_lower = current_source.lower()
@@ -258,8 +258,8 @@ class RecursiveWhyEngine:
                 return RecursiveWhyResult(
                     chain=chain,
                     depth_reached=1,
-                    terminated_at="trusted_source",  # [V50] was "unprovable"
-                    final_trust="empirical_authoritative",  # [V50] was "empirical"
+                    terminated_at="trusted_source",  #  was "unprovable"
+                    final_trust="empirical_authoritative",  #  was "empirical"
                 )
 
         for level in range(self.MAX_DEPTH):

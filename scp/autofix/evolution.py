@@ -225,13 +225,13 @@ class EvolutionEngine(EvolutionEngineBuildMixin, EvolutionEngineReflectMixin, Ev
     # Mode 1: build_module
     # ============================================================
 
-    # [V9.1-UPGRADE] EvolutionValidation layer — cùng cấp WHY (2-layer: action + self-verify).
+    #  EvolutionValidation layer — cùng cấp WHY (2-layer: action + self-verify).
     # TẠI SAO: WHY gate (v9.0) hỏi "có nên build module này không?" (action layer —
     # necessity + falsification). _validate_evolved_module hỏi "module vừa build có
     # thực sự work không?" (verify layer). WHY + validate = cùng độ sâu (2 layer).
     # Non-blocking: validate error → fail-open (don't break build flow).
     # Nếu validate fail → caller ROLLBACK (restore backup or delete new file).
-    # [V9.1-UPGRADE] Audit log helper for V9.1 self-verify layer.
+    #  Audit log helper for V9.1 self-verify layer.
     def _audit_v91(self, event: str, payload: dict) -> None:
         try:
             _entry = {
@@ -244,7 +244,7 @@ class EvolutionEngine(EvolutionEngineBuildMixin, EvolutionEngineReflectMixin, Ev
             with open(_audit_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(_entry, ensure_ascii=False) + "\n")
         except Exception as _audit_err:
-            logger.debug(f"[V9.1-UPGRADE] audit log error (fail-open): {_audit_err}")
+            logger.debug(f" audit log error (fail-open): {_audit_err}")
 
     def _count_bugs(self) -> int:
         """Quick AST scan to count bugs (for re-scan check)."""

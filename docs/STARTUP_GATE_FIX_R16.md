@@ -20,7 +20,7 @@ Why 5 (ROOT): Startup gate BLOCK app start. Gate nên chạy BACKGROUND post-sta
 
 ```
 05:12:42,467  [R10 v3] IMP-13 partition: 547 scan / 453 cached (total=1000)
-05:12:42,467  [R12-20] parallel scan done: 547 files, 101 findings, 8 threads
+05:12:42,467   parallel scan done: 547 files, 101 findings, 8 threads
 GET /api/scp/health  503  in 20ms   ← app chưa ready
 GET /api/scp/health  503  in 27ms   ← vẫn chưa ready
 GET /api/scp/health  503  in 31ms   ← vẫn chưa ready

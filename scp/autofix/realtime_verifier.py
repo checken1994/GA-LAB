@@ -335,7 +335,7 @@ class RealTimeVerifier:
         except Exception as e:
             # A verifier crash means the fix is not verified; never allow it.
             logger.warning(
-                "[R12-18] realtime_verifier failed; rejecting unverifiable fix: %s",
+                " realtime_verifier failed; rejecting unverifiable fix: %s",
                 type(e).__name__,
             )
             result.ok = False

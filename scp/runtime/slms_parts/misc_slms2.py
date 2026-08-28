@@ -103,7 +103,7 @@ class BaseSLM(ABC):
     def _healing_retry_slm(self, issue: dict) -> bool:
         """[V88 FIX] Clear smart cache for failed questions so they get re-processed."""
         try:
-            # _run_periodic_cleanup()  # [V89] deduplicated - function not available
+            # _run_periodic_cleanup()  #  deduplicated - function not available
             logger.info("[HEALING] Cleared smart cache for 50 recent failed questions")
             return True
         except Exception as e:
@@ -169,7 +169,7 @@ class FinanceSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V30] Smart cache với per-source TTL
+        #  Smart cache với per-source TTL
         try:
             from scp.core.smart_cache import get_smart_cache
             cache = get_smart_cache()
@@ -253,7 +253,7 @@ class FinanceSLM(BaseSLM):
         resp = SLMResponse(question=question, answer=answer, confidence=confidence,
                            domain="finance", reasoning=reasoning, evidence=evidence,
                            slm_name=self.name, processing_time=time.time() - start)
-        # [V30] Save to smart cache với source-based TTL
+        #  Save to smart cache với source-based TTL
         try:
             source = evidence.get("source", "")
             cache.set("slm:FinanceSLM", question, resp, source)
@@ -280,7 +280,7 @@ class LogicSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("LogicSLM", question)
@@ -359,7 +359,7 @@ class LogicSLM(BaseSLM):
             slm_name=self.name, processing_time=time.time() - start,
         )
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("LogicSLM", question, resp, evidence.get("source", "PythonAST"))
@@ -386,7 +386,7 @@ class StatisticsSLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("StatsSLM", question)
@@ -463,7 +463,7 @@ class StatisticsSLM(BaseSLM):
             slm_name=self.name, processing_time=time.time() - start,
         )
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("StatsSLM", question, resp, evidence.get("source", "PythonMath"))
@@ -479,7 +479,7 @@ class StatisticsSLM(BaseSLM):
 
 class HolidaySLM(BaseSLM):
     """
-    [V78] Holiday SLM — public holidays via date.nager.at API.
+     Holiday SLM — public holidays via date.nager.at API.
     Handles: "What is a public holiday in X?" (X = country code)
     """
     def __init__(self, config: Optional[dict] = None):
@@ -569,7 +569,7 @@ class HolidaySLM(BaseSLM):
 
 class AnimalFactsSLM(BaseSLM):
     """
-    [V78] Animal Facts SLM — cat/dog facts via kinduff/catfact APIs.
+     Animal Facts SLM — cat/dog facts via kinduff/catfact APIs.
     Handles: "Tell me a fact about cats/dogs."
     """
     def __init__(self, config: Optional[dict] = None):
@@ -610,7 +610,7 @@ class AnimalFactsSLM(BaseSLM):
 
         elif 'fact about dogs' in q or 'dog fact' in q:
             try:
-                # [V79] dog-api.kinduff.com returns empty facts — use some-random-api instead
+                #  dog-api.kinduff.com returns empty facts — use some-random-api instead
                 req = urllib.request.Request(
                     "https://some-random-api.com/animal/dog",
                     headers={'User-Agent': 'SCP-V79-Bot/1.0'}
@@ -648,7 +648,7 @@ class AnimalFactsSLM(BaseSLM):
 
 class CitySLM(BaseSLM):
     """
-    [V73] City SLM — populations, areas, timezones for cities (vs GeographySLM
+     City SLM — populations, areas, timezones for cities (vs GeographySLM
     which only handles countries via REST Countries API).
     Uses Open-Meteo geocoding + Wikidata.
     """
@@ -714,7 +714,7 @@ class CitySLM(BaseSLM):
 
 class ReligionSLM(BaseSLM):
     """
-    [V73] Religion/Literature SLM — Bible verses, quotes, scriptures.
+     Religion/Literature SLM — Bible verses, quotes, scriptures.
     Uses bible-api.com for verse lookup.
     """
     def __init__(self, config: Optional[dict] = None):
@@ -773,7 +773,7 @@ class ReligionSLM(BaseSLM):
 
 class AdviceSLM(BaseSLM):
     """
-    [V78] Advice SLM — life advice via adviceslip.com API.
+     Advice SLM — life advice via adviceslip.com API.
     Handles: "What is a piece of useful life advice?"
     """
     def __init__(self, config: Optional[dict] = None):
@@ -832,7 +832,7 @@ class AdviceSLM(BaseSLM):
 
 class ChuckNorrisSLM(BaseSLM):
     """
-    [V78] Chuck Norris SLM — jokes via chucknorris.io API.
+     Chuck Norris SLM — jokes via chucknorris.io API.
     Handles: "Tell me a Chuck Norris fact."
     """
     def __init__(self, config: Optional[dict] = None):

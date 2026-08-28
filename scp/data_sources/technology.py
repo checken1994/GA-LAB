@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V46] TechnologyDataSource — Công nghệ & Kỹ thuật
+ TechnologyDataSource — Công nghệ & Kỹ thuật
 Bao gồm: programming languages, AI/ML concepts, hardware, internet protocols.
 Fallback: LiveKnowledgeFetcher (arXiv + Wikipedia).
 """
@@ -217,7 +217,7 @@ class TechnologyDataSource(IDataSource):
                     'metadata': {**data, 'category': table_name}
                 }
 
-        # [V63] Second pass: partial match — but ONLY if entity is longer than key
+        #  Second pass: partial match — but ONLY if entity is longer than key
         # This prevents "go" (2 chars) matching "google" (6 chars)
         for table_name, table in [
             ('language', self._languages),
@@ -227,7 +227,7 @@ class TechnologyDataSource(IDataSource):
             ('company', self._companies),
         ]:
             for key, data in table.items():
-                # [V63] Only match if key is substantial (>= 4 chars) and entity contains key
+                #  Only match if key is substantial (>= 4 chars) and entity contains key
                 # OR entity is contained in key (entity="python" in key="python language")
                 if len(key) >= 4 and key in entity_lower:
                     return {

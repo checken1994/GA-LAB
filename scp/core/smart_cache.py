@@ -148,7 +148,7 @@ class SmartCache:
                 self._stats["hits"] += 1
                 return value
 
-            # [V33] Check disk cache (SQLite) — for cross-process persistence
+            #  Check disk cache (SQLite) — for cross-process persistence
             disk_value = self._disk_get(namespace, identifier)
             if disk_value is not None:
                 # Promote to memory cache
@@ -330,7 +330,7 @@ def get_smart_cache() -> SmartCache:
 
 
 # ============================================================
-# [V33] SLM Cache Helper — tích hợp SmartCache vào SLM.predict()
+#  SLM Cache Helper — tích hợp SmartCache vào SLM.predict()
 # ============================================================
 # [Task 35-A ROOT-FIX] TẠI SAO: slm_cache_set previously passed the raw
 # SLMResponse dataclass to SmartCache.set() → _disk_set() called

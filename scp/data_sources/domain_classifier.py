@@ -7,7 +7,7 @@ License: See LICENSE file
 """
 
 """
-[V46] DomainClassifier — phân loại câu hỏi vào 1 trong 45+ domains.
+ DomainClassifier — phân loại câu hỏi vào 1 trong 45+ domains.
 
 Sử dụng keyword matching + scoring để chọn domain phù hợp nhất.
 Fallback: nếu không match → 'general' (LiveKnowledgeFetcher xử lý).
@@ -136,7 +136,7 @@ def classify_question(question: str, top_k: int = 3) -> list[tuple[str, float]]:
     # [V58-V59 FIX] Use word-boundary matching for ALL routing rules
     # to prevent "AI" matching "r**AI**ndom", "UX" matching "bu**UX**", etc.
     for pattern, domain in ROUTING_RULES:
-        # [V59] Always wrap with word boundaries — extract alternatives from (?:...) patterns
+        #  Always wrap with word boundaries — extract alternatives from (?:...) patterns
         if pattern.startswith('(?:') or pattern.startswith('('):
             # Complex pattern — extract alternatives and wrap each with \b
             # VD: "(?:python|javascript|AI|GPT)" → r"\b(?:python|javascript|AI|GPT)\b"
@@ -228,7 +228,7 @@ def classify_question(question: str, top_k: int = 3) -> list[tuple[str, float]]:
     if not scores:
         return [("general", 1.0)]
 
-    # [V53] Require minimum absolute score to avoid false routing
+    #  Require minimum absolute score to avoid false routing
     # Trước V53: "random question with no clear domain" → "domain" matches technology keyword
     #           → routed to technology → wrong SLM answer
     # V53: require score >= 3.0 (at least 1 keyword match with boost) to route to specific domain

@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] BlockchainDataSource - Data source cho Blockchain & Crypto
+ BlockchainDataSource - Data source cho Blockchain & Crypto
 """
 
 import logging

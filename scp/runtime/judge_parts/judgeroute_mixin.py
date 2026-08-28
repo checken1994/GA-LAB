@@ -83,8 +83,8 @@ class JudgeRouteMixin:
 
     def _route_question(self, question: str, domain_override: str | None = None) -> list[str]:
         """Route question to appropriate SLM(s).
-        [V72] Cached — same question returns same routing for 1 hour.
-        [V95] Uses SmartClassifier if available, falls back to keyword matching.
+         Cached — same question returns same routing for 1 hour.
+         Uses SmartClassifier if available, falls back to keyword matching.
         """
         # Explicit domain supplied by a trusted benchmark/request caller wins over
         # heuristic numbers/date tokens. Only route to domains with a registered SLM.
@@ -104,7 +104,7 @@ class JudgeRouteMixin:
                 return [normalized]
         if not question:
             return ["math"]
-        # [V72] Check cache first
+        #  Check cache first
         cache_key = hashlib.sha256(question.encode()).hexdigest()
         cached = self._ROUTE_CACHE.get(cache_key)
         if cached:
@@ -115,7 +115,7 @@ class JudgeRouteMixin:
         q_lower = question.lower()
         domains = []
 
-        # [V95] Use SmartClassifier for better accuracy
+        #  Use SmartClassifier for better accuracy
         if self.classifier:
             try:
                 domains = self.classifier.classify_multi(question, max_domains=3)
@@ -137,7 +137,7 @@ class JudgeRouteMixin:
                 # reset and fall through to keyword-based routing
                 domains = []
             except Exception as e:
-                logger.debug(f"[V95] SmartClassifier failed: {e}, using fallback")
+                logger.debug(f" SmartClassifier failed: {e}, using fallback")
 
         # [V91 FIX] "Tell me about X" → general (cross-verify) UNLESS specific domain
         if q_lower.startswith("tell me about"):
@@ -153,11 +153,11 @@ class JudgeRouteMixin:
                 return domains
 
         # Rule-based routing — check more specific keywords first
-        # [v28] Statistics — must come BEFORE math (otherwise stats questions get routed to math)
+        #  Statistics — must come BEFORE math (otherwise stats questions get routed to math)
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["statistics"]
         if any(kw in q_lower for kw in _kw("statistics")):
             domains.append("statistics")
-        # [V56] Conversion — must come BEFORE math (unit conversion questions have digits + operators)
+        #  Conversion — must come BEFORE math (unit conversion questions have digits + operators)
         # [V56.1] But ONLY if there's a unit keyword — don't catch "sqrt(144) bằng bao nhiêu?" (that's math)
         _unit_keywords = ["km", "cm", "mm", "mile", "inch", "foot", "yard", "pound", "kg", "mg",
                           "liter", "gallon", "acre", "hectare", "watt", "horsepower", "joule",
@@ -180,7 +180,7 @@ class JudgeRouteMixin:
             domains.append("finance")
             # [V29 FIX] Also route to conversion (ConversionSLM + FinanceSLM cross-check)
             domains.append("conversion")
-        # [V63] Medical — must come BEFORE biology/statistics/math
+        #  Medical — must come BEFORE biology/statistics/math
         # [V63.2] If "thuốc" present, route to medical ONLY (not biology) to avoid CONFLICT
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["medical"]
         _medical_kws = _kw("medical")
@@ -195,7 +195,7 @@ class JudgeRouteMixin:
         _is_pokemon = "pokemon" in q_lower
         _is_star_wars = "star wars" in q_lower
         # Biology — actual biology keywords (not just "nhiệt" which is also weather)
-        # [V49] Expanded biology keywords
+        #  Expanded biology keywords
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["biology"]
         if not _is_pokemon and any(kw in q_lower for kw in _kw("biology")):
             # [V63.2] Don't add biology if "thuốc" question routed to medical
@@ -203,10 +203,10 @@ class JudgeRouteMixin:
                 pass  # Skip biology — "thuốc X" is medical
             else:
                 domains.append("biology")
-        # [V48] Astronomy — must come BEFORE chemistry vì "khối lượng của Sao Mộc" có "khối lượng"
+        #  Astronomy — must come BEFORE chemistry vì "khối lượng của Sao Mộc" có "khối lượng"
         # nhưng là astronomy question, không phải chemistry
-        # [V75] Don't route to astronomy if it's a Star Wars question
-        # [V89] Pokemon = entertainment, NOT biology
+        #  Don't route to astronomy if it's a Star Wars question
+        #  Pokemon = entertainment, NOT biology
         # (_is_star_wars and _is_pokemon already defined above — V89.6 FIX)
         # [V89 FIX] Word-boundary check for short English keywords to prevent false positives
         # "mars" in "marshall" was routing history questions to astronomy!
@@ -234,7 +234,7 @@ class JudgeRouteMixin:
                 if d in domains:
                     domains.remove(d)
         # Chemistry — molecules, atoms, reactions, elements
-        # [V54] Add compound names (glucose, caffeine, etc.) + "công thức" (formula)
+        #  Add compound names (glucose, caffeine, etc.) + "công thức" (formula)
         # [V63.1] If "khối lượng phân tử" present, route ONLY to chemistry (not medical)
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["chemistry"]
         if any(kw in q_lower for kw in _kw("chemistry")):
@@ -245,7 +245,7 @@ class JudgeRouteMixin:
                     if d in domains:
                         domains.remove(d)
         # [V29 FIX] Reality (physical constants) — must come BEFORE weather
-        # [V49] Already handled above — this block is now a no-op (kept for safety)
+        #  Already handled above — this block is now a no-op (kept for safety)
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["reality"]
         if "reality" not in domains and any(kw in q_lower for kw in _kw("reality")):
             domains.append("reality")
@@ -257,14 +257,14 @@ class JudgeRouteMixin:
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["weather"]
         if "reality" not in domains and any(kw in q_lower for kw in _kw("weather")):
             domains.append("weather")
-        # [V62] Sports — must come BEFORE history (athletes have "là ai?" pattern)
+        #  Sports — must come BEFORE history (athletes have "là ai?" pattern)
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["sports"]
         # NOTE: original inline had a copy-paste bug ("weather in" etc. mixed into sports list
         # — preserved in canonical merge for traceability but harmless: those keywords are
         # also in weather domain, so a sports question wouldn't match them anyway.
         if any(kw in q_lower for kw in _kw("sports")):
             domains.append("sports")
-        # [V63] Arts — must come BEFORE history (artists have "là ai?" pattern)
+        #  Arts — must come BEFORE history (artists have "là ai?" pattern)
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["arts"]
         # NOTE: scientist-exclusion logic preserved (these scientists go to history, not arts).
         _scientist_exclusion = {"tesla", "einstein", "newton", "darwin",
@@ -276,7 +276,7 @@ class JudgeRouteMixin:
                 pass  # Let history handle it
             else:
                 domains.append("arts")
-        # [V63] Technology — must come BEFORE history (tech companies have "thành lập năm nào?")
+        #  Technology — must come BEFORE history (tech companies have "thành lập năm nào?")
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["technology"]
         if any(kw in q_lower for kw in _kw("technology")):
             # [V63.5] Don't route to technology if it's a "Ai là X?" question about a scientist
@@ -285,25 +285,25 @@ class JudgeRouteMixin:
                                 "galileo", "curie", "turing", "feynman", "hawking"}
             if _is_who_question and any(sn in q_lower for sn in _scientist_names):
                 pass  # Let history handle it
-            # [V73] Don't route to technology if it's a food/nutrition question
+            #  Don't route to technology if it's a food/nutrition question
             # ("apple" the fruit, not "Apple" the company)
             elif any(kw in q_lower for kw in ["nutritional value", "nutrition", "calories",
                                                 "recipe", "fruit", "food"]):
                 pass  # Let food SLM handle it
             else:
                 domains.append("technology")
-        # [V63] Legal — must come BEFORE history (laws have "năm nào?")
+        #  Legal — must come BEFORE history (laws have "năm nào?")
         # [V63.5] "quyền" alone is too generic (matches "Ngô Quyền" name) — use "quyền " with space
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["legal"]
         if any(kw in q_lower for kw in _kw("legal")):
             domains.append("legal")
-        # [V63] Organizations — WHO, WTO, NASA, etc. → reality or legal
+        #  Organizations — WHO, WTO, NASA, etc. → reality or legal
         # Check original case for acronyms
         if any(acronym in question for acronym in ["WHO", "WTO", "NASA", "UNESCO", "UN ", "NATO"]):
             if "thành lập" in q_lower or "năm nào" in q_lower:
                 domains.append("legal")
         # Geography — capitals, countries, continents
-        # [V73] Removed "population", "dân số" from geography keywords — now handled by city SLM
+        #  Removed "population", "dân số" from geography keywords — now handled by city SLM
         # Was: "population of Tokyo" → geography (only knows countries) → UNKNOWN
         # Now: "population of Tokyo" → city SLM (geocoding API, knows cities) → PASS
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["geography"]
@@ -313,17 +313,17 @@ class JudgeRouteMixin:
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["history"]
         if any(kw in q_lower for kw in _kw("history")):
             domains.append("history")
-        # [v28] Logic — comparison operators
+        #  Logic — comparison operators
         if re.search(r'\d\s*[<>=!]+\s*\d', q_lower) or any(kw in q_lower for kw in [" so sánh ", "compare", "đúng không", "true or false", "boolean"]):
             domains.append("logic")
-        # [v28] Statistics — mean/median/variance
+        #  Statistics — mean/median/variance
         # [G3-CONSOLIDATE P1-03] keywords delegated to canonical domain_registry.DOMAINS["statistics"]
         if any(kw in q_lower for kw in _kw("statistics")):
             domains.append("statistics")
-        # [v28] Reality — physical constants (V29: dedup — đã match ở V29 block trên)
+        #  Reality — physical constants (V29: dedup — đã match ở V29 block trên)
         # if "reality" not in domains and any(kw in q_lower for kw in ["tốc độ ánh sáng", "hằng số planck", "số avogadro", "gia tốc trọng trường", "khối lượng trái đất", "hằng số hấp dẫn", "speed of light", "gravity", "boiling point", "freezing point"]):
         #     domains.append("reality")
-        pass  # [V29] moved to V29 block above (with dedup logic)
+        pass  #  moved to V29 block above (with dedup logic)
 
         # If no rule matched, try V13 classifier
         if not domains:
@@ -340,19 +340,19 @@ class JudgeRouteMixin:
                 # Let V13 handle it directly
                 pass
 
-        # [V62] V46 domain routing — rule-based for common V46 domains
-        # [V73] Reordered: food, religion, entertainment checked BEFORE technology/medical
+        #  V46 domain routing — rule-based for common V46 domains
+        #  Reordered: food, religion, entertainment checked BEFORE technology/medical
         # because "nutrition", "scripture", "tv show" keywords are more specific
         # [G3-CONSOLIDATE P1-03] all keyword lists now delegate to canonical domain_registry
         if not domains:
-            # [V73] Food & recipes — cooking, nutrition, cocktails (CHECK FIRST — more specific than technology)
+            #  Food & recipes — cooking, nutrition, cocktails (CHECK FIRST — more specific than technology)
             if any(kw in q_lower for kw in _kw("food")):
                 domains.append("food")
-            # [V73] Religion/literature — Bible, Quran, verses, quotes
+            #  Religion/literature — Bible, Quran, verses, quotes
             elif any(kw in q_lower for kw in _kw("religion")):
                 domains.append("religion")
-            # [V73] Entertainment — TV shows, movies, jokes, celebrities
-            # [V75] Added "star wars" — must come BEFORE general/astronomy
+            #  Entertainment — TV shows, movies, jokes, celebrities
+            #  Added "star wars" — must come BEFORE general/astronomy
             elif any(kw in q_lower for kw in _kw("entertainment")):
                 domains.append("entertainment")
             # Arts — phim, họa sĩ, nhạc sĩ, thiết kế + EN: D&D, spell, novel, painting
@@ -370,35 +370,35 @@ class JudgeRouteMixin:
             # Legal — luật, hiến pháp, hợp đồng + EN
             elif any(kw in q_lower for kw in _kw("legal")):
                 domains.append("legal")
-            # [V73] General — names, gender, life advice, opinions
-            # [V78] Removed "advice" — now handled by AdviceSLM
+            #  General — names, gender, life advice, opinions
+            #  Removed "advice" — now handled by AdviceSLM
             elif any(kw in q_lower for kw in _kw("general")):
                 domains.append("general")
-            # [V73] City — populations, areas for cities (NOT countries)
+            #  City — populations, areas for cities (NOT countries)
             elif any(kw in q_lower for kw in _kw("city")):
                 # Could be country (handled by geography) or city (handled by city)
                 # Route to BOTH — geography will handle countries, city will handle cities
                 domains.append("city")
                 domains.append("geography")
-            # [V75] Pokemon — "What type is the Pokemon X?" → biology (PokeAPI)
+            #  Pokemon — "What type is the Pokemon X?" → biology (PokeAPI)
             # NOTE: pokemon keywords kept inline — not a canonical domain (routes to biology)
             elif any(kw in q_lower for kw in ["pokemon", "what type is the pokemon",
                                               "pokeapi"]):
                 domains.append("biology")
-            # [V78] Public holidays — "What is a public holiday in X?"
+            #  Public holidays — "What is a public holiday in X?"
             elif any(kw in q_lower for kw in _kw("holiday")):
                 domains.append("holiday")
-            # [V78] Animal facts — "Tell me a fact about cats/dogs"
+            #  Animal facts — "Tell me a fact about cats/dogs"
             elif any(kw in q_lower for kw in _kw("animal_facts")):
                 domains.append("animal_facts")
-            # [V78] Life advice — "What is a piece of useful life advice?"
+            #  Life advice — "What is a piece of useful life advice?"
             elif any(kw in q_lower for kw in _kw("advice")):
                 domains.append("advice")
-            # [V78] Chuck Norris — "Tell me a Chuck Norris fact"
+            #  Chuck Norris — "Tell me a Chuck Norris fact"
             elif any(kw in q_lower for kw in _kw("chuck_norris")):
                 domains.append("chuck_norris")
 
-        # [V46] If still no match, use DomainClassifier for 45+ domains
+        #  If still no match, use DomainClassifier for 45+ domains
         if not domains:
             try:
                 from scp.data_sources.domain_classifier import classify_question
@@ -410,7 +410,7 @@ class JudgeRouteMixin:
             except Exception as e:
                 logger.debug(f"V46 DomainClassifier error: {e}")
 
-        # [V97] 26 NEW domain routing — cho 26 SLM mới được import
+        #  26 NEW domain routing — cho 26 SLM mới được import
         # [G3-CONSOLIDATE P1-03] Inline 26-domain keyword dict replaced with
         # canonical registry lookup. Priority order preserved (matches first
         # domain in DOMAINS iteration order whose keywords hit).
@@ -529,7 +529,7 @@ class JudgeRouteMixin:
         if not domains:
             domains = ["universal"]
 
-        # [V72] Cache the routing result
+        #  Cache the routing result
         if len(self._ROUTE_CACHE) >= self._ROUTE_CACHE_MAX:
             # Evict oldest 25% entries (simple LRU)
             sorted_keys = sorted(self._ROUTE_CACHE.keys(),

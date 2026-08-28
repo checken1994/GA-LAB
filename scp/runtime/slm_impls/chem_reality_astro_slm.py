@@ -228,9 +228,9 @@ class ChemistrySLM(BaseSLM):
             r'molecular\s+weight\s+of\s+(.+?)\??$',
             r'molar\s+mass\s+of\s+(.+?)\??$',
             r'phân\s+tử\s+lượng\s+(?:của\s+)?(.+?)(?:\s+là|\?|$)',
-            # [V58] Add formula pattern — "công thức của X là gì"
+            #  Add formula pattern — "công thức của X là gì"
             r'(?:công\s+thức|formula)\s+(?:của\s+|of\s+)?(.+?)(?:\s+là\s+gì|\s+is\s+what|\?|$)',
-            # [V59] Add pattern: "X có công thức gì?" — subject before "có công thức"
+            #  Add pattern: "X có công thức gì?" — subject before "có công thức"
             r'(.+?)\s+có\s+công\s+thức\s+gì',
             r'(.+?)\s+có\s+công\s+thức\s+là\s+gì',
         ]
@@ -244,7 +244,7 @@ class ChemistrySLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V30] Smart cache check
+        #  Smart cache check
         try:
             from scp.core.smart_cache import get_smart_cache
             cached = get_smart_cache().get("slm:ChemSLM", question)
@@ -378,7 +378,7 @@ class ChemistrySLM(BaseSLM):
                                     "mass": mass, "atomic_number": an,
                                 }
 
-        # [V60] If question asks for formula, return formula not molar mass
+        #  If question asks for formula, return formula not molar mass
         is_formula_question = any(kw in question.lower() for kw in ['công thức', 'formula'])
 
         if compound and is_formula_question:
@@ -414,7 +414,7 @@ class ChemistrySLM(BaseSLM):
             except Exception:
                 logger.exception("[slms.py:1502] silenced exception")
 
-            # 1.5) [V63] Check ChemistryDataSource local DB BEFORE calling PubChem API
+            # 1.5)  Check ChemistryDataSource local DB BEFORE calling PubChem API
             if not answer:
                 try:
                     from scp.data_sources.chemistry import ChemistryDataSource
@@ -478,12 +478,12 @@ class ChemistrySLM(BaseSLM):
 
 
 # ============================================================
-# WEATHER SLM — [v28] Open-Meteo
+# WEATHER SLM —  Open-Meteo
 # ============================================================
 
 
 # ============================================================
-# REALITY SLM — [v28] Physical constants (CODATA)
+# REALITY SLM —  Physical constants (CODATA)
 # ============================================================
 
 
@@ -554,7 +554,7 @@ class RealitySLM(BaseSLM):
         'nhiệt hóa hơi của nước': ('water_vaporization_heat', 2260, 'kJ/kg'),
         'áp suất khí quyển': ('atmospheric_pressure', 101325, 'Pa'),
         'atmospheric pressure': ('atmospheric_pressure', 101325, 'Pa'),
-        # [V52] World facts — match benchmark questions
+        #  World facts — match benchmark questions
         'số quốc gia': ('num_countries', 195, 'countries'),
         'number of countries': ('num_countries', 195, 'countries'),
         'dân số thế giới': ('world_population', 8.1e9, 'people'),
@@ -569,7 +569,7 @@ class RealitySLM(BaseSLM):
         'number of elements': ('num_elements', 118, 'elements'),
         'đỉnh núi cao nhất': ('everest_height', 8848, 'm'),
         'độ sâu biển sâu nhất': ('mariana_depth', 10994, 'm'),
-        # [V53] Boolean facts (yes/no questions)
+        #  Boolean facts (yes/no questions)
         'trái đất phẳng': ('earth_flat', False, 'boolean'),
         'earth is flat': ('earth_flat', False, 'boolean'),
         'mặt trời quay quanh trái đất': ('sun_revolves_earth', False, 'boolean'),
@@ -582,7 +582,7 @@ class RealitySLM(BaseSLM):
         'water boils at 100c': ('water_boils_100c', True, 'boolean'),
         'con người có 206 xương': ('human_206_bones', True, 'boolean'),
         'humans have 206 bones': ('human_206_bones', True, 'boolean'),
-        # [V49] Missing constants from V44 PhysicsDataSource
+        #  Missing constants from V44 PhysicsDataSource
         'nhiệt độ cmb': ('T_CMB', 2.7255, 'K'),
         'cmb temperature': ('T_CMB', 2.7255, 'K'),
         'hằng số hubble': ('H_0', 67.4, 'km/s/Mpc'),
@@ -611,7 +611,7 @@ class RealitySLM(BaseSLM):
 
     def predict(self, question: str) -> SLMResponse:
         start = self._start_timer()
-        # [V33] SmartCache check
+        #  SmartCache check
         try:
             from scp.core.smart_cache import slm_cache_get, slm_cache_set
             cached = slm_cache_get("RealitySLM", question)
@@ -657,7 +657,7 @@ class RealitySLM(BaseSLM):
             slm_name=self.name, processing_time=time.time() - start,
         )
         self.cache_response(question, resp)
-        # [V33] Save to SmartCache
+        #  Save to SmartCache
         try:
             from scp.core.smart_cache import slm_cache_set
             slm_cache_set("RealitySLM", question, resp, evidence.get("source", "CODATA"))
@@ -671,12 +671,12 @@ class RealitySLM(BaseSLM):
 
 
 # ============================================================
-# CONVERSION SLM — [v28] Currency/crypto (Frankfurter + CoinGecko)
+# CONVERSION SLM —  Currency/crypto (Frankfurter + CoinGecko)
 # ============================================================
 
 
 # ============================================================
-# CONVERSION SLM — [v28] Currency/crypto (Frankfurter + CoinGecko)
+# CONVERSION SLM —  Currency/crypto (Frankfurter + CoinGecko)
 # ============================================================
 
 
@@ -723,7 +723,7 @@ class AstronomySLM(BaseSLM):
                 r'(?:mass|radius|distance|temperature)\s+of\s+(.+?)\??$',
                 r'(.+?)\s+là\s+(?:gì|bao\s+nhiêu)',
                 r'tell\s+me\s+about\s+(.+?)$',
-                # [V74] "What type of thing is X?" → X
+                #  "What type of thing is X?" → X
                 r'what\s+type\s+of\s+thing\s+is\s+(.+?)\??$',
                 r'(.+?)\s+là\s+loại\s+gì\??$',
             ]
@@ -737,7 +737,7 @@ class AstronomySLM(BaseSLM):
             if not entity:
                 entity = question
 
-            # [V74] Special handling for "What type of thing is X?" questions
+            #  Special handling for "What type of thing is X?" questions
             # Was: SLM returns "Saturn: 5.6834e+26 (loại: gas giant)" → AI "planet" → FAIL (overlap 0%)
             # Now: extract just the TYPE from metadata, return only the type
             is_type_question = bool(re.match(r'what\s+type\s+of\s+thing\s+is|là\s+loại\s+gì',
@@ -756,7 +756,7 @@ class AstronomySLM(BaseSLM):
 
             if result:
                 meta = result.get('metadata', {})
-                # [V74] For "What type of thing is X?" — return ONLY the type, not all facts
+                #  For "What type of thing is X?" — return ONLY the type, not all facts
                 # Was: returns "Saturn: 5.6834e+26 (loại: gas giant)..." → AI "planet" → FAIL
                 # Now: returns just "planet" or "gas giant" → matches AI answer
                 if is_type_question and 'type' in meta:

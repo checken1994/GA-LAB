@@ -82,7 +82,7 @@ SYMBOL_MAP = {
     'ada': {'binance': 'ADAUSDT', 'coinbase': 'ADA-USD', 'kraken': 'ADAUSD', 'bitstamp': None, 'kucoin': 'ADA', 'coingecko': 'cardano'},
     'litecoin': {'binance': 'LTCUSDT', 'coinbase': 'LTC-USD', 'kraken': 'XLTCUSD', 'bitstamp': 'ltcusd', 'kucoin': 'LTC', 'coingecko': 'litecoin'},
     'ltc': {'binance': 'LTCUSDT', 'coinbase': 'LTC-USD', 'kraken': 'XLTCUSD', 'bitstamp': 'ltcusd', 'kucoin': 'LTC', 'coingecko': 'litecoin'},
-    # [V60] Add missing coins
+    #  Add missing coins
     'polygon': {'binance': 'POLUSDT', 'coinbase': 'MATIC-USD', 'kraken': 'MATICUSD', 'bitstamp': None, 'kucoin': 'MATIC', 'coingecko': 'matic-network'},
     'matic': {'binance': 'POLUSDT', 'coinbase': 'MATIC-USD', 'kraken': 'MATICUSD', 'bitstamp': None, 'kucoin': 'MATIC', 'coingecko': 'matic-network'},
     'polkadot': {'binance': 'DOTUSDT', 'coinbase': 'DOT-USD', 'kraken': 'DOTUSD', 'bitstamp': None, 'kucoin': 'DOT', 'coingecko': 'polkadot'},
@@ -221,7 +221,7 @@ def fetch_crypto_price(coin: str) -> CryptoResult:
     """
     Fetch crypto price từ nhiều sources, trả về consensus value.
 
-    [V32] Parallel fetch — gọi 6 sources song song bằng threading
+     Parallel fetch — gọi 6 sources song song bằng threading
     thay vì sequential. Speedup ~5x.
 
     Args:
@@ -246,7 +246,7 @@ def fetch_crypto_price(coin: str) -> CryptoResult:
     succeeded: list[str] = []
     failed: list[str] = []
 
-    # [V32] Parallel fetch using threading
+    #  Parallel fetch using threading
     import threading
     from concurrent.futures import ThreadPoolExecutor, as_completed
 

@@ -67,7 +67,7 @@ def pre_startup_audit(run_deep_audit_fn, max_bugs: int | None = None) -> dict:
     # Chỉ block bugs NGUY HIỂM (security, crash, type mismatch)
     _NON_BLOCKING_TYPES = {
         "BareExceptPass", "PossiblyUndefinedName",
-        # [R12-21] style warnings + intentional patterns — không block server
+        #  style warnings + intentional patterns — không block server
         "RuffSecurity_PLC0415",  # lazy import (avoids circular)
         "RuffSecurity_PLW0717",  # try clause too long (style)
         "RuffSecurity_PLW0603",  # global statement (intentional for bg tasks)

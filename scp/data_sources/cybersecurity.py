@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] CybersecurityDataSource - Data source cho An ninh mạng
+ CybersecurityDataSource - Data source cho An ninh mạng
 """
 
 import logging

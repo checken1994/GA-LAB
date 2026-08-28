@@ -176,7 +176,7 @@ class AutoFixEngine:
         # SCP HIỂU: permission đến từ .env, API, hay runtime env var
         get_tier3_config().log_startup_permission()
 
-        # [R20-FIX-1] Read attack mode from .env (was: only via API).
+        #  Read attack mode from .env (was: only via API).
         # BEFORE: in_attack_mode only set via API call → restart = lost.
         # AFTER: SCP_ATTACK_MODE=1 in .env → persistent across restarts.
         # DNA #4 (con người quyết định): user CHỌN bật qua .env.
@@ -298,7 +298,7 @@ class AutoFixEngine:
 
         return {"action": "skipped", "tier": 0, "reason": "unknown tier"}
 
-    # [V9.1-UPGRADE] FixVerification layer — cùng cấp WHY (2-layer: action + self-verify).
+    #  FixVerification layer — cùng cấp WHY (2-layer: action + self-verify).
     # TẠI SAO: WHY gate (v9.0) hỏi "có nên fix không?" (action layer — necessity +
     # falsification). _verify_fix hỏi "fix có work không? Có introduce new bug không?"
     # (verify layer). WHY + verify = cùng độ sâu (2 layer mỗi cái).
@@ -323,7 +323,7 @@ class AutoFixEngine:
           5. [WORLD-CLASS-GATE] pytest — suite không được vỡ sau patch
         """
         try:
-            # [V9.1-UPGRADE] Check 1: ast.parse — file must still be valid Python
+            #  Check 1: ast.parse — file must still be valid Python
             try:
                 import ast as _ast
                 _content = filepath.read_text(encoding="utf-8")
@@ -333,7 +333,7 @@ class AutoFixEngine:
             except Exception as _parse_err:
                 return False, f"parse check failed: {_parse_err}"
 
-            # [V9.1-UPGRADE] Check 2: re-scan file — original bug still present?
+            #  Check 2: re-scan file — original bug still present?
             # TẠI SAO: nếu fix chỉ "modify text" mà không thực sự sửa bug pattern,
             # re-scan sẽ tìm thấy bug cũ. Fail-open if scanner unavailable.
             try:
@@ -359,13 +359,13 @@ class AutoFixEngine:
                         f"{len(_still_present)}/{len(original_bugs)} unchanged"
                     )
             except ImportError as _rescan_import_err:
-                logger.warning("[V9.1-UPGRADE] ast_scan_scp unavailable; rejecting unverifiable fix: %s", type(_rescan_import_err).__name__)
+                logger.warning(" ast_scan_scp unavailable; rejecting unverifiable fix: %s", type(_rescan_import_err).__name__)
                 return False, "re-scan unavailable; fix is UNVERIFIED"
             except Exception as _rescan_err:
-                logger.warning("[V9.1-UPGRADE] re-scan failed; rejecting unverifiable fix: %s", type(_rescan_err).__name__)
+                logger.warning(" re-scan failed; rejecting unverifiable fix: %s", type(_rescan_err).__name__)
                 return False, "re-scan failed; fix is UNVERIFIED"
 
-            # [V9.1-UPGRADE] Check 3: no NEW bugs introduced at the fix line.
+            #  Check 3: no NEW bugs introduced at the fix line.
             # TẠI SAO: fix có thể "fix bug A nhưng introduce bug B" (e.g., add
             # try/except nhưng except:pass → bare-except bug mới). So sánh
             # bug signatures pre/post — nếu có bug mới ở line gần fix → flag.
@@ -395,10 +395,10 @@ class AutoFixEngine:
                         f"{[getattr(b, 'bug_type', '?') for b in _new_bugs[:3]]}"
                     )
             except ImportError as _new_bug_import_err:
-                logger.warning("[V9.1-UPGRADE] new-bug scanner unavailable; rejecting unverifiable fix: %s", type(_new_bug_import_err).__name__)
+                logger.warning(" new-bug scanner unavailable; rejecting unverifiable fix: %s", type(_new_bug_import_err).__name__)
                 return False, "new-bug scan unavailable; fix is UNVERIFIED"
             except Exception as _new_bug_err:
-                logger.warning("[V9.1-UPGRADE] new-bug scan failed; rejecting unverifiable fix: %s", type(_new_bug_err).__name__)
+                logger.warning(" new-bug scan failed; rejecting unverifiable fix: %s", type(_new_bug_err).__name__)
                 return False, "new-bug scan failed; fix is UNVERIFIED"
 
             # [WORLD-CLASS-GATE] Check 4: self_scan_patch_diff
@@ -565,7 +565,7 @@ class AutoFixEngine:
                     # Skip if this finding matches an original bug (we KNEW about it)
                     if (_f_line, _f_type) in _orig_types:
                         continue
-                    # [R12-25] Skip if pre-existing in backup (not introduced by fix)
+                    #  Skip if pre-existing in backup (not introduced by fix)
                     if (_f_line, _f_type) in _pre_existing_types:
                         continue
                     # [SCP-DNA-FIX R13-1] Use _orig_bug_types (ALL pre-existing bug
@@ -696,12 +696,12 @@ class AutoFixEngine:
 
         except Exception as _verify_err:
             logger.warning(
-                "[V9.1-UPGRADE] _verify_fix error; rejecting unverifiable fix: %s",
+                " _verify_fix error; rejecting unverifiable fix: %s",
                 type(_verify_err).__name__,
             )
             return False, "verification error; fix is UNVERIFIED"
 
-    # [V9.1-UPGRADE] Audit log helper for V9.1 self-verify layer.
+    #  Audit log helper for V9.1 self-verify layer.
     def _audit_v91(self, event: str, payload: dict) -> None:
         try:
             _entry = {
@@ -714,7 +714,7 @@ class AutoFixEngine:
             with open(_audit_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(_entry, ensure_ascii=False) + "\n")
         except Exception as _audit_err:
-            logger.debug(f"[V9.1-UPGRADE] audit log error (fail-open): {_audit_err}")
+            logger.debug(f" audit log error (fail-open): {_audit_err}")
 
     # [SCP-DNA-FIX R12-11] Meta self-repair — attempt to auto-fix a crashed safety module.
     # TẠI SAO: VIGIL catches its own diagnostic crashes + repairs runtime. SCP DEFAULT-DENY
@@ -727,13 +727,13 @@ class AutoFixEngine:
     def _attempt_meta_repair(self, module_name: str, error: Exception) -> bool:
         """Attempt to auto-repair a crashed safety module via LLM. Returns True if repaired."""
         if self._meta_repair_attempted:
-            logger.debug("[R12-11] meta-repair already attempted this cycle — skip")
+            logger.debug(" meta-repair already attempted this cycle — skip")
             return False
         self._meta_repair_attempted = True
         try:
             import traceback as _tb
             _error_str = f"{type(error).__name__}: {error}\n{_tb.format_exc()[:500]}"
-            logger.warning(f"[R12-11] attempting meta-repair for {module_name}: {_error_str[:200]}")
+            logger.warning(f" attempting meta-repair for {module_name}: {_error_str[:200]}")
 
             # Read the crashed module's source
             _module_path_map = {
@@ -743,7 +743,7 @@ class AutoFixEngine:
             }
             _module_path = _module_path_map.get(module_name)
             if not _module_path:
-                logger.warning(f"[R12-11] unknown module for meta-repair: {module_name}")
+                logger.warning(f" unknown module for meta-repair: {module_name}")
                 return False
 
             from pathlib import Path as _P
@@ -765,7 +765,7 @@ class AutoFixEngine:
                 )
                 _patch = _call_smart_llm(_prompt, bug_type="meta_repair", max_tokens=2000)
                 if not _patch or "<<<<<<< SEARCH" not in _patch:
-                    logger.warning(f"[R12-11] LLM returned no valid patch for {module_name}")
+                    logger.warning(f" LLM returned no valid patch for {module_name}")
                     return False
                 # Apply patch (backup first)
                 _backup = _p.with_suffix(_p.suffix + ".meta_repair_bak")
@@ -777,22 +777,22 @@ class AutoFixEngine:
                 for _old, _new in _blocks:
                     _new_source = _new_source.replace(_old, _new, 1)
                 if _new_source == _source:
-                    logger.warning(f"[R12-11] patch did not change source for {module_name}")
+                    logger.warning(f" patch did not change source for {module_name}")
                     return False
                 # Verify new source compiles
                 import ast as _ast
                 _ast.parse(_new_source)
                 _p.write_text(_new_source, encoding="utf-8")
-                logger.info(f"[R12-11] meta-repair applied to {module_name} (backup at {_backup.name})")
+                logger.info(f" meta-repair applied to {module_name} (backup at {_backup.name})")
                 return True
             except ImportError:
-                logger.debug("[R12-11] llm_fix unavailable — cannot meta-repair")
+                logger.debug(" llm_fix unavailable — cannot meta-repair")
                 return False
             except Exception as _llm_err:
-                logger.warning(f"[R12-11] LLM meta-repair failed: {_llm_err}")
+                logger.warning(f" LLM meta-repair failed: {_llm_err}")
                 return False
         except Exception as _meta_err:
-            logger.warning(f"[R12-11] meta-repair outer crash: {_meta_err}")
+            logger.warning(f" meta-repair outer crash: {_meta_err}")
             return False
 
     def _auto_fix(self, bug: BugReport, report: bool, attack_mode: bool = False) -> dict:
@@ -1030,12 +1030,12 @@ class AutoFixEngine:
                             "policy_patterns": list(_v4_decision2.blocked_patterns),
                             "meta_repaired": True,
                         }
-                    logger.info("[R12-11] policy_gate meta-repair SUCCESS — gate back UP")
+                    logger.info(" policy_gate meta-repair SUCCESS — gate back UP")
                     # Fall through to normal flow (don't return)
                 else:
-                    logger.warning("[R12-11] policy_gate meta-repair failed — gate stays DOWN (DEFAULT-DENY)")
+                    logger.warning(" policy_gate meta-repair failed — gate stays DOWN (DEFAULT-DENY)")
             except Exception as _meta_repair_err:
-                logger.warning(f"[R12-11] meta-repair attempt crashed (fail-open): {_meta_repair_err}")
+                logger.warning(f" meta-repair attempt crashed (fail-open): {_meta_repair_err}")
             return {
                 "action": "blocked",
                 "tier": int(bug.tier),
@@ -1058,7 +1058,7 @@ class AutoFixEngine:
                 return {"action": "skipped", "tier": int(bug.tier),
                         "reason": f"file not found: {bug.file}"}
 
-            # [V9.1-UPGRADE] Backup file content BEFORE applying patch — for rollback.
+            #  Backup file content BEFORE applying patch — for rollback.
             # TẠI SAO: _verify_fix có thể phát hiện fix introduce new bugs → cần rollback.
             # Backup ở đây (pre-patch) để rollback có thể restore chính xác trạng thái cũ.
             _pre_fix_content: str | None = None
@@ -1070,7 +1070,7 @@ class AutoFixEngine:
                 with filepath.open("r", encoding="utf-8", newline="") as _pre_fix_file:
                     _pre_fix_content = _pre_fix_file.read()
             except Exception as _bk_err:
-                logger.debug(f"[V9.1-UPGRADE] pre-fix backup failed (will skip verify): {_bk_err}")
+                logger.debug(f" pre-fix backup failed (will skip verify): {_bk_err}")
 
             # [OPT-24] XSS pattern fix — deterministic, no LLM.
             # TẠI SAO: XSS bugs (CWE-79) like Markup(user_input) have a single
@@ -1133,7 +1133,7 @@ class AutoFixEngine:
                                 except Exception as _inv_err:
                                     _xss_cache_error = str(_inv_err)[:200]
                                     logger.warning(
-                                        f"[R13-3] cache invalidate failed after deterministic fix: {_inv_err}"
+                                        f" cache invalidate failed after deterministic fix: {_inv_err}"
                                     )
                                 # Record for cooldown
                                 bug_key = f"{bug.file}:{bug.line}:{bug.bug_type}"
@@ -1517,7 +1517,7 @@ class AutoFixEngine:
                     )
                     if _v4_escalated_tier > _v4_orig_tier:
                         logger.warning(
-                            f"[R13-4] blast_radius policy escalated "
+                            f" blast_radius policy escalated "
                             f"{bug.file}:{bug.line} from Tier "
                             f"{_v4_orig_tier} to Tier {_v4_escalated_tier} "
                             f"(risk={_v4_blast_sum['risk_level']}, "
@@ -1566,10 +1566,10 @@ class AutoFixEngine:
                                     _dry_run_snapshot = _dr_out.get("snapshot_path")
                         except Exception as _dr_err:  # noqa: BLE001
                             logger.debug(
-                                f"[R13-4] dry-run preview failed (fail-open): {_dr_err}"
+                                f" dry-run preview failed (fail-open): {_dr_err}"
                             )
                         logger.warning(
-                            f"[R13-4] HIGH/CRITICAL blast radius for "
+                            f" HIGH/CRITICAL blast radius for "
                             f"{_v4_target_func} (risk={_v4_blast_sum['risk_level']}, "
                             f"callers={_v4_blast_sum['caller_count']}) — "
                             f"dry-run{' snapshot='+str(_dry_run_snapshot) if _dry_run_snapshot else ' unavailable (fail-open)'}"
@@ -1626,7 +1626,7 @@ class AutoFixEngine:
                                 ),
                             )
                             logger.info(
-                                f"[R12-13] type_flow for "
+                                f" type_flow for "
                                 f"{_v4_target_func}: compatible="
                                 f"{_v4_tflow_result.compatible} "
                                 f"callers={_v4_tflow_result.caller_count} "
@@ -1641,7 +1641,7 @@ class AutoFixEngine:
                                 and _v4_blast_sum["risk_level"] in ("HIGH", "CRITICAL")
                             ):
                                 logger.warning(
-                                    f"[R12-13] TYPE-FLOW BREAKAGE + "
+                                    f" TYPE-FLOW BREAKAGE + "
                                     f"HIGH risk — escalating {bug.file}:"
                                     f"{bug.line} to review (Tier 3)"
                                 )
@@ -1831,7 +1831,7 @@ class AutoFixEngine:
                     )
                     if not _rtv_result.ok:
                         logger.warning(
-                            f"[R12-18] Real-Time Verifier BLOCKED patch for "
+                            f" Real-Time Verifier BLOCKED patch for "
                             f"{bug.file}:{bug.line}: {_rtv_result.reason} — skipping file write"
                         )
                         return {
@@ -1843,12 +1843,12 @@ class AutoFixEngine:
                             "violations": _rtv_result.violations[:3],
                         }
                     logger.info(
-                        f"[R12-18] Real-Time Verifier OK: {_rtv_result.reason} "
+                        f" Real-Time Verifier OK: {_rtv_result.reason} "
                         f"(inputs={_rtv_result.inputs_tested})"
                     )
             except ImportError as _rtv_imp:
                 logger.warning(
-                    "[R12-18] realtime_verifier unavailable; blocking unverifiable patch: %s",
+                    " realtime_verifier unavailable; blocking unverifiable patch: %s",
                     type(_rtv_imp).__name__,
                 )
                 return {
@@ -1860,7 +1860,7 @@ class AutoFixEngine:
                 }
             except Exception as _rtv_err:
                 logger.warning(
-                    "[R12-18] realtime_verifier failed; blocking unverifiable patch: %s",
+                    " realtime_verifier failed; blocking unverifiable patch: %s",
                     type(_rtv_err).__name__,
                 )
                 return {
@@ -1881,7 +1881,7 @@ class AutoFixEngine:
                     from scp.autofix.llm_fix_cache import invalidate_cache_for_file
                     invalidate_cache_for_file(str(filepath))
                 except Exception as _inv_err:
-                    logger.debug(f"[R13-3] cache invalidate failed (non-fatal): {_inv_err}")
+                    logger.debug(f" cache invalidate failed (non-fatal): {_inv_err}")
             else:
                 # [OPT-27/28] Record LLM_OUTPUT_FORMAT_ERROR (or queued-for-review)
                 # to diagnostic + monitor. WHY: even "queued for review" is a
@@ -1915,7 +1915,7 @@ class AutoFixEngine:
                     "patched": False,
                 }
 
-            # [V9.1-UPGRADE] FixVerification layer — self-verify SAU khi apply patch.
+            #  FixVerification layer — self-verify SAU khi apply patch.
             # TẠI SAO: WHY gate (v9.0) hỏi "có nên fix không?" (action layer).
             # _verify_fix hỏi "fix có thực sự work không? có introduce new bug không?" (verify layer).
             # WHY + verify = cùng độ sâu (2 layer) như WHY (necessity + falsification).
@@ -1924,7 +1924,7 @@ class AutoFixEngine:
                 _verify_ok, _verify_reason = self._verify_fix(filepath, [bug])
                 if not _verify_ok:
                     logger.warning(
-                        f"[V9.1-UPGRADE] Fix verification FAILED for {bug.file}:{bug.line}: "
+                        f" Fix verification FAILED for {bug.file}:{bug.line}: "
                         f"{_verify_reason} — ROLLING BACK"
                     )
                     self._audit_v91("autofix_verify_fail_rollback", {
@@ -1935,9 +1935,9 @@ class AutoFixEngine:
                     if _pre_fix_content is not None:
                         try:
                             filepath.write_text(_pre_fix_content, encoding="utf-8")
-                            logger.info(f"[V9.1-UPGRADE] Rollback OK for {bug.file}")
+                            logger.info(f" Rollback OK for {bug.file}")
                         except Exception as _rb_err:
-                            logger.error(f"[V9.1-UPGRADE] Rollback FAILED for {bug.file}: {_rb_err}")
+                            logger.error(f" Rollback FAILED for {bug.file}: {_rb_err}")
                     # Decrement counter (fix was undone)
                     self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
                     # [OPT-27/28] Record rollback — patch applied but introduced new bugs.
@@ -2001,19 +2001,19 @@ class AutoFixEngine:
                         _pfv_rollback = True
                         if _pfv_rollback:
                             logger.warning(
-                                f"[R12-6] post_fix_verify ROLLBACK for {bug.file}:{bug.line}: "
+                                f" post_fix_verify ROLLBACK for {bug.file}:{bug.line}: "
                                 f"{_pfv_reason} — restoring pre-fix content"
                             )
                             if _pre_fix_content is not None:
                                 try:
                                     filepath.write_text(_pre_fix_content, encoding="utf-8")
-                                    logger.info(f"[R12-6] Rollback OK for {bug.file}")
+                                    logger.info(f" Rollback OK for {bug.file}")
                                 except Exception as _rb_err:
-                                    logger.error(f"[R12-6] Rollback FAILED for {bug.file}: {_rb_err}")
+                                    logger.error(f" Rollback FAILED for {bug.file}: {_rb_err}")
                             self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
                         else:
                             logger.warning(
-                                f"[R12-6] post_fix_verify escalate_to_tier3 for "
+                                f" post_fix_verify escalate_to_tier3 for "
                                 f"{bug.file}:{bug.line}: {_pfv_reason}"
                             )
                         # A non-true post-fix result is never promotable. The
@@ -2036,12 +2036,12 @@ class AutoFixEngine:
                         }
                     else:
                         logger.info(
-                            f"[R12-6] post_fix_verify OK for {bug.file}:{bug.line} "
+                            f" post_fix_verify OK for {bug.file}:{bug.line} "
                             f"(phases: {list(_pfv_result.get('phases', {}).keys())})"
                         )
                 except ImportError as _pfv_imp:
                     logger.warning(
-                        "[R12-6] post_fix_verify unavailable; rolling back unverifiable patch: %s",
+                        " post_fix_verify unavailable; rolling back unverifiable patch: %s",
                         type(_pfv_imp).__name__,
                     )
                     if _pre_fix_content is not None:
@@ -2055,7 +2055,7 @@ class AutoFixEngine:
                     }
                 except Exception as _pfv_err:
                     logger.warning(
-                        "[R12-6] post_fix_verify failed; rolling back unverifiable patch: %s",
+                        " post_fix_verify failed; rolling back unverifiable patch: %s",
                         type(_pfv_err).__name__,
                     )
                     if _pre_fix_content is not None:
@@ -2069,7 +2069,7 @@ class AutoFixEngine:
                     }
             except Exception as _verify_call_err:
                 logger.warning(
-                    "[V9.1-UPGRADE] verifier call failed; rolling back unverifiable patch: %s",
+                    " verifier call failed; rolling back unverifiable patch: %s",
                     type(_verify_call_err).__name__,
                 )
                 if _pre_fix_content is not None:
@@ -2447,7 +2447,7 @@ class AutoFixEngine:
             reason=f"All 6 safety guards passed (bug_type={bug.bug_type})"
         )
 
-        # [R7-13] Compute before_hash (sha256 of file BEFORE fix).
+        #  Compute before_hash (sha256 of file BEFORE fix).
         _before_hash = ""
         try:
             from pathlib import Path as PathCls
@@ -2458,7 +2458,7 @@ class AutoFixEngine:
                     filepath.read_bytes()
                 ).hexdigest()
         except Exception as e:
-            logger.debug(f"[R7-13] before_hash compute failed for {bug.file}: {e}")
+            logger.debug(f" before_hash compute failed for {bug.file}: {e}")
 
         # [R7-13 + R8-5] Generate rollback_token (UUID) EARLY — BEFORE backup
         # write — so the per-token backup file name matches what the rollback
@@ -2484,7 +2484,7 @@ class AutoFixEngine:
             filepath = PathCls(bug.file)
             if filepath.exists():
                 if _rollback_token:
-                    # [R8-5] Per-token backup → multi-fix-per-file rollback works.
+                    #  Per-token backup → multi-fix-per-file rollback works.
                     bak_path = filepath.with_suffix(
                         filepath.suffix + f".tier3bak.{_rollback_token}"
                     )
@@ -2503,7 +2503,7 @@ class AutoFixEngine:
             result["tier"] = 3
             result["tier3_auto_approved"] = True
             self._tier3_auto_timestamps.append(time.time())
-            # [R7-13] Compute after_hash + reality_test_result.
+            #  Compute after_hash + reality_test_result.
             _after_hash = ""
             _reality_test_result = "SKIPPED"
             try:
@@ -2514,7 +2514,7 @@ class AutoFixEngine:
                     _after_hash = _hashlib.sha256(
                         filepath.read_bytes()
                     ).hexdigest()
-                    # [R7-13] Reality test: ast.parse the patched file +
+                    #  Reality test: ast.parse the patched file +
                     # verify the suggested_fix marker is gone (best-effort).
                     import ast as _ast
                     try:
@@ -2529,7 +2529,7 @@ class AutoFixEngine:
                     except Exception as _ee:
                         _reality_test_result = f"FAIL:{type(_ee).__name__}:{str(_ee)[:80]}"
             except Exception as e:
-                logger.debug(f"[R7-13] after_hash / reality_test compute failed: {e}")
+                logger.debug(f" after_hash / reality_test compute failed: {e}")
                 _reality_test_result = f"FAIL:hash_compute:{str(e)[:80]}"
             # Write to dedicated Tier-3 audit log (with R7-13 extended fields).
             # _rollback_token was generated BEFORE backup (R8-5) — reuse here.
@@ -2540,7 +2540,7 @@ class AutoFixEngine:
                 reality_test_result=_reality_test_result,
                 rollback_token=_rollback_token,
             )
-            # [R7-13] Surface rollback_token in the result so the API response
+            #  Surface rollback_token in the result so the API response
             # can include it for the operator.
             result["rollback_token"] = _rollback_token
             result["after_hash"] = _after_hash
@@ -2568,7 +2568,7 @@ class AutoFixEngine:
             "action": action,
             "is_relaxation": getattr(bug, "is_relaxation", False),
             "env_SCP_AUTO_APPROVE_TIER3": os.environ.get("SCP_AUTO_APPROVE_TIER3", "0"),
-            # [R7-13] NEW fields — enable per-fix rollback + integrity check.
+            #  NEW fields — enable per-fix rollback + integrity check.
             "before_hash": before_hash,             # sha256 of file pre-fix
             "after_hash": after_hash,                # sha256 of file post-fix
             "reality_test_result": reality_test_result,  # PASS|FAIL:reason|SKIPPED

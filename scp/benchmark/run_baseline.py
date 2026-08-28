@@ -27,7 +27,7 @@ import requests
 BENCHMARK_DIR = Path(__file__).parent
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# [R17-FIX-5] Load .env file — BEFORE: OPENROUTER_API_KEY not set → script fails.
+#  Load .env file — BEFORE: OPENROUTER_API_KEY not set → script fails.
 # AFTER: walk up from benchmark/ to find .env (project root is 2 levels up).
 def _load_env_file():
     from pathlib import Path as _P

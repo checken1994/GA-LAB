@@ -14,7 +14,7 @@ class JudgeUtilMixin:
 
     def _extract_value(self, question: str, answer: str) -> Optional[str]:
         """
-        [V73] Extract comparable value from an answer based on question type.
+         Extract comparable value from an answer based on question type.
 
         Strategy:
           - "When was X born/founded/established?" → extract year (4-digit number)
@@ -128,7 +128,7 @@ class JudgeUtilMixin:
 
         import re
 
-        # [V91] Step 1: Extract numeric values from each answer
+        #  Step 1: Extract numeric values from each answer
         all_numbers = []
         for ans in answers:
             # Extract all numbers (including decimals)
@@ -137,7 +137,7 @@ class JudgeUtilMixin:
             nums = {n for n in nums if float(n) not in (0, 1, 2)}
             all_numbers.append(nums)
 
-        # [V91] Step 2: If answers have numbers, check if they share KEY numbers
+        #  Step 2: If answers have numbers, check if they share KEY numbers
         has_numbers = any(len(nums) > 0 for nums in all_numbers)
         if has_numbers:
             # All answers must share at least 1 significant number
@@ -150,14 +150,14 @@ class JudgeUtilMixin:
             # Numbers exist but NO common number → CONFLICT
             return False
 
-        # [V91] Step 3: No numbers — use string similarity (stricter)
+        #  Step 3: No numbers — use string similarity (stricter)
         first = answers[0]
         similarities = [SequenceMatcher(None, first, a).ratio() for a in answers[1:]]
         avg = sum(similarities) / len(similarities)
         if avg > 0.6:
             return True
 
-        # [V91] Step 4: Check for shared key words (nouns, names)
+        #  Step 4: Check for shared key words (nouns, names)
         # Extract capitalized words (proper nouns) from each answer
         all_names = []
         for ans in answers:
@@ -173,4 +173,4 @@ class JudgeUtilMixin:
             if len(common) >= 1:
                 return True  # Share proper noun → consistent
 
-        return False  # [V91] No shared numbers, names, or similarity → NOT consistent
+        return False  #  No shared numbers, names, or similarity → NOT consistent

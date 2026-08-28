@@ -1,4 +1,4 @@
-"""[V96] GeologyDataSource"""
+""" GeologyDataSource"""
 import logging
 from typing import Any, Optional
 

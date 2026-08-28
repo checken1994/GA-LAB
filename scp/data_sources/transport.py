@@ -1,4 +1,4 @@
-"""[V96] TransportDataSource"""
+""" TransportDataSource"""
 import logging
 
 from scp.interfaces.data_source import IDataSource

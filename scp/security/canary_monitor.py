@@ -237,7 +237,7 @@ class CanaryTokenMonitor:
                 del self.tokens[t.token]
             self._stats["total_expired"] += len(expired)
 
-            # [R7-9] Prune disk: rewrite triggers_file without expired tokens.
+            #  Prune disk: rewrite triggers_file without expired tokens.
             # Atomic: write to .tmp then rename (crash-safe on POSIX).
             if expired_ids and self.triggers_file.exists():
                 try:
@@ -258,7 +258,7 @@ class CanaryTokenMonitor:
                     tmp.write_text("\n".join(remaining_lines) + ("\n" if remaining_lines else ""), encoding="utf-8")
                     tmp.replace(self.triggers_file)  # atomic rename
                 except Exception as e:
-                    logger.warning(f"[R7-9] Disk prune failed: {e}")
+                    logger.warning(f" Disk prune failed: {e}")
 
         if expired:
             logger.info(f"[CanaryTokenMonitor] Cleaned up {len(expired)} expired tokens (memory + disk)")

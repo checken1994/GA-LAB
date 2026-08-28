@@ -723,32 +723,32 @@ def validate_fix(
 
             # Both functions returned a value. Check invariants on each.
             orig_violations = set()
-            _orig_check_failed = False  # [R18-FIX-6]
+            _orig_check_failed = False  # 
             try:
                 orig_out_typed = (True, orig_out)
                 for idx, _reason in _check_invariants(orig_out_typed, spec.invariants):
                     orig_violations.add(idx)
             except Exception as _inv_err:  # noqa: BLE001
-                # [R18-FIX-6] BEFORE: silent except:pass → orig_violations stays empty
+                #  BEFORE: silent except:pass → orig_violations stays empty
                 # → validator reports "no regressions" → false confidence (DNA #22).
                 # AFTER: log error + set flag → validator reports "check failed".
-                logger.warning(f"[R18-FIX-6] orig invariant check failed: {_inv_err}")
+                logger.warning(f" orig invariant check failed: {_inv_err}")
                 _orig_check_failed = True
 
             fix_violations: list[tuple[int, str]] = []
-            _fix_check_failed = False  # [R18-FIX-6]
+            _fix_check_failed = False  # 
             try:
                 fix_out_typed = (True, fix_out)
                 fix_violations = _check_invariants(fix_out_typed, spec.invariants)
             except Exception as _inv_err:  # noqa: BLE001
-                # [R18-FIX-6] Same fix — don't silently pass.
-                logger.warning(f"[R18-FIX-6] fix invariant check failed: {_inv_err}")
+                #  Same fix — don't silently pass.
+                logger.warning(f" fix invariant check failed: {_inv_err}")
                 _fix_check_failed = True
 
-            # [R18-FIX-6] If either check failed, report it (don't claim "no regressions")
+            #  If either check failed, report it (don't claim "no regressions")
             if _orig_check_failed or _fix_check_failed:
                 logger.error(
-                    f"[R18-FIX-6] Invariant check FAILED (orig={_orig_check_failed}, "
+                    f" Invariant check FAILED (orig={_orig_check_failed}, "
                     f"fix={_fix_check_failed}) — cannot verify fix correctness. "
                     f"Reporting as REGRESSION to be safe (DNA #22: PASS ≠ TRUE)."
                 )

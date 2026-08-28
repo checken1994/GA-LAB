@@ -694,19 +694,19 @@ def ast_scan_scp(max_files: int = _MAX_SCAN_FILES,
                         for f in _fut_findings:
                             _v3_all_findings.append((_fut_path, f))
                     except Exception as _fut_err:
-                        logger.debug(f"[R12-20] scan_file error for {_fut_path}: {_fut_err}")
+                        logger.debug(f" scan_file error for {_fut_path}: {_fut_err}")
             # Merge parallel findings into bugs list (respecting max_bugs cap)
             for _finding_path, finding in _v3_all_findings:
                 if len(bugs) >= max_bugs:
-                    logger.info(f"[R12-20] parallel scan capped at {max_bugs} bugs (safety limit)")
+                    logger.info(f" parallel scan capped at {max_bugs} bugs (safety limit)")
                     return bugs
                 bugs.append(_build_bug_report(_finding_path, finding))
             logger.info(
-                f"[R12-20] parallel scan done: {len(_v3_scan_paths)} files, "
+                f" parallel scan done: {len(_v3_scan_paths)} files, "
                 f"{len(_v3_all_findings)} findings, {_v3_max_workers} threads"
             )
         except Exception as _parallel_err:
-            logger.warning(f"[R12-20] parallel scan failed, falling back to sequential: {_parallel_err}")
+            logger.warning(f" parallel scan failed, falling back to sequential: {_parallel_err}")
             _v3_parallel_available = False  # fall through to sequential
 
     if not _v3_parallel_available or len(_v3_scan_paths) <= 10:

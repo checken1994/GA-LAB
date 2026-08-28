@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] GenAIDataSource - Data source cho AI/ML
+ GenAIDataSource - Data source cho AI/ML
 """
 
 import logging

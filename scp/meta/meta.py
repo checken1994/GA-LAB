@@ -214,12 +214,12 @@ class CuriosityEngine:
 
     def _find_gaps(self, n: int) -> list[dict]:
         """Tìm kiến thức còn thiếu.
-        [V81] Disabled GeneratorKhamPha (removed from pipeline V67+).
+         Disabled GeneratorKhamPha (removed from pipeline V67+).
         Now: find gaps from external_questions not yet in knowledge.
         """
         questions = []
         try:
-            # [V81] Find entities in external_questions that are NOT in knowledge table
+            #  Find entities in external_questions that are NOT in knowledge table
             # Was: used GeneratorKhamPha.COMPOUNDS/CITIES/COINS (synthetic, removed V67)
             # Now: query external_questions for real entities not yet learned
             rows = db_query_all("""
@@ -270,7 +270,7 @@ class CuriosityEngine:
                 orig_q = row['question'].replace('Kiểm tra lại: ', '')
                 q_text = f"Kiểm tra lại: {orig_q[:80]}"
 
-                # [V84] Python-level dedup — check if EXACT string exists
+                #  Python-level dedup — check if EXACT string exists
                 existing = db_query_one(
                     "SELECT id FROM meta_curiosity WHERE question = ?",
                     (q_text,)
@@ -302,12 +302,12 @@ class CuriosityEngine:
 
     def _find_novelties(self, n: int) -> list[dict]:
         """Tìm entity mới — chưa từng hỏi.
-        [V81] Disabled GeneratorKhamPha (removed from pipeline V67+).
+         Disabled GeneratorKhamPha (removed from pipeline V67+).
         Now: find entities in external_questions not yet processed.
         """
         questions = []
         try:
-            # [V81] Find new entities from external_questions (real web questions)
+            #  Find new entities from external_questions (real web questions)
             rows = db_query_all("""
                 SELECT question, domain, source
                 FROM external_questions
@@ -351,9 +351,9 @@ class CuriosityEngine:
                 LIMIT ?
             """, (n,))
             for row in rows:
-                # [V76] Build question, check if already in meta_curiosity
+                #  Build question, check if already in meta_curiosity
                 q_text = f"Tại sao {row['frame']} có {row['anomaly_count']} anomalies?"
-                # [V80] Skip if EXACT question already exists (regardless of asked status)
+                #  Skip if EXACT question already exists (regardless of asked status)
                 # Was: only check asked=1 → duplicates generated before being asked
                 existing = db_query_one(
                     "SELECT id FROM meta_curiosity WHERE question = ?",
@@ -361,7 +361,7 @@ class CuriosityEngine:
                 )
                 if existing:
                     continue
-                # [V80] Skip if any "Tại sao {frame} có" question already exists
+                #  Skip if any "Tại sao {frame} có" question already exists
                 existing_pattern = db_query_one(
                     "SELECT id FROM meta_curiosity WHERE question LIKE ?",
                     (f"Tại sao {row['frame']} có%anomalies?",)
@@ -420,7 +420,7 @@ class CuriosityEngine:
         Fix: CHECK if question already exists BEFORE INSERT.
         If exists → skip (don't insert duplicate).
         """
-        # [V85] THE REAL FIX — check before insert
+        #  THE REAL FIX — check before insert
         q_text = question["question"]
         existing = db_query_one(
             "SELECT id FROM meta_curiosity WHERE question = ?",
@@ -593,23 +593,23 @@ class AbstractionEngine:
         Principle: "API unstable -> ưu tiên cache, giảm call frequency"
         Policy: "CoinGecko: cache_ttl=600s, max_retries=1"
 
-    [v27] Cải thiện:
+     Cải thiện:
     - MIN_SAMPLES_FOR_PRINCIPLE = 10 (was 50, too high for early cycles)
-    - [V79] Reduced from 50 → 10 so principles appear faster
+    -  Reduced from 50 → 10 so principles appear faster
     - With 50, need 50 PASS/FAIL per domain before any principle → too slow
     - With 10, principles appear after ~10 samples (1-2 cycles)
     - Domain tagging theo frame thực tế (math/chemistry/geography/...)
     """
 
     # Ngưỡng tối thiểu samples để rút principle — tránh overfitting từ vài mẫu
-    MIN_SAMPLES_FOR_PRINCIPLE = 10  # [V79] was 50, reduced for faster principle abstraction
+    MIN_SAMPLES_FOR_PRINCIPLE = 10  #  was 50, reduced for faster principle abstraction
 
     def __init__(self):
         pass
 
     def abstract_from_lessons(self) -> list[dict]:
         """
-        [V40] Read calibration_history (BOTH PASS+FAIL) → abstract principles.
+         Read calibration_history (BOTH PASS+FAIL) → abstract principles.
 
         V27 bug: error_history chỉ log FAIL → fail_rate luôn 100% → principles sai.
         V40 fix: dùng calibration_history (has PASS + FAIL) → correct fail_rate.
@@ -618,7 +618,7 @@ class AbstractionEngine:
         """
         principles = []
         try:
-            # [V40] Use calibration_history (has both PASS + FAIL)
+            #  Use calibration_history (has both PASS + FAIL)
             # thay vì error_history (chỉ có FAIL → fail_rate luôn 100%)
             lessons = db_query_all("""
                 SELECT
@@ -645,7 +645,7 @@ class AbstractionEngine:
             # Abstract mỗi nhóm — chỉ nếu đủ samples (>= MIN_SAMPLES_FOR_PRINCIPLE)
             for ltype, group in by_type.items():
                 if len(group) >= self.MIN_SAMPLES_FOR_PRINCIPLE:
-                    # [V40] Dedup — check if similar principle already exists
+                    #  Dedup — check if similar principle already exists
                     if not self._principle_exists(ltype, len(group)):
                         principle = self._create_principle(ltype, group)
                         if principle:
@@ -656,7 +656,7 @@ class AbstractionEngine:
         return principles
 
     def _principle_exists(self, domain: str, sample_count: int) -> bool:
-        """[V40] Check if a principle with same domain + similar sample_count already exists."""
+        """ Check if a principle with same domain + similar sample_count already exists."""
         try:
             existing = db_query_all(
                 "SELECT id, principle FROM meta_principles WHERE domain = ? ORDER BY id DESC LIMIT 5",
@@ -679,7 +679,7 @@ class AbstractionEngine:
 
     def _create_principle(self, lesson_type: str, lessons: list[dict]) -> Optional[dict]:
         """
-        [V41] Tạo/cập nhật principle rule — versioning + executable rules.
+         Tạo/cập nhật principle rule — versioning + executable rules.
         Thay vì INSERT mới mỗi lần → UPDATE existing (version++).
         """
         try:

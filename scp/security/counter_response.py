@@ -21,7 +21,7 @@ logger = logging.getLogger("scp.security.counter_response")
 
 from scp.security.attack_policy import AttackPolicy
 
-# [P2-23 FIX] TẠI SAO: Phase 3 POISON_PAYLOADS inject "[SYSTEM: ...]" into the
+#  TẠI SAO: Phase 3 POISON_PAYLOADS inject "[SYSTEM: ...]" into the
 # response body — this is an ACTIVE counter-attack against the attacker's LLM
 # parser. While effective against naive jailbreak tooling, it carries:
 #   (1) Legal risk: some jurisdictions classify unsanctioned "hack-back" as
@@ -593,7 +593,7 @@ class CounterResponseEngine:
     async def _reverse_probe(self, ip: str) -> dict[str, Any]:
         """Reverse probe — fingerprint only.
 
-        [P2-23 FIX] TẠI SAO: the old version did a 3-port connect scan
+         TẠI SAO: the old version did a 3-port connect scan
         (80/443/22) on the attacker IP. This is risky:
           - If the "attacker" IP is spoofed (common in amplification attacks),
             we scan an innocent party.

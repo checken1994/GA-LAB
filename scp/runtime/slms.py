@@ -112,7 +112,7 @@ class BaseSLM(ABC):
     def _healing_retry_slm(self, issue: dict) -> bool:
         """[V88 FIX] Clear smart cache for failed questions so they get re-processed."""
         try:
-            # _run_periodic_cleanup()  # [V89] deduplicated - function not available
+            # _run_periodic_cleanup()  #  deduplicated - function not available
             logger.info("[HEALING] Cleared smart cache for 50 recent failed questions")
             return True
         except Exception as e:
@@ -180,35 +180,35 @@ class BaseSLM(ABC):
 # ============================================================
 
 # ============================================================
-# GEOGRAPHY SLM — [v27] New — uses local DB + REST Countries + Wikipedia
+# GEOGRAPHY SLM —  New — uses local DB + REST Countries + Wikipedia
 # ============================================================
 
 # ============================================================
-# HISTORY SLM — [v27] New — uses local DB + Wikipedia
+# HISTORY SLM —  New — uses local DB + Wikipedia
 # ============================================================
 
 # ============================================================
-# CHEMISTRY SLM — [v28] PubChem + local KB
+# CHEMISTRY SLM —  PubChem + local KB
 # ============================================================
 
 # ============================================================
-# WEATHER SLM — [v28] Open-Meteo
+# WEATHER SLM —  Open-Meteo
 # ============================================================
 
 # ============================================================
-# LOGIC SLM — [v28] Boolean/comparison (deterministic)
+# LOGIC SLM —  Boolean/comparison (deterministic)
 # ============================================================
 
 # ============================================================
-# STATISTICS SLM — [v28] Mean/median/variance/std (deterministic)
+# STATISTICS SLM —  Mean/median/variance/std (deterministic)
 # ============================================================
 
 # ============================================================
-# REALITY SLM — [v28] Physical constants (CODATA)
+# REALITY SLM —  Physical constants (CODATA)
 # ============================================================
 
 # ============================================================
-# CONVERSION SLM — [v28] Currency/crypto (Frankfurter + CoinGecko)
+# CONVERSION SLM —  Currency/crypto (Frankfurter + CoinGecko)
 # ============================================================
 
 
@@ -246,7 +246,7 @@ class ArtsSLM(_DomainSLM):
 
 
 # ============================================================
-# [V73] NEW SLMs for real-world question coverage
+#  NEW SLMs for real-world question coverage
 # ============================================================
 
 
@@ -255,10 +255,10 @@ class ArtsSLM(_DomainSLM):
 from scp.runtime.slms_parts.foodslm import FoodSLM  # extracted (Task 19-A)
 
 # ============================================================
-# [V78] NEW SLMs — fill coverage gaps from deep check
+#  NEW SLMs — fill coverage gaps from deep check
 # ============================================================
 # ============================================================
-# [V81] UniversalSLM — Wikidata fallback cho mọi domain
+#  UniversalSLM — Wikidata fallback cho mọi domain
 # Cover 45+ domains mà không cần thêm 19 SLMs riêng lẻ
 # ============================================================
 # [Task 19-A batch 2] More SLMs extracted to misc_slms2.py
@@ -267,7 +267,7 @@ from scp.runtime.slms_parts.misc_slms2 import (
 )
 
 
-# [V96] New SLMs using DataSource pattern
+#  New SLMs using DataSource pattern
 class PhysicsSLM(_DomainSLM):
     """SLM cho Vật lý - sử dụng PhysicsDataSource"""
     DATASOURCE_CLASS = None
@@ -454,12 +454,12 @@ try:
     MilitarySLM.DATASOURCE_CLASS = MilitaryDataSource
     SpaceMedicineSLM.DATASOURCE_CLASS = SpaceMedicineDataSource
 
-    logger.info("[V97] All 35 DataSources loaded + 33 SLM DATASOURCE_CLASS assigned")
+    logger.info(" All 35 DataSources loaded + 33 SLM DATASOURCE_CLASS assigned")
 
 except ImportError as e:
-    logger.warning(f"[V97] DataSource import error (some SLMs will fall back to LiveKnowledge): {e}")
+    logger.warning(f" DataSource import error (some SLMs will fall back to LiveKnowledge): {e}")
 except Exception as e:
-    logger.warning(f"[V97] Unexpected error wiring DataSources: {e}")
+    logger.warning(f" Unexpected error wiring DataSources: {e}")
 
 # [FIX] Re-export AdviceSLM from slm_impls for backward compat
 from scp.runtime.slm_impls.agriculture_slm import (

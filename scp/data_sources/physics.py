@@ -1,6 +1,6 @@
 """
 SCP - Viet Nam | Self-Correcting Pipeline
-[V96] PhysicsDataSource - Data source cho Vật lý
+ PhysicsDataSource - Data source cho Vật lý
 """
 
 import logging

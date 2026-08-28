@@ -68,7 +68,7 @@ def cohens_h(p1: float, p2: float) -> float:
 
 
 def compare(scp_file: str, baseline_file: str) -> dict:
-    # [R17-FIX-6] Better error messages for missing files
+    #  Better error messages for missing files
     if not Path(scp_file).exists():
         print(f"❌ SCP results file not found: {scp_file}")
         print(f"   Run first: python run_benchmark_enhanced.py --output {scp_file}")
@@ -176,7 +176,7 @@ def main():
     print(f"{'='*70}")
     print(f"  * = statistically significant (p < 0.05, Fisher exact test)")
 
-    # [R17-FIX-4] Create output directory if it doesn't exist
+    #  Create output directory if it doesn't exist
     _output_path = Path(args.output)
     _output_path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -578,8 +578,8 @@ class WhyEngine:
         return plan
 
     def _save_plan(self, plan: VerificationPlan) -> None:
-        """Save plan to DB. [V39] Skip for deterministic — they don't need plans."""
-        # [V39] Don't save plans for deterministic domains — saves 60% DB writes
+        """Save plan to DB.  Skip for deterministic — they don't need plans."""
+        #  Don't save plans for deterministic domains — saves 60% DB writes
         if plan.evidence_type in ("deterministic_calculation", "deterministic_evaluation",
                                    "codata_constants", "biological_database"):
             return  # Skip DB write for deterministic
@@ -774,7 +774,7 @@ class WhyEngine:
         Returns: {executed, passed, failed, conflicts, unknowns}
         """
         import threading as _threading  # noqa: F401 — kept for back-compat (R8-7)
-        # [R8-7] Lock is now eager-initialized in __init__ (no lazy hasattr).
+        #  Lock is now eager-initialized in __init__ (no lazy hasattr).
         # The old `if not hasattr(self, "_execute_pending_lock")` was removed
         # — see __init__ docstring for the check-then-act race it had.
         import uuid as _uuid
@@ -785,7 +785,7 @@ class WhyEngine:
         # two threads both have rows to execute).
         with self._execute_pending_lock:
             try:
-                # [R7-3] Atomic claim: UPDATE returns only rows THIS thread claimed.
+                #  Atomic claim: UPDATE returns only rows THIS thread claimed.
                 # Other concurrent threads get empty result for the same rows.
                 pending = db_query_all(
                     "UPDATE why_verification_plans "
@@ -804,7 +804,7 @@ class WhyEngine:
                 # Fallback: older SQLite (< 3.35) doesn't support RETURNING.
                 # Use non-atomic SELECT + immediate UPDATE (best-effort).
                 # [R7-3+] Lock still held — fallback path stays serialized.
-                logger.warning(f"[R7-3] Atomic claim failed (SQLite < 3.35?), fallback: {e}")
+                logger.warning(f" Atomic claim failed (SQLite < 3.35?), fallback: {e}")
                 try:
                     pending = db_query_all(
                         "SELECT id, question, target, evidence_type, proof_criteria, "
@@ -852,7 +852,7 @@ class WhyEngine:
                     stats["unknowns"] += 1
             except Exception as e:
                 logger.debug(f"WHY execute_pending: row {row.get('id')}: {e}")
-                # [R7-3] Reset claim on failure so plan can be retried later.
+                #  Reset claim on failure so plan can be retried later.
                 try:
                     db_exec(
                         "UPDATE why_verification_plans SET claimed_by=NULL, claimed_at=NULL WHERE id=?",

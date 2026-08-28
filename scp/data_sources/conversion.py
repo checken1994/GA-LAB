@@ -24,7 +24,7 @@ class ConversionDataSource(IDataSource):
     def __init__(self):
         self._cache: dict[str, Any] = {}
 
-        # [V59] Pressure -> Pascals
+        #  Pressure -> Pascals
         self._pressure_to_pa = {
             'pa': 1, 'pascal': 1, 'pascals': 1,
             'kpa': 1000, 'kilopascal': 1000,
@@ -223,7 +223,7 @@ class ConversionDataSource(IDataSource):
             ('volume', self._volume_to_m3),
             ('energy', self._energy_to_j),
             ('power', self._power_to_w),
-            ('pressure', self._pressure_to_pa),  # [V59]
+            ('pressure', self._pressure_to_pa),  # 
         ]:
             if entity_lower in table:
                 factor = table[entity_lower]
@@ -242,7 +242,7 @@ class ConversionDataSource(IDataSource):
                             'volume': 'm³',
                             'energy': 'joule',
                             'power': 'watt',
-                            'pressure': 'pascal',  # [V60]
+                            'pressure': 'pascal',  # 
                         }[table_name],
                         'factor': factor,
                         'method': 'lookup',

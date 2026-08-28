@@ -237,15 +237,15 @@ if size_mb > self.ROTATE_SIZE_MB:
 **Before code (judge.py:1099-1111):**
 ```python
 last_crawl = 0.0
-last_success = 0.0  # [R7-7] tracks staleness for 12h healthcheck
-backoff = 60  # [R7-7] initial backoff on failure (seconds)
+last_success = 0.0  #  tracks staleness for 12h healthcheck
+backoff = 60  #  initial backoff on failure (seconds)
 
 while True:
     now = time.time()
-    # [R7-7] 12h healthcheck — WARN if no successful crawl in 12h.
+    #  12h healthcheck — WARN if no successful crawl in 12h.
     if last_success > 0 and (now - last_success) > 12 * 3600:
         logger.warning(
-            f"[R7-7] V100 crawler STALE — no successful crawl in "
+            f" V100 crawler STALE — no successful crawl in "
             f"{(now - last_success) / 3600:.1f}h. Knowledge base may be outdated. "
             ...
         )
@@ -258,12 +258,12 @@ last_success = 0.0
 ...
 while True:
     now = time.time()
-    # [R7-7] 12h healthcheck — WARN if no successful crawl in 12h.
+    #  12h healthcheck — WARN if no successful crawl in 12h.
     # Cold-start: if first crawl never succeeded and 12h elapsed since start.
     _stale_since = last_success if last_success > 0 else _scheduler_started_at
     if now - _stale_since > 12 * 3600:
         logger.warning(
-            f"[R7-7] V100 crawler STALE — no successful crawl in "
+            f" V100 crawler STALE — no successful crawl in "
             f"{(now - _stale_since) / 3600:.1f}h "
             f"(last_success={last_success}, cold_start={last_success == 0}). "
             f"Knowledge base may be outdated. Check network egress + data source availability."
@@ -436,7 +436,7 @@ _now = time.time()
 # two threads both have rows to execute).
 with self._execute_pending_lock:
     try:
-        # [R7-3] Atomic claim: UPDATE returns only rows THIS thread claimed.
+        #  Atomic claim: UPDATE returns only rows THIS thread claimed.
         ...
 ```
 

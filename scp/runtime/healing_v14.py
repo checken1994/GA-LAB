@@ -142,7 +142,7 @@ class V14SelfHealingEngine:
                           "details": f"Error rate {system_state['error_rate']*100:.1f}%",
                           "source": "system", "timestamp": ts})
 
-        # [V89] 3. SLM errors → retry_slm (was NEVER triggered)
+        #  3. SLM errors → retry_slm (was NEVER triggered)
         slm_responses = system_state.get("slm_responses", [])
         has_errors = any(r.get("error") for r in slm_responses if isinstance(r, dict))
         if has_errors:
@@ -150,21 +150,21 @@ class V14SelfHealingEngine:
                           "details": "One or more SLMs returned errors",
                           "source": "slm", "timestamp": ts})
 
-        # [V89] 4. Low confidence → switch_domain (was NEVER triggered)
+        #  4. Low confidence → switch_domain (was NEVER triggered)
         confidence = system_state.get("confidence", 0.5)
         if confidence < 0.3 and system_state.get("verdict") not in ("PASS",):
             issues.append({"type": "slm_confidence_low", "severity": "warning",
                           "details": f"SLM confidence {confidence:.2f} < 0.30",
                           "source": "slm", "timestamp": ts})
 
-        # [V89] 5. All SLM fail → reality_fallback (was NEVER triggered)
+        #  5. All SLM fail → reality_fallback (was NEVER triggered)
         verdict = system_state.get("verdict", "")
         if verdict == "UNKNOWN" and confidence < 0.2:
             issues.append({"type": "all_slm_fail", "severity": "critical",
                           "details": f"All SLMs failed — verdict={verdict}, confidence={confidence:.2f}",
                           "source": "system", "timestamp": ts})
 
-        # [V89] 6. Stale data → cache_refresh (was NEVER triggered)
+        #  6. Stale data → cache_refresh (was NEVER triggered)
         # Check if verdict is stale (same question answered before with different result)
         if verdict == "CONFLICT":
             issues.append({"type": "stale_data", "severity": "warning",
@@ -262,7 +262,7 @@ class V14SelfHealingEngine:
                 if self.judge is None:
                     logger.warning("[HEALING] reduce_error: no judge reference, skipping")
                     return False
-                # [V89] Only lower confidence of SPECIFIC failing knowledge, not global threshold
+                #  Only lower confidence of SPECIFIC failing knowledge, not global threshold
                 try:
                     from scp.core.db_manager import db_exec as _db_exec
                     from scp.core.db_manager import db_query_all as _db_qa
@@ -309,7 +309,7 @@ class V14SelfHealingEngine:
             return False
 
     def _healing_switch_domain(self, issue: dict) -> bool:
-        """[V89 FIX] [P2-19 FIX] [ROOT-FIX 40-A] Don't blindly set domain='general'. Clear smart_cache so questions get re-classified.
+        """[V89 FIX]  [ROOT-FIX 40-A] Don't blindly set domain='general'. Clear smart_cache so questions get re-classified.
 
         TẠI SAO: V104.34 #32 fix used `WHERE cache_key IN (SELECT question ...)` —
         but cache_key is a SHA256 HASH of the question, not the raw question text.
@@ -331,7 +331,7 @@ class V14SelfHealingEngine:
             # get re-classified with updated keywords. FAIL = attack blocked —
             # do NOT clear (avoids re-judging attacks every cycle).
             _db_exec("DELETE FROM smart_cache_disk WHERE identifier IN (SELECT question FROM error_history WHERE final_verdict = 'UNKNOWN' ORDER BY id DESC LIMIT 30)")
-            # [P2-19 FIX] verdict_cache canonical schema (FIX-C) stores raw question
+            #  verdict_cache canonical schema (FIX-C) stores raw question
             # in `question_text`, not in `cache_key` (which is a hash). Match on text.
             _db_exec("DELETE FROM verdict_cache WHERE question_text IN (SELECT question FROM error_history WHERE final_verdict = 'UNKNOWN' ORDER BY id DESC LIMIT 30)")
             logger.info("[HEALING] Cleared cache for 30 UNKNOWN questions — will re-classify on next cycle (FAIL=attack-blocked skipped)")
