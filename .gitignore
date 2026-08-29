@@ -52,3 +52,7 @@ tools/audit/local/
 
 benchmark_report.txt
 raw_results.jsonl
+
+# pytest basetemp artifacts (must never be tracked)
+tmp_pytest/
+data-test/
