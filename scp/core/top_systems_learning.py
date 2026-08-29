@@ -422,6 +422,35 @@ class TopSystemsLearner:
         )
         return [record for _, record in scored[: max(1, int(limit))]]
 
+    def prune_knowledge(self, keep_days: int = 90, keep_min_reputation: str = "high") -> dict[str, Any]:
+        """[MẢNH #23 — Oblivion Engine v1] Trí nhớ vô hạn là căn bệnh: ledger
+        không biết quên sẽ bị nghiền nát bởi giáo điều quá khứ. Prune có chọn
+        lọc: record quá keep_days ngày bị xóa TRỪ khi reputation cao.
+        QUARANTINED record cũ cũng xóa (bằng chứng hết giá trị theo thời gian).
+        Toàn bộ nội dung ghi vào .backup trước khi xóa — rollback path luôn mở."""
+        if not self.ledger_path.exists():
+            return {"pruned": 0, "kept": 0}
+        cutoff = time.time() - keep_days * 86400
+        rank = {"high": 2, "medium": 1, "low": 0}
+        backup = self.ledger_path.with_suffix(".jsonl.backup")
+        backup.write_text(self.ledger_path.read_text(encoding="utf-8"), encoding="utf-8")
+        kept_lines, pruned = [], 0
+        for line in self.ledger_path.read_text(encoding="utf-8").splitlines():
+            try:
+                record = json.loads(line)
+            except (TypeError, ValueError):
+                kept_lines.append(line)
+                continue
+            collected = float(record.get("collected_at", 0))
+            is_old = collected < cutoff
+            rep = str(record.get("reputation", "medium"))
+            if is_old and rank.get(rep, 1) < rank.get(keep_min_reputation, 2):
+                pruned += 1
+                continue
+            kept_lines.append(line)
+        self.ledger_path.write_text("\n".join(kept_lines) + ("\n" if kept_lines else ""), encoding="utf-8")
+        return {"pruned": pruned, "kept": len(kept_lines), "backup": str(backup)}
+
     def stats(self) -> dict[str, Any]:
         count = 0
         topics: set[str] = set()

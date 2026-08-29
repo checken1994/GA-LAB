@@ -487,8 +487,10 @@ class LLMGateway:
                     EnvCompatProvider(name, task, key_env, base_env, model_env)
                 )
 
-    def _provider_chain(self, task: str) -> list:
-        """Chuỗi failover theo task: OpenRouter → extras (env) → Groq."""
+    def _provider_chain(self, task: str, text: str = "") -> list:
+        """Chuỗi failover theo task. [#40 Budget Engine] Khi SCP_BUDGET_ROUTING=1,
+        PAID model của provider nào cũng bị ĐỔI THỨ TỰ tier theo độ khó: task
+        EASY thử FREE model trước — tiết kiệm ngân sách mà không đổi provider."""
         openrouter = {
             "autofix":       getattr(self, "openrouter_autofix"),
             "why":           getattr(self, "openrouter_why"),
@@ -505,7 +507,15 @@ class LLMGateway:
             "judge":         getattr(self, "groq_judge"),
             "chat":          getattr(self, "groq_chat"),
         }.get(task, self.groq_default)
-        return [openrouter, *self._extra_providers.get(task, []), groq]
+        from scp.core.budget_engine import order_tiers
+
+        chain = [openrouter, *self._extra_providers.get(task, []), groq]
+        if os.environ.get("SCP_BUDGET_ROUTING", "0") == "1":
+            tiers = order_tiers(text, task)
+            for provider in chain:
+                if tiers[0] == "free" and hasattr(provider, "free_fallback"):
+                    provider.model, provider.free_fallback = provider.free_fallback, provider.model
+        return chain
 
     async def chat(
         self,
@@ -521,7 +531,7 @@ class LLMGateway:
         provider kế tiếp, caller không thấy lỗi, không đốt time-out.
         """
         self._stats["total_calls"] += 1
-        chain = self._provider_chain(task)
+        chain = self._provider_chain(task, text=question)
         # [KHÔNG ƯU TIÊN MODEL] Pool brand-neutral: provider khỏe xoay vòng theo
         # lượt gọi (chia tải đều, không đặt clip nào lên trên vĩnh viễn);
         # provider breaker OPEN bị đẩy xuống cuối (chỉ dùng khi hết người khỏe).
