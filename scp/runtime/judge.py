@@ -51,8 +51,22 @@ class RealityJudge:
             failures.extend(tier1.failures)
 
         # 3. TIER-2 semantic cascade — chỉ chạy khi Tier-1 sạch.
+        #    [MẢNH 5+43] Cross-vendor verification: 2 provider khác nhau đánh giá
+        #    độc lập → giảm xác suất ảo giác đồng thuận (DNA #5).
         elif is_structurally_pass and ai_answer:
-            semantic = _llm_judge(question, ai_answer, context)
+            import os as _os
+            if _os.environ.get("SCP_MULTI_LLM_CROSSCHECK", "1") == "1":
+                try:
+                    from scp.runtime.multi_llm_crosscheck import cross_verify
+                    cross = cross_verify(question, ai_answer, context)
+                    semantic = cross["final"]  # None nếu disagree/unavailable
+                    if cross["consensus"] == "disagree":
+                        failures.append("multi_llm_disagreement")
+                except Exception as _cc_err:
+                    # crosscheck fail → fallback về single cascade
+                    semantic = _llm_judge(question, ai_answer, context)
+            else:
+                semantic = _llm_judge(question, ai_answer, context)
             if semantic is None:
                 escalated = True
             elif semantic:

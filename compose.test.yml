@@ -1,0 +1,51 @@
+version: "3.9"
+# SCP Test Profile — chạy toàn bộ stack trong container để audit trên mọi môi trường
+# Usage: docker compose -f compose.test.yml up --build --abort-on-container-exit
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - SCP_JWT_SECRET=${SCP_JWT_SECRET:-audit-test-secret-change-me-32chars}
+      - SCP_ADMIN_KEY=${SCP_ADMIN_KEY:-audit-test-admin-key-32chars}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-test-key}
+      - SCP_PRODUCTION_MODE=0
+      - SCP_EGRESS_MODE=deny
+      - SCP_ASK_MAX_INFLIGHT=50
+      - SCP_MULTI_LLM_CROSSCHECK=1
+      - SCP_DOUBT_INTERVAL_SEC=300
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./data:/app/data
+    restart: "no"
+
+  audit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '=== PYTEST ===' &&
+        python -m pytest -q --tb=line --basetemp=/tmp/pytest &&
+        echo '=== REALITY ===' &&
+        python run_reality_tests_portable.py &&
+        echo '=== FITNESS ===' &&
+        python -c 'from scp.core.fitness_engine import run_and_gate; import json; print(json.dumps(run_and_gate(), indent=2))' &&
+        echo '=== AUDIT COMPLETE ==='
+      "
+    profiles:
+      - test
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports

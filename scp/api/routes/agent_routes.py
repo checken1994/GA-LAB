@@ -60,13 +60,27 @@ class AutoFixResumeRequest(BaseModel):
 
 
 def _guard(request: Request, token: str | None) -> None:
+    # [Caddy bypass fix] request.client.host qua reverse proxy = 127.0.0.1
+    # (Caddy's IP), KHÔNG phải client thật. Fix: bắt buộc dùng shared secret
+    # header X-SCP-Internal-Token từ Caddy, HOẶC SCP_AGENT_LOCAL_ONLY=0
+    # + token hợp lệ. Không còn tin tưởng địa chỉ IP.
+    internal_secret = os.environ.get("SCP_INTERNAL_SECRET", "")
+    provided_internal = request.headers.get("X-SCP-Internal-Token", "")
+    if internal_secret and hmac.compare_digest(provided_internal, internal_secret):
+        return  # Caddy đã xác thực phía trước
+
+    # Direct localhost access (không qua proxy) — vẫn cho phép nhưng cần token
+    configured = os.environ.get("SCP_PC_CONTROLLER_TOKEN", "")
+    if configured and token and hmac.compare_digest(token, configured):
+        return
+
+    # Fallback: local-only mode (không qua proxy, không qua Caddy)
     host = request.client.host if request.client else ""
     local_only = os.environ.get("SCP_AGENT_LOCAL_ONLY", "1") == "1"
-    if local_only and host in {"127.0.0.1", "::1", "localhost"}:
+    if local_only and host in {"127.0.0.1", "::1", "localhost"} and not request.headers.get("X-Forwarded-For"):
         return
-    configured = os.environ.get("SCP_PC_CONTROLLER_TOKEN", "")
-    if not configured or not token or not hmac.compare_digest(token, configured):
-        raise HTTPException(status_code=403, detail="SCP Agent is local-only or token is invalid")
+
+    raise HTTPException(status_code=403, detail="SCP Agent requires internal token or valid controller token")
 
 
 def _parent_trace(request: Request, supplied: str | None) -> str | None:
