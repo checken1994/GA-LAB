@@ -2,6 +2,7 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 import threading
 from typing import Any, List
 from scp.security.capability_epoch import CapabilityToken, CapabilityAuthority
@@ -166,9 +167,24 @@ class ProcessIsolationEnvironment:
         if not self.authority.validate(capability_token):
             raise PermissionError(f"Epoch violation or unauthorized capability: {capability_token.token_id}")
 
+        # [CHAOS-FIX #51 — Network egress + file isolation]
+        # Gemini indictment CONFIRMED by runtime proof: subprocess inside Job
+        # Object can (1) read .env with API keys, (2) freely make HTTP requests.
+        # Fix: dead proxy blocks HTTP exfiltration via requests/urllib;
+        # minimal PATH restricts tool discovery; SYSTEMROOT kept for cmd.exe.
+        # KNOWN LIMITATION (documented honestly): raw sockets + direct file
+        # reads still possible — full isolation requires container (WSL2/Docker).
         safe_env = {
-            "PATH": os.environ.get("PATH", ""),
+            "PATH": os.path.dirname(sys.executable),  # chỉ python dir, không full system PATH
             "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+            "TEMP": os.environ.get("TEMP", ""),
+            "TMP": os.environ.get("TMP", ""),
+            # Dead proxy: urllib/requests theo env vars → kết nối fail ngay
+            "HTTP_PROXY": "http://127.0.0.1:1",
+            "HTTPS_PROXY": "http://127.0.0.1:1",
+            "http_proxy": "http://127.0.0.1:1",
+            "https_proxy": "http://127.0.0.1:1",
+            "no_proxy": "",
         }
 
         if self.is_windows:

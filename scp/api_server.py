@@ -722,6 +722,24 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("[AUTO] Attack mode monitor failed to start: %s", exc)
 
+    # [CHAIN-AUDIT FIX] Wire recover_on_boot — previously dead code:
+    # defined in task_kernel.py, tested in tests, but NEVER called in
+    # production. Now: every boot replays journal + recovers orphaned tasks.
+    try:
+        from scp.core.doubt_cron import get_doubt_cron  # reuse data_dir resolution
+        _data_dir = os.environ.get("SCP_DATA_DIR", "data")
+        _kernel_db = os.path.join(_data_dir, "ask_task_kernel.sqlite3")
+        if os.path.exists(_kernel_db):
+            from scp.task_kernel import TaskKernel
+            _recovery_kernel = TaskKernel(_kernel_db)
+            _recovery = _recovery_kernel.recover_on_boot()
+            if _recovery["recovered"]:
+                logger.warning("[RECOVERY] Boot recovery: %d tasks recovered, %d corrupted",
+                               len(_recovery["recovered"]), len(_recovery["corrupted"]))
+            _recovery_kernel.close()
+    except Exception as exc:
+        logger.warning("[RECOVERY] Boot recovery failed (non-fatal): %s", exc)
+
     # [MẢNH GHÉP #11] Cronjob of Doubt — vòng nghi ngờ TỰ KÍCH HOẠT chạy nền:
     # fitness drift + kernel integrity + escalation backlog + WHY anomaly,
     # không chờ "Gà" gõ phím "Tôi không tin". Fail-safe per check.
