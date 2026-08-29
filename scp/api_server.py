@@ -969,6 +969,22 @@ except ImportError as e:
     _WEB_CONTROL_AVAILABLE = False
 
 
+from pydantic import BaseModel
+class TokenRequest(BaseModel):
+    admin_key: str
+
+@app.post("/auth/token")
+@limiter.limit("5/minute")
+def login_for_access_token(req: TokenRequest, request: Request):
+    expected_key = os.environ.get("SCP_ADMIN_KEY", "admin")
+    import secrets as _secrets
+    if not _secrets.compare_digest(req.admin_key.encode(), expected_key.encode()):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Incorrect admin key")
+    from scp.security.jwt_guard import create_access_token
+    access_token = create_access_token(data={"sub": "admin"})
+    return {"access_token": access_token, "token_type": "bearer"}
+
 @app.post("/ask", response_model=AskResponse)
 @limiter.limit("60/minute")
 @traced_request(_REQUEST_RUN_LEDGER)
@@ -996,8 +1012,6 @@ async def _ask_impl(req: AskRequest, request: Request):
       4.  AttackPolicy + CounterResponse + Canary + AttackPatternMemory.record_bypass
     """
     t0 = time.time()
-    if _ask_is_context_rag(req):
-        return _ask_context_rag(req, request)
     judge = get_judge()
     stage_request(request, "judge_ready")
     v98_context = _extract_v98_context(request)
@@ -1123,7 +1137,6 @@ async def _ask_impl(req: AskRequest, request: Request):
     # is impossible → the else branch was dead code (DNA #22: PASS≠TRUE │Ă¢â€Â¬Ă¢â‚¬Â code suggested
     # null handling but the branch was unreachable). Fix: inline the assignment.
     _ai_answer = req.ai_answer
-    logger.warning(f"[DEBUG] _ai_answer is: {_ai_answer!r}")
     if not _ai_answer or not _ai_answer.strip():
         try:
             # R9-4: was `from scp.llm_gateway import chat_sync; chat_sync(...)`.
@@ -1141,7 +1154,11 @@ async def _ask_impl(req: AskRequest, request: Request):
                     context=("Lịch sử gần đây (chỉ để tham khảo):\n" + "\n".join(
                         f"{t['role']}: {t['content']}" for t in _history
                     )) if _history else "",
-                    system_prompt=("You are SCP. Answer directly and accurately in the same language as the question. Never refuse basic factual questions."),
+                    system_prompt=(
+                        "Bạn là SCP — một trợ lý AI thông minh. Trả lời ngắn gọn, chính xác, bằng tiếng Việt. "
+                        "Chỉ trả lời câu hỏi HIỆN TẠI ở cuối yêu cầu. Không tiếp tục chủ đề cũ nếu câu hỏi mới đổi chủ đề. "
+                        "Nếu thiếu dữ liệu, nói rõ chưa đủ dữ liệu thay vì đoán."
+                    ),
                     task="chat",
 
             )

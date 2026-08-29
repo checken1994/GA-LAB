@@ -24,8 +24,8 @@ def block_malicious_ip(ip):
         
     try:
         # Lệnh can thiệp sâu vào nhân Windows Firewall
-        cmd = f'netsh advfirewall firewall add rule name="SCP_PATROL_BLOCK_{ip}" dir=in action=block remoteip={ip}'
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        cmd = ["netsh", "advfirewall", "firewall", "add", "rule", f"name=SCP_PATROL_BLOCK_{ip}", "dir=in", "action=block", f"remoteip={ip}"]
+        result = subprocess.run(cmd, shell=False, capture_output=True, text=True)
         
         if result.returncode == 0:
             log_event("MITIGATION_SUCCESS", f"Đã TỰ ĐỘNG CHẶN thành công IP độc hại: {ip} trên Tường lửa Windows.")

@@ -101,7 +101,16 @@ def main() -> None:
     questions, attacks = generate_random_questions(args.num_math, args.num_geography, args.num_ambiguous, args.num_attacks, args.seed)
     Path(args.questions_output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.questions_output).write_text("\n".join(json.dumps(q, ensure_ascii=False) for q in questions) + "\n", encoding="utf-8")
-    headers: dict[str, str] = {"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZW5jaG1hcmsiLCJleHAiOjIxMDMzMjcxNDcuMzQxMjQyNn0.ybKc5GFPxixuKgoXLK_4K5QyexwvwcVMi1niLpc5sLA"}
+    import os, requests
+    admin_key = os.environ.get("SCP_ADMIN_KEY", "admin")
+    try:
+        auth_res = requests.post(f"{args.url}/auth/token", json={"admin_key": admin_key}, timeout=5)
+        auth_res.raise_for_status()
+        access_token = auth_res.json()["access_token"]
+    except Exception as e:
+        print(f"Warning: Failed to fetch auth token, proceeding without it: {e}")
+        access_token = "dummy"
+    headers: dict[str, str] = {"Authorization": f"Bearer {access_token}"}
     started = time.time()
     question_results: list[dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
