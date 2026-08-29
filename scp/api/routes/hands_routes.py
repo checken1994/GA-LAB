@@ -5,7 +5,7 @@ import hmac
 import os
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
@@ -149,7 +149,7 @@ async def hands_plan(payload: HandsActionRequest, request: Request, x_scp_pc_tok
         return {"success": False, "action": payload.action, "error": str(exc), "allowed": False}
 
 
-@router.post("/execute")
+@router.post("/execute", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_execute")
 async def hands_execute(payload: HandsActionRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
@@ -157,7 +157,7 @@ async def hands_execute(payload: HandsActionRequest, request: Request, x_scp_pc_
     return await _active_bridge().execute(payload.action, payload.params, payload.capabilityLevel, payload.approved, payload.dryRun, request_key=request_key)
 
 
-@router.post("/rollback")
+@router.post("/rollback", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_rollback")
 async def hands_rollback(payload: HandsRollbackRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
@@ -230,14 +230,14 @@ async def planner_parse(payload: GoalParseRequest, request: Request, x_scp_pc_to
     return await _goal_parser.parse(payload.goal)
 
 
-@router.post("/planner/{plan_id}/run-dag")
+@router.post("/planner/{plan_id}/run-dag", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_run_dag")
 async def planner_run_dag(plan_id: str, payload: PlannerDagRunRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _planner.run_dag(plan_id, payload.capabilityLevel, payload.approved, payload.dryRun, payload.maxParallel, payload.stopOnFailure)
 
 
-@router.post("/planner/{plan_id}/rollback")
+@router.post("/planner/{plan_id}/rollback", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_rollback")
 async def planner_rollback(plan_id: str, payload: PlannerRollbackRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)

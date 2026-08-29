@@ -5,7 +5,7 @@ import hmac
 import os
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
@@ -125,7 +125,7 @@ async def agent_autofix_propose(payload: AutoFixPayload, request: Request, x_scp
     return await _AGENT.autofix_propose(payload.model_dump(), parent_trace_id=_parent_trace(request, None))
 
 
-@router.post("/autofix/apply")
+@router.post("/autofix/apply", dependencies=[Depends(verify_admin)])
 @traced_request(_AGENT_LEDGER, require_write=True, action="agent_autofix_apply")
 async def agent_autofix_apply(payload: AutoFixApplyRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
