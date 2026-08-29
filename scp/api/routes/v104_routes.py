@@ -466,3 +466,31 @@ async def v104_free_apis_search(
         await asyncio.to_thread(catalog.refresh)
     results = await asyncio.to_thread(catalog.search, query, category, auth, limit)
     return {"count": len(results), "results": results}
+
+
+@router.get("/v104/doubt/status", dependencies=[Depends(verify_admin)])
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="doubt_status")
+async def v104_doubt_status():
+    """[MẢNH #11] Cronjob of Doubt — trạng thái vòng nghi ngờ tự kích hoạt."""
+    import os as _os
+
+    from scp.core.doubt_cron import get_doubt_cron
+
+    cron = get_doubt_cron(data_dir=_os.environ.get("SCP_DATA_DIR", "data"))
+    return {
+        "interval_seconds": cron.interval,
+        "running": bool(cron._thread and cron._thread.is_alive()),
+        "last_report": cron.last_report,
+    }
+
+
+@router.post("/v104/doubt/run", dependencies=[Depends(verify_admin)])
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="doubt_run")
+async def v104_doubt_run(_admin: bool = Depends(verify_admin)):
+    """Chạy ngay 1 vòng nghi ngờ (fitness drift + kernel integrity + backlog + WHY anomaly)."""
+    import os as _os
+
+    from scp.core.doubt_cron import run_doubt_cycle
+
+    report = await asyncio.to_thread(run_doubt_cycle, _os.environ.get("SCP_DATA_DIR", "data"))
+    return JSONResponse(report, status_code=200 if report["verdict"] == "CLEAN" else 503)

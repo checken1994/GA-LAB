@@ -722,6 +722,19 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("[AUTO] Attack mode monitor failed to start: %s", exc)
 
+    # [MẢNH GHÉP #11] Cronjob of Doubt — vòng nghi ngờ TỰ KÍCH HOẠT chạy nền:
+    # fitness drift + kernel integrity + escalation backlog + WHY anomaly,
+    # không chờ "Gà" gõ phím "Tôi không tin". Fail-safe per check.
+    try:
+        from scp.core.doubt_cron import get_doubt_cron
+
+        _doubt = get_doubt_cron(data_dir=os.environ.get("SCP_DATA_DIR", "data"))
+        _doubt.start()
+        app.state.doubt_cron = _doubt
+        logger.info("[DOUBT] Cronjob of Doubt started (interval=%ss)", _doubt.interval)
+    except Exception as exc:
+        logger.warning("[DOUBT] Cronjob of Doubt failed to start (non-fatal): %s", exc)
+
     yield
 
     app.state.judge_ready = False
@@ -766,6 +779,12 @@ async def lifespan(app: FastAPI):
     for _task in (_scheduler_bootstrap_task, _evolution_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
         if _task is not None and not _task.done():
             _task.cancel()
+    try:
+        from scp.core.doubt_cron import get_doubt_cron
+
+        get_doubt_cron(data_dir=os.environ.get("SCP_DATA_DIR", "data")).stop()
+    except Exception:
+        pass
     logger.info(f"{RELEASE_LABEL} API Server shutting down...")
 
 

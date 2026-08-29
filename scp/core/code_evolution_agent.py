@@ -218,8 +218,8 @@ BUG:
   Suggested fix: {bug['fix_hint']}
   Matched code: {bug['match']}
 
-FILE CONTENT (first 100 lines around the bug):
-{self._get_context(original, bug['line'])}
+FILE CONTENT (heat-pruned: hàm nóng nguyên văn, hàm nguội được gấp):
+{self._get_context(original, bug['line'], description=str(bug.get('description', '')))}
 
 RULES:
 1. Output ONLY the fixed Python code for the affected lines.
@@ -265,8 +265,18 @@ FIX:"""
             logger.debug(f"OpenRouter fix generation failed: {e}")
             return None
 
-    def _get_context(self, content: str, line: int, radius: int = 50) -> str:
-        """Get ±50 lines around the bug."""
+    def _get_context(self, content: str, line: int, radius: int = 50, description: str = "") -> str:
+        """[MẢNH 32/44] AST heat-pruner: hàm nóng nguyên văn, hàm nguội gấp
+        thành chữ ký — LLM thấy trọn vùng quan trọng không nhiễu. Fallback
+        cửa sổ ±radius quanh bug nếu pruner lỗi (hành vi cũ)."""
+        try:
+            from scp.core.context_pruner import prune_source
+
+            pruned = prune_source(content, line or 0, description)
+            if pruned.strip():
+                return pruned
+        except Exception:
+            pass
         lines = content.split('\n')
         start = max(0, line - radius)
         end = min(len(lines), line + radius)
