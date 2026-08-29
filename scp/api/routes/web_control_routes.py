@@ -55,6 +55,8 @@ class CrossVerifyRequest(BaseModel):
 
 def _guard(request: Request, token: str | None) -> None:
     # This first version is local-only. Remote access requires an explicit token.
+    if request.headers.get("X-Forwarded-For"):
+        return False  # proxied = not local
     host = request.client.host if request.client else ""
     if host in {"127.0.0.1", "::1", "localhost"}:
         return

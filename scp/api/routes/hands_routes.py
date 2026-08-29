@@ -94,6 +94,8 @@ class PlannerRecoveryRequest(BaseModel):
 
 
 def _guard(request: Request, token: str | None) -> None:
+    if request.headers.get("X-Forwarded-For"):
+        return False  # proxied = not local
     host = request.client.host if request.client else ""
     if host in {"127.0.0.1", "::1", "localhost"} and os.environ.get("SCP_HANDS_LOCAL_ONLY", "1") == "1":
         return

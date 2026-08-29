@@ -1,12 +1,14 @@
 """
 Mảnh ghép #5 + #43 nâng cấp — Multi-LLM Cross-Check (từ JudgeCoreMixin dead code).
 
-TẠI SAO: DNA #5 — Ảo giác đồng thuận. 1 model duy nhất có thể ảo giác. Judge
+TẠI SAO: DNA #5 — ảo giác đồng thuận. 1 model duy nhất có thể ảo giác. Judge
 cascade hiện tại dùng 2 model NHƯNG CÙNG PROVIDER (OpenRouter). Cross-vendor
 verification = dùng model từ provider KHÁC NHAU (OpenRouter + Groq) để giảm
 xác suất 2 model cùng ảo giác (independence assumption).
 
-Được wire vào RealityJudge.judge() thay cho single-model cascade.
+[HOTFIX 2026-08-29] Regression: for-loop bị xóa trong lần edit trước →
+cross_verify() luôn trả final=None → mọi /ask UNKNOWN. Đã sửa: for-loop
+được thêm lại + groq_judge dùng GroqProvider trực tiếp.
 """
 from __future__ import annotations
 
@@ -29,17 +31,10 @@ def cross_verify(
        "primary": {"verdict": "PASS"|"FAIL"|None, "provider": str},
        "secondary": {"verdict": "PASS"|"FAIL"|None, "provider": str},
        "final": "PASS"|"FAIL"|None}
-
-    Logic:
-      - primary (task="judge" → OpenRouter) và secondary (task="autofix" →
-        Groq/nhà cung cấp khác) đánh giá độc lập
-      - agree PASS → PASS
-      - agree FAIL → FAIL
-      - disagree → None (escalate cho người)
-      - 1 trong 2 unavailable → dùng kết quả của model còn lại (không tự bịa)
     """
     from scp.runtime.judge_llm import _parse_verdict
     from scp.llm_gateway import get_gateway
+    from scp.llm_gateway.client import GroqProvider
 
     gateway = get_gateway()
     prompt = (
@@ -49,19 +44,24 @@ def cross_verify(
     )
     system = "You are a factual judge. You MUST output exactly the word PASS or FAIL and nothing else."
 
-    results = {}
-    # [FIX — Reality Verifier] Cùng OPENROUTER_MODEL cho cả 2 = KHÔNG cross-vendor.
-    # Primary: task="judge" (OpenRouter). Secondary: task="autofix" hoặc "groq_judge"
-    # (Groq nếu có key) → ĐẢM BẢO 2 model TỪ 2 NGUỒN KHÁC NHAU.
-    tasks = [("primary", "judge")]
-    from scp.llm_gateway.client import GroqProvider
+    # Xác định secondary provider: Groq (khác vendor) nếu có key, không thì autofix
     GroqProvider._init_keys()
+    tasks = [("primary", "judge")]
     if GroqProvider.enabled:
         tasks.append(("secondary", "groq_judge"))
     else:
         tasks.append(("secondary", "autofix"))
+
+    results: dict[str, dict[str, Any]] = {}
+    for role, task in tasks:  # ← FOR-LOOP ĐÃ BỊ XÓA — giờ thêm lại
         try:
-            content, provider = gateway.chat_sync(prompt, system_prompt=system, task=task)
+            if task == "groq_judge":
+                # Groq: dùng provider riêng (khác vendor OpenRouter)
+                import asyncio as _aio
+                gp = GroqProvider(task="judge")
+                content, provider = _aio.run(gp.chat(prompt, system_prompt=system))
+            else:
+                content, provider = gateway.chat_sync(prompt, system_prompt=system, task=task)
             results[role] = {
                 "verdict": _parse_verdict(content),
                 "provider": provider,

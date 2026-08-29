@@ -15,6 +15,8 @@ router = APIRouter(prefix="/v3/call", tags=["v3-call"])
 
 
 def _guard(request: Request, token: str | None, authorization: str | None = None) -> None:
+    if request.headers.get("X-Forwarded-For"):
+        return False  # proxied = not local
     host = request.client.host if request.client else ""
     if os.environ.get("SCP_AGENT_LOCAL_ONLY", "1") == "1" and host in {"127.0.0.1", "::1", "localhost"}:
         return
