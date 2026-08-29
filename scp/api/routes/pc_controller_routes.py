@@ -49,13 +49,17 @@ class ClearKillRequest(BaseModel):
 
 
 def _is_local(request: Request) -> bool:
+    """[Caddy bypass fix] KHÔNG tin request.client.host qua reverse proxy.
+    Nếu có X-Forwarded-For → request đi qua proxy → KHÔNG phải local."""
+    if request.headers.get("X-Forwarded-For"):
+        return False  # proxied = not local
     host = request.client.host if request.client else ""
     return host in {"127.0.0.1", "::1", "localhost"}
 
 
 def _guard(request: Request, token: str | None) -> None:
-    """Allow local dashboard calls; require a separate token for remote calls."""
-    if _is_local(request) and os.environ.get("SCP_PC_LOCAL_ONLY", "1") == "1":
+    """Allow local dashboard calls (direct, not proxied); require token for remote."""
+    if _is_local(request) and os.environ.get("SCP_PC_LOCAL_ONLY", "1") == "1" and not request.headers.get("X-Forwarded-For"):
         return
     configured = os.environ.get("SCP_PC_CONTROLLER_TOKEN", "")
     if not configured or not token or not hmac.compare_digest(token, configured):

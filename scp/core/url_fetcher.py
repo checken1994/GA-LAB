@@ -235,7 +235,7 @@ def _safe_fetch_url(
         if current.scheme not in ("http", "https") or not current.hostname:
             raise ValueError("redirect target is not a valid HTTP(S) URL")
         # Explicit test/staging egress policy applies to every redirect hop.
-        egress_mode = os.environ.get("SCP_EGRESS_MODE", "allow").strip().lower()
+        egress_mode = os.environ.get("SCP_EGRESS_MODE", "deny").strip().lower()
         if egress_mode in {"deny", "offline", "disabled"} and current.hostname not in {"localhost", "127.0.0.1", "::1"}:
             raise ValueError("external egress disabled by SCP_EGRESS_MODE")
         # Resolve every address and pin this hop to the validated destination.

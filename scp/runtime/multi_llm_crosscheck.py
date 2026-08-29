@@ -50,7 +50,16 @@ def cross_verify(
     system = "You are a factual judge. You MUST output exactly the word PASS or FAIL and nothing else."
 
     results = {}
-    for role, task in [("primary", "judge"), ("secondary", "autofix")]:
+    # [FIX — Reality Verifier] Cùng OPENROUTER_MODEL cho cả 2 = KHÔNG cross-vendor.
+    # Primary: task="judge" (OpenRouter). Secondary: task="autofix" hoặc "groq_judge"
+    # (Groq nếu có key) → ĐẢM BẢO 2 model TỪ 2 NGUỒN KHÁC NHAU.
+    tasks = [("primary", "judge")]
+    from scp.llm_gateway.client import GroqProvider
+    GroqProvider._init_keys()
+    if GroqProvider.enabled:
+        tasks.append(("secondary", "groq_judge"))
+    else:
+        tasks.append(("secondary", "autofix"))
         try:
             content, provider = gateway.chat_sync(prompt, system_prompt=system, task=task)
             results[role] = {
