@@ -1,4 +1,8 @@
 import pytest
+
+@pytest.fixture(autouse=True)
+def _no_crosscheck(monkeypatch):
+    monkeypatch.setenv("SCP_MULTI_LLM_CROSSCHECK", "0")
 from scp.ask_kernel_adapter import AskKernelAdapter
 
 

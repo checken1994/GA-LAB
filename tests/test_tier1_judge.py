@@ -5,6 +5,15 @@ from __future__ import annotations
 import pytest
 
 import scp.runtime.judge as judge_mod
+
+# Crosscheck phải TẮT trong unit tests — tests mock _llm_judge riêng
+# (crosscheck gọi 2 providers thật qua gateway, không phải mock target)
+
+
+@pytest.fixture(autouse=True)
+def _no_crosscheck(monkeypatch):
+    monkeypatch.setenv("SCP_MULTI_LLM_CROSSCHECK", "0")
+
 from scp.runtime.judge import RealityJudge
 
 
