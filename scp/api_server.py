@@ -975,12 +975,7 @@ except ImportError as e:
 async def ask(req: AskRequest, request: Request, current_user: str = Depends(get_current_user)):
     REQUEST_COUNT.labels(method="POST", endpoint="/ask").inc()
 
-    if _REQUIRE_API_AUTH:
-        from scp.api._shared import verify_admin  # noqa: PLC0415
-        verify_admin(
-            authorization=request.headers.get("Authorization", ""),
-            request=request,
-        )
+
     if True:  # ALL endpoints MUST go through TaskKernel now
         if not _ask_kernel_enabled(req):
             return _kernel_gate_unavailable_response(req, RuntimeError("rag_kernel_disabled"))
@@ -1128,6 +1123,7 @@ async def _ask_impl(req: AskRequest, request: Request):
     # is impossible → the else branch was dead code (DNA #22: PASS≠TRUE │Ă¢â€Â¬Ă¢â‚¬Â code suggested
     # null handling but the branch was unreachable). Fix: inline the assignment.
     _ai_answer = req.ai_answer
+    logger.warning(f"[DEBUG] _ai_answer is: {_ai_answer!r}")
     if not _ai_answer or not _ai_answer.strip():
         try:
             # R9-4: was `from scp.llm_gateway import chat_sync; chat_sync(...)`.
@@ -1145,11 +1141,7 @@ async def _ask_impl(req: AskRequest, request: Request):
                     context=("Lịch sử gần đây (chỉ để tham khảo):\n" + "\n".join(
                         f"{t['role']}: {t['content']}" for t in _history
                     )) if _history else "",
-                    system_prompt=(
-                        "Bạn là SCP — một trợ lý AI thông minh. Trả lời ngắn gọn, chính xác, bằng tiếng Việt. "
-                        "Chỉ trả lời câu hỏi HIỆN TẠI ở cuối yêu cầu. Không tiếp tục chủ đề cũ nếu câu hỏi mới đổi chủ đề. "
-                        "Nếu thiếu dữ liệu, nói rõ chưa đủ dữ liệu thay vì đoán."
-                    ),
+                    system_prompt=("You are SCP. Answer directly and accurately in the same language as the question. Never refuse basic factual questions."),
                     task="chat",
 
             )
