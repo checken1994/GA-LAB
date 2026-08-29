@@ -112,16 +112,20 @@ def rotate_jsonl(file_path: str, max_records: Optional[int] = None) -> dict:
 
         result["before_size"] = os.path.getsize(file_path)
 
-        # Read all lines
+        # Read streaming to prevent JSONL memory bloat (Gap 1)
+        import collections
+        count = 0
+        kept_lines = collections.deque(maxlen=max_records)
         with open(file_path, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-        result["before_count"] = len(lines)
+            for line in f:
+                count += 1
+                kept_lines.append(line)
+                
+        result["before_count"] = count
 
-        if result["before_count"] <= max_records:
+        if count <= max_records:
             return result  # No rotation needed
 
-        # Keep last max_records
-        kept_lines = lines[-max_records:]
         result["after_count"] = len(kept_lines)
 
         # Backup original

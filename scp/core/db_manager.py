@@ -280,41 +280,13 @@ def db_batch_flush() -> int:
 _read_lock = threading.Lock()  #  Light lock for reads — WAL allows concurrent reads
 
 def db_query_all(sql: str, params=(), db_path: Optional[str] = None) -> list[dict]:
-    #  Don't use _db_lock for reads on the GLOBAL conn — WAL allows
-    # concurrent reads. Only protect against connection creation race.
-    # [FIX-CRIT-135 BUG 4] TẠI SAO: when db_path is provided, we MUST NOT use
-    # _read_lock — that lock is NOT shared with db_exec's _db_lock, so the
-    # per-path dict `_path_conns` was previously mutated under two DIFFERENT
-    # locks → race condition (clobbered assignments, duplicate connections).
-    # Fix: for the per-path branch, acquire `_db_lock` (single lock for the
-    # per-path dict, shared with db_exec). For the global branch, keep the
-    # `_read_lock` (V89 WAL optimization preserved when db_path is None).
-    if db_path:
-        _db_lock.acquire()
-        try:
-            conn = _get_path_conn(db_path)
-            return [dict(r) for r in conn.execute(sql, params).fetchall()]
-        finally:
-            _db_lock.release()
-    with _read_lock:
-        conn = get_db()
-        return [dict(r) for r in conn.execute(sql, params).fetchall()]
+    conn = _get_path_conn(db_path) if db_path else get_db()
+    return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 def db_query_one(sql: str, params=(), db_path: Optional[str] = None) -> Optional[dict]:
-    #  Light lock for reads on the GLOBAL conn.
-    # [FIX-CRIT-135 BUG 4] per-path branch MUST use _db_lock (see db_query_all).
-    if db_path:
-        _db_lock.acquire()
-        try:
-            conn = _get_path_conn(db_path)
-            r = conn.execute(sql, params).fetchone()
-            return dict(r) if r else None
-        finally:
-            _db_lock.release()
-    with _read_lock:
-        conn = get_db()
-        r = conn.execute(sql, params).fetchone()
-        return dict(r) if r else None
+    conn = _get_path_conn(db_path) if db_path else get_db()
+    r = conn.execute(sql, params).fetchone()
+    return dict(r) if r else None
 
 def _cap_table(table_name: str, max_rows: int, evict_count: int):
     """Archive + delete old rows."""
