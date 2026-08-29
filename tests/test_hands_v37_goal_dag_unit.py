@@ -26,7 +26,9 @@ class GoalParserDagV37Tests(unittest.IsolatedAsyncioTestCase):
 
     async def test_goal_parser_fallback_is_proposal_only_and_allowlisted(self) -> None:
         parser = GoalParser(self.planner)
-        result = await parser.parse("Tìm các nguồn công khai về SCP self correcting process", prefer_local=False)
+        # [2026-08-29] prefer_local param removed together with the local-LLM
+        # bridge path: parse() is deterministic-only now.
+        result = await parser.parse("Tìm các nguồn công khai về SCP self correcting process")
         self.assertTrue(result["success"])
         self.assertTrue(result["proposalOnly"])
         self.assertFalse(result["approved"])

@@ -18,7 +18,6 @@ router = APIRouter(prefix="/v3/agent", tags=["v3-agent"])
 
 class AgentPlanRequest(BaseModel):
     goal: str = Field(min_length=1, max_length=2000)
-    preferLocal: bool = True
     parentTraceId: str | None = Field(default=None, max_length=120)
 
 
@@ -29,7 +28,6 @@ class AgentRunRequest(BaseModel):
     capabilityLevel: int = Field(default=0, ge=0, le=5)
     approved: bool = False
     dryRun: bool = False
-    preferLocal: bool = True
     parentTraceId: str | None = Field(default=None, max_length=120)
     agentRunId: str | None = Field(default=None, max_length=120)
 
@@ -89,7 +87,7 @@ async def agent_status(request: Request, x_scp_pc_token: str | None = Header(def
 @traced_request(_AGENT_LEDGER, require_write=False, action="agent_plan")
 async def agent_plan(payload: AgentPlanRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _AGENT.propose(payload.goal, prefer_local=payload.preferLocal, parent_trace_id=_parent_trace(request, payload.parentTraceId))
+    return await _AGENT.propose(payload.goal, parent_trace_id=_parent_trace(request, payload.parentTraceId))
 
 
 @router.post("/run")
@@ -103,7 +101,6 @@ async def agent_run(payload: AgentRunRequest, request: Request, x_scp_pc_token: 
         capability_level=payload.capabilityLevel,
         approved=payload.approved,
         dry_run=payload.dryRun,
-        prefer_local=payload.preferLocal,
         parent_trace_id=_parent_trace(request, payload.parentTraceId),
         agent_run_id=payload.agentRunId,
     )

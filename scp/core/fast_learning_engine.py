@@ -24,7 +24,7 @@ PLUS (ported from real_learning_engine.py during G3-MERGE):
 - LOOP 3: news_learning_cycle() — fetch RSS headlines → verify → KB
 - run_all_cycles() — orchestrate all 3 loops
 - Module constants: SEED_QUESTIONS, COUNTRIES, DOMAINS, COMPOUNDS,
-  COUNTRY_DOMAIN_HINTS, OLLAMA_HOST, OLLAMA_MODEL, OLLAMA_TIMEOUT,
+  COUNTRY_DOMAIN_HINTS,
   NEWS_SOURCES, LEARNING_INTERVAL
 - Helper funcs: get_country_domain_matrix(), get_total_combinations()
 
@@ -32,7 +32,7 @@ Kết quả benchmark dự kiến:
   V104.1 tuần tự: 10 câu × 2s/câu = 20s
   V104.2 parallel: 10 câu / 10 concurrent = 2s (10x nhanh hơn)
 
-Yêu cầu: Ollama chạy local (http://127.0.0.1:11434)
+Yêu cầu: LLM gateway (OpenRouter API) đã cấu hình trong .env
 """
 from __future__ import annotations
 
@@ -62,9 +62,9 @@ logger = logging.getLogger("scp.core.fast_learning_engine")
 # (was: imported from real_learning_engine — circular now that real is a stub)
 # ============================================================
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:latest")
-OLLAMA_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "60"))
+# [2026-08-29] OLLAMA_* constants removed — local Ollama is gone; all LLM
+# calls go through scp.llm_gateway (OpenRouter API). Legacy source labels
+# now reflect the real provider.
 
 # ============================================================
 # V104.1 FIX: 14 quốc gia × 5 lĩnh vực = 70 combinations
@@ -245,7 +245,7 @@ NEWS_SOURCES = [
 LEARNING_INTERVAL = int(os.environ.get("SCP_LEARNING_INTERVAL", "3600"))  # 1 hour default
 
 # V104.2 tuning constants
-PARALLEL_OLLAMA_CONCURRENCY = int(os.environ.get("SCP_LEARN_CONCURRENCY", "10"))
+PARALLEL_LLM_CONCURRENCY = int(os.environ.get("SCP_LEARN_CONCURRENCY", "10"))
 WIKIPEDIA_CONCURRENCY = int(os.environ.get("SCP_WIKI_CONCURRENCY", "5"))
 LEARN_INTERVAL_FAST = int(os.environ.get("SCP_LEARN_INTERVAL_FAST", "300"))  # 5 min
 LEARN_INTERVAL_BURST = int(os.environ.get("SCP_LEARN_INTERVAL_BURST", "60"))  # 1 min khi nhiều facts mới
@@ -351,7 +351,7 @@ class FastLearningEngine:
 
     async def _get_ollama_semaphore(self) -> asyncio.Semaphore:
         if self._ollama_semaphore is None:
-            self._ollama_semaphore = asyncio.Semaphore(PARALLEL_OLLAMA_CONCURRENCY)
+            self._ollama_semaphore = asyncio.Semaphore(PARALLEL_LLM_CONCURRENCY)
         return self._ollama_semaphore
 
     async def _get_wiki_semaphore(self) -> asyncio.Semaphore:
@@ -851,7 +851,7 @@ class FastLearningEngine:
             "provider_failed": 0, "provider_calls": 0,
             "compounding_l2": 0,
             "matrix_coverage": {"by_country": {}, "by_domain": {}},
-            "parallel_concurrency": PARALLEL_OLLAMA_CONCURRENCY,
+            "parallel_concurrency": PARALLEL_LLM_CONCURRENCY,
         }
 
         # Sinh danh sách câu hỏi
@@ -978,7 +978,7 @@ class FastLearningEngine:
                     entity=item["question"][:200],
                     attribute="verified_answer",
                     value=answer[:500],
-                    source=f"ollama+wiki:{OLLAMA_MODEL}",
+                    source="llm-gateway+wiki",
                     confidence=wiki["confidence"],
                 )
                 if stored_ok:
@@ -1134,7 +1134,7 @@ class FastLearningEngine:
                     entity=question[:200],
                     attribute="verified_answer",
                     value=ollama_answer[:500],
-                    source=f"ollama+wiki:{OLLAMA_MODEL}",
+                    source="llm-gateway+wiki",
                     confidence=wiki_answer["confidence"],
                 )
                 if stored_ok:
@@ -1368,7 +1368,7 @@ def start_fast_learning_thread(scp_db_path: str = "data/v13.db",
                 telemetry_subsystem="fast_learning",
             )
             logger.info(f"V104.2 FastLearningEngine started "
-                        f"(concurrency={PARALLEL_OLLAMA_CONCURRENCY}, "
+                        f"(concurrency={PARALLEL_LLM_CONCURRENCY}, "
                         f"interval={LEARN_INTERVAL_FAST}s adaptive)")
 
             _consecutive_429 = 0  # [R17-ROOT-FIX-10] circuit breaker

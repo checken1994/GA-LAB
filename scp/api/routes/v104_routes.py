@@ -388,3 +388,81 @@ async def v1042_learn_fast_benchmark():
         "cycles_completed": stats.get("cycles_completed", 0),
         "facts_stored_total": stats.get("ollama_kb_facts_stored", 0),
     }
+
+
+# ============================================================
+# [2026-08-29] Free-API warehouse + TOP-1% systems learning loop.
+# Kho dữ liệu free (public-apis catalog ~1.7k APIs) + vòng học từ GitHub /
+# Wikipedia về thực hành của các hệ thống TOP 1%. Fail-closed, host
+# allowlist cố định, chi tiết tại scp/core/top_systems_learning.py.
+# ============================================================
+from pydantic import Field as _TopSystemsField
+
+
+class TopSystemsRunRequest(BaseModel):
+    topics: list[str] | None = None
+    per_source: int = _TopSystemsField(default=5, ge=1, le=10)
+
+
+@router.get("/v104/learn/top-systems/status", dependencies=[Depends(verify_admin)])
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="top_systems_status")
+async def v104_top_systems_status():
+    import os as _os
+
+    from scp.core.top_systems_learning import get_learner
+    from scp.data_sources.free_api_catalog import get_catalog
+
+    learner = get_learner(data_dir=_os.environ.get("SCP_DATA_DIR", "data"))
+    return {
+        "learner": learner.stats(),
+        "catalog": get_catalog(data_dir=_os.environ.get("SCP_DATA_DIR", "data")).status(),
+    }
+
+
+@router.post("/v104/learn/top-systems", dependencies=[Depends(verify_admin)])
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="top_systems_learn")
+async def v104_learn_top_systems(payload: TopSystemsRunRequest | None = None, _admin: bool = Depends(verify_admin)):
+    """Run one bounded learning cycle: collect top-tier systems knowledge from
+    free sources (GitHub + Wikipedia) into the durable knowledge ledger."""
+    import os as _os
+
+    from scp.core.top_systems_learning import get_learner
+
+    learner = get_learner(data_dir=_os.environ.get("SCP_DATA_DIR", "data"))
+    topics = payload.topics if payload else None
+    per_source = payload.per_source if payload else 5
+    result = await asyncio.to_thread(learner.learn_all, topics, per_source)
+    return JSONResponse(result, status_code=200 if result.get("ok") else 503)
+
+
+@router.get("/v104/learn/top-systems/advise", dependencies=[Depends(verify_admin)])
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="top_systems_advise")
+async def v104_top_systems_advise(query: str, limit: int = 10, _admin: bool = Depends(verify_admin)):
+    """Consult the collected TOP-1% knowledge (used by WHY/autofix + humans)."""
+    import os as _os
+
+    from scp.core.top_systems_learning import get_learner
+
+    learner = get_learner(data_dir=_os.environ.get("SCP_DATA_DIR", "data"))
+    return {"query": query[:200], "records": learner.advise(query, limit=limit)}
+
+
+@router.get("/v104/free-apis/search", dependencies=[Depends(verify_admin)])
+@traced_request(_V104_ROUTES_LEDGER, require_write=False, action="free_apis_search")
+async def v104_free_apis_search(
+    query: str = "",
+    category: str | None = None,
+    auth: str | None = None,
+    limit: int = 25,
+    _admin: bool = Depends(verify_admin),
+):
+    """Search the free-API catalog (auth="No" → APIs usable without a key)."""
+    import os as _os
+
+    from scp.data_sources.free_api_catalog import get_catalog
+
+    catalog = get_catalog(data_dir=_os.environ.get("SCP_DATA_DIR", "data"))
+    if not catalog.entries():
+        await asyncio.to_thread(catalog.refresh)
+    results = await asyncio.to_thread(catalog.search, query, category, auth, limit)
+    return {"count": len(results), "results": results}

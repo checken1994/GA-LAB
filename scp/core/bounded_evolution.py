@@ -49,7 +49,6 @@ def _evolution_child(
         # data_dir; tests and isolated runs must not contaminate production data.
         ledger_path = (Path(data_dir) / "learning_runs.jsonl").resolve()
         os.environ["SCP_LEARNING_RUN_LEDGER_PATH"] = str(ledger_path)
-        os.environ["OLLAMA_TIMEOUT"] = str(max(1, int(provider_timeout_seconds)))
         os.environ["SCP_LLM_REQUEST_TIMEOUT_SECONDS"] = str(provider_timeout_seconds)
         from scp.autofix.evolution import get_evolution_engine
 

@@ -35,9 +35,11 @@ with open(FILE) as f:
 tree = ast.parse(src)
 
 # ---------------------------------------------------------------------------
-# TEST 1 — Each provider class (OllamaProvider + OpenRouterProvider) has an
-# asyncio.Lock instance assigned in __init__ (or _client is created at module
-# import / app startup — alternative accepted).
+# TEST 1 — OpenRouterProvider has an asyncio.Lock instance assigned in
+# __init__ (or _client is created at module import / app startup —
+# alternative accepted). OllamaProvider must NOT exist: local Ollama was
+# removed from the deployment and its provider layer was deleted from the
+# gateway (Clean Workspace — dead code is removed, not config-gated).
 # ---------------------------------------------------------------------------
 def _class_has_client_lock(class_node: ast.ClassDef) -> bool:
     """Return True if __init__ assigns self._client_lock = asyncio.Lock()
@@ -72,10 +74,14 @@ def _class_has_client_lock(class_node: ast.ClassDef) -> bool:
 
 
 classes = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)}
-assert "OllamaProvider" in classes, "FAIL: OllamaProvider class not found"
+assert "OllamaProvider" not in classes, (
+    "FAIL: OllamaProvider still exists in the gateway — local Ollama was "
+    "removed from the deployment; the dead provider layer must be deleted, "
+    "not kept behind config."
+)
 assert "OpenRouterProvider" in classes, "FAIL: OpenRouterProvider class not found"
 
-for cname in ("OllamaProvider", "OpenRouterProvider"):
+for cname in ("OpenRouterProvider",):
     cn = classes[cname]
     has_lock = _class_has_client_lock(cn)
     assert has_lock, (
@@ -148,7 +154,7 @@ def _find_unprotected_client_inits(class_node: ast.ClassDef) -> list[str]:
             _walk_with_context(child, False)
     return unprotected
 
-for cname in ("OllamaProvider", "OpenRouterProvider"):
+for cname in ("OpenRouterProvider",):
     cn = classes[cname]
     bad = _find_unprotected_client_inits(cn)
     assert not bad, (
@@ -173,11 +179,11 @@ def _class_uses_lock(class_node: ast.ClassDef) -> bool:
                     return True
     return False
 
-for cname in ("OllamaProvider", "OpenRouterProvider"):
+for cname in ("OpenRouterProvider",):
     cn = classes[cname]
     assert _class_uses_lock(cn), (
         f"FAIL: {cname} defines _client_lock but never uses `async with self._client_lock:`"
     )
     print(f"PASS [3/3]: {cname} uses `async with self._client_lock:`")
 
-print("\n✓ Reality test 4-a-014 PASSED (7 assertions across 2 classes + file-exists)")
+print("\n✓ Reality test 4-a-014 PASSED (lock pattern + Ollama-free gateway verified)")

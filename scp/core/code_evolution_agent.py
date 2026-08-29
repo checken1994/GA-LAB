@@ -60,8 +60,6 @@ class CodeEvolutionAgent:
         self._last_reset = time.time()
         self._or_key = os.environ.get("OPENROUTER_API_KEY", "")
         self._or_model = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct")
-        self._ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-        self._ollama_model = os.environ.get("OLLAMA_MODEL", "llama3.2:latest")
         self._fixes_applied = 0
         self._fixes_rolled_back = 0
         self._fixes_skipped = 0
@@ -234,9 +232,6 @@ FIX:"""
 
         # Try OpenRouter first
         fix = await self._ask_openrouter(prompt)
-        if not fix:
-            # Fallback: Ollama
-            fix = await self._ask_ollama(prompt)
 
         if fix and "CANNOT_FIX" in fix:
             return None
@@ -268,33 +263,6 @@ FIX:"""
                 return result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
         except Exception as e:
             logger.debug(f"OpenRouter fix generation failed: {e}")
-            return None
-
-    async def _ask_ollama(self, prompt: str) -> str | None:
-        """Gọi Ollama local."""
-        try:
-            import urllib.parse
-            import urllib.request
-            data = json.dumps({
-                "model": self._ollama_model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {"temperature": 0.1, "num_predict": 300},
-            }).encode()
-            parsed = urllib.parse.urlparse(f"{self._ollama_host}/api/generate")
-            if parsed.scheme not in ("http", "https"):
-                raise ValueError(f"Unsupported URL scheme: {parsed.scheme!r}")
-            req = urllib.request.Request(  # noqa: S310 — scheme validated above
-                f"{self._ollama_host}/api/generate",
-                data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 — scheme validated above; nosec B310 — URL validated by SCP
-                result = json.loads(resp.read())
-                return result.get("response", "").strip()
-        except Exception as e:
-            logger.debug(f"Ollama fix generation failed: {e}")
             return None
 
     def _get_context(self, content: str, line: int, radius: int = 50) -> str:

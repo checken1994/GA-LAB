@@ -149,7 +149,6 @@ async def scp_chat(websocket: WebSocket):
                         execute=True,
                         capability_level=0,
                         approved=False,
-                        prefer_local=True,
                         parent_trace_id=run.trace_id,
                     )
                     task_status = str(task_result.get("status", "INTERNAL_FAILED"))

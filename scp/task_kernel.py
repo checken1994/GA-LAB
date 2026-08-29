@@ -19,12 +19,11 @@ STATES = {
     "HUMAN_REVIEW", "RETRY_SCHEDULED", "COMPLETED", "FAILED", "CANCELLED",
 }
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED"}
-ACTIVE_STATES = {"RUNNING", "PATROLLING", "VERIFYING", "RECONCILING", "RECOVERING"}
 ALLOWED_TRANSITIONS = {
     "CREATED": {"PLANNING", "CANCELLED"},
     "PLANNING": {"READY", "WAITING_APPROVAL", "FAILED", "CANCELLED"},
     "WAITING_APPROVAL": {"READY", "CANCELLED"},
-    "READY": {"QUEUED", "PATROLLING", "CANCELLED"},
+    "READY": {"QUEUED", "CANCELLED"},
     "QUEUED": {"LEASED", "CANCELLED"},
     "LEASED": {"RUNNING", "RECOVERING", "CANCELLED"},
     "RUNNING": {"WAITING_TOOL", "VERIFYING", "CHECKPOINTED", "RECOVERING", "HUMAN_REVIEW", "FAILED", "CANCELLED"},
@@ -33,7 +32,6 @@ ALLOWED_TRANSITIONS = {
     "CHECKPOINTED": {"RUNNING", "QUEUED", "CANCELLED"},
     "UNKNOWN": {"RECONCILING", "HUMAN_REVIEW", "RECOVERING", "FAILED", "CANCELLED"},
     "HUMAN_REVIEW": {"READY", "CANCELLED", "FAILED"},
-        "PATROLLING": {"RUNNING", "RECOVERING", "CANCELLED", "FAILED", "CHECKPOINTED"},
     "RECOVERING": {"RECONCILING", "CHECKPOINTED", "QUEUED", "HUMAN_REVIEW", "FAILED"},
     "RECONCILING": {"RECOVERING", "CHECKPOINTED", "QUEUED", "HUMAN_REVIEW", "FAILED", "CANCELLED"},
     "RETRY_SCHEDULED": {"QUEUED", "FAILED", "CANCELLED"},
@@ -362,7 +360,7 @@ class TaskKernel:
                 
             # [SCP-DNA] Immutable Law: WHY GATE enforcement on all core kernel transitions.
             # Bất kỳ ai cũng có thể sai, chỉ có luật TẠI SAO (WHY) là bất biến.
-            if to_state in ("COMPLETED", "FAILED", "RUNNING", "CHECKPOINTED", "VERIFYING", "PATROLLING"):
+            if to_state in ("COMPLETED", "FAILED", "RUNNING", "CHECKPOINTED", "VERIFYING"):
                 try:
                     from scp.meta.why_gate import get_why_gate, WhyDecision
                     why_res = get_why_gate().gate(
@@ -952,7 +950,7 @@ class TaskKernel:
             rows = self.conn.execute('''
                 SELECT task_id, state 
                 FROM tasks 
-                WHERE state IN ('LEASED', 'RUNNING', 'PATROLLING') 
+                WHERE state IN ('LEASED', 'RUNNING')
                   AND (strftime('%s', 'now') - strftime('%s', updated_at)) > 60
             ''').fetchall()
             

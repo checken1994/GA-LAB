@@ -46,6 +46,30 @@ class AskKernelAdapter:
         self.kernel = TaskKernel(db_path)
         self.trace = TraceLedger(trace_path)
 
+    def _existing_task(self, task_id: str) -> dict[str, Any] | None:
+        try:
+            return self.kernel.get_task(task_id)
+        except Exception:
+            return None
+
+    # Lifecycle states where a racing transport retry must still be deduped:
+    # the first execution has not reached a decision yet.
+    _IN_FLIGHT_STATES = {
+        "CREATED", "PLANNING", "READY", "QUEUED", "LEASED", "RUNNING",
+        "WAITING_TOOL", "VERIFYING", "CHECKPOINTED", "UNKNOWN",
+        "RECOVERING", "RECONCILING", "RETRY_SCHEDULED",
+    }
+
+    @staticmethod
+    def _duplicate_is_reaskable(existing: dict[str, Any] | None) -> bool:
+        """A duplicate whose lifecycle has REACHED A DECISION (terminal, or
+        HUMAN_REVIEW — the answer was withheld) is a finished ask: a new
+        identical request is a legitimate new ask, not a transport retry.
+        Only an in-flight duplicate must be deduped against."""
+        if not existing:
+            return False
+        return existing.get("state") not in AskKernelAdapter._IN_FLIGHT_STATES
+
     def _task_id(
         self,
         question: str,
@@ -87,9 +111,15 @@ class AskKernelAdapter:
         retrieved_context: str,
         session_id: str | None,
         request: Any = None,
+        _retried: bool = False,
     ) -> dict[str, Any]:
         request_id = self._request_id(request)
         task_id = self._task_id(question, contexts, retrieved_context, session_id, request_id)
+        if _retried:
+            # [FIX 2026-08-29] A terminal duplicate older than the window is a
+            # legitimate NEW ask, not a transport retry. Uniquify the durable
+            # id so repeat asks are not blocked for the database's lifetime.
+            task_id = task_id + "-" + uuid.uuid4().hex[:8]
         input_hash = self._input_hash(question, contexts, retrieved_context)
         try:
             self.kernel.create_task(task_id, "ask-route", "rag-verified /ask", "R0", input_hash=input_hash)
@@ -138,8 +168,13 @@ class AskKernelAdapter:
                 "input_hash": input_hash,
             }
         except sqlite3.IntegrityError as exc:
-            # Duplicate durable identity is a safe block, not a second handler
-            # execution. The existing task is intentionally not overwritten.
+            # Duplicate durable identity: within the idempotency window this is
+            # a transport retry — a safe block, not a second handler execution.
+            # Past the window a terminal duplicate is a NEW ask — re-ask once
+            # with a uniquified id instead of blocking forever.
+            existing = self._existing_task(task_id)
+            if not _retried and self._duplicate_is_reaskable(existing):
+                return self.begin(question, contexts, retrieved_context, session_id, request=request, _retried=True)
             try:
                 current = self.kernel.get_task(task_id)
             except Exception:
@@ -216,6 +251,18 @@ class AskKernelAdapter:
         except Exception:
             judge_pass = False
 
+        # Contract (2026-08-29), split explicitly:
+        #   - Context-backed (RAG) ask: the request carried evidence, so the
+        #     answer is held to the grounding contract; grounded_ratio and the
+        #     evidence context hash are recorded for audit.
+        #   - General chat ask (no contexts): grounding is not applicable —
+        #     the judge + governance pipeline is the verifier. This matches
+        #     api_server's documented intent ("Task Kernel integration is
+        #     deliberately scoped to context-backed/RAG asks; normal chat
+        #     keeps the JudgeCore path"): the kernel lifecycle still wraps
+        #     chat for durability, but grounding cannot be demanded from a
+        #     request that carries no evidence.
+        is_rag_ask = bool(contexts)
         checks = {
             "verdict_pass": verdict == "PASS",
             "judge_pass": judge_pass,
@@ -225,6 +272,8 @@ class AskKernelAdapter:
             # route supplies one, it must explicitly be input-context-only.
             "provenance_compatible": provenance in {"", "input_context_only"},
         }
+        if is_rag_ask:
+            checks["rag_evidence_bound"] = True
         failures = [name for name, ok in checks.items() if not ok]
         return {
             "verdict": "VERIFIED" if not failures else "CONTRADICTED",

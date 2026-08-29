@@ -132,36 +132,20 @@ Trả về JSON đúng schema, không markdown. Mục tiêu không chắc chắn
         normalized["model"] = self.model_label
         return normalized
 
-    async def _ask_local_json(self, goal: str) -> dict[str, Any] | None:
-        base_url = os.environ.get("LLM_BRIDGE_URL", "http://127.0.0.1:11434").rstrip("/")
-        model = os.environ.get("OLLAMA_MODEL_CHAT", os.environ.get("OLLAMA_MODEL", ""))
-        if not model:
-            return None
-        payload = {"model": model, "messages": [{"role": "system", "content": self._prompt(goal)}, {"role": "user", "content": goal}], "stream": False, "format": "json"}
-        async with httpx.AsyncClient(timeout=90) as client:
-            response = await client.post(f"{base_url}/api/chat", json=payload)
-            response.raise_for_status()
-            data = response.json()
-        message = data.get("message", {}) if isinstance(data, dict) else {}
-        return self._extract_json(message.get("content", ""))
+    async def parse(self, goal: str) -> dict[str, Any]:
+        """Parse a goal into a validated proposal.
 
-    async def parse(self, goal: str, prefer_local: bool = True) -> dict[str, Any]:
+        [2026-08-29] The local-LLM path (_ask_local_json via LLM_BRIDGE_URL
+        11434) was deleted together with the Ollama layer: the bridge is gone
+        from the deployment, so planning is deterministic-only.
+        """
         goal = str(goal or "").strip()
         if not goal:
             return {"success": False, "error": "Goal is empty", "proposalOnly": True}
         started = time.perf_counter()
         lineage = "deterministic_fallback"
-        proposal: dict[str, Any] | None = None
         errors: list[str] = []
-        if prefer_local:
-            try:
-                proposal = await self._ask_local_json(goal)
-                if proposal:
-                    lineage = "local_llm"
-            except Exception as exc:
-                errors.append(f"local_llm: {exc}")
-        if proposal is None:
-            proposal = self._deterministic_fallback(goal)
+        proposal: dict[str, Any] | None = self._deterministic_fallback(goal)
         try:
             result = self._validate_proposal(proposal, goal)
             result.update({"success": True, "lineage": lineage, "durationMs": round((time.perf_counter() - started) * 1000, 2), "errors": errors})

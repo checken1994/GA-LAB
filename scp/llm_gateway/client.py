@@ -1,42 +1,21 @@
 """
-SCP LLM Gateway — Unified LLM client.
+SCP LLM Gateway — Unified LLM client (API-only).
 
 Single source of truth for ALL LLM calls in SCP (inference + learning).
-Replaces:
-  - runtime/llm_client.py (LocalLLMClient)
-  - core/fast_learning_engine.py::_ask_ollama_sync
-  - core/real_learning_engine.py::_ask_ollama
+
+TẠI SAO không còn OllamaProvider (2026-08-29):
+  Ollama local đã bị gỡ khỏi deployment. Toàn bộ tầng Ollama (provider,
+  TASK_MODEL_MAP, provider_mode "ollama_only"/"auto", check_startup probe
+  11434) là dead code trên đường sống → bị xóa thay vì khóa bằng config
+  (Clean Workspace: code không dùng phải xóa; test phải test reality mới).
+  Gateway giờ chỉ gọi OpenRouter API trực tiếp.
 
 Design:
   - Async-first (httpx.AsyncClient) for inference path (/ask)
   - chat_sync() wrapper for background threads (learning engines)
-  - Provider fallback: Ollama (task-routed) → OpenRouter (cloud)
+  - Task routing: mỗi task có một OpenRouterProvider riêng
+    (primary = OPENROUTER_MODEL, free fallback per task, key round-robin)
   - Singleton get_gateway() — shared connection pool, thread-safe init
-
-[ARCH-1 FIX] TÁI SAO tách riêng:
-  - Inference (hot path, /ask) cần async + low latency
-  - Learning (background) cần throughput + quality
-  - Cả 2 dùng CÙNG 1 gateway → DRY + consistent fallback
-
-[ROOT-FIX 44-A] MULTI-MODEL OLLAMA ROUTING (replaces single-model + 3 cloud providers):
-  BEFORE: 1 Ollama model (llama3.2:3B) for ALL tasks → 63% rollback on AutoFix
-          because 3B model too weak for code reasoning. Plus 3 direct cloud
-          providers (DeepSeek, Anthropic, OpenAI) that user never configured
-          (no API keys in .env) → dead code + noisy 401 logs.
-  AFTER:  One OllamaProvider PER TASK, each using the model best suited:
-            autofix        → deepseek-r1:8b  (best code reasoning)
-            why            → qwen2.5:7b      (factual + multilingual)
-            learning       → qwen2.5:7b      (summarization)
-            fast_learning  → llama3.2         (speed — 3B = fastest)
-            judge          → qwen2.5:7b      (balanced reasoning)
-            chat           → llama3.2         (fast response)
-            default        → llama3.2         (fallback)
-          Cloud fallback reduced to OpenRouter ONLY (user's only cloud key).
-          Removed: DeepSeekProvider, AnthropicProvider, OpenAIProvider
-                   (zero API keys in user's .env → dead code).
-  DNA SCP: #1 (Reality > Model — user has deepseek-r1:8b, qwen2.5:7b, llama3.2)
-           #7 (AutoFix safe — additive task parameter, default keeps old behavior)
-           #2 (PASS ≠ ĐÚNG — verify each task routes to correct model)
 """
 from __future__ import annotations
 
@@ -50,6 +29,9 @@ import httpx
 
 logger = logging.getLogger("scp.llm_gateway")
 
+# Sync wrapper hard timeout: OpenRouter client timeout is 60s inside
+# _call_model; the sync wrapper adds headroom for thread-pool scheduling.
+SYNC_CALL_TIMEOUT_SECONDS = 90
 
 # ============================================================
 # [OPENROUTER-FREE-FIX] REGISTRY OF ALL 17 FREE MODELS ON OPENROUTER
@@ -80,165 +62,28 @@ OPENROUTER_FREE_MODELS: list[str] = [
 ]
 
 
-# ============================================================
-# [ROOT-FIX 44-A] MULTI-MODEL TASK → MODEL MAPPING
-# ============================================================
-# Each SCP task type is routed to the Ollama model best suited for it.
-# All entries are overridable via env vars (no code change needed to swap).
-#
-# Why these specific models (DNA SCP #1 — Reality > Model):
-#   - deepseek-r1:8b  : user's strongest code-reasoning model. AutoFix
-#                       generates SEARCH/REPLACE blocks that need careful
-#                       code analysis — 3B model produced 63% rollback rate.
-#   - qwen2.5:7b      : strong multilingual (Vietnamese + English) + factual
-#                       accuracy. Used for WHY verify, learning summaries,
-#                       and Judge fallback reasoning.
-#   - llama3.2 (3B)   : fastest local model. Used for high-volume / low-stakes
-#                       calls (chat, fast_learning) where speed > accuracy.
-# ============================================================
-TASK_MODEL_MAP: dict[str, str] = {
-    "autofix":        os.environ.get("OLLAMA_MODEL_AUTOFIX",        "deepseek-r1:8b"),
-    "why":            os.environ.get("OLLAMA_MODEL_WHY",            "qwen2.5:7b"),
-    "learning":       os.environ.get("OLLAMA_MODEL_LEARNING",       "qwen2.5:7b"),
-    "fast_learning":  os.environ.get("OLLAMA_MODEL_FAST_LEARNING",  "llama3.2"),
-    "judge":          os.environ.get("OLLAMA_MODEL_JUDGE",          "qwen2.5:7b"),
-    "chat":           os.environ.get("OLLAMA_MODEL_CHAT",           "llama3.2"),
-    "default":        os.environ.get("OLLAMA_MODEL",                "llama3.2"),
-}
-
-
-# ============================================================
-# PROVIDER ADAPTERS
-# ============================================================
-
-class OllamaProvider:
-    """Ollama local LLM provider — supports multi-model routing.
-
-    [ROOT-FIX 44-A] Previously had a single hardcoded ``OLLAMA_MODEL`` (llama3.2:3B)
-    for ALL tasks. AutoFix used the same 3B model that powers chat → 63% rollback
-    rate because 3B is too weak for code reasoning. Now each task gets its own
-    OllamaProvider instance with the model best suited for that task.
-
-    Args:
-        model: explicit model name (overrides task lookup). Defaults to None.
-        task: one of TASK_MODEL_MAP keys. Used to pick the model when ``model``
-            is not provided. Defaults to "default" (llama3.2).
-    """
-
-    def __init__(self, model: str | None = None, task: str = "default"):
-        self.host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-        # [ROOT-FIX 44-A] Multi-model: each task uses its own model.
-        # Explicit model wins; otherwise look up by task; fallback to default.
-        if model:
-            self.model = model
-        else:
-            self.model = TASK_MODEL_MAP.get(task, TASK_MODEL_MAP["default"])
-        self.task = task
-        self.timeout = int(os.environ.get("OLLAMA_TIMEOUT", "60"))
-        self.enabled = os.environ.get("OLLAMA_ENABLED", "true").lower() == "true"
-        self._client: httpx.AsyncClient | None = None
-        # [Fix 4-a-014] Race condition on lazy _client init — two concurrent
-        # chat() calls could both see _client is None, both create an
-        # httpx.AsyncClient, and one would leak (never closed). asyncio.Lock +
-        # double-checked init closes the race. DNA #9 (no harm — leaked
-        # httpx clients accumulate connections + file descriptors).
-        self._client_lock = asyncio.Lock()
-
-    async def chat(self, question: str, context: str = "", system_prompt: str = "") -> tuple[str | None, str]:
-        """Returns (answer, provider_name). On failure returns (None, 'ollama:<model>')."""
-        if not self.enabled:
-            return None, f"ollama:{self.model}"
-        try:
-            # [Fix 4-a-014] Double-checked locking — only the first concurrent
-            # caller creates _client; subsequent callers see it set + skip
-            # the lock entirely (no contention on the hot path).
-            if self._client is None:
-                async with self._client_lock:
-                    if self._client is None:
-                        self._client = httpx.AsyncClient(timeout=self.timeout)
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            if context:
-                messages.append({"role": "user", "content": context})
-            messages.append({"role": "user", "content": question})
-            # [OLLAMA-FIX] deepseek-r1 (reasoning model) cần /api/generate,
-            # không phải /api/chat — /api/chat trả 400 cho reasoning models.
-            # Non-reasoning models (llama3.2, qwen2.5) dùng /api/chat OK.
-            is_reasoning = "r1" in self.model.lower() or "reason" in self.model.lower()
-
-            if is_reasoning:
-                # Reasoning model: dùng /api/generate (hỗ trợ thinking phase)
-                prompt_text = system_prompt + "\n\n" if system_prompt else ""
-                if context:
-                    prompt_text += context + "\n\n"
-                prompt_text += question
-                resp = await self._client.post(
-                    f"{self.host}/api/generate",
-                    json={"model": self.model, "prompt": prompt_text, "stream": False},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                # /api/generate trả "response" (không phải "message.content")
-                answer = data.get("response", "").strip()
-            else:
-                # Non-reasoning model: dùng /api/chat (chuẩn)
-                resp = await self._client.post(
-                    f"{self.host}/api/chat",
-                    json={"model": self.model, "messages": messages, "stream": False},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                answer = data.get("message", {}).get("content", "").strip()
-            return (answer or None, f"ollama:{self.model}")
-        except Exception as e:
-            logger.debug(f"Ollama ({self.model}) failed: {e}")
-            return None, f"ollama:{self.model}"
-
-    def stats(self) -> dict:
-        return {
-            "enabled": self.enabled,
-            "model": self.model,
-            "task": self.task,
-            "host": self.host,
-        }
-
-
 from scp.security.provider_keys import ProviderCredentialError, load_openrouter_keys
 
 class OpenRouterProvider:
-    """OpenRouter cloud LLM provider — 3 keys + PAID primary + FREE fallback.
+    """OpenRouter cloud LLM provider — PAID primary + FREE fallback.
 
-    [ROOT-FIX 44-A] OpenRouter is the ONLY cloud provider now — user has keys.
-    [OPENROUTER-FREE-FIX] Architecture:
-      1. PRIMARY: PAID model (deepseek-v4-flash) — user's main high-quality model.
-         Configured via OPENROUTER_MODEL env var. Used for ALL tasks by default.
-      2. FALLBACK: 17 FREE models (cost $0) — used when PAID model fails
+    Architecture:
+      1. PRIMARY: PAID model (OPENROUTER_MODEL env) — used for ALL tasks by default.
+      2. FALLBACK: FREE models (cost $0) — used when PAID model fails
          (rate limit, quota exhausted, network error).
          Task-specific FREE model selected from TASK_FREE_FALLBACK_MAP.
       3. 3 API KEYS round-robin: OPENROUTER_API_KEY, _2, _3 — rotates per call
          to avoid 20 req/min rate limit per key. Effective: 60 req/min total.
 
     Fallback chain per call:
-      1. Try PAID model (deepseek-v4-flash) with key rotation
+      1. Try PAID model with key rotation
       2. If 429/402/quota → try task-specific FREE model
       3. If still fails → try openrouter/free (auto-router, picks any free)
-      4. If still fails → return None (caller falls back to Ollama)
-
-    WHY 17 FREE models (DNA SCP #1 — Reality > Model):
-      - nemotron-3-ultra-550b (550B, 1M ctx)   → autofix (strongest code reasoning)
-      - nemotron-3-super-120b (120B, 262K ctx) → judge (balanced reasoning)
-      - gemma-4-31b-it       (31B, 262K ctx)   → why/learning (factual, multilingual)
-      - nemotron-3-nano-30b  (30B, 256K ctx)   → fast_learning (mid-tier)
-      - gpt-oss-20b          (20B, 131K ctx)   → chat (fast response)
-      - openrouter/free      (auto-router)     → ultimate fallback
-      - + 11 more FREE models in OPENROUTER_FREE_MODELS registry (see top of file)
-
-    See .env for full 17-model list + capabilities + override instructions.
+      4. If still fails → return None (caller sees provider "none" and must
+         fail closed — no answer is fabricated)
     """
 
-    # [OPENROUTER-FREE-FIX] Task → FREE fallback model.
-    # Used ONLY when PAID model (OPENROUTER_MODEL) fails.
+    # Task → FREE fallback model. Used ONLY when PAID model fails.
     # All defaults are FREE (cost $0), verified on 2026-08-06.
     TASK_FREE_FALLBACK_MAP: dict[str, str] = {
         "autofix":       "nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -280,8 +125,7 @@ class OpenRouterProvider:
 
     def __init__(self, task: str = "default"):
         self.task = task
-        # PRIMARY: PAID model (user's OPENROUTER_MODEL = deepseek-v4-flash by default)
-        # This is used FIRST for ALL tasks. FREE models are fallback only.
+        # PRIMARY: PAID model (user's OPENROUTER_MODEL) — used FIRST for ALL tasks.
         self.model = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-0731")
         # FREE fallback for this task (used if PAID fails with 429/402/quota)
         self.free_fallback = os.environ.get(
@@ -340,9 +184,9 @@ class OpenRouterProvider:
         """Chat with LLM. Returns (answer, provider_name).
 
         Fallback chain:
-          1. PAID model (deepseek-v4-flash) with key rotation
+          1. PAID model (OPENROUTER_MODEL) with key rotation
           2. FREE task-specific fallback (e.g. nemotron-ultra for autofix)
-          3. openrouter/free (auto-router, picks any available FREE model)
+          3. openrouter/free (auto-router, picks any available free model)
         """
         if not self.enabled:
             return None, "none"
@@ -402,26 +246,21 @@ class OpenRouterProvider:
 
 
 # ============================================================
-# GATEWAY — single entry point with multi-model routing
+# GATEWAY — single entry point with task routing
 # ============================================================
 
 class LLMGateway:
-    """Unified LLM gateway with multi-model Ollama routing.
+    """Unified LLM gateway — OpenRouter API only, routed per task.
 
-    [ROOT-FIX 44-A] One OllamaProvider PER TASK — each task uses the model
-    best suited for it (deepseek-r1:8b for code, qwen2.5:7b for facts,
-    llama3.2 for speed). Cloud fallback reduced to OpenRouter only.
-
-    Provider priority:
-      1. Task-specific Ollama (local, free, model picked by task)
-      2. OpenRouter (cloud — only provider needing an API key)
-
-    Removed in 44-A:
-      - DeepSeekProvider  (user has no DEEPSEEK_API_KEY)
-      - AnthropicProvider (user has no ANTHROPIC_API_KEY)
-      - OpenAIProvider    (user has no OPENAI_API_KEY)
-      - set_preferred_provider / clear_preferred_provider / _VALID_PROVIDERS
-        (smart-routing now done via task parameter — simpler + DRY)
+    Task routing (primary model is OPENROUTER_MODEL for every task; the
+    per-task provider differs only in its FREE fallback model):
+        task="autofix"       → free fallback nemotron-3-ultra-550b:free
+        task="why"           → free fallback gemma-4-31b-it:free
+        task="learning"      → free fallback gemma-4-31b-it:free
+        task="fast_learning" → free fallback nemotron-3-nano-30b:free
+        task="judge"         → free fallback nemotron-3-super-120b:free
+        task="chat"          → free fallback gpt-oss-20b:free
+        task="default"       → free fallback gpt-oss-20b:free
 
     Usage (async):
         gw = get_gateway()
@@ -432,61 +271,22 @@ class LLMGateway:
     """
 
     def __init__(self):
-        # [ROOT-FIX 44-A] Multi-model Ollama — one provider per task.
-        self.ollama_default  = OllamaProvider(task="default")        # llama3.2
-        self.ollama_autofix  = OllamaProvider(task="autofix")        # deepseek-r1:8b
-        self.ollama_why      = OllamaProvider(task="why")            # qwen2.5:7b
-        self.ollama_learning = OllamaProvider(task="learning")       # qwen2.5:7b
-        self.ollama_fast     = OllamaProvider(task="fast_learning")  # llama3.2
-        self.ollama_judge    = OllamaProvider(task="judge")          # qwen2.5:7b
-        # [OPENROUTER-FREE-FIX] Multi-model OpenRouter — one provider per task.
-        # Each task gets its own FREE model (nemotron-ultra for autofix, gemma-31b
-        # for why/learning, gpt-oss-20b for chat, etc.). All cost $0.
-        self.openrouter_autofix  = OpenRouterProvider(task="autofix")        # nemotron-3-ultra-550b:free
-        self.openrouter_why      = OpenRouterProvider(task="why")            # gemma-4-31b-it:free
-        self.openrouter_learning = OpenRouterProvider(task="learning")       # gemma-4-31b-it:free
-        self.openrouter_fast     = OpenRouterProvider(task="fast_learning")  # nemotron-3-nano-30b:free
-        self.openrouter_judge    = OpenRouterProvider(task="judge")          # nemotron-3-super-120b:free
-        self.openrouter_default  = OpenRouterProvider(task="default")        # gpt-oss-20b:free
+        # One OpenRouterProvider per task (differs only in FREE fallback).
+        self.openrouter_autofix  = OpenRouterProvider(task="autofix")
+        self.openrouter_why      = OpenRouterProvider(task="why")
+        self.openrouter_learning = OpenRouterProvider(task="learning")
+        self.openrouter_fast     = OpenRouterProvider(task="fast_learning")
+        self.openrouter_judge    = OpenRouterProvider(task="judge")
+        self.openrouter_default  = OpenRouterProvider(task="default")
         # Backward-compat aliases — old code used `gateway.openrouter`.
         self.openrouter = self.openrouter_default
-        # Alias: openrouter_fast_learning (matching ollama_fast naming pattern)
+        # Alias: openrouter_fast_learning (matches the old ollama_fast pattern)
         self.openrouter_fast_learning = self.openrouter_fast
         self._stats = {
             "total_calls": 0,
-            "ollama_calls": 0,
             "openrouter_calls": 0,
             "failures": 0,
         }
-
-    # ------------------------------------------------------------------
-    # Backward-compat shims — old callers referenced gateway.ollama /
-    # gateway.deepseek / gateway.anthropic / gateway.openai. We expose
-    # ``ollama`` as the default Ollama provider (was the old attribute),
-    # and stub the removed providers as None so hasattr() checks fail
-    # gracefully (DNA SCP #7 — AutoFix safe, no caller breaks).
-    # ------------------------------------------------------------------
-    @property
-    def ollama(self) -> OllamaProvider:
-        """Backward-compat alias — old code used ``gateway.ollama``."""
-        return self.ollama_default
-
-    def set_preferred_provider(self, provider: str) -> None:
-        """[ROOT-FIX 44-A] DEPRECATED — no-op.
-
-        Smart routing is now done via the ``task`` parameter on chat() /
-        chat_sync(). This method is kept as a no-op so legacy callers
-        (e.g. scp.autofix.llm_fix.get_llm_for_bug) don't crash. Logs a
-        one-time debug message to aid migration.
-        """
-        logger.debug(
-            f"[LLMGateway] set_preferred_provider({provider!r}) is a no-op — "
-            f"use task= parameter on chat()/chat_sync() for routing."
-        )
-
-    def clear_preferred_provider(self) -> None:
-        """[ROOT-FIX 44-A] DEPRECATED — no-op (see set_preferred_provider)."""
-        pass
 
     async def chat(
         self,
@@ -495,43 +295,8 @@ class LLMGateway:
         system_prompt: str = "",
         task: str = "default",
     ) -> tuple[str | None, str]:
-        """Chat with LLM. Returns (answer, provider_name).
-
-        [ROOT-FIX 44-A] ``task`` parameter routes to the best model:
-          task="autofix"       → OpenRouter V4 flash FIRST (strongest code reasoning),
-                                 then Ollama deepseek-r1:8b (local fallback)
-          task="why"           → Ollama qwen2.5:7b (factual verify, multilingual),
-                                 then OpenRouter fallback
-          task="learning"      → Ollama qwen2.5:7b, then OpenRouter fallback
-          task="fast_learning" → Ollama llama3.2 (speed — 3B = fastest)
-          task="judge"         → Ollama qwen2.5:7b, then OpenRouter fallback
-          task="chat"          → Ollama llama3.2 (fast response)
-          task="default"       → Ollama llama3.2 (fallback)
-
-        [ROOT-FIX 46] AutoFix routing CHANGED:
-          WHY: user has OpenRouter key + deepseek-v4-flash-20260731 (V4 = newest,
-               stronger than R1:8b local). AutoFix needs STRONGEST code reasoning
-               → V4 flash first (cloud), R1:8b fallback (local, free).
-          Other tasks: Ollama first (free), OpenRouter fallback (cost-saving).
-
-        Fallback chain:
-          - task="autofix":    1. OpenRouter V4 flash → 2. Ollama R1:8b → 3. None
-          - other tasks:       1. Ollama (task-specific) → 2. OpenRouter → 3. None
-        """
+        """Chat with LLM. Returns (answer, provider_name)."""
         self._stats["total_calls"] += 1
-
-        # [ROOT-FIX 44-A] Select Ollama provider based on task.
-        ollama_provider = {
-            "autofix":       self.ollama_autofix,
-            "why":           self.ollama_why,
-            "learning":      self.ollama_learning,
-            "fast_learning": self.ollama_fast,
-            "judge":         self.ollama_judge,
-            "chat":          self.ollama_default,
-        }.get(task, self.ollama_default)
-
-        # [OPENROUTER-FREE-FIX] Select OpenRouter provider based on task.
-        # Each task gets its own FREE model (nemotron-ultra for autofix, etc.)
         openrouter_provider = {
             "autofix":       self.openrouter_autofix,
             "why":           self.openrouter_why,
@@ -541,27 +306,7 @@ class LLMGateway:
             "chat":          self.openrouter_default,
         }.get(task, self.openrouter_default)
 
-        # [ROOT-FIX 46] AutoFix: OpenRouter FIRST (nemotron-ultra-550b > R1:8b for code reasoning)
-        provider_mode = os.environ.get("SCP_LLM_PROVIDER_MODE", "auto").strip().lower()
-        if provider_mode not in {"auto", "ollama_only", "openrouter_only"}:
-            logger.warning("[LLM] invalid SCP_LLM_PROVIDER_MODE=%r; using auto", provider_mode)
-            provider_mode = "auto"
-        if provider_mode != "ollama_only" and task == "autofix" and openrouter_provider.enabled:
-            self._stats["openrouter_calls"] += 1
-            answer, _ = await openrouter_provider.chat(question, context, system_prompt)
-            if answer:
-                return answer, f"openrouter:{openrouter_provider.model}"
-
-        # Layer 1: Ollama (local, free, task-specific model)
-        if provider_mode != "openrouter_only" and ollama_provider.enabled:
-            self._stats["ollama_calls"] += 1
-            answer, _ = await ollama_provider.chat(question, context, system_prompt)
-            if answer:
-                return answer, f"ollama:{ollama_provider.model}"
-
-        # Layer 2: OpenRouter (cloud fallback — for non-autofix tasks)
-        # [OPENROUTER-FREE-FIX] Use task-specific OpenRouter provider (FREE model)
-        if provider_mode != "ollama_only" and task != "autofix" and openrouter_provider.enabled:
+        if openrouter_provider.enabled:
             self._stats["openrouter_calls"] += 1
             answer, _ = await openrouter_provider.chat(question, context, system_prompt)
             if answer:
@@ -578,9 +323,6 @@ class LLMGateway:
         task: str = "default",
     ) -> tuple[str | None, str]:
         """Sync wrapper for background threads. Runs async chat safely.
-
-        [ROOT-FIX 44-A] Accepts ``task`` parameter — routes to the best
-        Ollama model (see chat() docstring for task → model mapping).
 
         [RUNTIME-FIX-2] Root cause (runtime log line 732, 941):
           RuntimeWarning: coroutine 'LLMGateway.chat' was never awaited
@@ -614,7 +356,7 @@ class LLMGateway:
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     future = pool.submit(asyncio.run, coro)
-                    return future.result(timeout=self.ollama_default.timeout + 30)
+                    return future.result(timeout=SYNC_CALL_TIMEOUT_SECONDS)
             else:
                 # Normal sync context — asyncio.run handles loop lifecycle properly.
                 return asyncio.run(coro)
@@ -644,13 +386,6 @@ class LLMGateway:
     def stats(self) -> dict:
         return {
             **self._stats,
-            "ollama_default":  self.ollama_default.stats(),
-            "ollama_autofix":  self.ollama_autofix.stats(),
-            "ollama_why":      self.ollama_why.stats(),
-            "ollama_learning": self.ollama_learning.stats(),
-            "ollama_fast":     self.ollama_fast.stats(),
-            "ollama_judge":    self.ollama_judge.stats(),
-            # [OPENROUTER-FREE-FIX] Show all task-specific OpenRouter providers
             "openrouter_default":  self.openrouter_default.stats(),
             "openrouter_autofix":  self.openrouter_autofix.stats(),
             "openrouter_why":      self.openrouter_why.stats(),
@@ -658,45 +393,6 @@ class LLMGateway:
             "openrouter_fast":     self.openrouter_fast.stats(),
             "openrouter_judge":    self.openrouter_judge.stats(),
         }
-
-    def check_startup(self) -> None:
-        """[ROOT-FIX 45-A] Check Ollama models + OpenRouter key at startup.
-
-        [OPENROUTER-FREE-FIX] Logs: 3 keys + PAID primary + 17 FREE models available.
-        """
-        # Check OpenRouter keys
-        OpenRouterProvider._init_keys()
-        num_keys = len(OpenRouterProvider._API_KEYS)
-        if num_keys == 0:
-            logger.warning("[Startup] OpenRouter API key NOT set — cloud DISABLED. Set OPENROUTER_API_KEY in .env.")
-        else:
-            logger.info(f"[Startup] OpenRouter configured — {num_keys} API keys (round-robin):")
-            logger.info(f"  PRIMARY (PAID): {self.openrouter_default.model}")
-            logger.info("  FREE fallback per task:")
-            for task_name, prov in [
-                ("autofix", self.openrouter_autofix),
-                ("why", self.openrouter_why),
-                ("learning", self.openrouter_learning),
-                ("fast_learning", self.openrouter_fast),
-                ("judge", self.openrouter_judge),
-                ("chat", self.openrouter_default),
-            ]:
-                logger.info(f"    {task_name:15s} → {prov.free_fallback}")
-            logger.info(f"  Total FREE models available: {len(OPENROUTER_FREE_MODELS)} (see OPENROUTER_FREE_MODELS in client.py)")
-        # Check Ollama models
-        try:
-            import httpx as _httpx
-            r = _httpx.get(f"{self.ollama_default.host}/api/tags", timeout=5)
-            if r.status_code == 200:
-                available = [m.get("name", "") for m in r.json().get("models", [])]
-                required = [self.ollama_autofix.model, self.ollama_why.model, self.ollama_default.model]
-                for model in required:
-                    if not any(model in m for m in available):
-                        logger.warning(f"[Startup] Ollama model '{model}' NOT found — run: ollama pull {model}")
-            else:
-                logger.warning(f"[Startup] Ollama not responding at {self.ollama_default.host}")
-        except Exception as e:
-            logger.warning(f"[Startup] Ollama check failed: {e} — run 'ollama serve' and 'ollama pull <model>'")
 
 
 # ============================================================
@@ -731,9 +427,5 @@ def chat_sync(
     system_prompt: str = "",
     task: str = "default",
 ) -> tuple[str | None, str]:
-    """Module-level sync shortcut. Uses singleton gateway.
-
-    [ROOT-FIX 44-A] ``task`` parameter routes to the best Ollama model
-    (see LLMGateway.chat docstring for the task → model mapping).
-    """
+    """Module-level sync shortcut. Uses singleton gateway."""
     return get_gateway().chat_sync(question, context, system_prompt, task=task)

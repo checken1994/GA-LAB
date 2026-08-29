@@ -370,8 +370,6 @@ def _call_smart_llm(prompt: str, bug_type: str, max_tokens: int = 4000) -> str |
             f"falling back to direct OpenRouter call"
         )
 
-    if os.environ.get("SCP_LLM_PROVIDER_MODE", "auto").strip().lower() == "ollama_only":
-        return None
     # Fallback: direct OpenRouter call (existing path, preserves backward compat)
     return _call_openrouter(prompt, max_tokens=max_tokens)
 

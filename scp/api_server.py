@@ -991,15 +991,15 @@ def login_for_access_token(req: TokenRequest, request: Request):
 async def ask(req: AskRequest, request: Request, current_user: str = Depends(get_current_user)):
     REQUEST_COUNT.labels(method="POST", endpoint="/ask").inc()
 
-
-    if True:  # ALL endpoints MUST go through TaskKernel now
-        if not _ask_kernel_enabled(req):
-            return _kernel_gate_unavailable_response(req, RuntimeError("rag_kernel_disabled"))
-        adapter = _get_ask_kernel_adapter()
-        if adapter is None:
-            return _kernel_gate_unavailable_response(req, _ASK_KERNEL_INIT_ERROR or RuntimeError("kernel_adapter_unavailable"))
-        return await adapter.run_rag(req, request, _ask_impl)
-    return await _ask_impl(req, request)
+    # ALL /ask requests MUST go through the TaskKernel gate. The durable
+    # adapter is the only path to _ask_impl; when it cannot initialize the
+    # request fails closed instead of bypassing kernel verification.
+    if not _ask_kernel_enabled(req):
+        return _kernel_gate_unavailable_response(req, RuntimeError("rag_kernel_disabled"))
+    adapter = _get_ask_kernel_adapter()
+    if adapter is None:
+        return _kernel_gate_unavailable_response(req, _ASK_KERNEL_INIT_ERROR or RuntimeError("kernel_adapter_unavailable"))
+    return await adapter.run_rag(req, request, _ask_impl)
 
 
 async def _ask_impl(req: AskRequest, request: Request):
@@ -1314,12 +1314,22 @@ async def _ask_impl(req: AskRequest, request: Request):
     # Now: judge_with_react_fallback() │Ă¢â€Â¬Ă¢â‚¬Â async LLM call + ReActAgent when
     # SmartClassifier confidence < 0.5. Falls back to sync judge() on error.
     stage_request(request, "verifier_started")
+    # [FIX 2026-08-29] The evidence context MUST reach the semantic judge.
+    # Previously only v98_context was passed — it lands in **kwargs and the
+    # judge's `context` stayed empty, so a RAG ask was judged "based ONLY on
+    # the Context" with NO context → judge FAIL → Governance KILL.
+    _evidence_context = " ".join(
+        [str(c) for c in (req.contexts or []) if str(c).strip()]
+        + ([str(req.retrieved_context).strip()]
+           if str(getattr(req, "retrieved_context", "") or "").strip() else [])
+    )
     if hasattr(judge, "judge_with_react_fallback"):
         v = await judge.judge_with_react_fallback(
             question=req.question,
             ai_answer=_ai_answer,
             cycle_count=0,
             source=req.source,
+            context=_evidence_context,
             v98_context=v98_context,
         )
     else:
@@ -1330,6 +1340,7 @@ async def _ask_impl(req: AskRequest, request: Request):
             ai_answer=_ai_answer,
             cycle_count=0,
             source=req.source,
+            context=_evidence_context,
             v98_context=v98_context,
         )
     

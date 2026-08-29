@@ -50,7 +50,9 @@ def _run_import_probe(mode: str) -> tuple[dict[str, int], str]:
 
 
 def test_extra_routers_survive_both_import_orders():
-    expected = {"v102": 2, "v103": 6, "v104": 17, "import": 3}
+    # [2026-08-29] v104: 17 → 21 (additive free-API warehouse + TOP-1%
+    # learning routes: top-systems status/learn/advise + free-apis/search).
+    expected = {"v102": 2, "v103": 6, "v104": 21, "import": 3}
     for mode in ("canonical", "route_first"):
         result, stderr = _run_import_probe(mode)
         assert result["path_count"] >= 135

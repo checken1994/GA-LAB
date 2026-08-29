@@ -21,7 +21,7 @@ WHAT THIS STUB DOES:
   continue to work without code changes.
 - Re-exports all module-level constants and helper functions that were
   originally defined here (SEED_QUESTIONS, COUNTRIES, DOMAINS, COMPOUNDS,
-  COUNTRY_DOMAIN_HINTS, OLLAMA_HOST, OLLAMA_MODEL, OLLAMA_TIMEOUT,
+  COUNTRY_DOMAIN_HINTS,
   NEWS_SOURCES, LEARNING_INTERVAL, get_country_domain_matrix,
   get_total_combinations, start_learning_thread).
 - `start_learning_thread` is now an alias for `start_fast_learning_thread`
@@ -49,9 +49,6 @@ from scp.core.fast_learning_engine import (
     DOMAINS,
     LEARNING_INTERVAL,
     NEWS_SOURCES,
-    OLLAMA_HOST,
-    OLLAMA_MODEL,
-    OLLAMA_TIMEOUT,
     SEED_QUESTIONS,
     # Helper functions (ported)
     FastLearningEngine,
@@ -88,9 +85,6 @@ __all__ = [
     "DOMAINS",
     "LEARNING_INTERVAL",
     "NEWS_SOURCES",
-    "OLLAMA_HOST",
-    "OLLAMA_MODEL",
-    "OLLAMA_TIMEOUT",
     "SEED_QUESTIONS",
     # Helpers
     "get_country_domain_matrix",

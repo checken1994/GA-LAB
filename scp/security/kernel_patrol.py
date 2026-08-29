@@ -1,6 +1,3 @@
-import time
-from scp.task_kernel import TaskKernel
-import uuid
 import subprocess
 import json
 import os
@@ -66,17 +63,3 @@ def patrol_cycle():
 if __name__ == "__main__":
     print("SCP ACTIVE MITIGATION PATROL - ONLINE")
     patrol_cycle()
-
-class PatrolWorker:
-    def __init__(self, kernel: TaskKernel):
-        self.kernel = kernel
-        self.worker_id = str(uuid.uuid4())
-    
-    def run_patrol_cycle(self):
-        task_id = self.kernel.create_task("SECURITY_PATROL", "Execute firewall checks")
-        try:
-            self.kernel.transition_state(task_id, "PATROLLING", "kernel_patrol", "Starting continuous scan")
-            block_malicious_ips() # Run the actual detection
-            self.kernel.transition_state(task_id, "COMPLETED", "kernel_patrol", "Scan complete")
-        except Exception as e:
-            self.kernel.transition_state(task_id, "FAILED", "kernel_patrol", f"Patrol failed: {e}")

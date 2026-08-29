@@ -142,14 +142,14 @@ class AgentOrchestrator:
             self.ledger.stage(run, "agent_received", "RUNNING", parent_trace_id=parent_trace_id or "")
         return run
 
-    async def propose(self, goal: str, *, prefer_local: bool = True, parent_trace_id: str | None = None) -> dict[str, Any]:
+    async def propose(self, goal: str, *, parent_trace_id: str | None = None) -> dict[str, Any]:
         goal = str(goal or "").strip()
         run = self._begin(goal, action="agent_plan", risk_class="normal", parent_trace_id=parent_trace_id)
         if not run.ledger_write_ok:
             return {"success": False, "status": "DB_WRITE_FAILED", "agent_run_id": run.run_id, "trace_id": run.trace_id}
         try:
             self.ledger.stage(run, "planning", "RUNNING", parent_trace_id=parent_trace_id or "")
-            parsed = await self.goal_parser.parse(goal, prefer_local=prefer_local)
+            parsed = await self.goal_parser.parse(goal)
             if not parsed.get("success"):
                 self.ledger.finish(run, "UNKNOWN", result={"verdict": "UNKNOWN"}, planning_status="FAILED")
                 return {"success": False, "status": "PLANNING_FAILED", "agent_run_id": run.run_id, "trace_id": run.trace_id, **parsed}
@@ -193,14 +193,13 @@ class AgentOrchestrator:
         capability_level: int = 0,
         approved: bool = False,
         dry_run: bool = False,
-        prefer_local: bool = True,
         parent_trace_id: str | None = None,
         agent_run_id: str | None = None,
     ) -> dict[str, Any]:
         if not plan_id:
             if not goal:
                 return {"success": False, "status": "INVALID_REQUEST", "error": "goal or plan_id is required"}
-            proposal = await self.propose(goal, prefer_local=prefer_local, parent_trace_id=parent_trace_id)
+            proposal = await self.propose(goal, parent_trace_id=parent_trace_id)
             if not proposal.get("success") or not execute:
                 return proposal
             plan_id = str((proposal.get("plan") or {}).get("planId", ""))

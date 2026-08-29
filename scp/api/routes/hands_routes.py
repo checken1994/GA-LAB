@@ -79,7 +79,6 @@ class PlannerDagRunRequest(BaseModel):
 
 class GoalParseRequest(BaseModel):
     goal: str = Field(min_length=1, max_length=2000)
-    preferLocal: bool = True
 
 
 class PlannerRollbackRequest(BaseModel):
@@ -228,7 +227,7 @@ async def planner_run(plan_id: str, payload: PlannerRunRequest, request: Request
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="planner_parse")
 async def planner_parse(payload: GoalParseRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _goal_parser.parse(payload.goal, prefer_local=payload.preferLocal)
+    return await _goal_parser.parse(payload.goal)
 
 
 @router.post("/planner/{plan_id}/run-dag")

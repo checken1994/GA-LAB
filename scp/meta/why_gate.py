@@ -48,14 +48,10 @@ from pathlib import Path
 logger = logging.getLogger("scp.meta.why_gate")
 
 def _call_why_provider(prompt: str) -> str | None:
-    """Call WHY through the active bounded provider mode."""
-    mode = os.environ.get("SCP_LLM_PROVIDER_MODE", "auto").strip().lower()
-    if mode == "ollama_only":
-        from scp.llm_gateway import chat_sync
-        answer, _provider = chat_sync(prompt, task="why")
-        return answer
-    from scp.autofix.llm_fix import _call_openrouter
-    return _call_openrouter(prompt, max_tokens=200)
+    """Call WHY through the LLM gateway's OpenRouter path."""
+    from scp.llm_gateway import chat_sync
+    answer, _provider = chat_sync(prompt, task="why")
+    return answer
 
 
 

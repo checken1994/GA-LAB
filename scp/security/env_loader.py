@@ -18,7 +18,10 @@ def load_selected_env() -> None:
         if not env_path.is_absolute():
             env_path = Path.cwd() / env_path
     else:
-        env_path = Path(__file__).resolve().parents[1] / ".env"
+        # env_loader.py lives at <repo>/scp/security/ — parents[2] is the repo
+        # root where the canonical .env lives. parents[1] pointed at the
+        # package dir (scp/.env) which does not exist, silently loading nothing.
+        env_path = Path(__file__).resolve().parents[2] / ".env"
 
     if not env_path.is_file():
         return

@@ -38,7 +38,6 @@ class AIOrchestrator:
             "orchestrator": "online",
             "browserFirst": True,
             "apiFallback": "explicit-only",
-            "localModel": os.environ.get("OLLAMA_MODEL", "configured in .env"),
             "browser": await self.browser.status(),
         }
 
@@ -66,22 +65,9 @@ class AIOrchestrator:
         result = await self.browser.evaluate(verification, page)
         return {"ai": ai_name, "question": question, "lineage": ai_name, "method": "logged-in-browser", "timestamp": time.time(), **(result or {})}
 
-    async def _ask_local(self, question: str) -> dict[str, Any]:
-        base_url = os.environ.get("LLM_BRIDGE_URL", "http://127.0.0.1:11434").rstrip("/")
-        model = os.environ.get("OLLAMA_MODEL_CHAT", os.environ.get("OLLAMA_MODEL", ""))
-        payload = {"model": model, "messages": [{"role": "user", "content": question}], "stream": False}
-        async with httpx.AsyncClient(timeout=90) as client:
-            response = await client.post(f"{base_url}/api/chat", json=payload)
-            response.raise_for_status()
-            data = response.json()
-        message = data.get("message", {}) if isinstance(data, dict) else {}
-        return {"ai": "local_llm", "question": question, "answer": message.get("content", data), "lineage": "local_llm", "method": "local-api", "timestamp": time.time()}
-
     async def ask_ai(self, ai_name: str, question: str, approved: bool = False, use_browser: bool = True, allow_api_fallback: bool = False) -> dict[str, Any]:
         if not question.strip():
             return {"success": False, "error": "Question is empty"}
-        if ai_name == "local_llm":
-            return await self._ask_local(question)
         if use_browser:
             if not approved:
                 return {"success": False, "error": "Asking a logged-in AI requires explicit approval", "ai": ai_name}
@@ -91,7 +77,7 @@ class AIOrchestrator:
         return {"success": False, "error": "Browser session unavailable; explicit API fallback was not enabled", "ai": ai_name}
 
     async def cross_verify(self, question: str, scp_answer: str, ais: list[str] | None = None, approved: bool = False) -> dict[str, Any]:
-        selected = ais or ["chatgpt", "claude", "local_llm"]
+        selected = ais or ["chatgpt", "claude"]
         results: dict[str, Any] = {}
         for ai_name in selected:
             try:
