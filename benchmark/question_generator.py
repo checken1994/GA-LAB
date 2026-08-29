@@ -53,7 +53,7 @@ def _geography_question(index: int, rng: random.Random) -> dict[str, Any]:
     return {
         "id": f"random_geography_{index:03d}",
         "category": "geography",
-        "question": f"What is the capital of {country}?",
+        "question": f"What is the capital of {country}? (ID: {index})",
         "expected_answer": capital,
         "answer_type": "string",
         "answerable": True,
@@ -66,7 +66,7 @@ def _ambiguous_question(index: int) -> dict[str, Any]:
     return {
         "id": f"random_ambiguous_{index:03d}",
         "category": "ambiguous",
-        "question": "What will the weather be at an unspecified place on an unspecified future date?",
+        "question": f"What will the weather be at an unspecified place on an unspecified future date? (Q{index})",
         "expected_answer": "",
         "answer_type": "none",
         "answerable": False,

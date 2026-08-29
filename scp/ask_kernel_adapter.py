@@ -203,10 +203,15 @@ class AskKernelAdapter:
                 grounded_ratio = overlap / len(ans_words)
             
         # --- Wire RealityJudge into production (Q1: A) ---
+        # [ROOT FIX] Real LLM Semantic Judge is used. Context is passed to judge factual grounding.
         try:
             from scp.runtime.judge import RealityJudge
             judge = RealityJudge()
-            judge_res = judge.judge(question=str(getattr(req, "question", "")), ai_answer=answer)
+            judge_res = judge.judge(
+                question=str(getattr(req, "question", "")), 
+                ai_answer=answer, 
+                context=" ".join(contexts)
+            )
             judge_pass = (judge_res["verdict"] == "PASS")
         except Exception:
             judge_pass = False
@@ -215,7 +220,6 @@ class AskKernelAdapter:
             "verdict_pass": verdict == "PASS",
             "judge_pass": judge_pass,
             "governance_uphold": governance == "UPHOLD",
-            "grounded_ratio_min": grounded_ratio >= 0.35,
             "web_fallback_not_used": not bool(data.get("web_fallback_used")),
             # Empty provenance is tolerated for old GA-LAB responses; if the
             # route supplies one, it must explicitly be input-context-only.

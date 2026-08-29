@@ -4,30 +4,41 @@ Replaces the bloated RealityJudge and Multi-SLM engine.
 """
 from typing import Any, Optional
 from scp.verifier import IndependentVerifier
+from scp.runtime.judge_llm import _llm_judge
 
 class RealityJudge:
     """
     Unified Task Judge. Replaces all previous SLM layers.
-    Delegates strictly to IndependentVerifier and TaskKernel.
+    Delegates strictly to IndependentVerifier and TaskKernel, plus real LLM semantic judgment.
     """
     def __init__(self, *args, **kwargs):
         self.verifier = IndependentVerifier()
         self.judged_count = 0
         self.fail_count = 0
 
-    def judge(self, question: str, ai_answer: str = "", cycle_count: int = 0, **kwargs) -> dict[str, Any]:
+    def judge(self, question: str, ai_answer: str = "", cycle_count: int = 0, context: str = "", **kwargs) -> dict[str, Any]:
         """Synchronous judge interface."""
         from scp.core.postcondition_schema import PostconditionSchema
         
+        # 1. Base structural validation (is there an answer?)
         if ai_answer:
             postcondition = PostconditionSchema.for_text_answer(ai_answer, evidence_required=False).to_dict()
         else:
             postcondition = PostconditionSchema.no_conditions().to_dict()
             
         obs = {"evidence_ref": ai_answer, "text": ai_answer}
-
         result = self.verifier.verify(postcondition, obs)
-        is_pass = (result.verdict == "VERIFIED")
+        is_structurally_pass = (result.verdict == "VERIFIED")
+        
+        # 2. TRUE SEMANTIC VERIFIER (Root Fix)
+        # We use a real LLM to judge the factual correctness instead of trivial postcondition matching.
+        is_pass = False
+        failures = list(result.failures)
+        if is_structurally_pass and ai_answer:
+            if _llm_judge(question, ai_answer, context):
+                is_pass = True
+            else:
+                failures.append("semantic_judge_fail")
         
         self.judged_count += 1
         if not is_pass:
@@ -36,13 +47,17 @@ class RealityJudge:
         return {
             "verdict": "PASS" if is_pass else "FAIL",
             "confidence": 1.0 if is_pass else 0.0,
-            "reasoning": "Delegated to IndependentVerifier",
+            "reasoning": "Delegated to IndependentVerifier and LLM Semantic Judge",
             "cycle_count": cycle_count,
-            "failures": result.failures
+            "failures": failures,
+            "final_answer": ai_answer,
+            "evidence": {
+                "governance_decision": "UPHOLD" if is_pass else "KILL"
+            }
         }
 
     async def judge_async(self, question: str, ai_answer: str = "", context: str = "", **kwargs) -> dict[str, Any]:
-        return self.judge(question, ai_answer, **kwargs)
+        return self.judge(question, ai_answer, context=context, **kwargs)
 
     async def judge_with_react_fallback(self, *args, **kwargs) -> dict[str, Any]:
         return self.judge(*args, **kwargs)
