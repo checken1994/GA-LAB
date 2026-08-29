@@ -1337,11 +1337,29 @@ async def _ask_impl(req: AskRequest, request: Request):
     # Previously only v98_context was passed — it lands in **kwargs and the
     # judge's `context` stayed empty, so a RAG ask was judged "based ONLY on
     # the Context" with NO context → judge FAIL → Governance KILL.
-    _evidence_context = " ".join(
+    # [SEMANTIC FIREWALL — Gemini indictment #3] External data (contexts +
+    # web_fallback) là DỮ LIỆU KHÔNG TIN CẬY: mỗi đoạn được quét injection,
+    # dán tag <untrusted>, và tách biệt khỏi system instructions. Tier-1
+    # chống ảo giác AI tự sinh; firewall này chống injection từ NGOÀI.
+    from scp.core.top_systems_learning import inspect_untrusted as _sf_inspect
+
+    _raw_evidence = (
         [str(c) for c in (req.contexts or []) if str(c).strip()]
         + ([str(req.retrieved_context).strip()]
            if str(getattr(req, "retrieved_context", "") or "").strip() else [])
     )
+    _clean_evidence = []
+    _injection_blocked = 0
+    for _ev in _raw_evidence:
+        _quarantined, _reason = _sf_inspect(_ev)
+        if _quarantined:
+            _injection_blocked += 1
+            logger.warning("[SEMANTIC-FIREWALL] Blocked injection in evidence: %s", _reason)
+            continue  # ĐỨT — không cho đoạn độc vào prompt
+        _clean_evidence.append(_ev)
+    if _injection_blocked:
+        v98_context["semantic_firewall"] = {"blocked": _injection_blocked, "total": len(_raw_evidence)}
+    _evidence_context = " ".join(_clean_evidence)
     if hasattr(judge, "judge_with_react_fallback"):
         v = await judge.judge_with_react_fallback(
             question=req.question,
