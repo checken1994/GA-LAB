@@ -20,6 +20,7 @@ Rate-limit trung thực: GitHub unauthenticated = 60 req/hour. Mỗi topic tốn
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -50,6 +51,32 @@ TOPIC_LIBRARY: dict[str, dict[str, str]] = {
 }
 
 _TAG_RE = re.compile(r"<[^>]+>")
+
+# [C1 QUARANTINE — Gemini indictment: data poisoning qua README buff-stars]
+# Nội dung bên ngoài là DỮ LIỆU KHÔNG TIN CẬY. Mọi README trỏ vào chính SCP
+# (bảo nó tắt sandbox, chạy root, lộ secret...) bị CÁCH LY deterministic và
+# KHÔNG BAO GIỜ được serve vào prompt của WHY/fix/Reflect.
+_QUARANTINE_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"ignore\s+(all\s+)?(previous|prior|above)\s+instructions",
+    r"disregard\s+(all\s+)?(previous|prior)\s+rules",
+    r"disable[^\n]{0,40}(sandbox|isolation|guard|filter)",
+    r"os_sandbox|tier1_guard|task_kernel\.py",
+    r"run\s+(as|with)\s+root|sudo\s+",
+    r"\brm\s+-rf\b|format\s+c:",
+    r"backdoor|reverse[_ ]shell|exfiltrat",
+    r"(scp_admin_key|jwt_secret|api[_ ]?key|\.env|credentials)\s*[:=]",
+    r"bypass\s+(security|auth|policy|verif)",
+    r"prompt\s+injection|jailbreak",
+))
+
+
+def inspect_untrusted(content: str) -> tuple[bool, str]:
+    """Deterministic quarantine check. Returns (quarantined, reason)."""
+    for pattern in _QUARANTINE_PATTERNS:
+        match = pattern.search(content or "")
+        if match:
+            return True, f"pattern:{pattern.pattern[:40]}"
+    return False, ""
 
 
 def egress_disabled() -> bool:
@@ -193,18 +220,27 @@ class TopSystemsLearner:
         được kiến trúc"]. Lấy NỘI DUNG README THẬT của repo (language-agnostic
         — kiến trúc nằm ở tài liệu, không phải syntax Rust/Python) qua
         api.github.com/{repo}/readme (Accept: raw). Fail per-repo: 1 README
-        lỗi không làm chết vòng học."""
+        lỗi không làm chết vòng học.
+
+        [C1 QUARANTINE] Nội dung là DỮ LIỆU KHÔNG TIN CẬY: quét pattern
+        injection nhắm vào SCP, dán trust + content_sha256 (provenance mật
+        mã). Record QUARANTINED được lưu làm bằng chứng nhưng advise() không
+        bao giờ serve vào prompt."""
         _GITHUB_BUCKET.acquire()
         url = f"https://api.github.com/repos/{full_name}/readme"
         content = self._get_raw(url, headers={"Accept": "application/vnd.github.raw"})
         if not content.strip():
             return None
+        quarantined, reason = inspect_untrusted(content)
         return {
             "source": "github_readme",
             "kind": "deep_document",
             "name": f"{full_name}/README",
             "url": f"https://github.com/{full_name}",
             "stars": None,
+            "trust": "QUARANTINED" if quarantined else "untrusted",
+            "quarantine_reason": reason,
+            "content_sha256": "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()[:32],
             # 4000 ký tự đầu đủ chứa section kiến trúc/quick-start của phần
             # lớn README; giới hạn để ledger không phình vô hạn.
             "description": content[:4000],
@@ -314,6 +350,9 @@ class TopSystemsLearner:
                 try:
                     record = json.loads(line)
                 except (TypeError, ValueError):
+                    continue
+                # [C1] Record bị cách ly KHÔNG BAO GIỜ được serve vào prompt.
+                if record.get("trust") == "QUARANTINED":
                     continue
                 haystack = " ".join(
                     [record.get("topic", ""), record.get("name", ""), record.get("description", "")]

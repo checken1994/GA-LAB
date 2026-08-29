@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+import os
 import re
 import sqlite3
 import threading
 import uuid
 from pathlib import Path
 from typing import Any, Awaitable, Callable
+
+_c3_logger = logging.getLogger("scp.ask_kernel_adapter")
 
 try:
     from .task_kernel import KernelError, TaskKernel
@@ -45,6 +49,27 @@ class AskKernelAdapter:
     def __init__(self, db_path: str, trace_path: str):
         self.kernel = TaskKernel(db_path)
         self.trace = TraceLedger(trace_path)
+        # [C3 — Gemini indictment: SQLite SPOF] Boot-time durability:
+        # integrity quick_check + online backup với retention. Lỗi maintenance
+        # KHÔNG bao giờ chặn serving (chỉ log) — nhưng hỏng được ghi nhận.
+        self.last_maintenance: dict[str, Any] | None = None
+        try:
+            integrity = self.kernel.verify_integrity()
+            if integrity["quick_check"] != "ok":
+                _c3_logger.error("[C3] kernel DB quick_check FAILED: %s", integrity["quick_check"])
+            backup_result = self.kernel.backup(
+                Path(db_path).parent / "kernel-backups",
+                retain=int(os.environ.get("SCP_KERNEL_BACKUP_RETENTION", "7")),
+            )
+            self.last_maintenance = {"integrity": integrity, "backup": backup_result}
+            _c3_logger.info(
+                "[C3] kernel maintenance ok: quick_check=%s backup=%s (%s bytes, retained=%s)",
+                integrity["quick_check"], Path(backup_result["backup"]).name,
+                backup_result["size_bytes"], backup_result["retained"],
+            )
+        except Exception as exc:  # durability check phải không bao giờ chặn serving
+            _c3_logger.warning("[C3] kernel maintenance failed (non-blocking): %s", exc)
+            self.last_maintenance = None
 
     def _existing_task(self, task_id: str) -> dict[str, Any] | None:
         try:

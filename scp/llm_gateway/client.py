@@ -24,6 +24,7 @@ import itertools
 import logging
 import os
 import threading
+import time
 
 import httpx
 
@@ -63,6 +64,49 @@ OPENROUTER_FREE_MODELS: list[str] = [
 
 
 from scp.security.provider_keys import ProviderCredentialError, load_openrouter_keys
+
+
+class CircuitBreaker:
+    """[C5 — Gemini indictment: round-robin ngây thơ] Cầu dao tự ngắt.
+
+    Một endpoint/model fail liên tục N lần → OPEN: mọi request tới nó bị
+    chặn NGAY tại client (fast-fail, không chờ time-out), tránh nghẽn chết
+    hàng đợi Task Kernel. Sau cooldown → HALF-OPEN: cho đúng 1 request thăm
+    dò; thành công → CLOSE (reset), thất bại → OPEN lại. Đây cùng nguyên lý
+    với scp/core/circuit_breaker.py nhưng cho đường LLM outbound."""
+
+    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0):
+        if failure_threshold < 1 or cooldown_seconds <= 0:
+            raise ValueError("failure_threshold >= 1 and cooldown_seconds > 0 required")
+        self.failure_threshold = int(failure_threshold)
+        self.cooldown_seconds = float(cooldown_seconds)
+        self._consecutive_failures = 0
+        self._opened_at: float | None = None
+        self._lock = threading.Lock()
+
+    def is_open(self) -> bool:
+        with self._lock:
+            if self._opened_at is None:
+                return False
+            if time.monotonic() - self._opened_at >= self.cooldown_seconds:
+                # HALF-OPEN: cho 1 probe — giảm 1 ngưỡng để probe thất bại
+                # đóng lại ngay, thành công thì record_success reset về 0.
+                self._consecutive_failures = self.failure_threshold - 1
+                self._opened_at = None
+                return False
+            return True
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._consecutive_failures = 0
+            self._opened_at = None
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= self.failure_threshold:
+                self._opened_at = time.monotonic()
+
 
 class OpenRouterProvider:
     """OpenRouter cloud LLM provider — PAID primary + FREE fallback.
@@ -133,6 +177,12 @@ class OpenRouterProvider:
             self.TASK_FREE_FALLBACK_MAP.get(task, self.TASK_FREE_FALLBACK_MAP["default"]),
         )
         self.base_url = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        # [C5] Cầu dao theo (provider, model): fail liên tục → fast-fail có
+        # thời hạn, không ném request vào endpoint đang sập.
+        self._breaker = CircuitBreaker(
+            failure_threshold=int(os.environ.get("SCP_LLM_BREAKER_THRESHOLD", "3")),
+            cooldown_seconds=float(os.environ.get("SCP_LLM_BREAKER_COOLDOWN_SEC", "300")),
+        )
         self._client: httpx.AsyncClient | None = None
         # [Fix 4-a-014] Race condition on lazy _client init — two concurrent
         # _call_model() calls could both see _client is None, both create an
@@ -153,6 +203,9 @@ class OpenRouterProvider:
 
     async def _call_model(self, model: str, messages: list[dict], api_key: str) -> tuple[str | None, str | None]:
         """Call a specific model with a specific key. Returns (answer, error)."""
+        if self._breaker.is_open():
+            # [C5] Fast-fail: endpoint đang bị ngắt — không đốt time-out.
+            return None, "circuit_open (fast-fail)"
         try:
             # [Fix 4-a-014] Double-checked locking — only the first concurrent
             # caller creates _client; subsequent callers see it set + skip
@@ -172,12 +225,18 @@ class OpenRouterProvider:
             )
             # 429 = rate limit, 402 = payment required (quota exhausted)
             if resp.status_code in (429, 402):
+                self._breaker.record_failure()
                 return None, f"HTTP {resp.status_code} (quota/rate-limit)"
             resp.raise_for_status()
             data = resp.json()
             answer = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-            return (answer or None, None)
+            if answer:
+                self._breaker.record_success()
+                return (answer, None)
+            self._breaker.record_failure()
+            return (None, "empty_completion")
         except Exception as e:
+            self._breaker.record_failure()
             return None, str(e)
 
     async def chat(self, question: str, context: str = "", system_prompt: str = "") -> tuple[str | None, str]:

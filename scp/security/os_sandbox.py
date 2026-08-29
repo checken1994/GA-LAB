@@ -6,6 +6,23 @@ from typing import Any, List
 from scp.security.capability_epoch import CapabilityToken, CapabilityAuthority
 
 
+def build_bwrap_argv(cmd: List[str]) -> List[str]:
+    """[C2 — Gemini indictment: rlimit là hàng rào đồ chơi] Xây argv Bubblewrap
+    cách ly THẬT: --unshare-all cắt Network + PID + Mount namespace, rootFS
+    chỉ-đọc, /tmp tmpfs. Pure function — test được trên mọi OS. Chỉ dùng khi
+    bwrap có mặt (Linux); Windows dùng Job Objects."""
+    return [
+        "bwrap",
+        "--unshare-all",
+        "--die-with-parent",
+        "--ro-bind", "/", "/",
+        "--tmpfs", "/tmp",
+        "--dev", "/dev",
+        "--proc", "/proc",
+        "--",
+    ] + [str(c) for c in cmd]
+
+
 def isolation_capability() -> dict[str, Any]:
     """[Cổng E — trung thực về reality] Báo cáo khả năng isolation THẬT của
     môi trường hiện tại. Không phóng đại: thiếu cơ chế thì ghi rõ."""
@@ -98,10 +115,15 @@ class ProcessIsolationEnvironment:
                 ) from exc
 
         # Non-Windows or fallback (win32 not installed)
-        # Apply OS-level resource limits where possible (Linux: setrlimit)
+        # [C2] Ưu tiên bwrap (cách ly namespace THẬT) trước khi hạ xuống rlimit.
         preexec = None
         if not self.is_windows:
             import platform as _plat
+            if _plat.system() == "Linux" and shutil.which("bwrap"):
+                return subprocess.run(
+                    build_bwrap_argv(cmd), cwd=cwd, capture_output=True, text=True,
+                    timeout=15, env=safe_env,
+                )
             if _plat.system() == "Linux":
                 try:
                     import resource as _resource

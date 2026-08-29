@@ -972,6 +972,44 @@ class TaskKernel:
             raise
         return orphans
 
+    def verify_integrity(self) -> dict[str, Any]:
+        """[C3 — Gemini indictment: SQLite SPOF] Kiểm tra sức khoẻ DB.
+
+        PRAGMA quick_check + verify hash-chain toàn bộ journal. KHÔNG tự sửa
+        gì — chỉ báo cáo (fail-closed với bằng chứng). Đây là durability
+        single-node; HA đa node (Raft/etcd) là kiến trúc khác, không claim."""
+        quick = self.conn.execute("PRAGMA quick_check").fetchone()[0]
+        chains = {"checked": 0, "invalid": []}
+        for row in self.conn.execute("SELECT DISTINCT task_id FROM events").fetchall():
+            chains["checked"] += 1
+            result = self.verify_journal(row["task_id"])
+            if not result["hash_chain_valid"]:
+                chains["invalid"].append({"task_id": row["task_id"], "errors": result["errors"][:3]})
+        return {"quick_check": quick, "tasks": chains["checked"], "invalid_chains": chains["invalid"]}
+
+    def backup(self, backup_dir: str | Path, retain: int = 7) -> dict[str, Any]:
+        """Online backup qua sqlite3 backup API (an toàn khi đang chạy WAL) +
+        prune giữ lại `retain` bản mới nhất. Đây là giảm thiểu thiệt hại khi
+        hỏng sector — KHÔNG phải High Availability đa node."""
+        import time as _time
+
+        dest = Path(backup_dir)
+        dest.mkdir(parents=True, exist_ok=True)
+        # time_ns suffix: nhiều backup trong cùng 1 giây không ghi đè nhau
+        stamp = f"{_time.strftime('%Y%m%d-%H%M%S')}-{_time.time_ns() % 10**9:09d}"
+        target = dest / f"kernel-backup-{stamp}.sqlite3"
+        dst_conn = sqlite3.connect(str(target))
+        try:
+            self.conn.backup(dst_conn)
+        finally:
+            dst_conn.close()
+        backups = sorted(dest.glob("kernel-backup-*.sqlite3"))
+        pruned = 0
+        for old in backups[: max(0, len(backups) - int(retain))]:
+            old.unlink(missing_ok=True)
+            pruned += 1
+        return {"backup": str(target), "size_bytes": target.stat().st_size, "pruned": pruned, "retained": len(backups) - pruned}
+
     def recover_on_boot(self, actor: str = "boot_recovery") -> dict[str, Any]:
         """[Cổng F — Event-Sourcing Crash Recovery] Máy tự replay journal.
 
