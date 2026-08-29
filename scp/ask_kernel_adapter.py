@@ -146,6 +146,14 @@ class AskKernelAdapter:
             # id so repeat asks are not blocked for the database's lifetime.
             task_id = task_id + "-" + uuid.uuid4().hex[:8]
         input_hash = self._input_hash(question, contexts, retrieved_context)
+        # [CHAIN-AUDIT: backpressure] Admission control — chặn intake trước khi
+        # kernel ngập. Vượt cap → fail-closed (caller nhận blocked response),
+        # thay vì tích dồn vô hạn task rồi chậm chết cả chuỗi.
+        max_inflight = int(os.environ.get("SCP_ASK_MAX_INFLIGHT", "200"))
+        if max_inflight > 0 and self.kernel.in_flight_count() >= max_inflight:
+            raise KernelError(
+                f"backpressure: in-flight ask tasks at cap {max_inflight} — try again later"
+            )
         try:
             self.kernel.create_task(task_id, "ask-route", "rag-verified /ask", "R0", input_hash=input_hash)
             for state in ("PLANNING", "READY", "QUEUED"):

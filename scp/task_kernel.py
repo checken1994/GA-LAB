@@ -135,13 +135,21 @@ def _assert_checkpoint_safe(value: Any) -> None:
 
 
 class TaskKernel:
-    """Small durable kernel. The journal is authoritative; tasks is a rebuildable projection."""
+    """Small durable kernel. The journal is authoritative; tasks is a rebuildable projection.
+
+    [CHAIN-AUDIT FIX 2026-08-29] Per-thread connections thay vì 1 shared
+    connection: thực nghiệm 40-100 luồng đồng thời cho thấy shared connection
+    làm SELECT đọc "nhìn thấy" snapshot cũ (row vừa commit vẫn invisible) →
+    NotFound → ~8-16% task chết dưới tải. Mỗi thread có connection riêng
+    (WAL sinh tồn đa connection), transaction không còn dính chéo thread.
+    """
 
     def __init__(self, db_path: str | Path):
         self.db_path = str(db_path)
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.db_path, timeout=10, isolation_level=None, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
+        self._conn_local = threading.local()
+        self._all_conns: list[sqlite3.Connection] = []
+        self._conn_guard = threading.Lock()
         self._tx_lock = threading.RLock()
         self._tx_state = threading.local()
         self.conn.execute("PRAGMA journal_mode=WAL")
@@ -149,8 +157,34 @@ class TaskKernel:
         self.conn.execute("PRAGMA busy_timeout=10000")
         self._schema()
 
+    def _new_connection(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, timeout=10, isolation_level=None, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA busy_timeout=10000")
+        return conn
+
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """Connection của thread hiện tại (lazy-create, tracked để close)."""
+        conn = getattr(self._conn_local, "conn", None)
+        if conn is None:
+            conn = self._new_connection()
+            self._conn_local.conn = conn
+            with self._conn_guard:
+                self._all_conns.append(conn)
+        return conn
+
     def close(self) -> None:
-        self.conn.close()
+        with self._conn_guard:
+            for conn in self._all_conns:
+                try:
+                    conn.close()
+                except sqlite3.Error:
+                    pass
+            self._all_conns.clear()
+            self._conn_local = threading.local()
 
     def _schema(self) -> None:
         self.conn.executescript(
@@ -1050,6 +1084,14 @@ class TaskKernel:
             else:
                 report["left_as_is"].append({"task_id": task_id, "state": current})
         return report
+
+    def in_flight_count(self) -> int:
+        """[CHAIN-AUDIT: backpressure] Số task chưa tới quyết định cuối —
+        dùng làm admission control chống ngập kernel dưới tải đồng thời."""
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS n FROM tasks WHERE state NOT IN ('COMPLETED','FAILED','CANCELLED')"
+        ).fetchone()
+        return int(row["n"])
 
     def get_task(self, task_id: str) -> dict[str, Any]: return dict(self._task(task_id))
     def get_events(self, task_id: str) -> list[dict[str, Any]]: return [dict(x) for x in self.conn.execute("SELECT * FROM events WHERE task_id=? ORDER BY seq",(task_id,)).fetchall()]

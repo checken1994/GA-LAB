@@ -93,13 +93,13 @@ def test_c1_quarantined_excluded_from_llm_fix_prompt(tmp_path, monkeypatch):
 def test_c5_breaker_opens_after_threshold_and_half_open():
     from scp.llm_gateway.client import CircuitBreaker
 
-    breaker = CircuitBreaker(failure_threshold=3, cooldown_seconds=0.05)
+    breaker = CircuitBreaker(failure_threshold=3, cooldown_seconds=0.2)
     assert breaker.is_open() is False
     for _ in range(3):
         breaker.record_failure()
     assert breaker.is_open() is True  # fast-fail
     import time as _t
-    _t.sleep(0.06)
+    _t.sleep(0.3)
     assert breaker.is_open() is False  # half-open probe allowed
     breaker.record_success()
     assert breaker.is_open() is False

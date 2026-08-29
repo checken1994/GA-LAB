@@ -79,6 +79,18 @@ def inspect_untrusted(content: str) -> tuple[bool, str]:
     return False, ""
 
 
+def reputation_from_stars(stars: int | None) -> str:
+    """[Data Quality Gate v2] Uy tín NGUỒN dựa trên metadata — KHÔNG phải
+    xác minh nội dung (README 50k stars vẫn có thể độc → vẫn qua quarantine)."""
+    if stars is None:
+        return "medium"
+    if stars >= 10_000:
+        return "high"
+    if stars >= 1_000:
+        return "medium"
+    return "low"
+
+
 def egress_disabled() -> bool:
     return os.environ.get("SCP_TOP_SYSTEMS_EGRESS", "1").strip().lower() in {"0", "false", "off"}
 
@@ -211,11 +223,12 @@ class TopSystemsLearner:
                     "url": str(item.get("html_url", ""))[:300],
                     "stars": int(item.get("stargazers_count", 0)),
                     "description": str(item.get("description") or "")[:400],
+                    "reputation": reputation_from_stars(int(item.get("stargazers_count", 0))),
                 }
             )
         return out
 
-    def _fetch_github_readme(self, full_name: str) -> dict[str, Any] | None:
+    def _fetch_github_readme(self, full_name: str, stars: int | None = None) -> dict[str, Any] | None:
         """[DEEP SCRAPER — Reality Check v3: "300 chữ quảng cáo là không học
         được kiến trúc"]. Lấy NỘI DUNG README THẬT của repo (language-agnostic
         — kiến trúc nằm ở tài liệu, không phải syntax Rust/Python) qua
@@ -239,6 +252,7 @@ class TopSystemsLearner:
             "url": f"https://github.com/{full_name}",
             "stars": None,
             "trust": "QUARANTINED" if quarantined else "untrusted",
+            "reputation": reputation_from_stars(stars),
             "quarantine_reason": reason,
             "content_sha256": "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()[:32],
             # 4000 ký tự đầu đủ chứa section kiến trúc/quick-start của phần
@@ -266,6 +280,7 @@ class TopSystemsLearner:
                     "name": title[:200],
                     "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")),
                     "description": snippet[:400],
+                    "reputation": "medium",
                 }
             )
         return out
@@ -308,7 +323,7 @@ class TopSystemsLearner:
             if not full_name:
                 continue
             try:
-                deep = self._fetch_github_readme(full_name)
+                deep = self._fetch_github_readme(full_name, stars=repo.get("stars"))
                 if deep:
                     records.append(deep)
             except Exception as exc:
@@ -360,7 +375,10 @@ class TopSystemsLearner:
                 score = sum(1 for t in tokens if t in haystack)
                 if score:
                     scored.append((score, record))
-        scored.sort(key=lambda pair: -pair[0])
+        _REP_WEIGHT = {"high": 2.0, "medium": 1.0, "low": 0.25}
+        scored.sort(
+            key=lambda pair: -(pair[0] + _REP_WEIGHT.get(pair[1].get("reputation", "low"), 0.25))
+        )
         return [record for _, record in scored[: max(1, int(limit))]]
 
     def stats(self) -> dict[str, Any]:
