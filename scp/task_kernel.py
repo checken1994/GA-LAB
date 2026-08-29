@@ -972,6 +972,47 @@ class TaskKernel:
             raise
         return orphans
 
+    def recover_on_boot(self, actor: str = "boot_recovery") -> dict[str, Any]:
+        """[Cổng F — Event-Sourcing Crash Recovery] Máy tự replay journal.
+
+        Audit Cổng F/C: TraceLedger từng chỉ là immutable log cho NGƯỜI đọc.
+        Hàm này biến journal thành replay engine: lúc boot, mọi task non-
+        terminal được dựng lại state từ journal (hash-chain được verify
+        trước), rồi đưa về trạng thái an toàn theo luật chuyển đổi:
+
+          LEASED/WAITING_TOOL -> RECOVERING (đuợc ALLOWED_TRANSITIONS cho phép)
+          RUNNING/VERIFYING   -> HUMAN_REVIEW
+          CHECKPOINTED        -> QUEUED (resume được)
+          UNKNOWN/RECONCILING/... -> giữ nguyên + báo cáo (cần luồng reconcile)
+
+        Fail-closed tuyệt đối: journal hash-chain HỎNG → KHÔNG tự sửa, chỉ
+        báo cáo corrupted (nhẹ tay với bằng chứng hơn là tiện tay "khắc phục").
+        """
+        report: dict[str, Any] = {"recovered": [], "corrupted": [], "left_as_is": []}
+        rows = self.conn.execute("SELECT task_id, state FROM tasks").fetchall()
+        for row in rows:
+            task_id, state = row["task_id"], row["state"]
+            journal = self.verify_journal(task_id)
+            if not journal["hash_chain_valid"]:
+                report["corrupted"].append({"task_id": task_id, "errors": journal["errors"][:5]})
+                continue
+            if state in TERMINAL:
+                continue
+            self.rebuild_projection(task_id)
+            current = self._task(task_id)["state"]
+            if current == "RUNNING" or current == "VERIFYING":
+                self.transition(task_id, "HUMAN_REVIEW", actor=actor, reason="boot_recovery_in_flight")
+                report["recovered"].append({"task_id": task_id, "from": current, "to": "HUMAN_REVIEW"})
+            elif current in {"LEASED", "WAITING_TOOL"}:
+                self.transition(task_id, "RECOVERING", actor=actor, reason="boot_recovery_in_flight")
+                report["recovered"].append({"task_id": task_id, "from": current, "to": "RECOVERING"})
+            elif current == "CHECKPOINTED":
+                self.transition(task_id, "QUEUED", actor=actor, reason="boot_recovery_resume")
+                report["recovered"].append({"task_id": task_id, "from": current, "to": "QUEUED"})
+            else:
+                report["left_as_is"].append({"task_id": task_id, "state": current})
+        return report
+
     def get_task(self, task_id: str) -> dict[str, Any]: return dict(self._task(task_id))
     def get_events(self, task_id: str) -> list[dict[str, Any]]: return [dict(x) for x in self.conn.execute("SELECT * FROM events WHERE task_id=? ORDER BY seq",(task_id,)).fetchall()]
     def get_checkpoint(self, checkpoint_id: str) -> dict[str, Any]:

@@ -3,8 +3,8 @@ SCP LLM Gateway — Unified LLM access layer.
 
 TÁI SAO tách riêng: trước đây có 3 bản implement LLM call:
   1. runtime/llm_client.py (async httpx, retry, fallback) — inference path
-  2. core/fast_learning_engine.py::_ask_ollama (sync urllib, no retry) — learning
-  3. core/real_learning_engine.py::_ask_ollama (sync urllib, no retry) — learning
+  2. core/fast_learning_engine.py::_ask_llm_sync (sync urllib, no retry) — learning
+  3. core/real_learning_engine.py::_ask_llm (sync urllib, no retry) — learning
 
 3 bản diverge trên 7 chiều: sync/async, endpoint, retry, prompt template,
 token limit, stats, singleton. Learning path không có retry/fallback →

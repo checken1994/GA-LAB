@@ -1149,7 +1149,7 @@ async def _ask_impl(req: AskRequest, request: Request):
             # internally │Ă¢â€Â¬Ă¢â‚¬Â true non-blocking I/O).
             from scp.llm_gateway import get_gateway
             _gateway = get_gateway()
-            _ollama_answer, _provider = await _gateway.chat(
+            _generated_answer, _provider = await _gateway.chat(
                     req.question,
                     context=("Lịch sử gần đây (chỉ để tham khảo):\n" + "\n".join(
                         f"{t['role']}: {t['content']}" for t in _history
@@ -1162,11 +1162,11 @@ async def _ask_impl(req: AskRequest, request: Request):
                     task="chat",
 
             )
-            if _ollama_answer:
-                _ai_answer = _ollama_answer
-                logger.info(f"[CHATBOT] Ollama ({_provider}) generated answer: {_ollama_answer[:80]}...")
-        except Exception as _ollama_err:
-            logger.warning(f"[CHATBOT] Ollama call failed: {_ollama_err}")
+            if _generated_answer:
+                _ai_answer = _generated_answer
+                logger.info(f"[CHATBOT] LLM ({_provider}) generated answer: {_generated_answer[:80]}...")
+        except Exception as _generation_error:
+            logger.warning(f"[CHATBOT] LLM call failed: {_generation_error}")
             # A model/API timeout is not a reason to stop evidence retrieval.
             # This fallback is retrieval-only: public snippets are untrusted
             # data, never executable instructions and never treated as truth.
@@ -1180,7 +1180,7 @@ async def _ask_impl(req: AskRequest, request: Request):
                     )
                     _web_fallback_used = bool(_web_fallback.get("success"))
                     _web_fallback["trigger"] = "llm_timeout_or_error"
-                    _web_fallback["llm_error"] = str(_ollama_err)[:240]
+                    _web_fallback["llm_error"] = str(_generation_error)[:240]
                     if _web_fallback_used:
                         _snippets = []
                         for _item in _web_fallback.get("results", [])[:6]:
@@ -1714,6 +1714,7 @@ async def health_detailed():
         # scheduler never ran (NameError swallowed). Now /health/detailed is
         # the reality check.
         _sched_started = getattr(app.state, "background_scheduler_started", False)
+        from scp.security.os_sandbox import isolation_capability
         return {
             "status": "ok",
             "version": _SCP_VERSION,
@@ -1727,6 +1728,7 @@ async def health_detailed():
             "multi_turn_tracker": _multi_turn_tracker.stats(),
             "cross_language": _cross_language_learner.stats(),
             "fact_checker": _fact_checker.stats(),
+            "sandbox_capability": isolation_capability(),
             "runtime_routing": {
                 "math_probe_route": list(judge._route_question("2+2")),
                 "domain_expert_loaded": "math" in judge.domain_experts,

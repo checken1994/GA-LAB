@@ -1,0 +1,908 @@
+{
+ "schema_version": 1,
+ "seed": 20260829,
+ "frozen_at": "2026-08-29",
+ "description": "Golden Fitness Suite - 100 deterministic decisions (50 base x correct/corrupted)",
+ "items": [
+  {
+   "id": "golden-001",
+   "category": "math",
+   "question": "Tính: 88 + 63 = ?",
+   "context": "",
+   "candidate": "151",
+   "gold": "151",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-002",
+   "category": "math",
+   "question": "Tính: 88 + 63 = ?",
+   "context": "",
+   "candidate": "150",
+   "gold": "151",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-003",
+   "category": "math",
+   "question": "Tính: 95 + 94 = ?",
+   "context": "",
+   "candidate": "189",
+   "gold": "189",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-004",
+   "category": "math",
+   "question": "Tính: 95 + 94 = ?",
+   "context": "",
+   "candidate": "190",
+   "gold": "189",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-005",
+   "category": "math",
+   "question": "Tính: 16 + 18 = ?",
+   "context": "",
+   "candidate": "34",
+   "gold": "34",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-006",
+   "category": "math",
+   "question": "Tính: 16 + 18 = ?",
+   "context": "",
+   "candidate": "35",
+   "gold": "34",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-007",
+   "category": "math",
+   "question": "Tính: 14 + 15 = ?",
+   "context": "",
+   "candidate": "29",
+   "gold": "29",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-008",
+   "category": "math",
+   "question": "Tính: 14 + 15 = ?",
+   "context": "",
+   "candidate": "30",
+   "gold": "29",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-009",
+   "category": "math",
+   "question": "Tính: 87 + 31 = ?",
+   "context": "",
+   "candidate": "118",
+   "gold": "118",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-010",
+   "category": "math",
+   "question": "Tính: 87 + 31 = ?",
+   "context": "",
+   "candidate": "128",
+   "gold": "118",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-011",
+   "category": "math",
+   "question": "Tính: 67 + 28 = ?",
+   "context": "",
+   "candidate": "95",
+   "gold": "95",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-012",
+   "category": "math",
+   "question": "Tính: 67 + 28 = ?",
+   "context": "",
+   "candidate": "105",
+   "gold": "95",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-013",
+   "category": "math",
+   "question": "Tính: 43 + 76 = ?",
+   "context": "",
+   "candidate": "119",
+   "gold": "119",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-014",
+   "category": "math",
+   "question": "Tính: 43 + 76 = ?",
+   "context": "",
+   "candidate": "120",
+   "gold": "119",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-015",
+   "category": "math",
+   "question": "Tính: 14 + 83 = ?",
+   "context": "",
+   "candidate": "97",
+   "gold": "97",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-016",
+   "category": "math",
+   "question": "Tính: 14 + 83 = ?",
+   "context": "",
+   "candidate": "98",
+   "gold": "97",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-017",
+   "category": "math",
+   "question": "Tính: 31 + 22 = ?",
+   "context": "",
+   "candidate": "53",
+   "gold": "53",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-018",
+   "category": "math",
+   "question": "Tính: 31 + 22 = ?",
+   "context": "",
+   "candidate": "63",
+   "gold": "53",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-019",
+   "category": "math",
+   "question": "Tính: 13 + 51 = ?",
+   "context": "",
+   "candidate": "64",
+   "gold": "64",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-020",
+   "category": "math",
+   "question": "Tính: 13 + 51 = ?",
+   "context": "",
+   "candidate": "63",
+   "gold": "64",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-021",
+   "category": "math",
+   "question": "Tính: 18 × 13 = ?",
+   "context": "",
+   "candidate": "234",
+   "gold": "234",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-022",
+   "category": "math",
+   "question": "Tính: 18 × 13 = ?",
+   "context": "",
+   "candidate": "252",
+   "gold": "234",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-023",
+   "category": "math",
+   "question": "Tính: 16 × 8 = ?",
+   "context": "",
+   "candidate": "128",
+   "gold": "128",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-024",
+   "category": "math",
+   "question": "Tính: 16 × 8 = ?",
+   "context": "",
+   "candidate": "130",
+   "gold": "128",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-025",
+   "category": "math",
+   "question": "Tính: 17 × 14 = ?",
+   "context": "",
+   "candidate": "238",
+   "gold": "238",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-026",
+   "category": "math",
+   "question": "Tính: 17 × 14 = ?",
+   "context": "",
+   "candidate": "240",
+   "gold": "238",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-027",
+   "category": "math",
+   "question": "Tính: 14 × 19 = ?",
+   "context": "",
+   "candidate": "266",
+   "gold": "266",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-028",
+   "category": "math",
+   "question": "Tính: 14 × 19 = ?",
+   "context": "",
+   "candidate": "285",
+   "gold": "266",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-029",
+   "category": "math",
+   "question": "Tính: 16 × 9 = ?",
+   "context": "",
+   "candidate": "144",
+   "gold": "144",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-030",
+   "category": "math",
+   "question": "Tính: 16 × 9 = ?",
+   "context": "",
+   "candidate": "160",
+   "gold": "144",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-031",
+   "category": "math",
+   "question": "Tính: 3 × 16 = ?",
+   "context": "",
+   "candidate": "48",
+   "gold": "48",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-032",
+   "category": "math",
+   "question": "Tính: 3 × 16 = ?",
+   "context": "",
+   "candidate": "51",
+   "gold": "48",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-033",
+   "category": "math",
+   "question": "Tính: 17 × 11 = ?",
+   "context": "",
+   "candidate": "187",
+   "gold": "187",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-034",
+   "category": "math",
+   "question": "Tính: 17 × 11 = ?",
+   "context": "",
+   "candidate": "204",
+   "gold": "187",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-035",
+   "category": "math",
+   "question": "Tính: 15 × 5 = ?",
+   "context": "",
+   "candidate": "75",
+   "gold": "75",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-036",
+   "category": "math",
+   "question": "Tính: 15 × 5 = ?",
+   "context": "",
+   "candidate": "90",
+   "gold": "75",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-037",
+   "category": "math",
+   "question": "Tính: 18 × 5 = ?",
+   "context": "",
+   "candidate": "90",
+   "gold": "90",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-038",
+   "category": "math",
+   "question": "Tính: 18 × 5 = ?",
+   "context": "",
+   "candidate": "108",
+   "gold": "90",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-039",
+   "category": "math",
+   "question": "Tính: 6 × 17 = ?",
+   "context": "",
+   "candidate": "102",
+   "gold": "102",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-040",
+   "category": "math",
+   "question": "Tính: 6 × 17 = ?",
+   "context": "",
+   "candidate": "119",
+   "gold": "102",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-041",
+   "category": "conversion",
+   "question": "1 km = ? m",
+   "context": "Quy ước chuẩn: 1 km = 1000 m",
+   "candidate": "1000",
+   "gold": "1000",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-042",
+   "category": "conversion",
+   "question": "1 km = ? m",
+   "context": "Quy ước chuẩn: 1 km = 1000 m",
+   "candidate": "2000",
+   "gold": "1000",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-043",
+   "category": "conversion",
+   "question": "1 kg = ? g",
+   "context": "Quy ước chuẩn: 1 kg = 1000 g",
+   "candidate": "1000",
+   "gold": "1000",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-044",
+   "category": "conversion",
+   "question": "1 kg = ? g",
+   "context": "Quy ước chuẩn: 1 kg = 1000 g",
+   "candidate": "2000",
+   "gold": "1000",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-045",
+   "category": "conversion",
+   "question": "1 giờ = ? phút",
+   "context": "Quy ước chuẩn: 1 giờ = 60 phút",
+   "candidate": "60",
+   "gold": "60",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-046",
+   "category": "conversion",
+   "question": "1 giờ = ? phút",
+   "context": "Quy ước chuẩn: 1 giờ = 60 phút",
+   "candidate": "120",
+   "gold": "60",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-047",
+   "category": "conversion",
+   "question": "1 ngày = ? giờ",
+   "context": "Quy ước chuẩn: 1 ngày = 24 giờ",
+   "candidate": "24",
+   "gold": "24",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-048",
+   "category": "conversion",
+   "question": "1 ngày = ? giờ",
+   "context": "Quy ước chuẩn: 1 ngày = 24 giờ",
+   "candidate": "240",
+   "gold": "24",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-049",
+   "category": "conversion",
+   "question": "1 tuần = ? ngày",
+   "context": "Quy ước chuẩn: 1 tuần = 7 ngày",
+   "candidate": "7",
+   "gold": "7",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-050",
+   "category": "conversion",
+   "question": "1 tuần = ? ngày",
+   "context": "Quy ước chuẩn: 1 tuần = 7 ngày",
+   "candidate": "14",
+   "gold": "7",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-051",
+   "category": "conversion",
+   "question": "1 tấn = ? kg",
+   "context": "Quy ước chuẩn: 1 tấn = 1000 kg",
+   "candidate": "1000",
+   "gold": "1000",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-052",
+   "category": "conversion",
+   "question": "1 tấn = ? kg",
+   "context": "Quy ước chuẩn: 1 tấn = 1000 kg",
+   "candidate": "2000",
+   "gold": "1000",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-053",
+   "category": "conversion",
+   "question": "1 phút = ? giây",
+   "context": "Quy ước chuẩn: 1 phút = 60 giây",
+   "candidate": "60",
+   "gold": "60",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-054",
+   "category": "conversion",
+   "question": "1 phút = ? giây",
+   "context": "Quy ước chuẩn: 1 phút = 60 giây",
+   "candidate": "600",
+   "gold": "60",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-055",
+   "category": "conversion",
+   "question": "1 thập kỷ = ? năm",
+   "context": "Quy ước chuẩn: 1 thập kỷ = 10 năm",
+   "candidate": "10",
+   "gold": "10",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-056",
+   "category": "conversion",
+   "question": "1 thập kỷ = ? năm",
+   "context": "Quy ước chuẩn: 1 thập kỷ = 10 năm",
+   "candidate": "100",
+   "gold": "10",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-057",
+   "category": "conversion",
+   "question": "1 thế kỷ = ? năm",
+   "context": "Quy ước chuẩn: 1 thế kỷ = 100 năm",
+   "candidate": "100",
+   "gold": "100",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-058",
+   "category": "conversion",
+   "question": "1 thế kỷ = ? năm",
+   "context": "Quy ước chuẩn: 1 thế kỷ = 100 năm",
+   "candidate": "200",
+   "gold": "100",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-059",
+   "category": "conversion",
+   "question": "1 MB = ? KB",
+   "context": "Quy ước chuẩn: 1 MB = 1024 KB",
+   "candidate": "1024",
+   "gold": "1024",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-060",
+   "category": "conversion",
+   "question": "1 MB = ? KB",
+   "context": "Quy ước chuẩn: 1 MB = 1024 KB",
+   "candidate": "10240",
+   "gold": "1024",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-061",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 32 viên bi và có 20 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 32 viên bi. Có 20 hộp.",
+   "candidate": "640",
+   "gold": "640",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-062",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 32 viên bi và có 20 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 32 viên bi. Có 20 hộp.",
+   "candidate": "672",
+   "gold": "640",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-063",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 30 viên bi và có 36 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 30 viên bi. Có 36 hộp.",
+   "candidate": "1080",
+   "gold": "1080",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-064",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 30 viên bi và có 36 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 30 viên bi. Có 36 hộp.",
+   "candidate": "1110",
+   "gold": "1080",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-065",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 4 viên bi và có 30 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 4 viên bi. Có 30 hộp.",
+   "candidate": "120",
+   "gold": "120",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-066",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 4 viên bi và có 30 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 4 viên bi. Có 30 hộp.",
+   "candidate": "124",
+   "gold": "120",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-067",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 28 viên bi và có 20 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 28 viên bi. Có 20 hộp.",
+   "candidate": "560",
+   "gold": "560",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-068",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 28 viên bi và có 20 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 28 viên bi. Có 20 hộp.",
+   "candidate": "588",
+   "gold": "560",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-069",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 39 viên bi và có 16 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 39 viên bi. Có 16 hộp.",
+   "candidate": "624",
+   "gold": "624",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-070",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 39 viên bi và có 16 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 39 viên bi. Có 16 hộp.",
+   "candidate": "663",
+   "gold": "624",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-071",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 15 viên bi và có 16 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 15 viên bi. Có 16 hộp.",
+   "candidate": "240",
+   "gold": "240",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-072",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 15 viên bi và có 16 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 15 viên bi. Có 16 hộp.",
+   "candidate": "255",
+   "gold": "240",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-073",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 36 viên bi và có 19 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 36 viên bi. Có 19 hộp.",
+   "candidate": "684",
+   "gold": "684",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-074",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 36 viên bi và có 19 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 36 viên bi. Có 19 hộp.",
+   "candidate": "720",
+   "gold": "684",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-075",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 20 viên bi và có 39 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 20 viên bi. Có 39 hộp.",
+   "candidate": "780",
+   "gold": "780",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-076",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 20 viên bi và có 39 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 20 viên bi. Có 39 hộp.",
+   "candidate": "800",
+   "gold": "780",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-077",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 3 viên bi và có 17 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 3 viên bi. Có 17 hộp.",
+   "candidate": "51",
+   "gold": "51",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-078",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 3 viên bi và có 17 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 3 viên bi. Có 17 hộp.",
+   "candidate": "54",
+   "gold": "51",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-079",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 17 viên bi và có 11 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 17 viên bi. Có 11 hộp.",
+   "candidate": "187",
+   "gold": "187",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-080",
+   "category": "logic",
+   "question": "Nếu mỗi hộp chứa 17 viên bi và có 11 hộp thì tổng số bi là bao nhiêu?",
+   "context": "Mỗi hộp chứa 17 viên bi. Có 11 hộp.",
+   "candidate": "204",
+   "gold": "187",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-081",
+   "category": "rag",
+   "question": "Thủ đô của Pháp là gì?",
+   "context": "Tài liệu tham khảo: Thủ đô của Pháp là gì là Paris. Thông tin này được xác nhận.",
+   "candidate": "Paris",
+   "gold": "Paris",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-082",
+   "category": "rag",
+   "question": "Thủ đô của Pháp là gì?",
+   "context": "Tài liệu tham khảo: Thủ đô của Pháp là gì là Paris. Thông tin này được xác nhận.",
+   "candidate": "Madrid",
+   "gold": "Paris",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-083",
+   "category": "rag",
+   "question": "Màu của bầu trời ban ngày?",
+   "context": "Tài liệu tham khảo: Màu của bầu trời ban ngày là xanh. Thông tin này được xác nhận.",
+   "candidate": "xanh",
+   "gold": "xanh",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-084",
+   "category": "rag",
+   "question": "Màu của bầu trời ban ngày?",
+   "context": "Tài liệu tham khảo: Màu của bầu trời ban ngày là xanh. Thông tin này được xác nhận.",
+   "candidate": "đỏ",
+   "gold": "xanh",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-085",
+   "category": "rag",
+   "question": "Chất khí thực vật hấp thụ?",
+   "context": "Tài liệu tham khảo: Chất khí thực vật hấp thụ là carbon dioxide. Thông tin này được xác nhận.",
+   "candidate": "carbon dioxide",
+   "gold": "carbon dioxide",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-086",
+   "category": "rag",
+   "question": "Chất khí thực vật hấp thụ?",
+   "context": "Tài liệu tham khảo: Chất khí thực vật hấp thụ là carbon dioxide. Thông tin này được xác nhận.",
+   "candidate": "oxygen",
+   "gold": "carbon dioxide",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-087",
+   "category": "rag",
+   "question": "Nguyên tố hóa học của nước?",
+   "context": "Tài liệu tham khảo: Nguyên tố hóa học của nước là hydrogen. Thông tin này được xác nhận.",
+   "candidate": "hydrogen",
+   "gold": "hydrogen",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-088",
+   "category": "rag",
+   "question": "Nguyên tố hóa học của nước?",
+   "context": "Tài liệu tham khảo: Nguyên tố hóa học của nước là hydrogen. Thông tin này được xác nhận.",
+   "candidate": "helium",
+   "gold": "hydrogen",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-089",
+   "category": "rag",
+   "question": "Hành tinh gần Mặt Trời nhất?",
+   "context": "Tài liệu tham khảo: Hành tinh gần Mặt Trời nhất là Sao Thủy. Thông tin này được xác nhận.",
+   "candidate": "Sao Thủy",
+   "gold": "Sao Thủy",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-090",
+   "category": "rag",
+   "question": "Hành tinh gần Mặt Trời nhất?",
+   "context": "Tài liệu tham khảo: Hành tinh gần Mặt Trời nhất là Sao Thủy. Thông tin này được xác nhận.",
+   "candidate": "Sao Kim",
+   "gold": "Sao Thủy",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-091",
+   "category": "rag",
+   "question": "Động vật lớn nhất Trái Đất?",
+   "context": "Tài liệu tham khảo: Động vật lớn nhất Trái Đất là cá voi xanh. Thông tin này được xác nhận.",
+   "candidate": "cá voi xanh",
+   "gold": "cá voi xanh",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-092",
+   "category": "rag",
+   "question": "Động vật lớn nhất Trái Đất?",
+   "context": "Tài liệu tham khảo: Động vật lớn nhất Trái Đất là cá voi xanh. Thông tin này được xác nhận.",
+   "candidate": "cá voi đầu cong",
+   "gold": "cá voi xanh",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-093",
+   "category": "rag",
+   "question": "Quốc gia có diện tích lớn nhất?",
+   "context": "Tài liệu tham khảo: Quốc gia có diện tích lớn nhất là Nga. Thông tin này được xác nhận.",
+   "candidate": "Nga",
+   "gold": "Nga",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-094",
+   "category": "rag",
+   "question": "Quốc gia có diện tích lớn nhất?",
+   "context": "Tài liệu tham khảo: Quốc gia có diện tích lớn nhất là Nga. Thông tin này được xác nhận.",
+   "candidate": "Canada",
+   "gold": "Nga",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-095",
+   "category": "rag",
+   "question": "Dãy núi dài nhất thế giới?",
+   "context": "Tài liệu tham khảo: Dãy núi dài nhất thế giới là Andes. Thông tin này được xác nhận.",
+   "candidate": "Andes",
+   "gold": "Andes",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-096",
+   "category": "rag",
+   "question": "Dãy núi dài nhất thế giới?",
+   "context": "Tài liệu tham khảo: Dãy núi dài nhất thế giới là Andes. Thông tin này được xác nhận.",
+   "candidate": "Rockies",
+   "gold": "Andes",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-097",
+   "category": "rag",
+   "question": "Đại dương lớn nhất?",
+   "context": "Tài liệu tham khảo: Đại dương lớn nhất là Thái Bình Dương. Thông tin này được xác nhận.",
+   "candidate": "Thái Bình Dương",
+   "gold": "Thái Bình Dương",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-098",
+   "category": "rag",
+   "question": "Đại dương lớn nhất?",
+   "context": "Tài liệu tham khảo: Đại dương lớn nhất là Thái Bình Dương. Thông tin này được xác nhận.",
+   "candidate": "Đại Tây Dương",
+   "gold": "Thái Bình Dương",
+   "expected": "REJECT"
+  },
+  {
+   "id": "golden-099",
+   "category": "rag",
+   "question": "Kim loại lỏng ở nhiệt độ phòng?",
+   "context": "Tài liệu tham khảo: Kim loại lỏng ở nhiệt độ phòng là thủy ngân. Thông tin này được xác nhận.",
+   "candidate": "thủy ngân",
+   "gold": "thủy ngân",
+   "expected": "ACCEPT"
+  },
+  {
+   "id": "golden-100",
+   "category": "rag",
+   "question": "Kim loại lỏng ở nhiệt độ phòng?",
+   "context": "Tài liệu tham khảo: Kim loại lỏng ở nhiệt độ phòng là thủy ngân. Thông tin này được xác nhận.",
+   "candidate": "sắt",
+   "gold": "thủy ngân",
+   "expected": "REJECT"
+  }
+ ]
+}

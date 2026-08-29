@@ -56,6 +56,59 @@ def egress_disabled() -> bool:
     return os.environ.get("SCP_TOP_SYSTEMS_EGRESS", "1").strip().lower() in {"0", "false", "off"}
 
 
+class TokenBucket:
+    """Mechanical client-side rate limiter (Cổng "gentleman's agreement" fix).
+
+    Reality Check v2 chỉ ra: "1 vòng = 16 request < 60/h" là LỜI HỨA SUÔNG —
+    admin bấm đúp hoặc scheduler lỗi là dính 403 từ GitHub. Bucket này là
+    CHỐT CHẶN CỨNG phía client: hết token → chờ (bounded) hoặc raise
+    RuntimeError("local_rate_limit_timeout") — không bao giờ gửi request thứ
+    N+1 khi quota cơ học không cho phép.
+    """
+
+    def __init__(self, capacity: int, refill_seconds: float):
+        if capacity <= 0 or refill_seconds <= 0:
+            raise ValueError("capacity and refill_seconds must be positive")
+        self.capacity = float(capacity)
+        self.refill_seconds = float(refill_seconds)
+        self._tokens = float(capacity)
+        self._updated = time.monotonic()
+        self._lock = threading.Lock()
+
+    def _refill_locked(self) -> None:
+        now = time.monotonic()
+        self._tokens = min(self.capacity, self._tokens + (now - self._updated) / self.refill_seconds)
+        self._updated = now
+
+    def acquire(self, max_wait: float = 70.0) -> float:
+        """Block until 1 token is available. Returns waited seconds.
+
+        Raises RuntimeError if the required wait exceeds max_wait — callers
+        treat that as a fail-closed per-source error, never as a network 403.
+        """
+        deadline = time.monotonic() + max_wait
+        waited = 0.0
+        while True:
+            with self._lock:
+                self._refill_locked()
+                if self._tokens >= 1.0:
+                    self._tokens -= 1.0
+                    return waited
+                need = (1.0 - self._tokens) * self.refill_seconds
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError("local_rate_limit_timeout")
+            nap = min(need, remaining, 5.0)
+            time.sleep(nap)
+            waited += nap
+
+
+# GitHub unauthenticated = 60 req/h. Cap cứng client: 30 burst, refill 1
+# token / 75s → bão hòa ~48 req/h < 60. Wikipedia: hào phóng hơn (1 req/s).
+_GITHUB_BUCKET = TokenBucket(capacity=30, refill_seconds=75.0)
+_WIKI_BUCKET = TokenBucket(capacity=30, refill_seconds=1.2)
+
+
 class TopSystemsLearner:
     """Collects knowledge about top-tier systems from free internet sources."""
 
@@ -90,6 +143,7 @@ class TopSystemsLearner:
     # Sources
     # ------------------------------------------------------------------
     def _fetch_github(self, query: str, per_source: int) -> list[dict[str, Any]]:
+        _GITHUB_BUCKET.acquire()  # mechanical cap — see TokenBucket docstring
         url = (
             "https://api.github.com/search/repositories?q="
             + urllib.parse.quote(query)
@@ -111,6 +165,7 @@ class TopSystemsLearner:
         return out
 
     def _fetch_wikipedia(self, query: str, per_source: int) -> list[dict[str, Any]]:
+        _WIKI_BUCKET.acquire()
         url = (
             "https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit="
             + str(int(per_source))

@@ -269,6 +269,22 @@ class WhyGate:
             except Exception as e:
                 logger.warning(f"Silent except: {e}")  # Non-blocking — KB lookup is enhancement, not requirement
 
+            # [2026-08-29 WIRED BRAIN — Reality Check v2 wound #3]
+            # Kho tri thức TOP-1% không được là bảng tra thụ động cho người:
+            # lớp quyết định (WHY) PHẢI đọc nó tại thời điểm ra quyết định.
+            # advise() đọc ledger CỤC BỘ (không mạng) — fail-open, không bao
+            # giờ làm chết gate.
+            try:
+                from scp.core.top_systems_learning import get_learner
+                _refs = get_learner(data_dir=str(self.data_dir)).advise(action_desc[:160], limit=2)
+                for _r in _refs:
+                    result.necessity_reason += (
+                        f" | [TOP1%] {str(_r.get('source', '?'))}:{str(_r.get('name', ''))[:60]}"
+                        f" ({str(_r.get('url', ''))[:80]})"
+                    )
+            except Exception as _tw_err:
+                logger.debug(f"TOP-1% warehouse enrichment failed (fail-open): {_tw_err}")
+
         # [R12-8-EmoBank + R12-19] Behavior Monitor — CONTROL GATE (upgraded from advisory).
         # TẠI SAO: R12-8 chỉ enrich (non-blocking). Bạn yêu cầu upgrade thành control gate.
         # R12-19: nếu thorns >= 3 (sustained frustration/anxiety) → REJECT (block action).

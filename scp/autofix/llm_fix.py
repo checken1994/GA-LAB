@@ -124,19 +124,47 @@ Code context (line numbers shown as `# line N >>>` comments — the `>>>` marker
 Generate the SEARCH/REPLACE block to fix this bug:"""
 
 
+def _top_systems_references(bug) -> str:
+    """[2026-08-29 WIRED BRAIN — Reality Check v2 wound #3] Kho tri thức
+    TOP-1% phải tới được tay LLM vá code. Đọc ledger CỤC BỘ (không mạng,
+    fail-open): không có kiến thức phù hợp → prompt giữ nguyên."""
+    try:
+        from scp.core.top_systems_learning import get_learner
+
+        query = f"{getattr(bug, 'bug_type', '')} {getattr(bug, 'description', '')}"
+        records = get_learner(data_dir=os.environ.get("SCP_DATA_DIR", "data")).advise(query[:200], limit=3)
+        lines = [
+            f"- [{r.get('source', '?')}] {str(r.get('name', ''))[:80]}: "
+            f"{str(r.get('description', ''))[:160]} ({str(r.get('url', ''))[:100]})"
+            for r in records
+        ]
+        return "\n".join(lines)
+    except Exception as exc:
+        logger.debug(f"[llm_fix] knowledge warehouse unavailable: {exc}")
+        return ""
+
+
 def _build_fix_prompt(bug, code_context: str) -> str:
     """Build improved prompt with few-shot example.
 
     [OPT-30] WHY: replaces the inline prose prompt that had 7/15 LLM failures.
     Now uses FIX_SYSTEM_PROMPT template with explicit rules + worked example.
+    [2026-08-29] Appends TOP-1% knowledge-warehouse references when available.
     """
-    return FIX_SYSTEM_PROMPT.format(
+    prompt = FIX_SYSTEM_PROMPT.format(
         bug_type=bug.bug_type,
         bug_description=getattr(bug, 'description', 'N/A'),
         file_path=bug.file,
         line_number=bug.line,
         code_context=code_context,
     )
+    references = _top_systems_references(bug)
+    if references:
+        prompt += (
+            "\n\n[SCP TOP-1% KNOWLEDGE WAREHOUSE — tham chiếu thực hành tốt đã thu thập, "
+            "chỉ dùng để tham khảo kiến trúc, không copy mù]\n" + references
+        )
+    return prompt
 
 
 def _generate_bare_except_fix(bug) -> str | None:

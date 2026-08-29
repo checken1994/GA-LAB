@@ -65,7 +65,7 @@ from scp.core.fast_learning_engine import (
 
 # [G3-MERGE] Class alias — RealLearningEngine IS FastLearningEngine.
 # All V104.1 methods (ollama_learning_cycle, local_learning_cycle,
-# news_learning_cycle, run_all_cycles, _ask_ollama, _check_wikipedia,
+# news_learning_cycle, run_all_cycles, _ask_llm, _check_wikipedia,
 # _extract_facts, _fetch_rss_headlines) have been ported onto FastLearningEngine.
 RealLearningEngine = FastLearningEngine
 

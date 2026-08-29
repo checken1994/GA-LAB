@@ -382,7 +382,7 @@ async def v1042_learn_fast_benchmark():
         "v104_2_questions_per_cycle": asked_avg,
         "v104_2_estimated_sequential_ms": sequential_estimated_ms,
         "speedup_factor": round(speedup, 1),
-        "concurrency_ollama": 10,
+        "concurrency_llm": 10,
         "concurrency_wikipedia": 5,
         "adaptive_interval_current_s": stats.get("adaptive_interval_current", 300),
         "cycles_completed": stats.get("cycles_completed", 0),

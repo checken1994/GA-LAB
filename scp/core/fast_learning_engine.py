@@ -300,10 +300,10 @@ class FastLearningEngine:
         self._stats = {
             # V104.2 fast-cycle stats
             "cycles_completed": 0,
-            "ollama_questions_asked": 0,
+            "llm_questions_asked": 0,
             "ollama_questions_skipped_known": 0,
-            "ollama_answers_verified": 0,
-            "ollama_kb_facts_stored": 0,
+            "llm_answers_verified": 0,
+            "llm_kb_facts_stored": 0,
             "compounding_l2_questions": 0,  # Level-2 questions (dựa trên KB)
             "compounding_l3_questions": 0,  # Level-3 questions (chain-of-why)
             "avg_cycle_time_ms": 0,
@@ -498,7 +498,7 @@ class FastLearningEngine:
     # V104.2.3: PARALLEL OLLAMA CALLS
     # ============================================================
 
-    async def _ask_ollama_parallel(self, question: str) -> str:
+    async def _ask_llm_parallel(self, question: str) -> str:
         """Gọi Ollama với semaphore để parallel (10 concurrent)."""
         semaphore = await self._get_ollama_semaphore()
         async with semaphore:
@@ -506,13 +506,13 @@ class FastLearningEngine:
                 # V104.2: dùng asyncio loop executor cho urllib blocking
                 loop = asyncio.get_event_loop()
                 return await loop.run_in_executor(
-                    None, self._ask_ollama_sync, question
+                    None, self._ask_llm_sync, question
                 )
             except Exception as e:
                 logger.debug(f"Parallel Ollama call failed: {e}")
                 return ""
 
-    def _ask_ollama_sync(self, question: str) -> str:
+    def _ask_llm_sync(self, question: str) -> str:
         """[ARCH-1 FIX] Đã chuyển sang LLM Gateway — unified client có retry + fallback.
 
         TÁI SAO: trước đây dùng urllib.request.urlopen trực tiếp — sync blocking,  # nosec B310 — URL validated by SCP
@@ -929,7 +929,7 @@ class FastLearningEngine:
         # V104.2.3: PARALLEL Ollama calls
         results["asked"] = len(question_batch)
         results["provider_calls"] = len(question_batch)
-        self._stats["ollama_questions_asked"] += len(question_batch)
+        self._stats["llm_questions_asked"] += len(question_batch)
 
         # Track coverage
         for item in question_batch:
@@ -951,14 +951,14 @@ class FastLearningEngine:
 
         # Batch parallel: ask Ollama all at once (with semaphore 10)
         ollama_tasks = [
-            self._ask_ollama_parallel(item["prompt"]) for item in question_batch
+            self._ask_llm_parallel(item["prompt"]) for item in question_batch
         ]
-        ollama_answers = await asyncio.gather(*ollama_tasks, return_exceptions=True)
+        llm_answers = await asyncio.gather(*ollama_tasks, return_exceptions=True)
 
         # Filter valid answers + build verify batch
         verify_tasks = []
         verify_items = []
-        for item, answer in zip(question_batch, ollama_answers):
+        for item, answer in zip(question_batch, llm_answers):
             if isinstance(answer, Exception) or not answer or len(answer) < 3:
                 results["provider_failed"] += 1
                 continue
@@ -972,7 +972,7 @@ class FastLearningEngine:
             if isinstance(wiki, Exception):
                 wiki = {"verified": False, "confidence": 0.0}
             if wiki.get("verified"):
-                self._stats["ollama_answers_verified"] += 1
+                self._stats["llm_answers_verified"] += 1
                 results["verified"] += 1
                 stored_ok = self._store_kb(
                     entity=item["question"][:200],
@@ -982,7 +982,7 @@ class FastLearningEngine:
                     confidence=wiki["confidence"],
                 )
                 if stored_ok:
-                    self._stats["ollama_kb_facts_stored"] += 1
+                    self._stats["llm_kb_facts_stored"] += 1
                     results["stored"] += 1
 
         # V104.2.4: Adaptive interval
@@ -1115,46 +1115,46 @@ class FastLearningEngine:
             else:
                 prompt_for_ollama = question
 
-            self._stats["ollama_questions_asked"] += 1
+            self._stats["llm_questions_asked"] += 1
             results["asked"] += 1
 
             # 2. Hỏi Ollama (async, sequential — NOT parallel)
-            ollama_answer = await self._ask_ollama(prompt_for_ollama)
-            if not ollama_answer or len(ollama_answer) < 3:
+            llm_answer = await self._ask_llm(prompt_for_ollama)
+            if not llm_answer or len(llm_answer) < 3:
                 continue
 
             # 3. Verify bằng Wikipedia
-            wiki_answer = self._check_wikipedia(question, ollama_answer)
+            wiki_answer = self._check_wikipedia(question, llm_answer)
             if wiki_answer["verified"]:
-                self._stats["ollama_answers_verified"] += 1
+                self._stats["llm_answers_verified"] += 1
                 results["verified"] += 1
 
                 # 4. Lưu vào KB
                 stored_ok = self._store_kb(
                     entity=question[:200],
                     attribute="verified_answer",
-                    value=ollama_answer[:500],
+                    value=llm_answer[:500],
                     source="llm-gateway+wiki",
                     confidence=wiki_answer["confidence"],
                 )
                 if stored_ok:
-                    self._stats["ollama_kb_facts_stored"] += 1
+                    self._stats["llm_kb_facts_stored"] += 1
                     results["stored"] += 1
                     self._stats["by_domain"][domain] = self._stats["by_domain"].get(domain, 0) + 1
-                logger.info(f"Ollama Learning: VERIFIED '{question[:50]}' → '{ollama_answer[:50]}'")
+                logger.info(f"Ollama Learning: VERIFIED '{question[:50]}' → '{llm_answer[:50]}'")
             else:
-                logger.debug(f"Ollama Learning: NOT VERIFIED '{question[:50]}' → '{ollama_answer[:50]}'")
+                logger.debug(f"Ollama Learning: NOT VERIFIED '{question[:50]}' → '{llm_answer[:50]}'")
 
         logger.info(f"Ollama Learning cycle: asked={results['asked']}, "
                    f"verified={results['verified']}, stored={results['stored']}")
         return results
 
-    async def _ask_ollama(self, question: str) -> str:
+    async def _ask_llm(self, question: str) -> str:
         """[G3-MERGE PORTED] V104.1 async LLM call — uses task="learning"
         (routes to qwen2.5:7b — better summarization + multilingual for
         Vietnamese learning questions).
 
-        Distinct from _ask_ollama_sync which uses task="fast_learning"
+        Distinct from _ask_llm_sync which uses task="fast_learning"
         (llama3.2 — speed-prioritized for parallel batch calls).
         """
         try:
@@ -1204,10 +1204,10 @@ class FastLearningEngine:
                 sentences = self._extract_facts(content)
                 for sentence in sentences[:20]:  # Max 20 per file
                     # Verify bằng Ollama
-                    ollama_check = await self._ask_ollama(
+                    llm_check = await self._ask_llm(
                         f"Câu sau có đúng không? Trả lời 'ĐÚNG' hoặc 'SAI': {sentence}"
                     )
-                    if ollama_check and "đúng" in ollama_check.lower()[:10]:
+                    if llm_check and "đúng" in llm_check.lower()[:10]:
                         self._stats["local_facts_verified"] += 1
                         results["facts_verified"] += 1
 
@@ -1254,10 +1254,10 @@ class FastLearningEngine:
                     results["headlines"] += 1
 
                     # Verify bằng Ollama
-                    ollama_check = await self._ask_ollama(
+                    llm_check = await self._ask_llm(
                         f"Sự kiện sau có thật không? Trả lời 'ĐÚNG' hoặc 'SAI': {headline}"
                     )
-                    if ollama_check and "đúng" in ollama_check.lower()[:10]:
+                    if llm_check and "đúng" in llm_check.lower()[:10]:
                         self._stats["news_questions_generated"] += 1
                         results["questions"] += 1
 
@@ -1469,7 +1469,7 @@ if __name__ == "__main__":
     )
 
     # Mock Ollama + Wikipedia để test parallel
-    async def mock_ask_ollama_parallel(question):
+    async def mock_ask_llm_parallel(question):
         await asyncio.sleep(0.1)  # Simulate 100ms Ollama call
         return f"Mock: {question[:50]}"
 
@@ -1477,7 +1477,7 @@ if __name__ == "__main__":
         await asyncio.sleep(0.05)  # Simulate 50ms Wikipedia call
         return {"verified": True, "confidence": 0.85}
 
-    engine._ask_ollama_parallel = mock_ask_ollama_parallel
+    engine._ask_llm_parallel = mock_ask_llm_parallel
     engine._check_wikipedia_parallel = mock_check_wiki_parallel
 
     loop = asyncio.new_event_loop()

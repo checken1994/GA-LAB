@@ -1,8 +1,39 @@
 import os
 import platform
+import shutil
 import subprocess
-from typing import List
+from typing import Any, List
 from scp.security.capability_epoch import CapabilityToken, CapabilityAuthority
+
+
+def isolation_capability() -> dict[str, Any]:
+    """[Cổng E — trung thực về reality] Báo cáo khả năng isolation THẬT của
+    môi trường hiện tại. Không phóng đại: thiếu cơ chế thì ghi rõ."""
+    caps: dict[str, Any] = {"platform": platform.system(), "job_object": False, "bwrap": False, "rlimit": False}
+    if caps["platform"] == "Windows":
+        try:
+            import win32job  # noqa: F401
+
+            caps["job_object"] = True
+        except ImportError:
+            caps["job_object"] = False
+    else:
+        try:
+            import resource  # noqa: F401
+
+            caps["rlimit"] = True
+        except ImportError:
+            caps["rlimit"] = False
+        caps["bwrap"] = shutil.which("bwrap") is not None
+    if caps["job_object"]:
+        caps["level"] = "job_object"
+    elif caps["bwrap"]:
+        caps["level"] = "bwrap"
+    elif caps["rlimit"]:
+        caps["level"] = "rlimit_only_not_a_sandbox"
+    else:
+        caps["level"] = "subprocess_only_not_a_sandbox"
+    return caps
 
 class ProcessIsolationEnvironment:
     """

@@ -1,0 +1,2 @@
+{"source": "github", "kind": "repository", "name": "example/top-agent-runtime", "url": "https://github.com/example/top-agent-runtime", "stars": 4242, "description": "A top-1% agent runtime", "topic": "agent_runtime", "collected_at": 1787980758.0846674}
+{"source": "wikipedia", "kind": "article", "name": "Intelligent agent", "url": "https://en.wikipedia.org/wiki/Intelligent_agent", "description": "An agent acts on an environment.", "topic": "agent_runtime", "collected_at": 1787980758.0846674}
