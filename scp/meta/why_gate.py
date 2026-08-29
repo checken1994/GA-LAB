@@ -186,6 +186,7 @@ class WhyGate:
         action_desc: str,
         context: str = "",
         constitution_kill: bool = False,
+        llm_enabled: bool | None = None,
     ) -> WhyResult:
         """Gate an action through WHY.
 
@@ -195,6 +196,8 @@ class WhyGate:
             context: Additional context (code, question, etc.)
             constitution_kill: True if Constitution already decided KILL
                               (WHY cannot override — HARD LOCK)
+            llm_enabled: None = theo env SCP_WHY_LLM_ENABLED; True/False = ép
+                        lớp LLM bật/tắt cho lần gọi này.
 
         Returns:
             WhyResult with decision (ALLOW | UPHOLD | REJECT)
@@ -218,12 +221,16 @@ class WhyGate:
             self._audit(result)
             return result
 
-        # WHY Layer 1: Necessity
+        # WHY Layer 1 + 2. [DETERMINISTIC KERNEL FIX] llm_enabled=False ép gate
+        # chạy deterministic-only — kernel transition KHÔNG BAO GIỜ bị một
+        # LLM xác suất chặn (đã chứng minh bằng load storm: LLM ảo giác
+        # FALSIFICATION làm chết task dưới env pollution).
+        use_llm = os.environ.get("SCP_WHY_LLM_ENABLED", "0") == "1" if llm_enabled is None else llm_enabled
         llm_calls_before = self._stats["llm_calls"]
-        necessity_reason, necessity_ok = self._check_necessity(action_type, action_desc, context)
+        necessity_reason, necessity_ok = self._check_necessity(action_type, action_desc, context, use_llm=use_llm)
 
         # WHY Layer 2: Falsification
-        falsification_reason, self_falsified = self._check_falsification(action_type, action_desc, context)
+        falsification_reason, self_falsified = self._check_falsification(action_type, action_desc, context, use_llm=use_llm)
 
         # Decision
         if self_falsified:
@@ -380,7 +387,7 @@ class WhyGate:
 
         return None
 
-    def _check_necessity(self, action_type: str, action_desc: str, context: str) -> tuple[str, bool]:
+    def _check_necessity(self, action_type: str, action_desc: str, context: str, use_llm: bool = False) -> tuple[str, bool]:
         """WHY Layer 1: 'Tại sao action này cần thiết?'
 
         Returns (reason, is_necessary).
@@ -420,8 +427,8 @@ class WhyGate:
             if re.search(pattern, desc_lower):
                 return f"Action matches {action_type} necessity pattern", True
 
-        # If no pattern match — try LLM (if available)
-        if os.environ.get("SCP_WHY_LLM_ENABLED", "0") == "1":
+        # If no pattern match — try LLM (if caller allows the probabilistic layer)
+        if use_llm:
             llm_reason = self._llm_necessity(action_type, action_desc, context)
             if llm_reason:
                 parsed_necessity = self._parse_llm_necessity(llm_reason)
@@ -439,7 +446,7 @@ class WhyGate:
         self._stats["regex_fallbacks"] += 1
         return "Necessity unknown (no pattern match, no LLM) — UPHOLD for review", False
 
-    def _check_falsification(self, action_type: str, action_desc: str, context: str) -> tuple[str, bool]:
+    def _check_falsification(self, action_type: str, action_desc: str, context: str, use_llm: bool = False) -> tuple[str, bool]:
         """WHY Layer 2: 'Tại sao đúng? Bác bỏ được không?'
 
         Returns (reason, self_falsified).
@@ -485,8 +492,8 @@ class WhyGate:
                 if re.search(pattern, context_lower):
                     return f"Fix PATCH matches reject pattern: {pattern} — falsified (patch loosens security)", True
 
-        # Try LLM falsification (if available)
-        if os.environ.get("SCP_WHY_LLM_ENABLED", "0") == "1":
+        # Try LLM falsification (if caller allows the probabilistic layer)
+        if use_llm:
             llm_reason, llm_falsified = self._llm_falsification(action_type, action_desc, context)
             if llm_reason:
                 return llm_reason, llm_falsified

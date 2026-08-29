@@ -281,10 +281,23 @@ class TaskKernel:
         )
 
     def _begin(self) -> None:
+        """Acquire the write slot + BEGIN IMMEDIATE, với bounded retry trên
+        'database is locked' (multi-connection WAL contention khi hệ thống
+        đang chạy phụ trợ khác cùng lúc). Đã hết retry → raise, fail-closed."""
         self._tx_lock.acquire()
         try:
-            self.conn.execute("BEGIN IMMEDIATE")
-            self._tx_state.held = True
+            last_error: Exception | None = None
+            for attempt in range(3):
+                try:
+                    self.conn.execute("BEGIN IMMEDIATE")
+                    self._tx_state.held = True
+                    return
+                except sqlite3.OperationalError as exc:
+                    if "locked" not in str(exc).lower():
+                        raise
+                    last_error = exc
+                    time.sleep(0.05 * (attempt + 1))
+            raise last_error if last_error else KernelError("begin failed")
         except BaseException:
             self._tx_lock.release()
             raise
@@ -400,7 +413,8 @@ class TaskKernel:
                     why_res = get_why_gate().gate(
                         action_type="kernel_transition",
                         action_desc=f"Transition {task_id} from {old} to {to_state} by {actor}",
-                        context=reason
+                        context=reason,
+                        llm_enabled=False,  # [DETERMINISTIC KERNEL] state machine không bao giờ bị LLM xác suất chặn
                     )
                     if why_res.decision == WhyDecision.REJECT:
                         raise InvalidTransition(f"WHY Gate REJECTED this kernel transition: {why_res.falsification_reason}")

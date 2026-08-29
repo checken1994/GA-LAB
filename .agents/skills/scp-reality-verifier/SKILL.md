@@ -56,6 +56,8 @@ Confidence của model không thay thế evidence. Verifier nên độc lập v�
 - Ghi `PASS_WITHIN_SCOPE`, không mở rộng thành “hệ thống production-ready”.
 - Nếu `claims_checked: 0`, coi đó là module health chứ chưa phải verifier proof.
 
+- **Reasoning Model Tag Stripping:** Khi Reality Verifier phân tích kết quả từ các mô hình suy luận sâu (như DeepSeek-R1), BẮT BUỘC phải loại bỏ toàn bộ nội dung nằm trong thẻ <think> ... </think> (hoặc tương đương) trước khi đối chiếu từ khóa (PASS/FAIL). Việc quét từ khóa ngây thơ trên toàn văn bản sẽ dẫn đến False Positive.
+
 ## Mẫu báo cáo
 
 ```markdown
@@ -94,3 +96,4 @@ Không coi screenshot mơ hồ là bằng chứng duy nhất cho external write,
 ## Tài liệu SCP tham chiếu
 
 Đọc khi cần `Audit nhanh bộ tệp SCP trên máy tính đã kết nối.md`, `Blueprint SCP Agent OS.md`, `Failure Recovery cho Computer-Use Fast Lane.md` và `Lộ trình chuyển SCP từ Agent Control Plane thành Agent OS.md`.
+

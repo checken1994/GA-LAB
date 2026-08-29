@@ -96,6 +96,8 @@ def test_gateway_returns_none_when_all_providers_fail(monkeypatch) -> None:
         PROVIDER_NAME = "synthetic"  # contract mới: mọi provider phải tự định danh
         enabled = True
         model = "synthetic"
+        from scp.llm_gateway.client import CircuitBreaker as _CB
+        _breaker = _CB()  # contract: provider phải có breaker để gateway sắp thứ tự sức khỏe
 
         async def chat(self, question, context, system_prompt):
             return None, "none"

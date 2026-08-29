@@ -79,6 +79,21 @@ def inspect_untrusted(content: str) -> tuple[bool, str]:
     return False, ""
 
 
+def _extract_concepts(text: str, max_concepts: int = 8) -> list[str]:
+    """[CURATION STAGE 3] Trích xuất tri thức cốt lõi (deterministic):
+    tiêu đề section của tài liệu = bản đồ khái niệm của kiến trúc."""
+    concepts: list[str] = []
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            title = stripped.lstrip("#").strip()
+            if 3 <= len(title) <= 120 and title.lower() not in {c.lower() for c in concepts}:
+                concepts.append(title)
+        if len(concepts) >= max_concepts:
+            break
+    return concepts
+
+
 def reputation_from_stars(stars: int | None) -> str:
     """[Data Quality Gate v2] Uy tín NGUỒN dựa trên metadata — KHÔNG phải
     xác minh nội dung (README 50k stars vẫn có thể độc → vẫn qua quarantine)."""
@@ -222,6 +237,7 @@ class TopSystemsLearner:
                     "name": str(item.get("full_name", ""))[:200],
                     "url": str(item.get("html_url", ""))[:300],
                     "stars": int(item.get("stargazers_count", 0)),
+                    "forks": int(item.get("forks_count", 0)),
                     "description": str(item.get("description") or "")[:400],
                     "reputation": reputation_from_stars(int(item.get("stargazers_count", 0))),
                 }
@@ -258,6 +274,7 @@ class TopSystemsLearner:
             # 4000 ký tự đầu đủ chứa section kiến trúc/quick-start của phần
             # lớn README; giới hạn để ledger không phình vô hạn.
             "description": content[:4000],
+            "concepts": _extract_concepts(content),
         }
 
     def _fetch_wikipedia(self, query: str, per_source: int) -> list[dict[str, Any]]:
@@ -288,6 +305,18 @@ class TopSystemsLearner:
     # ------------------------------------------------------------------
     # Learning cycles
     # ------------------------------------------------------------------
+    def _known_content_hashes(self) -> set[str]:
+        hashes: set[str] = set()
+        if self.ledger_path.exists():
+            for line in self.ledger_path.read_text(encoding="utf-8").splitlines():
+                try:
+                    digest = json.loads(line).get("content_sha256")
+                except (TypeError, ValueError):
+                    continue
+                if digest:
+                    hashes.add(digest)
+        return hashes
+
     def _append_ledger(self, records: list[dict[str, Any]]) -> int:
         if not records:
             return 0
@@ -328,9 +357,20 @@ class TopSystemsLearner:
                     records.append(deep)
             except Exception as exc:
                 errors.append(f"readme:{full_name}: {type(exc).__name__}: {str(exc)[:120]}")
+        # [CURATION STAGE 4] Long-term memory hygiene: nội dung trùng hash
+        # (README không đổi) không được ghi lại lần nữa — ledger chỉ chứa tri thức mới.
+        seen = self._known_content_hashes()
+        unique_records = []
         for record in records:
             record["topic"] = topic_key
             record["collected_at"] = time.time()
+            digest = record.get("content_sha256")
+            if digest:
+                if digest in seen:
+                    continue
+                seen.add(digest)
+            unique_records.append(record)
+        records = unique_records
         written = self._append_ledger(records)
         return {
             "ok": len(errors) == 0,
@@ -371,6 +411,7 @@ class TopSystemsLearner:
                     continue
                 haystack = " ".join(
                     [record.get("topic", ""), record.get("name", ""), record.get("description", "")]
+                    + [str(c) for c in (record.get("concepts") or [])]
                 ).lower()
                 score = sum(1 for t in tokens if t in haystack)
                 if score:

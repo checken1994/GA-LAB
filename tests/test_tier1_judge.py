@@ -62,13 +62,21 @@ def test_semantic_unavailable_escalates_instead_of_kill(monkeypatch):
 
 
 def test_judge_llm_parse_verdict():
+    """[MẢNH 3] Contract mới: think-block bị cắt, token CUỐI CÙNG thắng —
+    reasoning model không thể lỡ parser bằng suy luận nội bộ."""
     from scp.runtime.judge_llm import _parse_verdict
 
     assert _parse_verdict("PASS") == "PASS"
     assert _parse_verdict("fail") == "FAIL"
-    assert _parse_verdict("PASS but maybe FAIL") is None  # ambiguous → escalate
+    # Token cuối cùng thắng (đáp án cuối cùng của model là phán quyết)
+    assert _parse_verdict("PASS but maybe FAIL") == "FAIL"
+    assert _parse_verdict("FAIL ... final: PASS") == "PASS"
+    # Think block bị loại trước khi parse — suy luận nội bộ không phải verdict
+    assert _parse_verdict("<think>đang nghĩ PASS hay FAIL</think>FAIL") == "FAIL"
+    assert _parse_verdict("<think>FAIL</think>PASS") == "PASS"
     assert _parse_verdict("") is None
     assert _parse_verdict(None) is None
+    assert _parse_verdict("không có phán quyết nào") is None
 
 
 def test_judge_llm_cascade_requires_double_fail(monkeypatch):

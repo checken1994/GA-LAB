@@ -36,31 +36,67 @@ def test_z_env_only_secrets_pass_production_guard(monkeypatch):
     enforce_production_safety()  # KHÔNG được raise — claim Z disproved
 
 
-def test_a_load_storm_zero_loss(tmp_path):
+def test_kernel_transitions_deterministic_even_with_why_llm_enabled(monkeypatch, tmp_path):
+    """[CHAIN-AUDIT finding] WHY-LLM bật (kể cả do env pollution từ test khác)
+    KHÔNG ĐƯỢC PHÉP làm kernel transition thành xác suất. LLM phải không bao
+    giờ được gọi trên đường kernel."""
+    kernel = TaskKernel(tmp_path / "det.sqlite3")
+    calls = {"n": 0}
+
+    def forbidden_llm(*args, **kwargs):
+        calls["n"] += 1
+        return "FALSIFICATION: hallucinated rejection"
+
+    import scp.meta.why_gate as wg
+    monkeypatch.setenv("SCP_WHY_LLM_ENABLED", "1")
+    monkeypatch.setattr(wg, "_call_why_provider", forbidden_llm)
+
+    kernel.create_task("det-1", "op", "goal", "R0")
+    kernel.transition("det-1", "PLANNING", actor="op", reason="plan")
+    kernel.transition("det-1", "READY", actor="op", reason="ready")
+    kernel.transition("det-1", "QUEUED", actor="op", reason="queue")
+    lease = kernel.claim("det-1", "w", ttl_seconds=300)
+    kernel.start("det-1", lease.lease_id)
+    kernel.transition("det-1", "VERIFYING", actor="op", reason="verify")
+    kernel.commit_completed("det-1", lease.lease_id, "VERIFIED", "ev://det-1")
+    assert calls["n"] == 0, "LLM không được phép chạm vào kernel transition"
+    kernel.close()
+
+
+def test_a_load_storm_100_threads_zero_loss(tmp_path):
     """Regression khóa chain-breaker: 100 luồng đồng thời, 0 task được phép
     mất. Trước per-thread-connection fix: 16/100 chết NotFound."""
     kernel = TaskKernel(tmp_path / "storm.sqlite3")
-    N = 40  # bug NotFound tái hiện ở 40 thread (9/40 lỗi trước fix)
+    N = 100  # PHẢI giữ 100: evidence gốc của chain audit là 16/100 mất ở N=100 (trước per-thread-connection fix). Thu nhỏ N = làm yếu bằng chứng.
     errors, done = [], []
     lock = threading.Lock()
 
+    def step(tid, name, fn):
+        try:
+            fn()
+        except Exception as exc:  # noqa: BLE001 — ghi đủ message để chẩn đoán
+            with lock:
+                errors.append(f"{tid}/{name}: {type(exc).__name__}: {str(exc)[:120]}")
+
     def worker(i):
         tid = f"storm-{i}"
-        try:
-            kernel.create_task(tid, "load", f"goal {i}", "R0")
-            kernel.transition(tid, "PLANNING", actor="w", reason="plan")
-            kernel.transition(tid, "READY", actor="w", reason="ready")
-            kernel.transition(tid, "QUEUED", actor="w", reason="queue")
-            # TTL phải >> thời gian storm — tránh StaleLease ngẫu nhiên
-            lease = kernel.claim(tid, "worker-1", ttl_seconds=3600)
-            kernel.start(tid, lease.lease_id)
-            kernel.transition(tid, "VERIFYING", actor="w", reason="verify")
-            kernel.commit_completed(tid, lease.lease_id, "VERIFIED", f"ev://{tid}")
-            with lock:
-                done.append(tid)
-        except Exception as exc:  # noqa: BLE001 — test cần thấy mọi lỗi
-            with lock:
-                errors.append(f"{tid}: {type(exc).__name__}")
+        step(tid, "create", lambda: kernel.create_task(tid, "load", f"goal {i}", "R0"))
+        step(tid, "planning", lambda: kernel.transition(tid, "PLANNING", actor="w", reason="plan"))
+        step(tid, "ready", lambda: kernel.transition(tid, "READY", actor="w", reason="ready"))
+        step(tid, "queued", lambda: kernel.transition(tid, "QUEUED", actor="w", reason="queue"))
+        holder = {}
+
+        def _claim():
+            holder["lease"] = kernel.claim(tid, "worker-1", ttl_seconds=3600)
+        step(tid, "claim", _claim)
+        if "lease" not in holder:
+            return
+        lease = holder["lease"]
+        step(tid, "start", lambda: kernel.start(tid, lease.lease_id))
+        step(tid, "verify", lambda: kernel.transition(tid, "VERIFYING", actor="w", reason="verify"))
+        step(tid, "complete", lambda: kernel.commit_completed(tid, lease.lease_id, "VERIFIED", f"ev://{tid}"))
+        with lock:
+            done.append(tid)
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(N)]
     for t in threads:

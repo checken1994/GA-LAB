@@ -436,6 +436,7 @@ class LLMGateway:
         # Tier 3 — provider OpenAI-compatible khai báo qua env (không sửa code).
         self._extra_providers: dict[str, list[EnvCompatProvider]] = {t: [] for t in tasks + ("default",)}
         self._parse_extra_providers()
+        self._rr_counter = 0  # brand-neutral rotation: không ưu tiên model nào
         self._stats = {
             "total_calls": 0,
             "openrouter_calls": 0,
@@ -494,16 +495,28 @@ class LLMGateway:
         """
         self._stats["total_calls"] += 1
         chain = self._provider_chain(task)
+        # [KHÔNG ƯU TIÊN MODEL] Pool brand-neutral: provider khỏe xoay vòng theo
+        # lượt gọi (chia tải đều, không đặt clip nào lên trên vĩnh viễn);
+        # provider breaker OPEN bị đẩy xuống cuối (chỉ dùng khi hết người khỏe).
+        enabled = [p for p in chain if p.enabled]
+        healthy = [p for p in enabled if not p._breaker.is_open()]
+        degraded = [p for p in enabled if p._breaker.is_open()]
+        pool = healthy + degraded
+        if not pool:
+            self._stats["failures"] += 1
+            return None, "none"
+        start = self._rr_counter % len(pool)
+        self._rr_counter += 1
+        rotation = pool[start:] + pool[:start]
+
         attempted = 0
-        for provider in chain:
-            if not provider.enabled:
-                continue
-            if attempted:
-                self._stats["failover_count"] += 1
+        for provider in rotation:
             attempted += 1
             self._stats[f"{provider.PROVIDER_NAME}_calls"] = self._stats.get(f"{provider.PROVIDER_NAME}_calls", 0) + 1
             answer, _provider_label = await provider.chat(question, context, system_prompt)
             if answer:
+                if attempted > 1:
+                    self._stats["failover_count"] += 1
                 return answer, _provider_label
             # provider trả None (quota/rate-limit/breaker) → sang provider kế
 
