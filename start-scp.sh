@@ -63,8 +63,8 @@ MODE="${1:-foreground}"
 start_services() {
   echo "🚀 Starting SCP system (4 services)..."
 
-  # 1. LLM Bridge (port 11434) — must start FIRST (SCP depends on it)
-  echo "  [1/4] LLM Bridge → port 11434"
+  # 1. LLM Bridge (port #removed) — must start FIRST (SCP depends on it)
+  echo "  [1/4] LLM Bridge → port #removed"
   cd "$PROJECT_DIR/mini-services/llm-bridge"
   if [ "$MODE" = "daemon" ]; then
     setsid nohup bun run dev > "$LOG_DIR/llm-bridge.log" 2>&1 &
@@ -76,14 +76,14 @@ start_services() {
   # Fix 4-d-017: poll /api/tags instead of `sleep 3`. On slow boots the bridge
   # can take 5-10s to bind; a fixed 3s sleep causes SCP's first LLM call to 502.
   # 30s cap (was 3s). Returns 1 on timeout → aborts startup (set -e).
-  wait_for_url "http://127.0.0.1:11434/api/tags" "LLM Bridge" 30 \
+  wait_for_url "http://127.0.0.1:#removed/api/tags" "LLM Bridge" 30 \
     || { echo "ERROR: LLM Bridge not ready — aborting startup. Check $LOG_DIR/llm-bridge.log" >&2; exit 1; }
 
   # 2. Loop Scheduler (port 3030) — optional but useful
   echo "  [2/4] Loop Scheduler → port 3030"
   cd "$PROJECT_DIR/mini-services/loop-scheduler"
-  SCP_BASE_URL="${SCP_BASE_URL:-http://127.0.0.1:8002}" \
-    LLM_BRIDGE_URL="${LLM_BRIDGE_URL:-http://127.0.0.1:11434}" \
+  SCP_BASE_URL="${SCP_BASE_URL:-http://127.0.0.1:8000}" \
+    LLM_BRIDGE_URL="${LLM_BRIDGE_URL:-http://127.0.0.1:#removed}" \
     LOOP_LOG_PATH="$PROJECT_DIR/data/loop_runs.jsonl" \
     setsid nohup bun run dev > "$LOG_DIR/loop-scheduler.log" 2>&1 &
   echo $! > "$LOG_DIR/loop-scheduler.pid"
@@ -92,10 +92,10 @@ start_services() {
   wait_for_url "http://127.0.0.1:3030/healthz" "Loop Scheduler" 30 \
     || { echo "ERROR: Loop Scheduler not ready — aborting startup. Check $LOG_DIR/loop-scheduler.log" >&2; exit 1; }
 
-  # 3. SCP Python (port 8002) — boots in ~60s
-  echo "  [3/4] SCP Python → port 8002 (booting ~60s, please wait...)"
+  # 3. SCP Python (port 8000) — boots in ~60s
+  echo "  [3/4] SCP Python → port 8000 (booting ~60s, please wait...)"
   cd "$PROJECT_DIR"
-  setsid nohup python3 -m scp 8002 > "$LOG_DIR/scp-server.log" 2>&1 &
+  setsid nohup python3 -m scp 8000 > "$LOG_DIR/scp-server.log" 2>&1 &
   echo $! > "$LOG_DIR/scp-server.pid"
 
   # 4. Dashboard Next.js (port 3000)
@@ -123,7 +123,7 @@ start_services() {
   # failure instead of a misleading "🎉 SCP SYSTEM RUNNING" banner.
   echo ""
   echo "⏳ Waiting for SCP to finish booting (polling /health, max 120s)..."
-  wait_for_url "http://127.0.0.1:8002/health" "SCP Python" 120 \
+  wait_for_url "http://127.0.0.1:8000/health" "SCP Python" 120 \
     || { echo "ERROR: SCP not ready after 120s — check $LOG_DIR/scp-server.log" >&2; exit 1; }
 
   # --- final status ---
@@ -133,11 +133,11 @@ start_services() {
   echo "============================================================"
   echo ""
   echo "  Dashboard:       http://localhost:3000"
-  echo "  SCP /health:     http://localhost:8002/health"
-  echo "  SCP /ask:        curl -X POST http://localhost:8002/ask \\"
+  echo "  SCP /health:     http://localhost:8000/health"
+  echo "  SCP /ask:        curl -X POST http://localhost:8000/ask \\"
   echo "                     -H 'Content-Type: application/json' \\"
   echo "                     -d '{\"question\":\"What is the capital of France?\"}'"
-  echo "  LLM Bridge:      http://localhost:11434/api/tags"
+  echo "  LLM Bridge:      http://localhost:#removed/api/tags"
   echo "  Loop Scheduler:  http://localhost:3030/"
   echo ""
   echo "  Logs: $LOG_DIR/{llm-bridge,loop-scheduler,scp-server,dashboard}.log"

@@ -9,7 +9,7 @@ echo ============================================================
 echo.
 
 echo [1/2] Dong cac cua so SCP...
-REM Ollama on port 11434 is an external dependency and is never stopped by SCP.
+REM LLM-Gateway on port #LLM-Gateway-removed is an external dependency and is never stopped by SCP.
 taskkill /f /fi "WINDOWTITLE eq SCP-Loop-Scheduler*" >nul 2>&1
 taskkill /f /fi "WINDOWTITLE eq SCP-Python*" >nul 2>&1
 taskkill /f /fi "WINDOWTITLE eq SCP-Dashboard*" >nul 2>&1
@@ -19,8 +19,8 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3030 " ^| findstr "LISTENIN
     echo   Killing PID %%a (port 3030)
     taskkill /f /pid %%a >nul 2>&1
 )
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8002 " ^| findstr "LISTENING"') do (
-    echo   Killing PID %%a (port 8002)
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8000 " ^| findstr "LISTENING"') do (
+    echo   Killing PID %%a (port 8000)
     taskkill /f /pid %%a >nul 2>&1
 )
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 " ^| findstr "LISTENING"') do (
@@ -37,7 +37,7 @@ echo ============================================================
 echo.
 
 echo Kiem tra ports (phai trong):
-netstat -aon | findstr ":3030 :8002 :3000 " | findstr "LISTENING"
+netstat -aon | findstr ":3030 :8000 :3000 " | findstr "LISTENING"
 if errorlevel 1 echo   (khong co process nao con chay)
 
 echo.
