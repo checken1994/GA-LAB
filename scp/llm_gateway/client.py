@@ -109,6 +109,8 @@ class CircuitBreaker:
 
 
 class OpenRouterProvider:
+    """OpenAI-compatible base với breaker; ProviderName dùng làm nhãn fallback."""
+    PROVIDER_NAME = "openrouter"
     """OpenRouter cloud LLM provider — PAID primary + FREE fallback.
 
     Architecture:
@@ -201,6 +203,11 @@ class OpenRouterProvider:
         self._init_keys()
         return len(self._API_KEYS) > 0
 
+    def _key_count(self) -> int:
+        """Số key khả dụng — subclass có key-instance override chỗ này."""
+        self._init_keys()
+        return len(self._API_KEYS)
+
     async def _call_model(self, model: str, messages: list[dict], api_key: str) -> tuple[str | None, str | None]:
         """Call a specific model with a specific key. Returns (answer, error)."""
         if self._breaker.is_open():
@@ -258,11 +265,11 @@ class OpenRouterProvider:
         messages.append({"role": "user", "content": question})
 
         # Layer 1: PAID model (try up to 3 keys = 1 round)
-        for _attempt in range(min(3, len(self._API_KEYS))):
+        for _attempt in range(min(3, self._key_count())):
             key = self._next_key()
             answer, err = await self._call_model(self.model, messages, key)
             if answer:
-                return answer, f"openrouter:{self.model}"
+                return answer, f"{self.PROVIDER_NAME}:{self.model}"
             if err and "quota" not in err.lower() and "rate-limit" not in err.lower() and "429" not in err and "402" not in err:
                 # Non-quota error (network, 500, etc.) — don't retry with same model
                 logger.debug(f"OpenRouter PAID ({self.model}) failed: {err}")
@@ -275,16 +282,17 @@ class OpenRouterProvider:
             answer, err = await self._call_model(self.free_fallback, messages, key)
             if answer:
                 logger.info(f"OpenRouter PAID failed, FREE fallback succeeded: {self.free_fallback}")
-                return answer, f"openrouter:{self.free_fallback}"
+                return answer, f"{self.PROVIDER_NAME}:{self.free_fallback}"
             logger.debug(f"OpenRouter FREE fallback ({self.free_fallback}) failed: {err}")
 
         # Layer 3: openrouter/free (auto-router, picks any available free model)
-        if self.free_fallback != "openrouter/free":
+        # [FAILOVER] model này chỉ tồn tại trên OpenRouter — provider khác bỏ qua.
+        if self.PROVIDER_NAME == "openrouter" and self.free_fallback != "openrouter/free":
             key = self._next_key()
             answer, err = await self._call_model("openrouter/free", messages, key)
             if answer:
                 logger.info("OpenRouter auto-router (openrouter/free) succeeded")
-                return answer, "openrouter:openrouter/free"
+                return answer, f"{self.PROVIDER_NAME}:openrouter/free"
             logger.debug(f"OpenRouter auto-router failed: {err}")
 
         # No answer was produced by any configured model. Do not return the
@@ -301,6 +309,88 @@ class OpenRouterProvider:
             "free_fallback": self.free_fallback,
             "task": self.task,
             "total_free_models_available": len(OPENROUTER_FREE_MODELS),
+        }
+
+
+# ============================================================
+# [FAILOVER — user request] Provider dự phòng ngoài OpenRouter.
+# Khi 1 API bị rate-limit/quota/sập, gateway tự chuyển sang provider kế
+# tiếp trong chuỗi. Groq là fallback tích hợp (GROQ_* env); các provider
+# OpenAI-compatible khác khai báo qua SCP_LLM_FALLBACK_PROVIDERS mà không
+# cần sửa code:  "name:KEY_ENV:BASEURL_ENV:MODEL_ENV,name2:..."
+# ============================================================
+_PLACEHOLDER_KEYS = {"", "changeme", "your-key", "your_api_key", "placeholder", "xxx", "sk-xxx", "none"}
+
+
+class GroqProvider(OpenRouterProvider):
+    """Groq (OpenAI-compatible) — fallback tích hợp. Kế thừa breaker +
+    fast-fail + retry logic; key/model/base_url đọc từ GROQ_* env."""
+    PROVIDER_NAME = "groq"
+    _API_KEYS: list[str] = []
+    _key_cycle = None
+
+    @classmethod
+    def _init_keys(cls) -> None:
+        if cls._API_KEYS:
+            return
+        key = os.environ.get("GROQ_API_KEY", "").strip()
+        if key and key.lower() not in _PLACEHOLDER_KEYS:
+            cls._API_KEYS = [key]
+            cls._key_cycle = itertools.cycle(cls._API_KEYS)
+
+    def __init__(self, task: str = "default"):
+        self.task = task
+        self.model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.free_fallback = self.model  # single-model provider: breaker lo phần retry
+        self.base_url = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+        self._breaker = CircuitBreaker(
+            failure_threshold=int(os.environ.get("SCP_LLM_BREAKER_THRESHOLD", "3")),
+            cooldown_seconds=float(os.environ.get("SCP_LLM_BREAKER_COOLDOWN_SEC", "300")),
+        )
+        self._client: httpx.AsyncClient | None = None
+        self._client_lock = asyncio.Lock()
+
+
+class EnvCompatProvider(OpenRouterProvider):
+    """Provider OpenAI-compatible khai báo qua env (instance-keyed)."""
+
+    def __init__(self, name: str, task: str, key_env: str, base_url_env: str, model_env: str, default_model: str = ""):
+        self.PROVIDER_NAME = name
+        self.task = task
+        key = os.environ.get(key_env, "").strip()
+        self._instance_keys = [key] if key and key.lower() not in _PLACEHOLDER_KEYS else []
+        self._instance_key_cycle = itertools.cycle(self._instance_keys) if self._instance_keys else None
+        self.model = os.environ.get(model_env, default_model)
+        self.free_fallback = self.model
+        self.base_url = os.environ.get(base_url_env, "").rstrip("/")
+        self._breaker = CircuitBreaker(
+            failure_threshold=int(os.environ.get("SCP_LLM_BREAKER_THRESHOLD", "3")),
+            cooldown_seconds=float(os.environ.get("SCP_LLM_BREAKER_COOLDOWN_SEC", "300")),
+        )
+        self._client: httpx.AsyncClient | None = None
+        self._client_lock = asyncio.Lock()
+
+    @classmethod
+    def _init_keys(cls) -> None:
+        return None  # instance-level keys
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self._instance_keys) and bool(self.model) and bool(self.base_url)
+
+    def _key_count(self) -> int:
+        return len(self._instance_keys)
+
+    def _next_key(self) -> str:
+        return next(self._instance_key_cycle) if self._instance_key_cycle else ""
+
+    def stats(self) -> dict:
+        return {
+            "configured": self.enabled,
+            "num_keys": len(self._instance_keys),
+            "primary_model": self.model,
+            "base_url": self.base_url,
+            "task": self.task,
         }
 
 
@@ -330,22 +420,64 @@ class LLMGateway:
     """
 
     def __init__(self):
-        # One OpenRouterProvider per task (differs only in FREE fallback).
-        self.openrouter_autofix  = OpenRouterProvider(task="autofix")
-        self.openrouter_why      = OpenRouterProvider(task="why")
-        self.openrouter_learning = OpenRouterProvider(task="learning")
-        self.openrouter_fast     = OpenRouterProvider(task="fast_learning")
-        self.openrouter_judge    = OpenRouterProvider(task="judge")
-        self.openrouter_default  = OpenRouterProvider(task="default")
+        tasks = ("autofix", "why", "learning", "fast_learning", "judge", "chat")
+        # Tier 1 — OpenRouter (primary, per-task FREE fallback map).
+        for task in tasks:
+            provider = OpenRouterProvider(task=task)
+            setattr(self, f"openrouter_{task}", provider)
+        self.openrouter_default = OpenRouterProvider(task="default")
         # Backward-compat aliases — old code used `gateway.openrouter`.
         self.openrouter = self.openrouter_default
-        # Alias: openrouter_fast_learning (matches the old ollama_fast pattern)
-        self.openrouter_fast_learning = self.openrouter_fast
+        self.openrouter_fast_learning = getattr(self, "openrouter_fast_learning", None) or self.openrouter_fast
+        # Tier 2 — Groq (fallback tích hợp, GROQ_* env).
+        for task in tasks:
+            setattr(self, f"groq_{task}", GroqProvider(task=task))
+        self.groq_default = GroqProvider(task="default")
+        # Tier 3 — provider OpenAI-compatible khai báo qua env (không sửa code).
+        self._extra_providers: dict[str, list[EnvCompatProvider]] = {t: [] for t in tasks + ("default",)}
+        self._parse_extra_providers()
         self._stats = {
             "total_calls": 0,
             "openrouter_calls": 0,
+            "groq_calls": 0,
+            "extra_calls": 0,
+            "failover_count": 0,
             "failures": 0,
         }
+
+    def _parse_extra_providers(self) -> None:
+        spec = os.environ.get("SCP_LLM_FALLBACK_PROVIDERS", "")
+        tasks = ("autofix", "why", "learning", "fast_learning", "judge", "chat", "default")
+        for entry in (e.strip() for e in spec.split(",") if e.strip()):
+            parts = [p.strip() for p in entry.split(":")]
+            if len(parts) != 4:
+                logger.warning("[FAILOVER] malformed SCP_LLM_FALLBACK_PROVIDERS entry (want name:KEY_ENV:BASEURL_ENV:MODEL_ENV): %s", entry)
+                continue
+            name, key_env, base_env, model_env = parts
+            for task in tasks:
+                self._extra_providers.setdefault(task, []).append(
+                    EnvCompatProvider(name, task, key_env, base_env, model_env)
+                )
+
+    def _provider_chain(self, task: str) -> list:
+        """Chuỗi failover theo task: OpenRouter → extras (env) → Groq."""
+        openrouter = {
+            "autofix":       getattr(self, "openrouter_autofix"),
+            "why":           getattr(self, "openrouter_why"),
+            "learning":      getattr(self, "openrouter_learning"),
+            "fast_learning": getattr(self, "openrouter_fast_learning"),
+            "judge":         getattr(self, "openrouter_judge"),
+            "chat":          getattr(self, "openrouter_chat"),
+        }.get(task, self.openrouter_default)
+        groq = {
+            "autofix":       getattr(self, "groq_autofix"),
+            "why":           getattr(self, "groq_why"),
+            "learning":      getattr(self, "groq_learning"),
+            "fast_learning": getattr(self, "groq_fast_learning"),
+            "judge":         getattr(self, "groq_judge"),
+            "chat":          getattr(self, "groq_chat"),
+        }.get(task, self.groq_default)
+        return [openrouter, *self._extra_providers.get(task, []), groq]
 
     async def chat(
         self,
@@ -354,22 +486,26 @@ class LLMGateway:
         system_prompt: str = "",
         task: str = "default",
     ) -> tuple[str | None, str]:
-        """Chat with LLM. Returns (answer, provider_name)."""
-        self._stats["total_calls"] += 1
-        openrouter_provider = {
-            "autofix":       self.openrouter_autofix,
-            "why":           self.openrouter_why,
-            "learning":      self.openrouter_learning,
-            "fast_learning": self.openrouter_fast,
-            "judge":         self.openrouter_judge,
-            "chat":          self.openrouter_default,
-        }.get(task, self.openrouter_default)
+        """Chat with LLM — đa provider failover.
 
-        if openrouter_provider.enabled:
-            self._stats["openrouter_calls"] += 1
-            answer, _ = await openrouter_provider.chat(question, context, system_prompt)
+        Thứ tự: OpenRouter (primary) → provider env-declared → Groq.
+        Provider bị rate-limit (429/402) hoặc breaker OPEN → chuyển NGAY sang
+        provider kế tiếp, caller không thấy lỗi, không đốt time-out.
+        """
+        self._stats["total_calls"] += 1
+        chain = self._provider_chain(task)
+        attempted = 0
+        for provider in chain:
+            if not provider.enabled:
+                continue
+            if attempted:
+                self._stats["failover_count"] += 1
+            attempted += 1
+            self._stats[f"{provider.PROVIDER_NAME}_calls"] = self._stats.get(f"{provider.PROVIDER_NAME}_calls", 0) + 1
+            answer, _provider_label = await provider.chat(question, context, system_prompt)
             if answer:
-                return answer, f"openrouter:{openrouter_provider.model}"
+                return answer, _provider_label
+            # provider trả None (quota/rate-limit/breaker) → sang provider kế
 
         self._stats["failures"] += 1
         return None, "none"
@@ -443,14 +579,23 @@ class LLMGateway:
             return None, "none"
 
     def stats(self) -> dict:
+        extras: dict[str, dict] = {}
+        for providers in self._extra_providers.values():
+            for provider in providers:
+                if provider.PROVIDER_NAME not in extras:
+                    extras[provider.PROVIDER_NAME] = provider.stats()
         return {
             **self._stats,
             "openrouter_default":  self.openrouter_default.stats(),
             "openrouter_autofix":  self.openrouter_autofix.stats(),
             "openrouter_why":      self.openrouter_why.stats(),
             "openrouter_learning": self.openrouter_learning.stats(),
-            "openrouter_fast":     self.openrouter_fast.stats(),
+            "openrouter_fast_learning": self.openrouter_fast_learning.stats(),
             "openrouter_judge":    self.openrouter_judge.stats(),
+            "groq_default":        self.groq_default.stats(),
+            "groq_judge":          self.groq_judge.stats(),
+            "groq_chat":           self.groq_chat.stats(),
+            "extra_providers": extras,
         }
 
 

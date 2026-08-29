@@ -135,3 +135,18 @@ Mỗi nguyên tắc là một "missing piece" mà SCP đã phát hiện qua quá
 **Title:** DUY TRÌ KHẢ NĂNG ĐỂ THỰC TẾ BUỘC HỆ THỐNG NHẬN RA RẰNG NÓ ĐÃ BỎ SÓT ĐIỀU GÌ ĐÓ
 **Principle:** Mục tiêu KHÔNG PHẢI trở thành hệ thống biết tất cả. Mục tiêu là duy trì khả năng để Reality buộc hệ thống nhận ra missing piece. Reality giữ quyền trả lời cuối cùng.
 **Anti-pattern:** Hệ thống tự tuyên bố đúng.
+
+## 27. Đào thải độc chất (Knowledge Quarantine)
+**Title:** Không có sự thật nào an toàn tuyệt đối khi đến từ bên ngoài
+**Principle:** Tri thức ngoại lai (Internet, GitHub) phải được đối xử như dữ liệu nhiễm độc. Phải qua quá trình cách ly (Quarantine), trích xuất logic và loại bỏ mã thực thi trước khi nạp vào Não bộ. Không nạp nguyên bản (raw data).
+**Anti-pattern:** Tin tưởng tuyệt đối và học thẳng từ một README có 50,000 stars mà không qua bộ lọc.
+
+## 28. Trí nhớ không phá hủy (Catastrophic Forgetting Guard)
+**Title:** Học cái mới không được phép đè bẹp hệ miễn dịch cũ
+**Principle:** Sự tiến hóa (Autofix, Learning) phải đảm bảo không phá vỡ các rào cản bảo mật đã thiết lập (Tier-1 Guard, Capability, Egress). Blast Radius của sự tiến hóa phải được kiểm soát bằng snapshot và rollback.
+**Anti-pattern:** Xóa bỏ hàm kiểm duyệt bảo mật chỉ để code chạy nhanh hơn hoặc pass unit test.
+
+## 29. Sự tự chủ phân tán (Distributed Autonomy)
+**Title:** SCP tự audit SCP thông qua các hệ đối trọng không cùng huyết thống
+**Principle:** "External Reviewer" không nhất thiết là con người. Sự tự chủ được hình thành từ một xã hội các Subsystem độc lập (Planner, Judge, Kernel) phản biện và phủ quyết lẫn nhau dựa trên bằng chứng toán học và mật mã học.
+**Anti-pattern:** Gom tất cả các role (Lên kế hoạch, Thực thi, Đánh giá) vào cùng một LLM duy nhất để nó tự duyệt bài của chính mình.

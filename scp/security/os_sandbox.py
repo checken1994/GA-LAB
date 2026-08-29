@@ -2,6 +2,7 @@ import os
 import platform
 import shutil
 import subprocess
+import threading
 from typing import Any, List
 from scp.security.capability_epoch import CapabilityToken, CapabilityAuthority
 
@@ -52,60 +53,132 @@ def isolation_capability() -> dict[str, Any]:
         caps["level"] = "subprocess_only_not_a_sandbox"
     return caps
 
+
 class ProcessIsolationEnvironment:
     """
     OS-Level isolation wrapper.
     Replaces the dangerously misnamed 'OSSandbox'.
     Uses Windows Job Objects (if on Windows) to enforce memory and process limits.
     For cross-platform compatibility, falls back to subprocess boundaries.
+
+    [CHAOS-FIX 2026-08-29 — Gemini runtime finding verified by reproduction]
+    Bản cũ dùng subprocess.Popen(CREATE_SUSPENDED) rồi
+    win32process.ResumeThread(int(proc._handle)) — _handle là PROCESS handle
+    trong khi ResumeThread đòi THREAD handle → (6, 'The handle is invalid')
+    và sandbox tự sát, KHÔNG BAO GIỜ chạy được. Fix: dùng
+    win32process.CreateProcess trực tiếp — trả về (hProcess, hThread, pid,
+    tid) → AssignProcessToJobObject → ResumeThread(hThread) đúng handle,
+    cộng thêm JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE.
     """
-    
+
     def __init__(self, authority: CapabilityAuthority):
         self.authority = authority
         self.is_windows = platform.system() == "Windows"
-    
+
+    def _execute_windows_job(self, cmd: List[str], cwd: str | None, safe_env: dict[str, str]) -> subprocess.CompletedProcess:
+        """Suspended CreateProcess → Job Object → ResumeThread(hThread)."""
+        import pywintypes
+        import win32api
+        import win32con
+        import win32event
+        import win32file
+        import win32job
+        import win32pipe
+        import win32process
+
+        job = win32job.CreateJobObject(None, "")
+        limits = win32job.QueryInformationJobObject(job, win32job.JobObjectExtendedLimitInformation)
+        limits['BasicLimitInformation']['LimitFlags'] = (
+            win32job.JOB_OBJECT_LIMIT_PROCESS_MEMORY
+            | win32job.JOB_OBJECT_LIMIT_ACTIVE_PROCESS
+            | win32job.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        )
+        limits['ProcessMemoryLimit'] = 512 * 1024 * 1024  # 512 MB
+        limits['BasicLimitInformation']['ActiveProcessLimit'] = 10
+        win32job.SetInformationJobObject(job, win32job.JobObjectExtendedLimitInformation, limits)
+
+        # Pipes inheritable cho stdout/stderr; stdin cắm NUL (không đọc console)
+        sa = pywintypes.SECURITY_ATTRIBUTES()
+        sa.bInheritHandle = True
+        out_r, out_w = win32pipe.CreatePipe(sa, 0)
+        err_r, err_w = win32pipe.CreatePipe(sa, 0)
+        nul = win32file.CreateFile(
+            "NUL", win32file.GENERIC_READ,
+            win32file.FILE_SHARE_READ | win32file.FILE_SHARE_WRITE,
+            sa, win32file.OPEN_EXISTING, 0, None,
+        )
+        startup = win32process.STARTUPINFO()
+        startup.dwFlags = win32process.STARTF_USESTDHANDLES
+        startup.hStdInput = nul
+        startup.hStdOutput = out_w
+        startup.hStdError = err_w
+
+        cmdline = " ".join(f'"{c}"' if (" " in str(c) or "\t" in str(c)) else str(c) for c in cmd)
+        info = win32process.CreateProcess(
+            None, cmdline, None, None, True,
+            win32process.CREATE_SUSPENDED,
+            {str(k): str(v) for k, v in safe_env.items()},
+            cwd, startup,
+        )
+        h_process, h_thread, _pid, _tid = info
+        win32job.AssignProcessToJobObject(job, int(h_process))
+        # FIX: ResumeThread với THREAD handle thật từ CreateProcess
+        win32process.ResumeThread(h_thread)
+        win32api.CloseHandle(out_w)
+        win32api.CloseHandle(err_w)
+        win32api.CloseHandle(nul)
+
+        buffers: dict[str, list[str]] = {"out": [], "err": []}
+
+        def _drain(handle: Any, sink: list[str]) -> None:
+            while True:
+                try:
+                    _, data = win32file.ReadFile(handle, 65536)
+                except pywintypes.error:
+                    break
+                if not data:
+                    break
+                sink.append(data.decode("utf-8", errors="replace"))
+
+        readers = [
+            threading.Thread(target=_drain, args=(out_r, buffers["out"]), daemon=True),
+            threading.Thread(target=_drain, args=(err_r, buffers["err"]), daemon=True),
+        ]
+        for reader in readers:
+            reader.start()
+        try:
+            wait = win32event.WaitForSingleObject(h_process, 15 * 1000)
+            if wait == win32con.WAIT_TIMEOUT:
+                win32job.TerminateJobObject(job, 124)
+                raise TimeoutError(f"sandboxed command exceeded 15s: {cmd[:1]}")
+            exit_code = win32process.GetExitCodeProcess(h_process)
+        finally:
+            for reader in readers:
+                reader.join(timeout=5)
+            for handle in (out_r, err_r, h_process, h_thread):
+                try:
+                    win32api.CloseHandle(handle)
+                except pywintypes.error:
+                    pass
+        return subprocess.CompletedProcess(cmd, exit_code, "".join(buffers["out"]), "".join(buffers["err"]))
+
     def execute_bounded(self, capability_token: CapabilityToken, cmd: List[str], cwd: str = None) -> subprocess.CompletedProcess:
         if not self.authority.validate(capability_token):
             raise PermissionError(f"Epoch violation or unauthorized capability: {capability_token.token_id}")
-        
+
         safe_env = {
             "PATH": os.environ.get("PATH", ""),
             "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
         }
-        
+
         if self.is_windows:
             try:
-                import win32job
-                import win32process
-                import win32api
-                import win32con
-                
-                # Use subprocess to handle pipes, but assign process to job immediately
-                proc = subprocess.Popen(
-                    cmd, cwd=cwd, env=safe_env, capture_output=True, text=True,
-                    creationflags=win32process.CREATE_SUSPENDED
-                )
-                
-                job = win32job.CreateJobObject(None, "")
-                limits = win32job.QueryInformationJobObject(job, win32job.JobObjectExtendedLimitInformation)
-                limits['BasicLimitInformation']['LimitFlags'] = (
-                    win32job.JOB_OBJECT_LIMIT_PROCESS_MEMORY |
-                    win32job.JOB_OBJECT_LIMIT_ACTIVE_PROCESS
-                )
-                limits['ProcessMemoryLimit'] = 512 * 1024 * 1024  # 512 MB
-                limits['BasicLimitInformation']['ActiveProcessLimit'] = 10
-                win32job.SetInformationJobObject(job, win32job.JobObjectExtendedLimitInformation, limits)
-                
-                win32job.AssignProcessToJobObject(job, int(proc._handle))
-                win32process.ResumeThread(int(proc._handle))
-                
-                stdout, stderr = proc.communicate(timeout=15)
-                retcode = proc.returncode
-                return subprocess.CompletedProcess(proc.args, retcode, stdout, stderr)
-                
+                return self._execute_windows_job(cmd, cwd, safe_env)
             except ImportError:
                 # win32 modules not available — use resource-limited subprocess below
                 pass
+            except TimeoutError:
+                raise  # timeout là kết quả thực thi, không phải lỗi isolation
             except Exception as exc:
                 # [Fail-Closed] Job Object setup failed — do NOT silently fall through.
                 # Running a subprocess without isolation is worse than not running it.
@@ -146,7 +219,7 @@ class ProcessIsolationEnvironment:
     def write_bounded(self, capability_token: CapabilityToken, path: str, content: bytes) -> bool:
         if not self.authority.validate(capability_token):
             raise PermissionError("Write blocked by CapabilityAuthority")
-        
+
         # Prevent path traversal
         from pathlib import Path
         abs_path = Path(path).resolve()
@@ -155,7 +228,7 @@ class ProcessIsolationEnvironment:
             abs_path.relative_to(cwd_path)
         except ValueError:
             raise PermissionError(f"Path traversal escape attempt detected: {path}")
-            
+
         with open(abs_path, "wb") as f:
             f.write(content)
         return True

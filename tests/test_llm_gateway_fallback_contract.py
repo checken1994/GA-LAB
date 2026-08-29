@@ -90,8 +90,10 @@ def test_openrouter_disabled_or_exhausted_returns_none(configured_openrouter) ->
     assert exhausted_result == (None, "none")
 
 
-def test_gateway_returns_none_when_ollama_and_openrouter_fail(monkeypatch) -> None:
+def test_gateway_returns_none_when_all_providers_fail(monkeypatch) -> None:
+    """[FAILOVER] Tất cả provider trong chuỗi đều fail → (None, "none") fail-closed."""
     class FailingProvider:
+        PROVIDER_NAME = "synthetic"  # contract mới: mọi provider phải tự định danh
         enabled = True
         model = "synthetic"
 
@@ -102,8 +104,8 @@ def test_gateway_returns_none_when_ollama_and_openrouter_fail(monkeypatch) -> No
             return {"enabled": True, "model": self.model}
 
     gateway = LLMGateway()
-    gateway.ollama_default = FailingProvider()
     gateway.openrouter_default = FailingProvider()
+    gateway.groq_default = FailingProvider()
     gateway.openrouter = gateway.openrouter_default
     monkeypatch.setenv("SCP_LLM_PROVIDER_MODE", "auto")
 
