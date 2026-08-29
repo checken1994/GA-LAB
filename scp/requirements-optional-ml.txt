@@ -11,4 +11,3 @@ networkx
 pytesseract
 websockets
 openai-whisper
-pywin32

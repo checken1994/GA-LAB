@@ -74,6 +74,11 @@ tenacity==9.0.0
 # aiofiles (async file I/O — hiện tại dùng sync open() với Path.read_text).
 # aiofiles==24.1.0
 
+# === Windows-only runtime dependency (REQUIRED on win32) ===
+# Verified: security/os_sandbox.py dùng win32process/win32job/win32file... cho
+# Job Object sandbox (runtime path trên Windows). Marker giới hạn về win32.
+pywin32==306; sys_platform == "win32"
+
 # === Rate limiting + Observability (REQUIRED — api_server.py imports all 5 at top level) ===
 # Confirmed: api_server.py:30 `from slowapi import Limiter, _rate_limit_exceeded_handler`
 # api_server.py:33 `from prometheus_client import generate_latest, ...`
