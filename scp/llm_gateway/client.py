@@ -23,6 +23,7 @@ import asyncio
 import itertools
 import logging
 import os
+import random
 import threading
 import time
 
@@ -209,10 +210,40 @@ class OpenRouterProvider:
         return len(self._API_KEYS)
 
     async def _call_model(self, model: str, messages: list[dict], api_key: str) -> tuple[str | None, str | None]:
-        """Call a specific model with a specific key. Returns (answer, error)."""
+        """Call a specific model with a specific key. Returns (answer, error).
+
+        [#33 Resilient Transport] Lỗi TRANSIENT (network/5xx/timeout) được
+        retry tối đa 2 lần với exponential backoff + jitter trước khi tính
+        là failure thật — chống sập vì một gián đoạn mạng vài trăm ms.
+        429/402 KHÔNG retry (rate-limit là trạng thái provider — failover
+        sang tầng kế tiếp là đúng, chờ thêm chỉ lãng phí)."""
         if self._breaker.is_open():
             # [C5] Fast-fail: endpoint đang bị ngắt — không đốt time-out.
             return None, "circuit_open (fast-fail)"
+        last_error: str | None = None
+        for attempt in range(3):
+            answer, err = await self._call_model_once(model, messages, api_key)
+            if answer is not None:
+                self._breaker.record_success()  # thành công thật: reset chuỗi lỗi
+                return answer, err
+            if err and ("429" in err or "402" in err):
+                return None, err  # quota/rate-limit: failover, không retry tại chỗ
+            last_error = err
+            transient = (
+                err is not None
+                and not any(sig in err for sig in ("429", "402", "circuit_open"))
+            )
+            if attempt < 2 and transient:
+                time.sleep(min(0.25 * (2 ** attempt) + random.uniform(0, 0.15), 2.0))
+                continue
+            break
+        # Breaker chỉ ghi MỘT lần theo kết quả cuối — 3 retry nhanh trong 1s
+        # không được phép mở breaker oan (transient blip != endpoint chết).
+        if last_error:
+            self._breaker.record_failure()
+        return None, last_error
+
+    async def _call_model_once(self, model: str, messages: list[dict], api_key: str) -> tuple[str | None, str | None]:
         try:
             # [Fix 4-a-014] Double-checked locking — only the first concurrent
             # caller creates _client; subsequent callers see it set + skip
@@ -232,18 +263,14 @@ class OpenRouterProvider:
             )
             # 429 = rate limit, 402 = payment required (quota exhausted)
             if resp.status_code in (429, 402):
-                self._breaker.record_failure()
                 return None, f"HTTP {resp.status_code} (quota/rate-limit)"
             resp.raise_for_status()
             data = resp.json()
             answer = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
             if answer:
-                self._breaker.record_success()
                 return (answer, None)
-            self._breaker.record_failure()
             return (None, "empty_completion")
         except Exception as e:
-            self._breaker.record_failure()
             return None, str(e)
 
     async def chat(self, question: str, context: str = "", system_prompt: str = "") -> tuple[str | None, str]:

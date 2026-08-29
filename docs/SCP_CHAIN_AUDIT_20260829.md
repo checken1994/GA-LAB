@@ -67,3 +67,26 @@ end-to-end TOP 1% theo tiêu chuẩn so sánh — vì các gap bảng trên là 
 Bước tiếp theo đúng nghĩa: **benchmark E2E golden task trên chuỗi đầy đủ**
 sau khi gap có ảnh hưởng lớn nhất (semantic memory wire + knowledge
 extractor) được nối.
+
+## Phụ lục: Điều chỉnh verdict #51/#52/#53 theo phản biện của chủ hệ thống
+
+Chủ hệ thống phản đối verdict "từ chối" ban đầu bằng định hướng dài hạn
+(bảo vệ Trái Đất khỏi thảm họa cấp hành tinh cần khả năng hành động vượt
+quá thời gian phản ứng của con người). Ranh giới DNA-đúng được chốt lại:
+
+| Mảnh | Verdict điều chỉnh | Hình dạng xây được (DNA-compliant) |
+|---|---|---|
+| **#51** | CHẤP NHẬN phần stress-test; TỪ CHỐI phần self-licensing | "Chaos Testing của Invariant Ledger": test tấn công production_guard/constitution/tier1 chạy ĐỊNH KỲ trong môi trường cách ly, kết quả BÁO CÁO cho người — hệ thống không tự cấp phép vận hành |
+| **#53** | CHẤP NHẬN phần fault injection; TỪ CHỐI phần "cấy lén lút vào production" | Disclosed Fault Injection (Chaos Monkey pattern): inject có công bố, trong isolated env, có rollback — infra đã có (sandbox per-task + recovery) |
+| **#52** | CHẤP NHẬN định hướng giá trị; TỪ CHỐI "đồng hóa cá nhân" | "Value Preservation Protocol": DNA + decision records đóng gói thành artifact versioned; autonomy mở rộng THEO MỐC AN TOÀN ĐÃ CHỨNG MINH (capability gate) — đúng kịch bản phòng thủ cấp hành tinh mà không đảo ngược quyền tối cao |
+
+## P0 đã đóng (2026-08-29)
+
+Gate failure "withheld dù có evidence" — gốc rễ: **transient OpenRouter
+failure trong cửa sổ gate + chuỗi chỉ có 1 provider thật (GROQ key rỗng) +
+judge path không có resilience** → judge escalate → withheld. Chẩn đoán:
+judge standalone PASS trong khi gate-server FAIL đúng lúc đó.
+Fix: #33 Resilient Transport — retry 2 lần exponential backoff + jitter
+trên lỗi transient (429/402 không retry — failover thay vì chờ); breaker
+record_success/failure đúng semantics (1 lần per call, thành công reset).
+**Xác minh: pre-push gate 2/2 PASS liên tiếp.**
