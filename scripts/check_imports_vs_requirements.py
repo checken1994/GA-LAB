@@ -62,7 +62,10 @@ def get_requirements(req_path: Path) -> set[str]:
         
         # Match reverse direction for pywin32 which has multiple imports
         if pkg_name == "pywin32":
-            reqs.update(["win32api", "win32con", "win32job", "win32process"])
+            reqs.update([
+                "win32api", "win32con", "win32job", "win32process",
+                "pywintypes", "win32event", "win32file", "win32pipe",
+            ])
             continue
         if pkg_name == "pillow":
             reqs.add("pil")

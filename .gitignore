@@ -56,3 +56,10 @@ raw_results.jsonl
 # pytest basetemp artifacts (must never be tracked)
 tmp_pytest/
 data-test/
+
+# External auditor scratch artifacts (regenerable, not source)
+chaos_test.py
+generate_map.py
+generate_static_map.py
+test_judge.py
+scp_full_ast_map.json
