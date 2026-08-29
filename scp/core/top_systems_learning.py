@@ -112,12 +112,19 @@ _WIKI_BUCKET = TokenBucket(capacity=30, refill_seconds=1.2)
 class TopSystemsLearner:
     """Collects knowledge about top-tier systems from free internet sources."""
 
-    def __init__(self, data_dir: str = "data", fetcher: Callable[[str, dict[str, str]], dict[str, Any]] | None = None):
+    def __init__(
+        self,
+        data_dir: str = "data",
+        fetcher: Callable[[str, dict[str, str]], dict[str, Any]] | None = None,
+        raw_fetcher: Callable[[str, dict[str, str]], str] | None = None,
+    ):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.ledger_path = self.data_dir / "top_systems_knowledge.jsonl"
-        # Injectable fetcher(url, headers) -> decoded JSON for hermetic tests.
+        # Injectable fetchers for hermetic tests; production uses urllib.
+        # fetcher -> JSON APIs; raw_fetcher -> raw text (README deep scraper).
         self._fetcher = fetcher
+        self._raw_fetcher = raw_fetcher
 
     # ------------------------------------------------------------------
     # Network (fixed allowlisted hosts only)
@@ -138,6 +145,23 @@ class TopSystemsLearner:
         if self._fetcher is not None:
             return self._fetcher(url, headers or {})
         return self._http_get_json(url, headers)
+
+    @staticmethod
+    def _http_get_raw(url: str, headers: dict[str, str] | None = None, max_bytes: int = 500_000) -> str:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme != "https" or parsed.hostname not in ALLOWED_HOSTS:
+            raise ValueError(f"host not in learning allowlist: {parsed.hostname!r}")
+        if egress_disabled():
+            raise RuntimeError("egress disabled by SCP_TOP_SYSTEMS_EGRESS=0")
+        merged = {"User-Agent": _USER_AGENT, **(headers or {})}
+        req = urllib.request.Request(url, headers=merged)  # noqa: S310 — scheme+host allowlisted above
+        with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 — fixed https host from ALLOWED_HOSTS
+            return resp.read(max_bytes).decode("utf-8", errors="replace")
+
+    def _get_raw(self, url: str, headers: dict[str, str] | None = None) -> str:
+        if self._raw_fetcher is not None:
+            return self._raw_fetcher(url, headers or {})
+        return self._http_get_raw(url, headers)
 
     # ------------------------------------------------------------------
     # Sources
@@ -163,6 +187,28 @@ class TopSystemsLearner:
                 }
             )
         return out
+
+    def _fetch_github_readme(self, full_name: str) -> dict[str, Any] | None:
+        """[DEEP SCRAPER — Reality Check v3: "300 chữ quảng cáo là không học
+        được kiến trúc"]. Lấy NỘI DUNG README THẬT của repo (language-agnostic
+        — kiến trúc nằm ở tài liệu, không phải syntax Rust/Python) qua
+        api.github.com/{repo}/readme (Accept: raw). Fail per-repo: 1 README
+        lỗi không làm chết vòng học."""
+        _GITHUB_BUCKET.acquire()
+        url = f"https://api.github.com/repos/{full_name}/readme"
+        content = self._get_raw(url, headers={"Accept": "application/vnd.github.raw"})
+        if not content.strip():
+            return None
+        return {
+            "source": "github_readme",
+            "kind": "deep_document",
+            "name": f"{full_name}/README",
+            "url": f"https://github.com/{full_name}",
+            "stars": None,
+            # 4000 ký tự đầu đủ chứa section kiến trúc/quick-start của phần
+            # lớn README; giới hạn để ledger không phình vô hạn.
+            "description": content[:4000],
+        }
 
     def _fetch_wikipedia(self, query: str, per_source: int) -> list[dict[str, Any]]:
         _WIKI_BUCKET.acquire()
@@ -205,11 +251,32 @@ class TopSystemsLearner:
             return {"ok": False, "topic": topic_key, "reason": "unknown_topic", "known": sorted(TOPIC_LIBRARY)}
         errors: list[str] = []
         records: list[dict[str, Any]] = []
-        for fetch in (self._fetch_github, self._fetch_wikipedia):
+        repos: list[dict[str, Any]] = []
+        # NOTE: so sánh bound-method bằng `is` là gotcha Python kinh điển
+        # (mỗi lần truy cập self._fetch_github tạo object mới) — phải theo tên.
+        for source_name, fetch, query_key in (
+            ("github", self._fetch_github, "github_query"),
+            ("wikipedia", self._fetch_wikipedia, "wiki_query"),
+        ):
             try:
-                records.extend(fetch(spec["github_query"] if fetch is self._fetch_github else spec["wiki_query"], per_source))
+                fetched = fetch(spec[query_key], per_source)
+                records.extend(fetched)
+                if source_name == "github":
+                    repos = fetched
             except Exception as exc:
                 errors.append(f"{fetch.__name__}: {type(exc).__name__}: {str(exc)[:120]}")
+        # [DEEP SCRAPER] Không dừng ở 300 chữ description — đọc README thật
+        # của từng repo top (fail per-repo, bị TokenBucket chặn nhịp).
+        for repo in repos:
+            full_name = str(repo.get("name", ""))
+            if not full_name:
+                continue
+            try:
+                deep = self._fetch_github_readme(full_name)
+                if deep:
+                    records.append(deep)
+            except Exception as exc:
+                errors.append(f"readme:{full_name}: {type(exc).__name__}: {str(exc)[:120]}")
         for record in records:
             record["topic"] = topic_key
             record["collected_at"] = time.time()
@@ -218,6 +285,7 @@ class TopSystemsLearner:
             "ok": len(errors) == 0,
             "topic": topic_key,
             "records": written,
+            "deep_readmes": sum(1 for r in records if r.get("source") == "github_readme"),
             "errors": errors,
         }
 

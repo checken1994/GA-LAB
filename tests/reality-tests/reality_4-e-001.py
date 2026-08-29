@@ -73,4 +73,26 @@ missing = required - set(TOPIC_LIBRARY)
 assert not missing, f"FAIL: missing topics: {missing}"
 print("PASS [6/6]: TOP-1% topic library complete")
 
+# TEST 7 — Deep scraper: learner must fetch REAL repo READMEs, not just the
+# 300-char ad description (Reality Check v3: "300 chữ quảng cáo là không học
+# được kiến trúc").
+assert "_fetch_github_readme" in learner_src and "github_readme" in learner_src
+assert "application/vnd.github.raw" in learner_src
+print("PASS [7/9]: deep README scraper present (raw GitHub API)")
+
+# TEST 8 — mechanical rate limiting: no more gentleman's agreement.
+assert "class TokenBucket" in learner_src and "_GITHUB_BUCKET.acquire()" in learner_src
+assert "local_rate_limit_timeout" in learner_src
+print("PASS [8/9]: mechanical TokenBucket gates external fetches")
+
+# TEST 9 — wired brain: WHY gate + fix prompt + evolution Reflect all
+# consume the warehouse (advise() is not a passive human-only endpoint).
+why_src = (Path(__file__).resolve().parents[2] / "scp" / "meta" / "why_gate.py").read_text(encoding="utf-8")
+llmfix_src = (Path(__file__).resolve().parents[2] / "scp" / "autofix" / "llm_fix.py").read_text(encoding="utf-8")
+reflect_src = (Path(__file__).resolve().parents[2] / "scp" / "autofix" / "evolution_parts" / "reflectmixin.py").read_text(encoding="utf-8")
+assert "TOP1%" in why_src, "FAIL: WHY gate does not consume the warehouse"
+assert "TOP-1% KNOWLEDGE WAREHOUSE" in llmfix_src, "FAIL: fix prompt does not consume the warehouse"
+assert "TOP-1% KNOWLEDGE WAREHOUSE" in reflect_src, "FAIL: evolution Reflect does not consume the warehouse"
+print("PASS [9/9]: wired brain — WHY gate + fix prompt + Reflect all consume warehouse")
+
 print("\nOK Reality test 4-e-001 PASSED")

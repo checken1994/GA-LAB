@@ -75,3 +75,31 @@ def test_github_token_bucket_is_mechanical():
     bucket.acquire(max_wait=5)  # drained again
     with pytest.raises(RuntimeError, match="local_rate_limit_timeout"):
         bucket.acquire(max_wait=0.001)  # no token and no patience → fail-closed
+
+
+def test_reflect_phase_consumes_warehouse(tmp_path, monkeypatch):
+    """Reality Check v3: Reflect của EvolutionEngine PHẢI đọc kho tri thức."""
+    learner = _seeded_learner(tmp_path)
+    monkeypatch.setattr("scp.core.top_systems_learning.get_learner", lambda data_dir="data": learner)
+    prompts: list[str] = []
+
+    def fake_call(prompt, max_tokens=300):
+        prompts.append(prompt)
+        return "Root cause: exception swallowed without logging."
+
+    monkeypatch.setattr("scp.autofix.llm_fix._call_openrouter", fake_call)
+    from scp.autofix.classifier import BugReport, BugTier
+    from scp.autofix.evolution import get_evolution_engine
+
+    engine = get_evolution_engine(data_dir=str(tmp_path))
+    monkeypatch.setattr(engine, "_should_evolve", lambda desc: True)
+    bug = BugReport(
+        file="mod.py", line=1, bug_type="BareExceptPass",
+        description="swallows errors silently — add structured logging",
+        suggested_fix="x", tier=BugTier.TIER_1_AUTO_FIX,
+    )
+    engine.reflect(bug, "diff")
+    # Reflect gọi LLM nhiều lần (WHY layer 1 + falsification...): warehouse
+    # phải xuất hiện trong ĐÚNG prompt root-cause (layer 1), không phải prompt nào cũng thế.
+    assert any("SCP TOP-1% KNOWLEDGE WAREHOUSE" in p for p in prompts)
+    assert any("example/robust-logging" in p for p in prompts)

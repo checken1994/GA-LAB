@@ -72,6 +72,23 @@ Fix applied: {fix_diff[:500]}
 
 Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
 """
+        # [2026-08-29 WIRED BRAIN — Reality Check v3] Reflect phase PHẢI ăn
+        # kho tri thức TOP-1% (đã deep-scrape README thật): root-cause phân
+        # tích có tham chiếu cách các hệ thống hàng đầu xử lý cùng vấn đề,
+        # thay vì học trong chân không. Fail-open: warehouse trống/lỗi →
+        # prompt giữ nguyên.
+        try:
+            from scp.autofix.llm_fix import _top_systems_references
+
+            references = _top_systems_references(bug)
+            if references:
+                why1_prompt += (
+                    "\n\n[SCP TOP-1% KNOWLEDGE WAREHOUSE — thực hành đã thu thập từ các hệ thống hàng đầu, "
+                    "dùng để đối chiếu root cause, không copy mù]\n" + references
+                )
+        except Exception as _ref_err:
+            logger.debug(f"[reflect] warehouse enrichment skipped: {_ref_err}")
+
         try:
             from scp.autofix.llm_fix import _call_openrouter
             why1_response = _call_openrouter(why1_prompt, max_tokens=300) or ""
