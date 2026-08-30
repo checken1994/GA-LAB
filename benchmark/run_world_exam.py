@@ -4,22 +4,29 @@ import time
 import urllib.request
 import sys
 import os
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+except ImportError:
+    pass
 import subprocess
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from scp.security.jwt_guard import create_access_token
 
 import urllib.error
 
+BASE_URL = os.environ.get("SCP_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+
 async def run_exam(file_path):
     print(f"--- STARTING EXAM: {file_path} ---")
     
     # 1. Pre-flight check
     try:
-        req = urllib.request.Request("http://127.0.0.1:8000/health", method="GET")
+        req = urllib.request.Request(f"{BASE_URL}/health", method="GET")
         with urllib.request.urlopen(req) as response:
             pass
     except Exception as e:
-        print("LỖI: Máy chủ SCP (Kernel) chưa bật. Vui lòng chạy `python -m scp 8000` trước khi thi.")
+        print("ERROR: SCP Server is not running. Please run `python -m scp` first.")
         return
 
     # 2. Đọc file đề thi
@@ -47,7 +54,7 @@ async def run_exam(file_path):
             }).encode('utf-8')
             
             token = create_access_token({"sub": "benchmark-runner"})
-            req = urllib.request.Request("http://127.0.0.1:8000/ask", data=body, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {token}'}, method="POST")
+            req = urllib.request.Request(f"{BASE_URL}/ask", data=body, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {token}'}, method="POST")
             
             api_response = {}
             try:

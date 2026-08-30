@@ -69,15 +69,18 @@ def cross_verify(
                     
                     if _in_async:
                         import concurrent.futures
-                        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                            future = pool.submit(_aio.run, coro)
+                        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                        future = pool.submit(_aio.run, coro)
+                        try:
                             content, provider = future.result(timeout=60)
+                        finally:
+                            pool.shutdown(wait=False, cancel_futures=True)
                     else:
                         content, provider = _aio.run(coro)
                 except Exception as exc:
                     try:
                         coro.close()
-                    except:
+                    except Exception:
                         pass
                     raise exc
             else:

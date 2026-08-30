@@ -1,6 +1,7 @@
 """SCP V3.1 browser and AI orchestration endpoints."""
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import Depends, APIRouter, Header, HTTPException, Request

@@ -101,7 +101,7 @@ def main() -> None:
     questions, attacks = generate_random_questions(args.num_math, args.num_geography, args.num_ambiguous, args.num_attacks, args.seed)
     Path(args.questions_output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.questions_output).write_text("\n".join(json.dumps(q, ensure_ascii=False) for q in questions) + "\n", encoding="utf-8")
-    import os, requests
+    import requests
     admin_key = os.environ.get("SCP_ADMIN_KEY", "admin")
     try:
         auth_res = requests.post(f"{args.url}/auth/token", json={"admin_key": admin_key}, timeout=5)
