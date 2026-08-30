@@ -1070,6 +1070,14 @@ async def _ask_impl(req: AskRequest, request: Request):
     if _history:
         v98_context["conversation_history"] = _history
 
+    # [V5.9-WIRE] Wire orphaned 77,000 LOC cognitive/security stack
+    try:
+        from scp.api.cognitive_router import run_pre_judge_hooks
+        v98_context = run_pre_judge_hooks(req.question, v98_context)
+    except Exception as e:
+        logger.warning(f"Cognitive router failed: {e}")
+
+
     # [V104.17 #1 FIX] DoS protection │Ă¢â€Â¬Ă¢â‚¬Â check rate limit before processing
     if hasattr(judge, 'dos_protection') and judge.dos_protection:
         try:

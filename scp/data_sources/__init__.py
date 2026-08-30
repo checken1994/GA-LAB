@@ -97,6 +97,34 @@ from .wikiart import WikiArtDataSource
 from .worldbank import WorldBankDataSource
 
 
+
+# [V5.9-WIRE] Auto-wired 25 orphaned data sources
+from .aerospace import AerospaceDataSource
+from .architecture import ArchitectureDataSource
+from .audiovideo import AudioVideoDataSource
+from .blockchain import BlockchainDataSource
+from .cartography import CartographyDataSource
+from .crafts import CraftsDataSource
+from .cybersecurity import CybersecurityDataSource
+from .digitalmarketing import DigitalMarketingDataSource
+from .diplomacy import DiplomacyDataSource
+from .ecommerce import EcommerceDataSource
+from .education import EducationDataSource
+from .energy import EnergyDataSource
+from .environment import EnvironmentDataSource
+from .foodtech import FoodTechDataSource
+from .genai import GenAIDataSource
+from .geology import GeologyDataSource
+from .logic import LogicDataSource
+from .oceanography import OceanographyDataSource
+from .psychology import PsychologyDataSource
+from .religion import ReligionDataSource
+from .social import SocialDataSource
+from .spacemedicine import SpaceMedicineDataSource
+from .tourism import TourismDataSource
+from .transport import TransportDataSource
+from .uxui import UXUIDataSource
+
 def register_all_sources(registry: DataSourceRegistry = None) -> DataSourceRegistry:
     """
     Đăng ký tất cả 34 data sources (13 V44/V46 + 5 V5.8 + 16 fix17-19).
@@ -152,6 +180,33 @@ def register_all_sources(registry: DataSourceRegistry = None) -> DataSourceRegis
         # var and sets self.enabled accordingly). Registering it now makes it
         # discoverable by SmartClassifier routing + AsyncMultiSourceVerifier.
         GoogleFactCheckDataSource(),
+        # [V5.9-WIRE] Wired 25 orphaned sources
+        AerospaceDataSource(),
+        ArchitectureDataSource(),
+        AudioVideoDataSource(),
+        BlockchainDataSource(),
+        CartographyDataSource(),
+        CraftsDataSource(),
+        CybersecurityDataSource(),
+        DigitalMarketingDataSource(),
+        DiplomacyDataSource(),
+        EcommerceDataSource(),
+        EducationDataSource(),
+        EnergyDataSource(),
+        EnvironmentDataSource(),
+        FoodTechDataSource(),
+        GenAIDataSource(),
+        GeologyDataSource(),
+        LogicDataSource(),
+        OceanographyDataSource(),
+        PsychologyDataSource(),
+        ReligionDataSource(),
+        SocialDataSource(),
+        SpaceMedicineDataSource(),
+        TourismDataSource(),
+        TransportDataSource(),
+        UXUIDataSource(),
+
     ]
 
     for src in sources:
@@ -167,6 +222,9 @@ def register_all_sources(registry: DataSourceRegistry = None) -> DataSourceRegis
 
 
 __all__ = [
+
+    # [V5.9-WIRE] Wired 25 orphaned sources
+    'AerospaceDataSource', 'ArchitectureDataSource', 'AudioVideoDataSource', 'BlockchainDataSource', 'CartographyDataSource', 'CraftsDataSource', 'CybersecurityDataSource', 'DigitalMarketingDataSource', 'DiplomacyDataSource', 'EcommerceDataSource', 'EducationDataSource', 'EnergyDataSource', 'EnvironmentDataSource', 'FoodTechDataSource', 'GenAIDataSource', 'GeologyDataSource', 'LogicDataSource', 'OceanographyDataSource', 'PsychologyDataSource', 'ReligionDataSource', 'SocialDataSource', 'SpaceMedicineDataSource', 'TourismDataSource', 'TransportDataSource', 'UXUIDataSource', 
     # Registry
     'DataSourceRegistry', 'get_registry', 'register_all_sources',
     # V44-V96 sources (45 total)
