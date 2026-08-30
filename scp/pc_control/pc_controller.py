@@ -146,7 +146,9 @@ class PCController:
         }
 
     def evaluate(self, command: str, capability_level: int, approved: bool = False) -> PolicyDecision:
-        command = command.strip().replace("\n", " ").replace("\r", "")
+        if "\n" in command or "\r" in command:
+            return PolicyDecision(False, "Multiline commands are not allowed", "critical", False, capability_level)
+        command = command.strip()
         if not command:
             return PolicyDecision(False, "Empty command", "low", False, capability_level)
         if self.kill_switch_engaged():

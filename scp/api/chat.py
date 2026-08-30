@@ -108,12 +108,18 @@ async def scp_chat(websocket: WebSocket):
         from scp.security.auth_config import load_auth_config
         cfg = load_auth_config()
         # Fallback to session_id as token if token query param isn't set, for backward compat in dev UI
-        client_token = websocket.query_params.get("token") or websocket.query_params.get("session_id", "")
-        # Remove Bearer prefix if any
+        client_token = str(websocket.query_params.get("token") or websocket.query_params.get("session_id", "") or "")
         if client_token.startswith("Bearer "):
             client_token = client_token[7:]
         
-        if cfg.configured and client_token != cfg.token and client_token != cfg.password:
+        import secrets
+        is_valid = False
+        if cfg.token and secrets.compare_digest(client_token, cfg.token):
+            is_valid = True
+        elif cfg.password and secrets.compare_digest(client_token, cfg.password):
+            is_valid = True
+            
+        if cfg.configured and not is_valid:
             await websocket.close(code=1008)
             return
     except Exception:

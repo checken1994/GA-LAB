@@ -41,12 +41,11 @@ export async function POST(request: Request) {
       conversation_history: history,
       image_data: imageData,
     }
-    const authHeader = request.headers.get("Authorization")
-    if (!authHeader) return NextResponse.json({ error: "Missing Authorization header" }, { status: 401 })
-    
+    const token = await readAdminToken()
+    if (!token) return NextResponse.json({ error: "SCP auth token chưa được cấu hình" }, { status: 503 })
     const response = await fetch(`${SCP_BASE_URL}/ask`, {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: authHeader },
+      headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(payload),
       cache: "no-store",
       signal: AbortSignal.timeout(120_000),
