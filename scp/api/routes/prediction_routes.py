@@ -13,8 +13,8 @@ if unauthenticated). It imports `from scp.api_server import
 _predictive_engine`, so the engine singleton must be initialised first
 Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â see `_predictive_engine` initialisation in api_server.py.
 
-[COMPLETION-FIX] Wire PredictiveOrchestrator vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â o API:
-- POST /v105/predictions/run-cycle Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â chĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡y 1 prediction cycle
+[COMPLETION-FIX] Wire PredictiveOrchestrator v-Ă¢â‚¬Â-Ă‚Â o API:
+- POST /v105/predictions/run-cycle Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â chĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¡y 1 prediction cycle
 - GET  /v105/predictions/pending Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â list pending predictions
 - GET  /v105/predictions/all Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â list all predictions
 - POST /v105/predictions/verify Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â verify pending predictions
@@ -53,7 +53,7 @@ def _get_engine():
 @router.post("/run-cycle", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth (state-changing)
 @traced_request(_PREDICTION_ROUTES_LEDGER, require_write=True, action="run_prediction_cycle")
 async def run_prediction_cycle():
-    """ChĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡y 1 cycle: Crawl Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Generate Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Predict Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Verify Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Learn."""
+    """ChĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¡y 1 cycle: Crawl Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Generate Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Predict Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Verify Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Learn."""
     engine = _get_engine()
     try:
         result = engine.run_cycle()
@@ -66,7 +66,7 @@ async def run_prediction_cycle():
 @router.get("/pending", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
 @traced_request(_PREDICTION_ROUTES_LEDGER, require_write=False, action="get_pending_predictions")
 async def get_pending_predictions(limit: int = 20):
-    """List pending predictions (chĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°a verify)."""
+    """List pending predictions (chĂ„â€Ă¢â‚¬Â -Ă‚Â°a verify)."""
     engine = _get_engine()
     preds = engine.predictor.get_pending_predictions()
     return {"pending": preds[:limit], "total": len(preds)}
@@ -84,7 +84,7 @@ async def get_all_predictions(limit: int = 100):
 @router.post("/verify", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth (state-changing)
 @traced_request(_PREDICTION_ROUTES_LEDGER, require_write=True, action="verify_predictions")
 async def verify_predictions(req: VerifyRequest):
-    """Verify pending predictions (nĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿u Ă„â€Ă¢â‚¬Â│Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿n check_date)."""
+    """Verify pending predictions (nĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¿u Ă„â€Ă¢â‚¬Â│Ă¢â€Â¬Ă‹Å“Ă„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¿n check_date)."""
     engine = _get_engine()
     try:
         results = engine.verifier.verify_pending(limit=req.limit)

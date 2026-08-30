@@ -1,0 +1,35 @@
+from typing import Optional, Any
+from scp.runtime.slm_base import BaseSLM as Base
+from scp.data_sources import CartographyDataSource
+import logging
+
+logger = logging.getLogger("scp.experts.cartography")
+
+class Cartography(Base):
+    """Domain Expert for Cartography using CartographyDataSource."""
+
+    def __init__(self, config: Optional[dict] = None):
+        super().__init__(name="Cartography", domain="cartography", config=config)
+        self._ds = None
+        try:
+            self._ds = CartographyDataSource()
+        except Exception as e:
+            logger.debug(f"Cartography CartographyDataSource init failed: {e}")
+
+    def predict(self, question: str) -> Any:
+        start = self._start_timer()
+        answer = ""
+        evidence = {}
+        
+        if self._ds and getattr(self._ds, "enabled", True):
+            try:
+                result = self._ds.query(question)
+                if result and result.get("value"):
+                    answer = f"{result['value']} (source: CartographyDataSource)"
+                    evidence = {"datasource": "Cartography", "raw": result}
+            except Exception as e:
+                logger.debug(f"Cartography query error: {e}")
+
+        resp = self._build_response(answer, 0.85 if answer else 0.1, "DataSource hit" if answer else "No hit", evidence)
+        self._end_timer(start, bool(answer))
+        return resp

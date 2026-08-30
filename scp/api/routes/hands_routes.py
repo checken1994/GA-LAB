@@ -96,8 +96,6 @@ class PlannerRecoveryRequest(BaseModel):
 def _guard(request: Request, token: str | None) -> None:
     host = request.client.host if request.client else ""
     is_local = host in {"127.0.0.1", "::1", "localhost"}
-    if is_local and os.environ.get("SCP_HANDS_LOCAL_ONLY", "1") == "1" and not request.headers.get("X-Forwarded-For"):
-        return
     configured = os.environ.get("SCP_PC_CONTROLLER_TOKEN", "")
     if not configured or not token or not __import__("hmac").compare_digest(token, configured):
         from fastapi import HTTPException

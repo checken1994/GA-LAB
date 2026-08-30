@@ -60,8 +60,6 @@ def _is_local(request: Request) -> bool:
 
 def _guard(request: Request, token: str | None) -> None:
     """Allow local dashboard calls (direct, not proxied); require token for remote."""
-    if _is_local(request) and os.environ.get("SCP_PC_LOCAL_ONLY", "1") == "1" and not request.headers.get("X-Forwarded-For"):
-        return
     configured = os.environ.get("SCP_PC_CONTROLLER_TOKEN", "")
     if not configured or not token or not hmac.compare_digest(token, configured):
         raise HTTPException(status_code=403, detail="PC Controller is local-only or token is invalid")

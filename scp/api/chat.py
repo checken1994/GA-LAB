@@ -1,15 +1,15 @@
 """
-[V104.48] SCP Chat Ă¢â‚¬â€ WebSocket giao tiĂ¡ÂºÂ¿p real-time vĂ¡Â»â€ºi user
+[V104.48] SCP Chat Ă¢â‚¬â€ WebSocket giao ti-p real-time vĂ¡Â»â€ºi user
 
-TĂ¡ÂºÂ I SAO: SCP V104.47 chĂ¡Â»â€° cÄ‚Â³ /ask (1 question Ă¢â€ â€™ 1 verdict) vÄ‚Â  /v1/chat/completions
-(OpenAI-compat). KHÄ‚â€NG cÄ‚Â³ chat nhiĂ¡Â»Âu turn, nhĂ¡Â»â€º context, hĂ¡Â»Âi lĂ¡ÂºÂ¡i user, giĂ¡ÂºÂ£i thÄ‚Â­ch.
+T-I SAO: SCP V104.47 chĂ¡Â»â€° cÄ‚Â³ /ask (1 question Ă¢â€ â€™ 1 verdict) vÄ‚Â  /v1/chat/completions
+(OpenAI-compat). KH-NG cÄ‚Â³ chat nhi-u turn, nhĂ¡Â»â€º context, h-i lĂ¡ÂºÂ¡i user, giĂ¡ÂºÂ£i thÄ‚Â­ch.
 
-Module nÄ‚Â y thÄ‚Âªm:
+Module nÄ‚Â y th-m:
   - WebSocket /chat: real-time bidirectional
-  - Context memory: nhĂ¡Â»â€º lĂ¡Â»â€¹ch sĂ¡Â»Â­ conversation
-  - SCP tĂ¡Â»Â± hĂ¡Â»Âi lĂ¡ÂºÂ¡i user khi UNKNOWN
-  - SimpleExplainer: giĂ¡ÂºÂ£i thÄ‚Â­ch quyĂ¡ÂºÂ¿t Ă„â€˜Ă¡Â»â€¹nh bĂ¡ÂºÂ±ng tiĂ¡ÂºÂ¿ng ViĂ¡Â»â€¡t
-  - Evolution status: user xem SCP Ă„â€˜ang tĂ¡Â»Â± sĂ¡Â»Â­a gÄ‚Â¬
+  - Context memory: nhĂ¡Â»â€º lĂ¡Â»â€¹ch s-­ conversation
+  - SCP t-± h-i lĂ¡ÂºÂ¡i user khi UNKNOWN
+  - SimpleExplainer: giĂ¡ÂºÂ£i thÄ‚Â­ch quy-t Ă„â€˜Ă¡Â»â€¹nh bĂ¡ÂºÂ±ng ti-ng ViĂ¡Â»â€¡t
+  - Evolution status: user xem SCP Ă„â€˜ang t-± s-­a gÄ‚Â¬
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ _CHAT_LEDGER = RequestRunLedger()  # P2_CHAT_LEDGER
 
 
 class ConversationManager:
-    """QuĂ¡ÂºÂ£n lÄ‚Â½ lĂ¡Â»â€¹ch sĂ¡Â»Â­ conversation per session."""
+    """QuĂ¡ÂºÂ£n lÄ‚Â½ lĂ¡Â»â€¹ch s-­ conversation per session."""
 
     def __init__(self, max_sessions: int = 100, max_history: int = 20, memory_store: ChatMemoryStore | None = None):
         self._sessions: dict[str, list[dict]] = {}
@@ -99,7 +99,7 @@ async def scp_chat(websocket: WebSocket):
     """
     WebSocket endpoint Ă¢â‚¬â€  chat real-time vĂ¡Â»â€ºi SCP.
 
-    User gĂ¡Â»Â­i: {"message": "What is 2+2?"}
+    User g-­i: {"message": "What is 2+2?"}
     SCP trĂ¡ÂºÂ£: {"answer": "4", "verdict": "PASS", "confidence": 0.99, "reasoning": "..."}
     """
     await websocket.accept()
@@ -119,7 +119,10 @@ async def scp_chat(websocket: WebSocket):
         elif cfg.password and secrets.compare_digest(client_token, cfg.password):
             is_valid = True
             
-        if cfg.configured and not is_valid:
+        if not cfg.configured:
+            await websocket.close(code=1011)
+            return
+        if not is_valid:
             await websocket.close(code=1008)
             return
     except Exception:

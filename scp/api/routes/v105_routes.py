@@ -1,8 +1,8 @@
 """
 [Task 8-A] V105 AutoFix endpoints Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â extracted from api_server.py
 
-TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: api_server.py 2,144 LOC god file. TÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¡ch 6 routes /v105/* vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â o module
-nÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â y. Backward-compatible Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â public API paths/methods unchanged.
+TĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â I SAO: api_server.py 2,144 LOC god file. T-Ă¢â‚¬Â-Ă‚Â¡ch 6 routes /v105/* v-Ă¢â‚¬Â-Ă‚Â o module
+n-Ă¢â‚¬Â-Ă‚Â y. Backward-compatible Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â public API paths/methods unchanged.
 
 Routes:
   GET  /v105/autofix/permissions                          Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â List pending permission requests
@@ -50,7 +50,7 @@ class AutoFixAuditRequest(BaseModel):
 async def v105_list_permissions():
     """List pending permission requests (logic bugs awaiting human approval)."""
     try:
-        # [EXEC-1 A2] TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: was `AutoFixEngine()` per-request Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ throwaway
+        # [EXEC-1 A2] TĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â I SAO: was `AutoFixEngine()` per-request Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ throwaway
         # instance Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ attack_mode / rate limits / cooldowns were all no-ops.
         # Use singleton so state persists across handlers.
         from scp.autofix.engine import get_autofix_engine
@@ -80,7 +80,7 @@ async def v105_list_permissions():
 async def v105_approve_permission(request_id: str, note: str = ""):
     """Human approves a logic bug fix. SCP then applies it.
 
-    [OPT-14 / GÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Â§11] The `note` field is checked by UnderstandingChecker Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â
+    [OPT-14 / G-Ă¢â‚¬Â-Ă‚Â  Ă„â€Ă¢â‚¬Â-Ă‚Â§11] The `note` field is checked by UnderstandingChecker Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â
     the human must explain what the fix does in their own words. Empty,
     trivial, or copy-paste notes are rejected with HTTP 400 (the request
     was found, but understanding was not demonstrated).
@@ -107,7 +107,7 @@ async def v105_approve_permission(request_id: str, note: str = ""):
             raise HTTPException(404, "Permission request not found")
         ok = eng.permission_gate.approve(request_id, decided_by="api_admin", note=note)
         if not ok:
-            # [OPT-14 / GÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â  Ă„â€Ă¢â‚¬ÂÄ‚â€Ă‚Â§11] approve() returned False Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â either not found
+            # [OPT-14 / G-Ă¢â‚¬Â-Ă‚Â  Ă„â€Ă¢â‚¬Â-Ă‚Â§11] approve() returned False Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â either not found
             # (handled above) or understanding check failed. The latter means
             # the human note didn't demonstrate understanding of the fix.
             raise HTTPException(
@@ -436,7 +436,7 @@ async def autofix_monitor():
 async def cleanup_cache():
     """[OPT-32] Clean up legacy broken SmartCache disk entries.
 
-    TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: Task 35-A fixed SLMResponse serialization going forward
+    TĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â I SAO: Task 35-A fixed SLMResponse serialization going forward
     (_slm_response_to_dict at slm_cache_set boundary), but ~9 legacy rows
     already in `smart_cache_disk` table store the broken string repr
     (`"SLMResponse(question='...', ...)"`) instead of a proper JSON dict.
@@ -460,12 +460,12 @@ async def cleanup_cache():
 async def v105_toggle_tier3_auto(enabled: str):
     """[V4.3] Toggle Tier-3 auto-approve at RUNTIME Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â no restart needed.
 
-    User cĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¥p quyĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Ân qua API thay vÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¬ .env:
+    User cĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¥p quyĂ„â€Ă‚Â¡-Ă‚Â»-Ă‚Ân qua API thay v-Ă¢â‚¬Â-Ă‚Â¬ .env:
       POST /v105/autofix/tier3-auto/1  Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ enable auto-approve
       POST /v105/autofix/tier3-auto/0  Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ disable auto-approve
 
-    Safety guards vĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â«n active (1h timeout, 5/hour limit, etc.)
-    Audit log ghi lĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i: who toggled, when, from what source.
+    Safety guards vĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â«n active (1h timeout, 5/hour limit, etc.)
+    Audit log ghi lĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¡i: who toggled, when, from what source.
     """
     import os as _os
     old_val = _os.environ.get("SCP_AUTO_APPROVE_TIER3", "0")
@@ -523,7 +523,7 @@ async def v105_toggle_tier3_auto(enabled: str):
 async def v105_autofix_rollback(rollback_token: str):
     """[SCP-DNA-FIX R7-13] Revert a specific Tier-3 auto-approved fix by token.
 
-    TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: R5/R6 audit log had no rollback_token Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â operators had to manually
+    TĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â I SAO: R5/R6 audit log had no rollback_token Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â operators had to manually
     grep .tier3bak files + figure out which backup matched which fix. R7-13
     extended the audit schema (see _auto_approve_tier3 in engine.py) to write
     a UUID `rollback_token` per auto-approve. This endpoint accepts that token,
@@ -531,9 +531,9 @@ async def v105_autofix_rollback(rollback_token: str):
     by restoring from the .tier3bak backup (if present + hash matches).
 
     Reality test (R7-13 T2/T3/T4):
-      T2 rollback endpoint present Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (this route)
-      T3 rollback reverts file to before_hash Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (hash-verify before restore)
-      T4 rollback logged separately Ă„â€Ă‚Â¢Ä‚â€¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (append action="rollback" to audit log)
+      T2 rollback endpoint present Ă„â€Ă‚Â¢-¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (this route)
+      T3 rollback reverts file to before_hash Ă„â€Ă‚Â¢-¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (hash-verify before restore)
+      T4 rollback logged separately Ă„â€Ă‚Â¢-¦Ă¢â‚¬Å“│Ă¢â€Â¬Ă…â€œ (append action="rollback" to audit log)
 
     Returns:
       {"status": "ok", "file": <path>, "restored_hash": <sha256>}
@@ -569,13 +569,13 @@ async def v105_autofix_rollback(rollback_token: str):
     if not file_path_str or not before_hash:
         raise HTTPException(409, "Audit entry lacks file/before_hash (pre-R7-13 entry?)")
     file_path = _Path(file_path_str)
-    # [SCP-DNA-FIX R8-5] TĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â I SAO: R7-13 dÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¹ng single .tier3bak per file Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢
-    # backup CLOBBERED bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€¦Ă‚Â¸i later fix trÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Âªn cÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¹ng file Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ rollback cĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â§a fix CĂ„â€Ă¢â‚¬Â¦Ä‚â€Ă‚Â¨
-    # fails vĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă‚Âºi misleading 409 "Backup hash mismatch (tampered?)" Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â backup
-    # khÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă‚Â¹ tamper, bĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă‚Â¹ ghi Ă„â€Ă¢â‚¬Â│Ă¢â€Â¬Ă‹Å“Ä‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â¨. Fix: per-token backup `.tier3bak.{token}`
-    # (engine.py R8-5). Endpoint derive bak_path tĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»Ä‚â€Ă‚Â« rollback_token. NĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¿u
-    # per-token backup khÄ‚â€Ă¢â‚¬ÂÄ‚â€Ă‚Â´ng tĂ„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă…â€œn tĂ„â€Ă‚Â¡Ä‚â€Ă‚ÂºÄ‚â€Ă‚Â¡i, fall back legacy single .tier3bak
-    # (back-compat pre-R8-5 entries) trĂ„â€Ă¢â‚¬Â Ä‚â€Ă‚Â°Ă„â€Ă‚Â¡Ä‚â€Ă‚Â»│Ă¢â€Â¬Ă‚Âºc khi error.
+    # [SCP-DNA-FIX R8-5] TĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â I SAO: R7-13 d-Ă¢â‚¬Â-Ă‚Â¹ng single .tier3bak per file Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢
+    # backup CLOBBERED bĂ„â€Ă‚Â¡-Ă‚Â»-¦Ă‚Â¸i later fix tr-Ă¢â‚¬Â-Ă‚Âªn c-Ă¢â‚¬Â-Ă‚Â¹ng file Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ rollback cĂ„â€Ă‚Â¡-Ă‚Â»-Ă‚Â§a fix CĂ„â€Ă¢â‚¬Â¦-Ă‚Â¨
+    # fails vĂ„â€Ă‚Â¡-Ă‚Â»│Ă¢â€Â¬Ă‚Âºi misleading 409 "Backup hash mismatch (tampered?)" Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â backup
+    # kh-Ă¢â‚¬Â-Ă‚Â´ng bĂ„â€Ă‚Â¡-Ă‚Â»│Ă¢â€Â¬Ă‚Â¹ tamper, bĂ„â€Ă‚Â¡-Ă‚Â»│Ă¢â€Â¬Ă‚Â¹ ghi Ă„â€Ă¢â‚¬Â│Ă¢â€Â¬Ă‹Å“-Ă¢â‚¬Â-Ă‚Â¨. Fix: per-token backup `.tier3bak.{token}`
+    # (engine.py R8-5). Endpoint derive bak_path tĂ„â€Ă‚Â¡-Ă‚Â»-Ă‚Â« rollback_token. NĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¿u
+    # per-token backup kh-Ă¢â‚¬Â-Ă‚Â´ng tĂ„â€Ă‚Â¡-Ă‚Â»│Ă¢â€Â¬Ă…â€œn tĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¡i, fall back legacy single .tier3bak
+    # (back-compat pre-R8-5 entries) trĂ„â€Ă¢â‚¬Â -Ă‚Â°Ă„â€Ă‚Â¡-Ă‚Â»│Ă¢â€Â¬Ă‚Âºc khi error.
     bak_path_token = file_path.with_suffix(
         file_path.suffix + f".tier3bak.{rollback_token}"
     )

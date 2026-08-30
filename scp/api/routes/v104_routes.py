@@ -245,7 +245,7 @@ async def v104_fact_check(text: str, question: str = "", _admin: bool = Depends(
 @router.post("/v104/learn/ollama")
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_ollama")
 async def v104_learn_ollama(count: int = 10, _admin: bool = Depends(verify_admin)):
-    """V104.1 FIX: Trigger Ollama learning loop │Ă¢â€Â¬Ă¢â‚¬Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c."""
+    """V104.1 FIX: Trigger Ollama learning loop │Ă¢â€Â¬Ă¢â‚¬Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 l-Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c."""
     results = await _shared._real_learning.ollama_learning_cycle(count=count)
     return results
 
@@ -284,10 +284,10 @@ async def v104_learn_status():
 @router.get("/v104/learn/matrix", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 @traced_request(_V104_ROUTES_LEDGER, require_write=False, action="v104_learn_matrix")
 async def v104_learn_matrix():
-    """V104.1 NEW: TrÄ‚Â¡Ă‚ÂºĂ‚Â£ vÄ‚Â¡Ă‚Â»Ă‚Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c = 70 combinations.
+    """V104.1 NEW: TrÄ‚Â¡Ă‚ÂºĂ‚Â£ vÄ‚Â¡Ă‚Â»Ă‚Â ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n 14 quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia Ă„â€Ă¢â‚¬â€ 5 l-Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c = 70 combinations.
 
     MÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i cell = sÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœ cĂ„â€Ă‚Â¢u hÄ‚Â¡Ă‚Â»Ă‚Âi cĂ„â€Ă‚Â³ thÄ‚Â¡Ă‚Â»Ă†â€™ sinh ra cho (country, domain).
-    TÄ‚Â¡Ă‚Â»Ă¢â‚¬Â¢ng = 14 Ă„â€Ă¢â‚¬â€ 5 = 70 cells (Ä‚â€Ă¢â‚¬Ëœa lÄ‚â€Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c + toĂ„â€Ă‚Â n quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia).
+    TÄ‚Â¡Ă‚Â»Ă¢â‚¬Â¢ng = 14 Ă„â€Ă¢â‚¬â€ 5 = 70 cells (-Ă¢â‚¬Ëœa l-Ă‚Â©nh vÄ‚Â¡Ă‚Â»Ă‚Â±c + toĂ„â€Ă‚Â n quÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc gia).
     """
     from scp.core.real_learning_engine import (
         COUNTRIES,
@@ -322,9 +322,9 @@ async def v104_learn_matrix():
 @router.post("/v104/learn/ollama-matrix")
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="v104_learn_ollama_matrix")
 async def v104_learn_ollama_matrix(_admin: bool = Depends(verify_admin)):
-    """V104.1 NEW: Run full matrix coverage (70 questions = 1 vĂ„â€Ă‚Â²ng ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â§y Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă‚Â§).
+    """V104.1 NEW: Run full matrix coverage (70 questions = 1 vĂ„â€Ă‚Â²ng ma trÄ‚Â¡Ă‚ÂºĂ‚Â­n -Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â§y -Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă‚Â§).
 
-    MÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i (country, domain) Ä‚â€Ă¢â‚¬ËœÄ‚â€ Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â£c hÄ‚Â¡Ă‚Â»Ă‚Âi 1 lÄ‚Â¡Ă‚ÂºĂ‚Â§n → Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â£m bÄ‚Â¡Ă‚ÂºĂ‚Â£o coverage 14 Ă„â€Ă¢â‚¬â€ 5 = 70.
+    MÄ‚Â¡Ă‚Â»Ă¢â‚¬â€i (country, domain) -Ă¢â‚¬Ëœ- Ă‚Â°Ä‚Â¡Ă‚Â»Ă‚Â£c hÄ‚Â¡Ă‚Â»Ă‚Âi 1 lÄ‚Â¡Ă‚ÂºĂ‚Â§n → -Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â£m bÄ‚Â¡Ă‚ÂºĂ‚Â£o coverage 14 Ă„â€Ă¢â‚¬â€ 5 = 70.
     """
     results = await _shared._real_learning.ollama_learning_cycle(count=70)
     return results
@@ -339,7 +339,7 @@ async def v104_learn_ollama_matrix(_admin: bool = Depends(verify_admin)):
 async def v1042_learn_fast(count: int = 50, _admin: bool = Depends(verify_admin)):
     """V104.2 NEW: Fast learning cycle │Ă¢â€Â¬Ă¢â‚¬Â parallel 10 concurrent Ollama + 5 Wiki.
 
-    Default count=50. Skip cĂ„â€Ă‚Â¢u Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â£ cĂ„â€Ă‚Â³ trong KB. Sinh cĂ„â€Ă‚Â¢u hÄ‚Â¡Ă‚Â»Ă‚Âi Level-2 compounding.
+    Default count=50. Skip cĂ„â€Ă‚Â¢u -Ă¢â‚¬ËœĂ„â€Ă‚Â£ cĂ„â€Ă‚Â³ trong KB. Sinh cĂ„â€Ă‚Â¢u hÄ‚Â¡Ă‚Â»Ă‚Âi Level-2 compounding.
     Adaptive interval 1-30 min tĂ„â€Ă‚Â¹y throughput.
     Returns: asked, skipped_known, verified, stored, compounding_L2, time_ms, adaptive_mode.
     """

@@ -74,11 +74,6 @@ def _guard(request: Request, token: str | None) -> None:
     if configured and token and hmac.compare_digest(token, configured):
         return
 
-    # Fallback: local-only mode (không qua proxy, không qua Caddy)
-    host = request.client.host if request.client else ""
-    local_only = os.environ.get("SCP_AGENT_LOCAL_ONLY", "1") == "1"
-    if local_only and host in {"127.0.0.1", "::1", "localhost"} and not request.headers.get("X-Forwarded-For"):
-        return
 
     raise HTTPException(status_code=403, detail="SCP Agent requires internal token or valid controller token")
 

@@ -352,35 +352,6 @@ class OpenRouterProvider:
 _PLACEHOLDER_KEYS = {"", "changeme", "your-key", "your_api_key", "placeholder", "xxx", "sk-xxx", "none"}
 
 
-class GroqProvider(OpenRouterProvider):
-    """Groq (OpenAI-compatible) — fallback tích hợp. Kế thừa breaker +
-    fast-fail + retry logic; key/model/base_url đọc từ GROQ_* env."""
-    PROVIDER_NAME = "groq"
-    _API_KEYS: list[str] = []
-    _key_cycle = None
-
-    @classmethod
-    def _init_keys(cls) -> None:
-        if cls._API_KEYS:
-            return
-        key = os.environ.get("GROQ_API_KEY", "").strip()
-        if key and key.lower() not in _PLACEHOLDER_KEYS:
-            cls._API_KEYS = [key]
-            cls._key_cycle = itertools.cycle(cls._API_KEYS)
-
-    def __init__(self, task: str = "default"):
-        self.task = task
-        self.model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-        self.free_fallback = self.model  # single-model provider: breaker lo phần retry
-        self.base_url = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
-        self._breaker = CircuitBreaker(
-            failure_threshold=int(os.environ.get("SCP_LLM_BREAKER_THRESHOLD", "3")),
-            cooldown_seconds=float(os.environ.get("SCP_LLM_BREAKER_COOLDOWN_SEC", "300")),
-        )
-        self._client: httpx.AsyncClient | None = None
-        self._client_lock = asyncio.Lock()
-
-
 class EnvCompatProvider(OpenRouterProvider):
     """Provider OpenAI-compatible khai báo qua env (instance-keyed)."""
 
@@ -459,10 +430,6 @@ class LLMGateway:
         # Backward-compat aliases — old code used `gateway.openrouter`.
         self.openrouter = self.openrouter_default
         self.openrouter_fast_learning = getattr(self, "openrouter_fast_learning", None) or self.openrouter_fast
-        # Tier 2 — Groq (fallback tích hợp, GROQ_* env).
-        for task in tasks:
-            setattr(self, f"groq_{task}", GroqProvider(task=task))
-        self.groq_default = GroqProvider(task="default")
         # Tier 3 — provider OpenAI-compatible khai báo qua env (không sửa code).
         self._extra_providers: dict[str, list[EnvCompatProvider]] = {t: [] for t in tasks + ("default",)}
         self._parse_extra_providers()
@@ -470,7 +437,6 @@ class LLMGateway:
         self._stats = {
             "total_calls": 0,
             "openrouter_calls": 0,
-            "groq_calls": 0,
             "extra_calls": 0,
             "failover_count": 0,
             "failures": 0,
@@ -502,17 +468,9 @@ class LLMGateway:
             "judge":         getattr(self, "openrouter_judge"),
             "chat":          getattr(self, "openrouter_chat"),
         }.get(task, self.openrouter_default)
-        groq = {
-            "autofix":       getattr(self, "groq_autofix"),
-            "why":           getattr(self, "groq_why"),
-            "learning":      getattr(self, "groq_learning"),
-            "fast_learning": getattr(self, "groq_fast_learning"),
-            "judge":         getattr(self, "groq_judge"),
-            "chat":          getattr(self, "groq_chat"),
-        }.get(task, self.groq_default)
         from scp.core.budget_engine import order_tiers
 
-        chain = [openrouter, *self._extra_providers.get(task, []), groq]
+        chain = [openrouter, *self._extra_providers.get(task, [])]
         if os.environ.get("SCP_BUDGET_ROUTING", "0") == "1":
             tiers = order_tiers(text, task)
             for provider in chain:
@@ -645,9 +603,6 @@ class LLMGateway:
             "openrouter_learning": self.openrouter_learning.stats(),
             "openrouter_fast_learning": self.openrouter_fast_learning.stats(),
             "openrouter_judge":    self.openrouter_judge.stats(),
-            "groq_default":        self.groq_default.stats(),
-            "groq_judge":          self.groq_judge.stats(),
-            "groq_chat":           self.groq_chat.stats(),
             "extra_providers": extras,
         }
 

@@ -291,7 +291,7 @@ except ImportError as e:
     _V1042_AVAILABLE = False
 
 # [V104.47 RESTORE] V104.3 StartupOptimizer + V104.4 DataPartitioner
-# TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: 2 file nĂ„â€Ă‚Â y cĂ„â€Ă‚Â³ trong V104.4 nhÄ‚â€ Ă‚Â°ng mÄ‚Â¡Ă‚ÂºĂ‚Â¥t Ä‚Â¡Ă‚Â»Ă…Â¸ V104.19 baseline.
+# TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: 2 file nĂ„â€Ă‚Â y cĂ„â€Ă‚Â³ trong V104.4 nh- Ă‚Â°ng mÄ‚Â¡Ă‚ÂºĂ‚Â¥t Ä‚Â¡Ă‚Â»Ă…Â¸ V104.19 baseline.
 # KhĂ„â€Ă‚Â´i phÄ‚Â¡Ă‚Â»Ă‚Â¥c tÄ‚Â¡Ă‚Â»Ă‚Â« V104.4 gÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc.
 try:
     from scp.core.startup_optimizer import (  # noqa: F401 (availability check)
@@ -426,7 +426,7 @@ async def lifespan(app: FastAPI):
     os.environ["SCP_EVOLUTION_AUTO"] = "0"
 
     # ============================================================
-    # [STARTUP-GATE] Pre-startup deep audit │Ă¢â€Â¬Ă¢â‚¬Â chÄ‚Â¡Ă‚ÂºĂ‚Â¡y TRÄ‚â€ Ă‚Â¯Ä‚Â¡Ă‚Â»Ă‚ÂC khi server start
+    # [STARTUP-GATE] Pre-startup deep audit │Ă¢â€Â¬Ă¢â‚¬Â chÄ‚Â¡Ă‚ÂºĂ‚Â¡y TR- Ă‚Â¯Ä‚Â¡Ă‚Â»Ă‚ÂC khi server start
     # [SCP-DNA-FIX R12-29] Use FAST ast_scan_scp (3s) thay vĂ„â€Ă‚Â¬ pre_startup_audit (SLOW │Ă¢â€Â¬Ă¢â‚¬Â LLM).
     # [STARTUP-GATE] Pre-startup deep audit — chạy TRƯỚC khi server start
     # [SCP-DNA-FIX R12-29] Use FAST ast_scan_scp (3s) thay vì pre_startup_audit (SLOW — LLM).
@@ -458,7 +458,7 @@ async def lifespan(app: FastAPI):
             logger.warning(f"[STARTUP-GATE] Background scan failed (non-blocking): {e}")
     _startup_gate_task = asyncio.create_task(_startup_gate_background())
     # ============================================================
-    # Server start (chỉ Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â¿n Ä‚â€Ă¢â‚¬ËœĂ„â€Ă‚Â¢y nếu audit PASS)
+    # Server start (chỉ -Ă¢â‚¬ËœÄ‚Â¡Ă‚ÂºĂ‚Â¿n -Ă¢â‚¬ËœĂ„â€Ă‚Â¢y nếu audit PASS)
     # ============================================================
     # [R20-ROOT-FIX-REAL] get_judge() moved to BACKGROUND │Ă¢â€Â¬Ă¢â‚¬Â port binds NOW!
     #
@@ -760,7 +760,7 @@ async def lifespan(app: FastAPI):
     app.state.readiness_reason = "server_shutting_down"
 
     # ============================================================
-    # [OPT-14 / GĂ„â€Ă‚Â  Ä‚â€Ă‚Â§8] External trust root verification │Ă¢â€Â¬Ă¢â‚¬Â at startup,
+    # [OPT-14 / GĂ„â€Ă‚Â  -Ă‚Â§8] External trust root verification │Ă¢â€Â¬Ă¢â‚¬Â at startup,
     # verify that the 3 external anchors (independent audit tests, CI/CD
     # pipeline, human-approved constitution) are intact. SCP cannot
     # self-verify; it needs these external anchors. If any are missing or
@@ -772,17 +772,17 @@ async def lifespan(app: FastAPI):
         _et = get_external_trust_root(".")
         _et_result = _et.verify_external()
         if _et_result["passed"]:
-            logger.info("[GĂ„â€Ă‚Â  Ä‚â€Ă‚Â§8] External trust roots verified │Ă…â€œĂ¢â‚¬Â¦ "
+            logger.info("[GĂ„â€Ă‚Â  -Ă‚Â§8] External trust roots verified │Ă…â€œĂ¢â‚¬Â¦ "
                         "(audit tests + CI/CD + constitution)")
         else:
             logger.warning(
-                f"[GĂ„â€Ă‚Â  Ä‚â€Ă‚Â§8] External trust BROKEN │Ă¢â€Â¬Ă¢â‚¬Â missing: "
+                f"[GĂ„â€Ă‚Â  -Ă‚Â§8] External trust BROKEN │Ă¢â€Â¬Ă¢â‚¬Â missing: "
                 f"{_et_result['missing']}, constitution_approved: "
                 f"{_et_result['constitution_approved']}. "
                 f"Server will start but external anchors are not intact."
             )
     except Exception as _et_err:
-        logger.warning(f"[GĂ„â€Ă‚Â  Ä‚â€Ă‚Â§8] External trust verification failed: {_et_err}")
+        logger.warning(f"[GĂ„â€Ă‚Â  -Ă‚Â§8] External trust verification failed: {_et_err}")
 
     # [SCP-DNA-FIX R12-28] Restore WHY LLM + Evolution AUTO │Ă¢â€Â¬Ă¢â‚¬Â server about to serve.
     os.environ["SCP_WHY_LLM_ENABLED"] = _orig_why_llm
@@ -862,8 +862,8 @@ app.add_middleware(
 #        victim's bearer token (it is not auto-attached like a cookie).
 #   → Bearer-token auth = inherent CSRF protection. OWASP CSWSH + SOP
 #     confirm: APIs that do NOT use cookies for auth are not vulnerable
-#     to classical CSRF. (See OWASP CSRF Prevention Cheat Sheet Ä‚â€Ă‚Â§"Use
-#     Standard Headers to Verify Origin" + Ä‚â€Ă‚Â§"Use Synchronizer Token".)
+#     to classical CSRF. (See OWASP CSRF Prevention Cheat Sheet -Ă‚Â§"Use
+#     Standard Headers to Verify Origin" + -Ă‚Â§"Use Synchronizer Token".)
 #   This is logged at startup for audit visibility.
 #
 # HTTPS:
@@ -1171,9 +1171,9 @@ async def _ask_impl(req: AskRequest, request: Request):
         )
 
     # [CHATBOT-FIX] NÄ‚Â¡Ă‚ÂºĂ‚Â¿u user khĂ„â€Ă‚Â´ng cung cÄ‚Â¡Ă‚ÂºĂ‚Â¥p ai_answer → gÄ‚Â¡Ă‚Â»Ă‚Âi Ollama sinh cĂ„â€Ă‚Â¢u trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi
-    # TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: SCP thiÄ‚Â¡Ă‚ÂºĂ‚Â¿t kÄ‚Â¡Ă‚ÂºĂ‚Â¿ Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă†â€™ verify AI answer, nhÄ‚â€ Ă‚Â°ng chat UI chỉ gÄ‚Â¡Ă‚Â»Ă‚Â­i question (khĂ„â€Ă‚Â´ng ai_answer)
+    # TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: SCP thiÄ‚Â¡Ă‚ÂºĂ‚Â¿t kÄ‚Â¡Ă‚ÂºĂ‚Â¿ -Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă†â€™ verify AI answer, nh- Ă‚Â°ng chat UI chỉ gÄ‚Â¡Ă‚Â»Ă‚Â­i question (khĂ„â€Ă‚Â´ng ai_answer)
     # → SLM khĂ„â€Ă‚Â´ng cĂ„â€Ă‚Â³ gĂ„â€Ă‚Â¬ verify → UNKNOWN/KILL
-    # Fix: GÄ‚Â¡Ă‚Â»Ă‚Âi Ollama local (llama3.2) sinh cĂ„â€Ă‚Â¢u trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi nhÄ‚â€ Ă‚Â° chatbot, rÄ‚Â¡Ă‚Â»Ă¢â‚¬Å“i SCP verify
+    # Fix: GÄ‚Â¡Ă‚Â»Ă‚Âi Ollama local (llama3.2) sinh cĂ„â€Ă‚Â¢u trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi nh- Ă‚Â° chatbot, rÄ‚Â¡Ă‚Â»Ă¢â‚¬Å“i SCP verify
     # [ROOT-FIX 44-A] task="chat" → routes to llama3.2 (fastest │Ă¢â€Â¬Ă¢â‚¬Â 3B model, low latency
     # for chat UI responsiveness).
     # [SCP-DNA-FIX 4-a-016] TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: previously `if req is not None: _ai_answer = req.ai_answer

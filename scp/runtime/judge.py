@@ -27,6 +27,47 @@ class RealityJudge:
         self.judged_count = 0
         self.fail_count = 0
 
+
+    @property
+    def domain_experts(self):
+        if not hasattr(self, '_experts'):
+            self._experts = {}
+            import importlib
+            import inspect
+            import os
+            from scp.runtime.slm_base import BaseSLM
+            experts_dir = os.path.join(os.path.dirname(__file__), 'experts')
+            for filename in os.listdir(experts_dir):
+                if filename.endswith('.py') and filename != '__init__.py':
+                    module_name = f'scp.runtime.experts.{filename[:-3]}'
+                    try:
+                        module = importlib.import_module(module_name)
+                        for name, obj in inspect.getmembers(module, inspect.isclass):
+                            if issubclass(obj, BaseSLM) and obj != BaseSLM:
+                                try:
+                                    instance = obj()
+                                    self._experts[instance.domain] = instance
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+        return self._experts
+    @property
+    def falsification(self): return None
+    @property
+    def error_store(self): return None
+    @property
+    def governance(self): return None
+    @property
+    def counter_response(self): return None
+    @property
+    def canary_monitor(self): return None
+    @property
+    def attack_memory(self): return None
+    @property
+    def domain_knowledge_store(self): return None
+    @property
+    def h8_redteam(self): return None
     def judge(self, question: str, ai_answer: str = "", cycle_count: int = 0, context: str = "", **kwargs) -> dict[str, Any]:
         """Synchronous judge interface."""
         from scp.core.postcondition_schema import PostconditionSchema
@@ -53,6 +94,24 @@ class RealityJudge:
         # 3. TIER-2 semantic cascade — chỉ chạy khi Tier-1 sạch.
         #    [MẢNH 5+43] Cross-vendor verification: 2 provider khác nhau đánh giá
         #    độc lập → giảm xác suất ảo giác đồng thuận (DNA #5).
+        slm_responses_list = []
+        # 2.5. TIER-1.5: Dynamic API Expert Injection
+        try:
+            from scp.data_sources.domain_classifier import classify_top1
+            domain = classify_top1(question)
+            expert = self.domain_experts.get(domain)
+            if expert:
+                # call the expert's predict
+                resp = expert.predict(question)
+                if getattr(resp, 'answer', None):
+                    context += f"
+
+[SYSTEM EXPERT DATA] For {domain}: {resp.answer}"
+                    # convert SLMResponse to dict so DotDict doesn't choke or api_server can process it
+                    slm_responses_list.append(resp.__dict__)
+        except Exception as e:
+            import logging
+            logging.getLogger("scp.judge").debug(f"Expert injection failed: {e}")
         elif is_structurally_pass and ai_answer:
             import os as _os
             if _os.environ.get("SCP_MULTI_LLM_CROSSCHECK", "1") == "1":
@@ -86,6 +145,7 @@ class RealityJudge:
                 "cycle_count": cycle_count,
                 "failures": failures + ["semantic_judge_unavailable"],
                 "final_answer": ai_answer,
+            "slm_responses": slm_responses_list,
                 "evidence": {
                     "governance_decision": "ESCALATE",
                 },
@@ -93,11 +153,15 @@ class RealityJudge:
 
         return {
             "verdict": "PASS" if is_pass else "FAIL",
-            "confidence": 1.0 if is_pass else 0.0,
+            "confidence": 0.85 if is_pass else 0.0,
+            "deterministic_confidence": 1.0 if is_structurally_pass else 0.0,
+            "semantic_confidence": 0.85 if is_pass else 0.0,
+            "cross_model_agreement": not escalated,
             "reasoning": "Delegated to IndependentVerifier and LLM Semantic Judge",
             "cycle_count": cycle_count,
             "failures": failures,
             "final_answer": ai_answer,
+            "slm_responses": slm_responses_list,
             "evidence": {
                 "governance_decision": "UPHOLD" if is_pass else "KILL"
             }
@@ -112,8 +176,8 @@ class RealityJudge:
     def get_stats(self) -> dict:
         return {"total_judged": self.judged_count, "total_failed": self.fail_count}
 
-    def analyze_session_rogue(self, *args, **kwargs) -> dict:
-        return {"rogue_score": 0.0}
+    def analyze_session_rogue(self, *args, **kwargs) -> dict | None:
+        return None
 
     # Stubs for legacy interfaces so we don't break import sites
     async def run_threat_simulation(self, *args, **kwargs): pass

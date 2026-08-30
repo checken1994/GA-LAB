@@ -46,7 +46,7 @@ def test_controller_xff_guard_rejects_external_ips(monkeypatch, route_import_pat
     }
     req_local = Request(scope_local)
     
-    result = guard_fn(req_local, None)
+    result = guard_fn(req_local, "test_token")
     assert result is None
 
 

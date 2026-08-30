@@ -34,7 +34,6 @@ def cross_verify(
     """
     from scp.runtime.judge_llm import _parse_verdict
     from scp.llm_gateway import get_gateway
-    from scp.llm_gateway.client import GroqProvider
 
     gateway = get_gateway()
     prompt = (
@@ -44,47 +43,13 @@ def cross_verify(
     )
     system = "You are a factual judge. You MUST output exactly the word PASS or FAIL and nothing else."
 
-    # Xác định secondary provider: Groq (khác vendor) nếu có key, không thì autofix
-    GroqProvider._init_keys()
-    tasks = [("primary", "judge")]
-    if GroqProvider.enabled:
-        tasks.append(("secondary", "groq_judge"))
-    else:
-        tasks.append(("secondary", "autofix"))
+    tasks = [("primary", "judge"), ("secondary", "autofix")]
+
 
     results: dict[str, dict[str, Any]] = {}
     for role, task in tasks:  # ← FOR-LOOP ĐÃ BỊ XÓA — giờ thêm lại
         try:
-            if task == "groq_judge":
-                # Fix for asyncio.run in event loop
-                import asyncio as _aio
-                gp = GroqProvider(task="judge")
-                coro = gp.chat(prompt, system_prompt=system)
-                try:
-                    try:
-                        _aio.get_running_loop()
-                        _in_async = True
-                    except RuntimeError:
-                        _in_async = False
-                    
-                    if _in_async:
-                        import concurrent.futures
-                        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-                        future = pool.submit(_aio.run, coro)
-                        try:
-                            content, provider = future.result(timeout=60)
-                        finally:
-                            pool.shutdown(wait=False, cancel_futures=True)
-                    else:
-                        content, provider = _aio.run(_aio.wait_for(coro, timeout=60))
-                except Exception as exc:
-                    try:
-                        coro.close()
-                    except Exception:
-                        pass
-                    raise exc
-            else:
-                content, provider = gateway.chat_sync(prompt, system_prompt=system, task=task)
+            content, provider = gateway.chat_sync(prompt, system_prompt=system, task=task)
             results[role] = {
                 "verdict": _parse_verdict(content),
                 "provider": provider,
@@ -97,6 +62,7 @@ def cross_verify(
     p_provider = results.get("primary", {}).get("provider", "?")
     s_provider = results.get("secondary", {}).get("provider", "?")
 
+
     if p is not None and s is not None:
         if p == s:
             consensus = "agree"
@@ -104,14 +70,8 @@ def cross_verify(
         else:
             consensus = "disagree"
             final = None  # escalate
-    elif p is not None:
-        consensus = "single_source"
-        final = p
-    elif s is not None:
-        consensus = "single_source"
-        final = s
     else:
-        consensus = "unavailable"
+        consensus = "missing_distinct_providers"
         final = None
 
     logger.info("[MULTI-LLM] primary(%s)=%s secondary(%s)=%s consensus=%s final=%s",

@@ -21,13 +21,11 @@ class AIOrchestrator:
         "chatgpt": "https://chatgpt.com/",
         "claude": "https://claude.ai/",
         "gemini": "https://gemini.google.com/",
-        "grok": "https://grok.com/",
     }
     AI_HOSTS = {
         "chatgpt": ("chatgpt.com", "chat.openai.com"),
         "claude": ("claude.ai",),
         "gemini": ("gemini.google.com",),
-        "grok": ("grok.com", "x.com"),
     }
 
     def __init__(self, browser: BrowserSession | None = None) -> None:

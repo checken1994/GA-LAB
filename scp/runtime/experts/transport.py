@@ -1,0 +1,35 @@
+from typing import Optional, Any
+from scp.runtime.slm_base import BaseSLM as Base
+from scp.data_sources import TransportDataSource
+import logging
+
+logger = logging.getLogger("scp.experts.transport")
+
+class Transport(Base):
+    """Domain Expert for Transport using TransportDataSource."""
+
+    def __init__(self, config: Optional[dict] = None):
+        super().__init__(name="Transport", domain="transport", config=config)
+        self._ds = None
+        try:
+            self._ds = TransportDataSource()
+        except Exception as e:
+            logger.debug(f"Transport TransportDataSource init failed: {e}")
+
+    def predict(self, question: str) -> Any:
+        start = self._start_timer()
+        answer = ""
+        evidence = {}
+        
+        if self._ds and getattr(self._ds, "enabled", True):
+            try:
+                result = self._ds.query(question)
+                if result and result.get("value"):
+                    answer = f"{result['value']} (source: TransportDataSource)"
+                    evidence = {"datasource": "Transport", "raw": result}
+            except Exception as e:
+                logger.debug(f"Transport query error: {e}")
+
+        resp = self._build_response(answer, 0.85 if answer else 0.1, "DataSource hit" if answer else "No hit", evidence)
+        self._end_timer(start, bool(answer))
+        return resp

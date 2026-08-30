@@ -128,7 +128,7 @@ async def v103_force_crawl(_admin: bool = Depends(verify_admin)):
 @router.get("/v103/status", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 @traced_request(_V102_V103_ROUTES_LEDGER, require_write=False, action="v103_status")
 async def v103_status():
-    """V103 NEW: Status cÄ‚Â¡Ă‚Â»Ă‚Â§a AttackCrawler + ThreatSimulator tÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc Ä‚â€Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă¢â€Â¢."""
+    """V103 NEW: Status cÄ‚Â¡Ă‚Â»Ă‚Â§a AttackCrawler + ThreatSimulator tÄ‚Â¡Ă‚Â»Ă¢â‚¬Ëœc -Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă¢â€Â¢."""
     return {
         "attack_crawler_stats": _shared._attack_crawler.stats() if _shared._attack_crawler else None,
         "threat_simulator_interval": os.environ.get("SCP_THREAT_SIMULATOR_INTERVAL", "10"),

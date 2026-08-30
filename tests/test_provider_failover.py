@@ -48,31 +48,12 @@ def _keyed(monkeypatch, provider):
     monkeypatch.setattr(target, "_key_cycle", itertools.cycle(["test-key"]), raising=False)
 
 
-def test_failover_from_rate_limited_openrouter_to_groq(monkeypatch):
-    from scp.llm_gateway.client import GroqProvider, LLMGateway, OpenRouterProvider
-
-    gateway = LLMGateway()
-    _keyed(monkeypatch, OpenRouterProvider)
-    _keyed(monkeypatch, GroqProvider)
-
-    # OpenRouter: PAID + free-fallback + auto-router đều 429 (rate limit)
-    gateway.openrouter_chat._client = FakeClient([FakeResponse(429)])
-    # Groq: trả lời bình thường
-    gateway.groq_chat._client = FakeClient([FakeResponse(200, "answered by groq")])
-
-    answer, provider_label = asyncio.run(gateway.chat("q", task="chat"))
-    assert answer == "answered by groq"
-    assert provider_label.startswith("groq:")
-    # brand-neutral rotation: OpenRouter bị 429 phải được đếm là đã thử/hỏng
-    assert gateway._stats.get("openrouter_calls", 0) >= 0
-
 
 def test_breaker_open_skips_dead_provider_without_network_call(monkeypatch):
-    from scp.llm_gateway.client import GroqProvider, LLMGateway, OpenRouterProvider
+    from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
     gateway = LLMGateway()
     _keyed(monkeypatch, OpenRouterProvider)
-    _keyed(monkeypatch, GroqProvider)
 
     dead = FakeClient([])
     gateway.openrouter_chat._client = dead
@@ -80,14 +61,13 @@ def test_breaker_open_skips_dead_provider_without_network_call(monkeypatch):
         gateway.openrouter_chat._breaker.record_failure()
     assert gateway.openrouter_chat._breaker.is_open() is True
 
-    gateway.groq_chat._client = FakeClient([FakeResponse(200, "groq answers")])
     answer, label = asyncio.run(gateway.chat("q", task="chat"))
-    assert answer == "groq answers"
+    assert answer is None
     assert dead.calls == 0  # breaker OPEN → KHÔNG đốt một request nào vào provider chết
 
 
 def test_env_extra_provider_sits_in_chain(monkeypatch):
-    from scp.llm_gateway.client import GroqProvider, LLMGateway, OpenRouterProvider
+    from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
     monkeypatch.setenv("SCP_LLM_FALLBACK_PROVIDERS", "deepseek:DEEPSEEK_API_KEY:DEEPSEEK_BASE_URL:DEEPSEEK_MODEL")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "ds-key-123456")
@@ -96,15 +76,13 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
 
     gateway = LLMGateway()
     _keyed(monkeypatch, OpenRouterProvider)
-    _keyed(monkeypatch, GroqProvider)
 
     chain = gateway._provider_chain("chat")
     names = [p.PROVIDER_NAME for p in chain]
-    assert names == ["openrouter", "deepseek", "groq"]
+    assert names == ["openrouter", "deepseek"]
 
     # Cả OpenRouter lẫn Groq chết → deepseek cứu
     gateway.openrouter_chat._client = FakeClient([FakeResponse(429)])
-    gateway.groq_chat._client = FakeClient([FakeResponse(500)])
     gateway._extra_providers["chat"][0]._client = FakeClient([FakeResponse(200, "deepseek answers")])
 
     answer, label = asyncio.run(gateway.chat("q", task="chat"))
@@ -113,27 +91,16 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
 
 
 def test_all_providers_down_fails_closed(monkeypatch):
-    from scp.llm_gateway.client import GroqProvider, LLMGateway, OpenRouterProvider
+    from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
     gateway = LLMGateway()
     _keyed(monkeypatch, OpenRouterProvider)
-    _keyed(monkeypatch, GroqProvider)
     gateway.openrouter_chat._client = FakeClient([FakeResponse(429)])
-    gateway.groq_chat._client = FakeClient([ConnectionError("dead")])
 
     answer, label = asyncio.run(gateway.chat("q", task="chat"))
     assert answer is None and label == "none"
     assert gateway._stats["failures"] == 1
 
-
-def test_groq_disabled_without_key(monkeypatch):
-    from scp.llm_gateway.client import GroqProvider
-
-    monkeypatch.delenv("GROQ_API_KEY", raising=False)
-    GroqProvider._API_KEYS = []  # reset class state
-    GroqProvider._key_cycle = None
-    provider = GroqProvider(task="chat")
-    assert provider.enabled is False
 
 
 def test_env_compat_placeholder_key_is_disabled(monkeypatch):

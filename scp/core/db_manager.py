@@ -288,30 +288,7 @@ def db_query_one(sql: str, params=(), db_path: Optional[str] = None) -> Optional
     r = conn.execute(sql, params).fetchone()
     return dict(r) if r else None
 
-def _cap_table(table_name: str, max_rows: int, evict_count: int):
-    """Archive + delete old rows."""
-    try:
-        count_row = db_query_one(f'SELECT COUNT(*) as cnt FROM "{table_name}"')  # nosec B608 — input validated by SCP whitelist  # noqa: S608
-        if count_row and count_row['cnt'] > max_rows:
-            try:
-                old_rows = db_query_all(f'SELECT * FROM "{table_name}" ORDER BY timestamp ASC LIMIT {evict_count}')  # nosec B608 — input validated by SCP whitelist  # noqa: S608
-            except Exception:
-                old_rows = db_query_all(f'SELECT * FROM "{table_name}" ORDER BY rowid ASC LIMIT {evict_count}')  # nosec B608 — input validated by SCP whitelist  # noqa: S608
-            if not old_rows: return
 
-            archive_dir = os.path.join(DATA_DIR, "archive")
-            os.makedirs(archive_dir, exist_ok=True)
-            archive_path = os.path.join(archive_dir, f"{table_name}_{datetime.now().strftime('%Y-%m-%d')}.jsonl.gz")
-            with gzip.open(archive_path, "at", encoding="utf-8") as f:
-                for row in old_rows:
-                    f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
-
-            try:
-                db_exec(f'DELETE FROM "{table_name}" WHERE rowid IN (SELECT rowid FROM "{table_name}" ORDER BY timestamp ASC LIMIT {evict_count})')  # nosec B608 — input validated by SCP whitelist  # noqa: S608
-            except Exception:
-                db_exec(f'DELETE FROM "{table_name}" WHERE rowid IN (SELECT rowid FROM "{table_name}" ORDER BY rowid ASC LIMIT {evict_count})')  # nosec B608 — input validated by SCP whitelist  # noqa: S608
-    except Exception as e:
-        logger.debug(f"[V104.37] core/db_manager.py: e={e}")
 
 def checkpoint_wal():
     try:

@@ -60,7 +60,7 @@ defusedxml==0.7.1
 # redis==5.2.0
 #
 # JWT auth (REQUIRED — jwt_guard.py:1 dùng `import jwt` trực tiếp trong production).
-pyjwt==2.10.1
+pyjwt>=2.13.0
 #
 # File uploads (chưa có endpoint /upload — để commented).
 # python-multipart==0.0.20

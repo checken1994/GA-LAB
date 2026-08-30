@@ -51,7 +51,7 @@ targets = ["."]
 # Pytest config (Task 7-B)
 # ============================================================
 [tool.pytest.ini_options]
-minversion = "9.0"
+
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

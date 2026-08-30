@@ -14,7 +14,7 @@ from .web_navigator import WebNavigator
 
 class MultiSourceOrchestrator:
     DEFAULT_PROVIDERS = ["local_llm", "chatgpt", "claude", "gemini"]
-    BROWSER_PROVIDERS = {"chatgpt", "claude", "gemini", "grok"}
+    BROWSER_PROVIDERS = {"chatgpt", "claude", "gemini"}
 
     def __init__(self, ai: AIOrchestrator | None = None, navigator: WebNavigator | None = None) -> None:
         self.navigator = navigator or WebNavigator()

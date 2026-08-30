@@ -135,6 +135,8 @@ class WhyGate:
         r"lower.*threshold|raise.*confidence|looser|relax",  # loosening
         r"allow.*attack|whitelist|bypass.*security",  # security bypass
         r"ignore.*error|suppress.*warning|silent.*fail",  # error suppression
+        # Vietnamese equivalents
+        r"tắt.*strict|nới lỏng.*bảo mật|bỏ qua.*kiểm tra|giảm.*rate|tắt.*rate|tắt.*bảo vệ",
     ]
 
     # [SCP-DNA-FIX 4-b-017] Bug descriptions that contain these keywords
