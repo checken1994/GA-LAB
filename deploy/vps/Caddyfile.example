@@ -1,6 +1,6 @@
 # Replace example.com with a domain controlled by the operator.
 # Caddy obtains and renews a public TLS certificate for a real domain.
-# Do not expose SCP directly on :8002.
+# Do not expose SCP directly on :8000.
 
 example.com {
     encode gzip
@@ -16,7 +16,7 @@ example.com {
         -Server
     }
 
-    reverse_proxy 127.0.0.1:8002 {
+    reverse_proxy 127.0.0.1:8000 {
         header_up X-Forwarded-Proto {scheme}
         header_up X-Forwarded-For {remote_host}
         header_up X-Real-IP {remote_host}

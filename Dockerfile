@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     SCP_HOST=0.0.0.0 \
-    SCP_PORT=8002 \
+    SCP_PORT=8000 \
     SCP_DATA_DIR=/var/lib/scp/data
 
 WORKDIR /app
@@ -28,11 +28,11 @@ RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin scp \
     && chown -R scp:scp /app
 
 USER scp
-EXPOSE 8002
+EXPOSE 8000
 
 # Liveness is deliberately separate from readiness: /health can be 200 while
 # startup dependencies are still initializing; /ready is the promotion gate.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=3)"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
 
 ENTRYPOINT ["python", "-m", "scp"]

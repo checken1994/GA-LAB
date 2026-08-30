@@ -10,7 +10,7 @@ services:
     image: scp-api:local
     environment:
       SCP_HOST: 0.0.0.0
-      SCP_PORT: 8002
+      SCP_PORT: 8000
       SCP_MODE: isolated
       # Local candidate default. Set to 1 only with a real secret supplied
       # outside git and an external TLS gateway.
@@ -25,7 +25,7 @@ services:
     ports:
       # Loopback-only host exposure; put a separately configured TLS gateway in
       # front if external access is ever required.
-      - "127.0.0.1:8002:8002"
+      - "127.0.0.1:8000:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -47,7 +47,7 @@ services:
     working_dir: /workspace/mini-services/loop-scheduler
     command: ["bun", "index.ts"]
     environment:
-      SCP_BASE_URL: http://scp-api:8002
+      SCP_BASE_URL: http://scp-api:8000
       LLM_BRIDGE_URL: ${LLM_BRIDGE_URL:-http://host.docker.internal:11434}
       LOOP_SCHEDULER_PORT: 3030
       LOOP_INTERVAL_SEC: ${LOOP_INTERVAL_SEC:-300}
