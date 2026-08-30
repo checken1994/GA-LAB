@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import Depends, APIRouter, Header, HTTPException, Request
+from scp.api._shared import verify_admin
 from pydantic import BaseModel, Field
 
 from scp.web_control.ai_orchestrator import AIOrchestrator
@@ -56,7 +57,7 @@ class CrossVerifyRequest(BaseModel):
 def _guard(request: Request, token: str | None) -> None:
     # This first version is local-only. Remote access requires an explicit token.
     if request.headers.get("X-Forwarded-For"):
-        return False  # proxied = not local
+        pass  # proxied = not local, fall through to token check
     host = request.client.host if request.client else ""
     if host in {"127.0.0.1", "::1", "localhost"}:
         return
@@ -67,28 +68,28 @@ def _guard(request: Request, token: str | None) -> None:
         raise HTTPException(status_code=403, detail="Web control is local-only or token is invalid")
 
 
-@router.get("/web/status")
+@router.get("/web/status", dependencies=[Depends(verify_admin)])
 @traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=False, action="web_status")
 async def web_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return {"navigator": await _navigator.status(), "orchestrator": await _orchestrator.status()}
 
 
-@router.post("/web/search")
+@router.post("/web/search", dependencies=[Depends(verify_admin)])
 @traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=False, action="search_web")
 async def search_web(request_payload: SearchRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _navigator.search_public(request_payload.query, request_payload.maxResults)
 
 
-@router.post("/web/browse")
+@router.post("/web/browse", dependencies=[Depends(verify_admin)])
 @traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=True, action="browse")
 async def browse(request_payload: BrowseRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return await _navigator.browse(request_payload.url, request_payload.useLoggedInBrowser)
 
 
-@router.post("/ai/ask-resilient")
+@router.post("/ai/ask-resilient", dependencies=[Depends(verify_admin)])
 @traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=True, action="ask_resilient")
 async def ask_resilient(request_payload: ResilientAskRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
@@ -103,7 +104,7 @@ async def ask_resilient(request_payload: ResilientAskRequest, request: Request, 
     )
 
 
-@router.post("/ai/ask")
+@router.post("/ai/ask", dependencies=[Depends(verify_admin)])
 @traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=True, action="ask_ai")
 async def ask_ai(request_payload: AskAIRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
@@ -112,7 +113,7 @@ async def ask_ai(request_payload: AskAIRequest, request: Request, x_scp_pc_token
     return await _orchestrator.ask_ai(request_payload.ai, request_payload.question, request_payload.approved, request_payload.useBrowser, request_payload.allowApiFallback)
 
 
-@router.post("/ai/cross-verify")
+@router.post("/ai/cross-verify", dependencies=[Depends(verify_admin)])
 @traced_request(_WEB_CONTROL_ROUTES_LEDGER, require_write=False, action="cross_verify")
 async def cross_verify(request_payload: CrossVerifyRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)

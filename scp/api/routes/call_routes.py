@@ -4,7 +4,8 @@ import hmac
 import os
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request, WebSocket
+from fastapi import Depends, APIRouter, Header, HTTPException, Request, WebSocket
+from scp.api._shared import verify_admin
 
 from scp.core.call_session_hub import CallSessionHub
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/v3/call", tags=["v3-call"])
 
 def _guard(request: Request, token: str | None, authorization: str | None = None) -> None:
     if request.headers.get("X-Forwarded-For"):
-        return False  # proxied = not local
+        pass  # proxied = not local, fall through to token check
     host = request.client.host if request.client else ""
     if os.environ.get("SCP_AGENT_LOCAL_ONLY", "1") == "1" and host in {"127.0.0.1", "::1", "localhost"}:
         return
@@ -27,7 +28,7 @@ def _guard(request: Request, token: str | None, authorization: str | None = None
         raise HTTPException(status_code=403, detail="SCP call is local-only or token is invalid")
 
 
-@router.post("/sessions")
+@router.post("/sessions", dependencies=[Depends(verify_admin)])
 @traced_request(_LEDGER, require_write=True, action="call_session_create")
 async def create_call_session(request: Request, x_scp_pc_token: str | None = Header(default=None), authorization: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token, authorization)
@@ -40,7 +41,7 @@ async def create_call_session(request: Request, x_scp_pc_token: str | None = Hea
     return {"success": True, **data}
 
 
-@router.get("/status")
+@router.get("/status", dependencies=[Depends(verify_admin)])
 @traced_request(_LEDGER, require_write=False, action="call_session_status")
 async def call_status(request: Request, x_scp_pc_token: str | None = Header(default=None), authorization: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token, authorization)

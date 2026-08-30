@@ -366,6 +366,9 @@ try {
     }
 
     function Start-ExternalOllamaIfNeeded {
+        # [DNA #6] API-First Orchestration: Do not depend on Local LLMs.
+        Write-Ledger -Event 'OLLAMA_DEPENDENCY_CHECK_SKIPPED' -Service 'ollama' -Reason 'api_first_orchestration_bypasses_local_llm'
+        return $true
         if ($DryRun -or (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))) { return $true }
         $ollama = Get-Command 'ollama.exe' -ErrorAction SilentlyContinue
         if ($null -eq $ollama) { $ollama = Get-Command 'ollama' -ErrorAction SilentlyContinue }

@@ -56,10 +56,30 @@ def cross_verify(
     for role, task in tasks:  # ← FOR-LOOP ĐÃ BỊ XÓA — giờ thêm lại
         try:
             if task == "groq_judge":
-                # Groq: dùng provider riêng (khác vendor OpenRouter)
+                # Fix for asyncio.run in event loop
                 import asyncio as _aio
                 gp = GroqProvider(task="judge")
-                content, provider = _aio.run(gp.chat(prompt, system_prompt=system))
+                coro = gp.chat(prompt, system_prompt=system)
+                try:
+                    try:
+                        _aio.get_running_loop()
+                        _in_async = True
+                    except RuntimeError:
+                        _in_async = False
+                    
+                    if _in_async:
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                            future = pool.submit(_aio.run, coro)
+                            content, provider = future.result(timeout=60)
+                    else:
+                        content, provider = _aio.run(coro)
+                except Exception as exc:
+                    try:
+                        coro.close()
+                    except:
+                        pass
+                    raise exc
             else:
                 content, provider = gateway.chat_sync(prompt, system_prompt=system, task=task)
             results[role] = {
