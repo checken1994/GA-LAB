@@ -467,7 +467,7 @@ class HandsPlanner:
                 had_failure = True
                 continue
             definition = self.executor.registry.require(step["action"])
-            requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0)))
+            requested_capability = min(int(capability_level), int(step.get("capabilityLevel", capability_level)))
             request_approved = bool(approved or step.get("approved", False))
             if requested_capability < definition.capability_level or (definition.requires_approval and not request_approved):
                 step["state"] = "WAITING_APPROVAL"
@@ -563,7 +563,7 @@ class HandsPlanner:
     async def _run_dag_step(self, plan: dict[str, Any], step: dict[str, Any], capability_level: int, approved: bool, dry_run: bool) -> dict[str, Any]:
         """Execute one ready DAG node with the same evidence/approval contract."""
         definition = self.executor.registry.require(step["action"])
-        requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0)))
+        requested_capability = min(int(capability_level), int(step.get("capabilityLevel", capability_level)))
         request_approved = bool(approved or step.get("approved", False))
         if requested_capability < definition.capability_level or (definition.requires_approval and not request_approved):
             step["state"] = "WAITING_APPROVAL"
@@ -714,7 +714,7 @@ class HandsPlanner:
                         pending.remove(step_id)
                         continue
                     definition = self.executor.registry.require(step["action"])
-                    requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0)))
+                    requested_capability = min(int(capability_level), int(step.get("capabilityLevel", capability_level)))
                     request_approved = bool(approved or step.get("approved", False))
                     if requested_capability < definition.capability_level or (definition.requires_approval and not request_approved):
                         step["state"] = "WAITING_APPROVAL"

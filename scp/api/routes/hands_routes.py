@@ -212,6 +212,9 @@ async def planner_get(plan_id: str, request: Request, x_scp_pc_token: str | None
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_create")
 async def planner_create(payload: PlannerCreateRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
+    for step in payload.steps:
+        if step.get("approved"):
+            step["approved"] = False
     try:
         plan = _planner.create_plan(payload.goal, payload.steps, payload.metadata)
         return {"success": True, "version": "3.7", "plan": plan}
