@@ -146,7 +146,7 @@ class PCController:
         }
 
     def evaluate(self, command: str, capability_level: int, approved: bool = False) -> PolicyDecision:
-        command = command.strip()
+        command = command.strip().replace("\n", " ").replace("\r", "")
         if not command:
             return PolicyDecision(False, "Empty command", "low", False, capability_level)
         if self.kill_switch_engaged():

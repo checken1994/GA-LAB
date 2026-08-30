@@ -1040,7 +1040,7 @@ async def ask(req: AskRequest, request: Request, current_user: str = Depends(get
 
 
 async def _ask_impl(req: AskRequest, request: Request):
-    """Main endpoint │Ă¢â€Â¬Ă¢â‚¬Â question → V98 pipeline → verdict.
+    """Main endpoint │Ă¢â€šÂ¬Ă¢â‚¬Â  question → V98 pipeline → verdict.
 
     Pipeline:
       1.  MemoryPoisoningGuard + AttackPatternMemory + ThreatDetector
@@ -1073,7 +1073,7 @@ async def _ask_impl(req: AskRequest, request: Request):
     # [V5.9-WIRE] Wire orphaned 77,000 LOC cognitive/security stack
     try:
         from scp.api.cognitive_router import run_pre_judge_hooks
-        v98_context = run_pre_judge_hooks(req.question, v98_context)
+        v98_context = await run_pre_judge_hooks(req.question, v98_context)
     except Exception as e:
         logger.warning(f"Cognitive router failed: {e}")
 

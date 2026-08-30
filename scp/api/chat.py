@@ -97,12 +97,28 @@ _conversation_mgr = ConversationManager()
 @router.websocket("/chat")
 async def scp_chat(websocket: WebSocket):
     """
-    WebSocket endpoint Ă¢â‚¬â€ chat real-time vĂ¡Â»â€ºi SCP.
+    WebSocket endpoint Ă¢â‚¬â€  chat real-time vĂ¡Â»â€ºi SCP.
 
     User gĂ¡Â»Â­i: {"message": "What is 2+2?"}
     SCP trĂ¡ÂºÂ£: {"answer": "4", "verdict": "PASS", "confidence": 0.99, "reasoning": "..."}
     """
     await websocket.accept()
+
+    try:
+        from scp.security.auth_config import load_auth_config
+        cfg = load_auth_config()
+        # Fallback to session_id as token if token query param isn't set, for backward compat in dev UI
+        client_token = websocket.query_params.get("token") or websocket.query_params.get("session_id", "")
+        # Remove Bearer prefix if any
+        if client_token.startswith("Bearer "):
+            client_token = client_token[7:]
+        
+        if cfg.configured and client_token != cfg.token and client_token != cfg.password:
+            await websocket.close(code=1008)
+            return
+    except Exception:
+        await websocket.close(code=1011)
+        return
 
     requested_session = str(websocket.query_params.get("session_id", "")).strip()
     session_id = requested_session if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", requested_session or "") else str(uuid.uuid4())[:8]

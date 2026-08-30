@@ -282,8 +282,8 @@ class HandsPlanner:
             "stepId": step_id,
             "action": action,
             "params": params,
-            "capabilityLevel": max(0, min(int(raw.get("capabilityLevel", definition.capability_level)), 5)),
-            "approved": bool(raw.get("approved", False)),
+            "capabilityLevel": definition.capability_level,
+            "approved": False,
             "dryRun": bool(raw.get("dryRun", False)),
             "dependsOn": depends_on,
             "precondition": precondition,
@@ -466,8 +466,8 @@ class HandsPlanner:
                 had_failure = True
                 continue
             definition = self.executor.registry.require(step["action"])
-            requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0)))
-            request_approved = bool(approved or step.get("approved", False))
+            requested_capability = int(capability_level)
+            request_approved = bool(approved)
             if requested_capability < definition.capability_level or (definition.requires_approval and not request_approved):
                 step["state"] = "WAITING_APPROVAL"
                 step["error"] = "Explicit approval or higher capability is required"

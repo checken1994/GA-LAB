@@ -69,7 +69,7 @@ class RealityJudge:
                 semantic = _llm_judge(question, ai_answer, context)
             if semantic is None:
                 escalated = True
-            elif semantic:
+            elif semantic == "PASS" or semantic is True:
                 is_pass = True
             else:
                 failures.append("semantic_judge_fail")
