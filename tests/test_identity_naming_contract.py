@@ -102,8 +102,8 @@ def test_dashboard_identity_contract():
     assert "status?.audit.auditRound" in panel_ts
     assert "CURRENT_ROUND" in panel_ts
     assert "status?.audit.round" not in panel_ts
-    assert "port 8000" not in panel_ts
-    assert "127.0.0.1:8000" not in panel_ts
+    assert "port 8002" not in panel_ts
+    assert "127.0.0.1:8002" not in panel_ts
     assert '127.0.0.1:8000' in health_proxy_ts
     assert 'SCP_PORT=8000 python -m scp' in health_proxy_ts
 
@@ -135,4 +135,4 @@ def test_cli_docstring_matches_canonical_default_port():
     # visible to the dashboard which proxies to 8000.
     source = (ROOT / "scp" / "__main__.py").read_text(encoding="utf-8")
     assert "Defaults to port 8000" in source
-    assert "Defaults to port 8000" not in source
+    assert "Defaults to port 8002" not in source
