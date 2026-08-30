@@ -162,7 +162,7 @@ class WhyGate:
     # (startswith("fix:") — case-sensitive, with colon, at line start), NOT a
     # bare substring match.
     _BUG_DESCRIPTION_WHITELIST = [
-        "barexceptpass", "bare except", "swallows errors silently",
+        "bareexceptpass", "barexceptpass", "bare except", "swallows errors silently",
         "silent failure", "silent error", "broad except",
         "add logger", "add logging",
     ]
@@ -254,10 +254,10 @@ class WhyGate:
             timestamp=now,
         )
 
-        # [V10.0-KB-EVOLVE] WHY lookup KB — "Đã gặp pattern này chưa?"
-        # TẠI SAO: Nếu KB có lesson cho bug_type này, WHY confidence tăng
-        # → fix nhanh hơn (verified pattern), chính xác hơn
-        if decision == WhyDecision.ALLOW and action_type == "autofix":
+        # [V10.0-KB-EVOLVE] WHY lookup KB & Warehouse enrichment
+        # TẠI SAO: Nếu KB có lesson hoặc warehouse có ref cho bug_type này,
+        # WHY enrich necessity_reason và tăng confidence
+        if (decision == WhyDecision.ALLOW or necessity_ok) and action_type == "autofix":
             try:
                 from scp.meta.kb_evolve import get_kb_store
                 _kb = get_kb_store()
