@@ -1044,7 +1044,8 @@ class TaskKernel:
         dest = Path(backup_dir)
         dest.mkdir(parents=True, exist_ok=True)
         # time_ns suffix: nhiều backup trong cùng 1 giây không ghi đè nhau
-        stamp = f"{_time.strftime('%Y%m%d-%H%M%S')}-{_time.time_ns() % 10**9:09d}"
+        import uuid
+        stamp = f"{_time.strftime('%Y%m%d-%H%M%S')}-{_time.time_ns() % 10**9:09d}-{uuid.uuid4().hex[:6]}"
         target = dest / f"kernel-backup-{stamp}.sqlite3"
         dst_conn = sqlite3.connect(str(target))
         try:
