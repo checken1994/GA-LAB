@@ -16,15 +16,15 @@ router = APIRouter(prefix="/v3/call", tags=["v3-call"])
 
 
 def _guard(request: Request, token: str | None, authorization: str | None = None) -> None:
-    if request.headers.get("X-Forwarded-For"):
-        pass  # proxied = not local, fall through to token check
     host = request.client.host if request.client else ""
-    if os.environ.get("SCP_AGENT_LOCAL_ONLY", "1") == "1" and host in {"127.0.0.1", "::1", "localhost"}:
+    is_local = host in {"127.0.0.1", "::1", "localhost"}
+    if is_local and os.environ.get("SCP_AGENT_LOCAL_ONLY", "1") == "1" and not request.headers.get("X-Forwarded-For"):
         return
     configured = os.environ.get("SCP_PC_CONTROLLER_TOKEN", "")
     bearer = authorization.removeprefix("Bearer ").strip() if authorization else ""
     supplied = token or bearer
-    if not configured or not supplied or not hmac.compare_digest(supplied, configured):
+    if not configured or not supplied or not __import__("hmac").compare_digest(supplied, configured):
+        from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="SCP call is local-only or token is invalid")
 
 

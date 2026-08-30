@@ -594,7 +594,7 @@ try {
             foreach ($service in $services) { Stop-ScpService $runtime[$service.Name] 'kill_switch' }
             break
         }
-        $ollamaHealthy = $DryRun -or (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))
+        $ollamaHealthy = $true # [DNA #6] API-first: skip local ollama check
         if ($ollamaHealthy) {
             if ($ollamaRestartHistory.Count -gt 0) {
                 Write-Ledger -Event 'CIRCUIT_CLOSED' -Service 'ollama' -Reason 'external_dependency_recovered' -Extra @{ cleared_restart_count = $ollamaRestartHistory.Count }

@@ -208,7 +208,9 @@ class ProcessIsolationEnvironment:
         preexec = None
         if not self.is_windows:
             import platform as _plat
-            if _plat.system() == "Linux" and shutil.which("bwrap"):
+            if _plat.system() == "Linux":
+                if not shutil.which("bwrap"):
+                    raise RuntimeError("CRITICAL [DNA #27]: bwrap is missing on Linux. Fail-closed to prevent unisolated execution.")
                 return subprocess.run(
                     build_bwrap_argv(cmd), cwd=cwd, capture_output=True, text=True,
                     timeout=15, env=safe_env,

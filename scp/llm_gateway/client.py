@@ -173,7 +173,10 @@ class OpenRouterProvider:
     def __init__(self, task: str = "default"):
         self.task = task
         # PRIMARY: PAID model (user's OPENROUTER_MODEL) — used FIRST for ALL tasks.
-        self.model = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-0731")
+        if task == "judge":
+            self.model = os.environ.get("OPENROUTER_MODEL_JUDGE_PRIMARY", "anthropic/claude-3-5-sonnet")
+        else:
+            self.model = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-0731")
         # FREE fallback for this task (used if PAID fails with 429/402/quota)
         self.free_fallback = os.environ.get(
             f"OPENROUTER_MODEL_{task.upper()}",

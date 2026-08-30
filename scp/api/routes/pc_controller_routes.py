@@ -5,10 +5,11 @@ import hmac
 import os
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from scp.pc_control.pc_controller import PCController
+from scp.api._shared import verify_admin
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
 

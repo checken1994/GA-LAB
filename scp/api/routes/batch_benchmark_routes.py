@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import Depends, APIRouter, Header, HTTPException, Request
+from scp.api._shared import verify_admin
 from pydantic import BaseModel, Field
 
 from .hands_routes import _guard
