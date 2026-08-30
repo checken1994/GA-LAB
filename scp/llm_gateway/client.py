@@ -44,23 +44,39 @@ SYNC_CALL_TIMEOUT_SECONDS = 90
 # fallback chains, model rotation, or auto-discovery).
 # ============================================================
 OPENROUTER_FREE_MODELS: list[str] = [
-    "nvidia/nemotron-3-ultra-550b-a55b:free",            # 550B, 1M ctx — strongest
-    "nvidia/nemotron-3-super-120b-a12b:free",            # 120B, 262K ctx — balanced
-    "google/gemma-4-31b-it:free",                        # 31B, 262K ctx — factual, multimodal
-    "google/gemma-4-26b-a4b-it:free",                    # 26B, 262K ctx — multimodal
-    "nvidia/nemotron-3-nano-30b-a3b:free",               # 30B, 256K ctx — mid-tier
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", # 30B, 256K ctx — audio+image+video
-    "cohere/north-mini-code:free",                       # 256K ctx — code-focused
-    "inclusionai/ling-3.0-tiny:free",                    # 262K ctx — multilingual
-    "poolside/laguna-s-2.1:free",                        # 262K ctx — code
-    "poolside/laguna-xs-2.1:free",                       # 262K ctx — code (smaller)
-    "openrouter/free",                                   # 200K ctx — auto-router (picks any free)
-    "openai/gpt-oss-20b:free",                           # 20B, 131K ctx — fast
-    "nvidia/nemotron-3.5-content-safety:free",           # 128K ctx — content moderation
-    "nvidia/nemotron-nano-12b-v2-vl:free",               # 12B, 128K ctx — image+video
-    "nvidia/nemotron-nano-9b-v2:free",                   # 9B, 128K ctx — fastest
-    "google/lyria-3-pro-preview",                        # 1M ctx — image generation
-    "google/lyria-3-clip-preview",                       # 1M ctx — image generation
+    # ---- 2026+ SCP Added Models ----
+    "deepseek/deepseek-r1:free",                         # DeepSeek R1 reasoning
+    "deepseek/deepseek-chat:free",                       # DeepSeek V3 chat
+    "google/gemini-2.5-pro:free",                        # Gemini 2.5 Pro (if free)
+    "google/gemini-2.5-flash:free",                      # Gemini 2.5 Flash
+    "meta-llama/llama-3.3-70b-instruct:free",            # Llama 3.3 70B
+    "meta-llama/llama-3.1-8b-instruct:free",             # Llama 3.1 8B
+    "meta-llama/llama-3.2-3b-instruct:free",             # Llama 3.2 3B
+    "qwen/qwen-2.5-72b-instruct:free",                   # Qwen 2.5 72B
+    "qwen/qwen-2.5-coder-32b-instruct:free",             # Qwen 2.5 Coder
+    "mistralai/mistral-nemo:free",                       # Mistral Nemo
+    "microsoft/phi-3-mini-128k-instruct:free",           # Phi 3 Mini
+    "google/gemma-2-27b-it:free",                        # Gemma 2 27B
+    "anthropic/claude-3.5-sonnet:free",                  # Claude 3.5 Sonnet (if rotated to free)
+    
+    # ---- Existing SCP Models ----
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "cohere/north-mini-code:free",
+    "inclusionai/ling-3.0-tiny:free",
+    "poolside/laguna-s-2.1:free",
+    "poolside/laguna-xs-2.1:free",
+    "openrouter/free",
+    "openai/gpt-oss-20b:free",
+    "nvidia/nemotron-3.5-content-safety:free",
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+    "google/lyria-3-pro-preview",
+    "google/lyria-3-clip-preview",
 ]
 
 
@@ -133,13 +149,15 @@ class OpenRouterProvider:
     # Task → FREE fallback model. Used ONLY when PAID model fails.
     # All defaults are FREE (cost $0), verified on 2026-08-06.
     TASK_FREE_FALLBACK_MAP: dict[str, str] = {
-        "autofix":       "nvidia/nemotron-3-ultra-550b-a55b:free",
-        "why":           "google/gemma-4-31b-it:free",
-        "learning":      "google/gemma-4-31b-it:free",
-        "fast_learning": "nvidia/nemotron-3-nano-30b-a3b:free",
-        "judge":         "nvidia/nemotron-3-super-120b-a12b:free",
-        "chat":          "openai/gpt-oss-20b:free",
-        "default":       "openai/gpt-oss-20b:free",
+        "autofix":       "deepseek/deepseek-r1:free",
+        "why":           "deepseek/deepseek-chat:free",
+        "learning":      "qwen/qwen-2.5-72b-instruct:free",
+        "fast_learning": "meta-llama/llama-3.3-70b-instruct:free",
+        "chat":          "google/gemini-2.5-flash:free",
+        "vision":        "google/gemini-2.5-flash:free",
+        "coding":        "qwen/qwen-2.5-coder-32b-instruct:free",
+        "fact_check":    "deepseek/deepseek-r1:free",
+        "default":       "openrouter/free",
     }
 
     # Class-level: 3 API keys + round-robin iterator (shared across all instances)
