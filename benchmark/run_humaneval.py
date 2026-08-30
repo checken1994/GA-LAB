@@ -95,7 +95,7 @@ async def run_humaneval(file_path: str):
 
     print(f"--- GENERATION COMPLETE. SAMPLES SAVED TO {samples_file} ---")
     
-    print("--- RUNNING EVALPLUS SANDBOX ---")
+    print("--- RUNNING EVALPLUS EVALUATION ---")
     try:
         cmd = [
             sys.executable, "-m", "evalplus.evaluate", 
@@ -112,7 +112,7 @@ async def run_humaneval(file_path: str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python run_humaneval_sandbox.py <path_to_humaneval.jsonl>")
+        print("Usage: python run_humaneval.py <path_to_humaneval.jsonl>")
         sys.exit(1)
         
     file_target = sys.argv[1]

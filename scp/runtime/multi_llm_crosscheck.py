@@ -76,7 +76,7 @@ def cross_verify(
                         finally:
                             pool.shutdown(wait=False, cancel_futures=True)
                     else:
-                        content, provider = _aio.run(coro)
+                        content, provider = _aio.run(_aio.wait_for(coro, timeout=60))
                 except Exception as exc:
                     try:
                         coro.close()
