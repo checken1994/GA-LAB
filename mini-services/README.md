@@ -2,7 +2,7 @@
 
 Bun-based sidecar services that extend SCP Python with capabilities that
 don't belong in the FastAPI process (long-running LLM calls, cron loops,
-stateful bridges). They run alongside SCP (port 8002) and the Next.js
+stateful bridges). They run alongside SCP (port 8000) and the Next.js
 dashboard (port 3000) and talk to each other over `127.0.0.1`.
 
 ## Services
@@ -25,7 +25,7 @@ bun run dev
 
 # Terminal 3 — SCP
 cd "$SCP_ROOT"
-python3 -m scp 8002
+python3 -m scp 8000
 
 # Terminal 4 — Next.js dashboard
 cd "$SCP_ROOT/dashboard"
@@ -41,14 +41,14 @@ If a Caddy gateway is deployed, its config should target the canonical
 loopback backend. The repository does not ship a Caddyfile. A gateway may
 route traffic based on the `?XTransformPort=<n>` query parameter:
 
-- `?XTransformPort=8002` → SCP Python (port 8002)
+- `?XTransformPort=8000` → SCP Python (port 8000)
 - `?XTransformPort=3030` → loop-scheduler (port 3030)
 - `?XTransformPort=11434` → llm-bridge (port 11434)
 - (no param) → Next.js dashboard (port 3000)
 
 This follows the orchestrator rule: **"DO NOT write port in the api
 request url, only XTransformPort"**. No backend port is exposed publicly; internal calls use loopback `127.0.0.1`
-and the SCP backend is `:8002`.
+and the SCP backend is `:8000`.
 
 ```bash
 # Reach the loop scheduler through the gateway:

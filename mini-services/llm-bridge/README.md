@@ -70,10 +70,10 @@ points at `127.0.0.1:11434`:
 cd $SCP_ROOT/mini-services/llm-bridge && bun run dev
 
 # Terminal 2: SCP
-cd $SCP_ROOT && python3 -m scp 8002
+cd $SCP_ROOT && python3 -m scp 8000
 
 # Test
-curl -s -X POST http://127.0.0.1:8002/ask \
+curl -s -X POST http://127.0.0.1:8000/ask \
   -H 'Content-Type: application/json' \
   -d '{"question":"What is the capital of France?"}' | jq .
 ```

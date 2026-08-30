@@ -304,7 +304,7 @@ async def test_webnavigator_revalidates_private_redirect_before_second_request(m
     from scp.web_control import web_navigator
 
     public_url = "https://public.example.test/start"
-    private_url = "http://127.0.0.1:8002/internal"
+    private_url = "http://127.0.0.1:8000/internal"
     requested_urls: list[str] = []
 
     def fake_validate(url: str) -> str:

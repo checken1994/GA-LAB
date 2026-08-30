@@ -17,7 +17,7 @@ Kết quả chất lượng hiện tại vẫn **BLOCKED đối với mục tiê
 | Candidate artifact sau dedup/retry | `phase3_candidate_enrichment_full_v2.jsonl` |
 | Artifact cuối sau sanitizer | `phase3_candidate_enrichment_full_v2_sanitized.jsonl` |
 | SHA-256 artifact sanitized | `f367f61854cd49ee3e878450b276783be67cd6954e1b4bf97948f47c4b216747` |
-| Runtime được phép dùng | Isolated test 8002, PID 29364 |
+| Runtime được phép dùng | Isolated test 8000, PID 29364 |
 | Runtime bị bảo vệ | Production 8000 PID 25212; test 8001 PID 14184 |
 | Commit backend đã quan sát | `4e47add244edadfc1eb53baa4f75ebf239a75e82` |
 | Rollback | Xóa/đổi tên v2 artifacts và dùng lại artifact gốc; không sửa production source |
@@ -31,7 +31,7 @@ Kết quả chất lượng hiện tại vẫn **BLOCKED đối với mục tiê
 | Sanitizer | 44 dòng có reference không hợp lệ bị ép ABSTAIN; 5 invalid chunk IDs và 48 invalid quotes bị loại | `PASS_WITHIN_SCOPE` |
 | Postcondition | 1.000 rows, 1.000 unique IDs, IDs khớp discovery, policy fail-closed, 0 invalid citation/quote sau sanitizer | `PASS_WITHIN_SCOPE` |
 | Human queue | Workbook có 1.000 dòng, 33 cột, giữ 3 sheet; gold fields vẫn trống và review status vẫn `NEEDS_HUMAN_REVIEW` | `PASS_WITHIN_SCOPE` |
-| Runtime safety | Health 8000/8001/8002 đều trả lời; production và test PID không đổi trong các probe | `OBSERVED`; không phải release proof |
+| Runtime safety | Health 8000/8001/8000 đều trả lời; production và test PID không đổi trong các probe | `OBSERVED`; không phải release proof |
 
 ## Phân bố dữ liệu thực tế
 

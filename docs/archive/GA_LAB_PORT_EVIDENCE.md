@@ -24,8 +24,8 @@
 | Full pytest | 103 passed, 2 warnings, 3.48 seconds |
 | Ruff F821/E722 changed paths | PASS |
 | Ruff changed test files | PASS |
-| Runtime `/health` on 8002 | HTTP 200 |
-| Runtime golden `POST /ask` on 8002 | HTTP 200, PASS / UPHOLD / SUCCESS / OK, domain math |
+| Runtime `/health` on 8000 | HTTP 200 |
+| Runtime golden `POST /ask` on 8000 | HTTP 200, PASS / UPHOLD / SUCCESS / OK, domain math |
 | Runtime RAG context smoke | HTTP 200, UNKNOWN / ESCALATE; recorded as existing behavior, not claimed as PASS |
 | Port 8000 | No listener before, during or after smoke |
 | Cleanup | Runtime parent/children stopped; no listener remained |

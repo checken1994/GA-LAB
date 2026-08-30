@@ -11,7 +11,7 @@ SRC = ROOT / "data" / "benchmark_batches" / "cc047e32d62448678a773738abe08833" /
 SEED = ROOT / "reports" / "SCP_FULL_RUNTIME_RAG_1000_2026-08-17.jsonl"
 OUT = ROOT / "reports" / "SCP_FULL_RUNTIME_RAG_1000_RETRY_V2_2026-08-17.jsonl"
 STDOUT = ROOT / "reports" / "SCP_FULL_RUNTIME_RAG_1000_RETRY_V2_STDOUT_2026-08-17.txt"
-SCP_INTERNAL_URL = os.environ.get("SCP_INTERNAL_URL", "http://127.0.0.1:8002").rstrip("/")
+SCP_INTERNAL_URL = os.environ.get("SCP_INTERNAL_URL", "http://127.0.0.1:8000").rstrip("/")
 HEALTH_URL = SCP_INTERNAL_URL + "/health"
 ASK_URL = SCP_INTERNAL_URL + "/ask"
 

@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 const SCP_BACKEND_URL =
-  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8002"
+  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8000"
 
 // Build the static fallback once (cheaper than rebuilding per-request).
 const STATIC_FALLBACK = {

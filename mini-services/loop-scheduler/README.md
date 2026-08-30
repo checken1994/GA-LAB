@@ -8,8 +8,8 @@
 
 Every `LOOP_INTERVAL_SEC` seconds (default 300 = 5 min), this service:
 
-1. **Probes SCP liveness** — `GET http://127.0.0.1:8002/health`
-2. **Triggers a deep audit** — `POST http://127.0.0.1:8002/v105/autofix/run-audit`
+1. **Probes SCP liveness** — `GET http://127.0.0.1:8000/health`
+2. **Triggers a deep audit** — `POST http://127.0.0.1:8000/v105/autofix/run-audit`
    (which AST-scans `scp/` for bugs, auto-fixes Tier 1/2, requests
    permission for Tier 3, writes per-bug results to
    `data/deep_audit_results.jsonl`)
@@ -73,7 +73,7 @@ type hints only.
 | Env var                  | Default                                            | Meaning                                                       |
 | ------------------------ | -------------------------------------------------- | ------------------------------------------------------------- |
 | `LOOP_INTERVAL_SEC`      | `300` (5 min)                                      | Seconds between automatic runs                                |
-| `SCP_BASE_URL`           | `http://127.0.0.1:8002`                            | SCP Python base URL                                           |
+| `SCP_BASE_URL`           | `http://127.0.0.1:8000`                            | SCP Python base URL                                           |
 | `SCP_AUTH_TOKEN_SECRET`  | (none)                                             | Bearer token for SCP admin endpoints (sent as `Authorization`) |
 | `SCP_AUTH_PASSWORD`      | (none)                                             | Alt auth (used as Bearer if no token secret set)              |
 | `LOOP_SCHEDULER_PORT`    | `3030`                                             | Port to listen on                                             |
@@ -117,7 +117,7 @@ curl -s -X POST http://127.0.0.1:3030/resume
 ┌───────────────────┐   every 5 min   ┌────────────────────┐
 │  loop-scheduler   │ ──────────────▶ │   SCP /v105/       │
 │   (port 3030)     │                 │   autofix/run-audit│
-│                   │ ◀────────────── │   (port 8002)      │
+│                   │ ◀────────────── │   (port 8000)      │
 │   writes log to   │   audit result  │                    │
 │   loop_runs.jsonl │                 │   writes per-bug   │
 └───────────────────┘                 │   results to       │

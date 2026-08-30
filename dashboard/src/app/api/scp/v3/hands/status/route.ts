@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
 export async function GET() {
-  const base = process.env.SCP_API_URL || "http://127.0.0.1:8002"
+  const base = process.env.SCP_API_URL || "http://127.0.0.1:8000"
   try {
     const response = await fetch(`${base}/v3/hands/status`, {
       cache: "no-store",

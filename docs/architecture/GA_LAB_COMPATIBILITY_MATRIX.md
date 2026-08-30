@@ -15,4 +15,4 @@
 
 ## Quy tắc merge
 
-Chỉ các dòng được đánh dấu **Port tương thích** mới được sửa trong worktree. K-1 và phase façade/state giữ ở `scp-agent`; không tạo file giả để làm matrix xanh. Sau port phải chạy compile, collection, characterization/full test và runtime ở port 8002 trước khi đưa thay đổi vào GA-LAB `main`.
+Chỉ các dòng được đánh dấu **Port tương thích** mới được sửa trong worktree. K-1 và phase façade/state giữ ở `scp-agent`; không tạo file giả để làm matrix xanh. Sau port phải chạy compile, collection, characterization/full test và runtime ở port 8000 trước khi đưa thay đổi vào GA-LAB `main`.

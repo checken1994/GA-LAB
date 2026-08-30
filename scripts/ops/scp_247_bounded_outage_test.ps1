@@ -49,7 +49,7 @@ function Assert-Preflight {
     if (-not (Test-Path -LiteralPath $PythonPath)) { throw "Python runtime missing: $PythonPath" }
     if (-not (Test-Path -LiteralPath $SnapshotScript)) { throw "Snapshot utility missing: $SnapshotScript" }
     if (-not (Task-Running)) { throw 'Refusing test: SCP-247-Supervisor is not Running; possible orphan-child state' }
-    foreach ($port in 3000,3030,8002,11434) {
+    foreach ($port in 3000,3030,8000,11434) {
         if (-not (Port-Listening $port)) { throw "Refusing test: required port $port is not listening" }
     }
     if (-not (Http-Ok 'http://127.0.0.1:11434/api/tags')) { throw 'Refusing test: LLM Bridge health failed before test' }
@@ -122,7 +122,7 @@ try {
     $record.kill_switch_after = Test-Path -LiteralPath $KillSwitch
     $record.task_state_after = [string](Get-ScheduledTask -TaskName 'SCP-247-Supervisor' -ErrorAction SilentlyContinue).State
     $record.ports_after = [ordered]@{}
-    foreach ($port in 3000,3030,8002,11434) { $record.ports_after["$port"] = Port-Listening $port }
+    foreach ($port in 3000,3030,8000,11434) { $record.ports_after["$port"] = Port-Listening $port }
     $record.http_11434_after = if (Http-Ok 'http://127.0.0.1:11434/api/tags') { 200 } else { 'FAIL' }
     Atomic-WriteJson $out $record
 }

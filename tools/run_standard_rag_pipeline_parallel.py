@@ -3,7 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import requests
 ROOT=Path(os.environ.get("SCP_ROOT", Path(__file__).resolve().parents[1]));CORP=ROOT/'data'/'rag_corpus'/'v20260817'/'chunks.jsonl';BATCH=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833';OUT=ROOT/'data'/'rag_standard_pipeline_20260817.jsonl';TMP=ROOT/'data'/'rag_standard_pipeline_20260817.partial.jsonl';K=5;WORKERS=4
-SCP_INTERNAL_URL=os.environ.get("SCP_INTERNAL_URL", "http://127.0.0.1:8002").rstrip("/")
+SCP_INTERNAL_URL=os.environ.get("SCP_INTERNAL_URL", "http://127.0.0.1:8000").rstrip("/")
 
 def tok(s):return re.findall(r'[\wÀ-ỹ]{3,}',str(s).lower())
 chunks=[json.loads(x) for x in CORP.read_text(encoding='utf-8').splitlines() if x.strip()];docs=[]

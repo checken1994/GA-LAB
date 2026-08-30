@@ -42,9 +42,9 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 const SCP_BASE_URL =
-  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8002"
+  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8000"
 
-const START_HINT = "Run: SCP_PORT=8002 python -m scp (in your scp folder)"
+const START_HINT = "Run: SCP_PORT=8000 python -m scp (in your scp folder)"
 
 // SCP root: parent of dashboard/. Override via env when dashboard and backend
 // are deployed separately. Resolving from cwd avoids a machine-specific path.

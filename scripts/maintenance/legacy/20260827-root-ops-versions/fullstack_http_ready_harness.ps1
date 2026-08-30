@@ -17,10 +17,10 @@ New-Item -ItemType Directory -Force $TempScripts | Out-Null
 # Copy only the safe test env and override test topology. Secret values are never printed.
 $envLines = @([IO.File]::ReadAllLines($BaseEnv))
 $override = @{
-  "SCP_PORT" = "8002"
+  "SCP_PORT" = "8000"
   "LLM_BRIDGE_PORT" = "11435"
   "LOOP_SCHEDULER_PORT" = "3031"
-  "SCP_BASE_URL" = "http://127.0.0.1:8002"
+  "SCP_BASE_URL" = "http://127.0.0.1:8000"
   "LLM_BRIDGE_URL" = "http://127.0.0.1:11435"
   "SCP_DEV_MODE" = "0"
   "SCP_SKIP_STARTUP_GATE" = "1"
@@ -91,10 +91,10 @@ try {
   [Environment]::SetEnvironmentVariable("PYTHONUTF8", "1", "Process")
   [Environment]::SetEnvironmentVariable("PYTHONIOENCODING", "utf-8", "Process")
   Start-Service "backend" | Out-Null
-  Wait-Http "backend" "http://127.0.0.1:8002/health" 180 | Out-Null
-  $results.Add((Probe "backend_health" "GET" "http://127.0.0.1:8002/health"))
-  $results.Add((Probe "backend_detailed" "GET" "http://127.0.0.1:8002/health/detailed"))
-  $results.Add((Probe "backend_auth_negative" "POST" "http://127.0.0.1:8002/v105/autofix/run-audit"))
+  Wait-Http "backend" "http://127.0.0.1:8000/health" 180 | Out-Null
+  $results.Add((Probe "backend_health" "GET" "http://127.0.0.1:8000/health"))
+  $results.Add((Probe "backend_detailed" "GET" "http://127.0.0.1:8000/health/detailed"))
+  $results.Add((Probe "backend_auth_negative" "POST" "http://127.0.0.1:8000/v105/autofix/run-audit"))
   Start-Service "bridge" | Out-Null
   Wait-Http "bridge" "http://127.0.0.1:11435/api/tags" | Out-Null
   $results.Add((Probe "bridge_root" "GET" "http://127.0.0.1:11435/"))
@@ -115,21 +115,21 @@ try {
     bridge_explicit_env = $bridgeText.Contains("env source=$TempEnv")
     scheduler_explicit_env = $schedulerText.Contains("env source=$TempEnv")
     no_implicit_dotenv = (-not $bridgeText.Contains("loaded .env from") -and -not $schedulerText.Contains("loaded .env from"))
-    scheduler_backend_8002 = $schedulerText.Contains("scp=http://127.0.0.1:8002")
+    scheduler_backend_8000 = $schedulerText.Contains("scp=http://127.0.0.1:8000")
     dashboard_not_lan_exposed = (-not $dashboardText.Contains("192.168."))
     scheduler_initial_scp_online = $schedulerText.Contains("initial SCP liveness: online")
   }
   $external = @()
   foreach ($name in @("backend","bridge","scheduler","dashboard")) { $p = Join-Path $Evidence ($name + ".err.log"); if (Test-Path $p) { $external += @(Select-String -Path $p -Pattern 'wikipedia|case\.law|courtlistener|api\.openrouter|api\.case\.law' -CaseSensitive:$false | ForEach-Object { $_.Line }) } }
   $report = [ordered]@{ timestamp=$stamp; evidence_dir=$Evidence; results=$results; assertions=$assert; outbound_observation_count=$external.Count; outbound_observation_samples=@($external | Select-Object -First 20); teardown_ports=@{} }
-  foreach ($port in @(3000,3031,8002,11435)) { $report.teardown_ports[$port.ToString()] = $false }
+  foreach ($port in @(3000,3031,8000,11435)) { $report.teardown_ports[$port.ToString()] = $false }
   [IO.File]::WriteAllText((Join-Path $Evidence "report.json"), ($report | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
   Write-Output ("EVIDENCE=" + $Evidence)
   Write-Output ("ASSERTIONS=" + (($assert.GetEnumerator() | ForEach-Object { $_.Key + ":" + $_.Value }) -join ","))
   Write-Output ("OUTBOUND_OBSERVATIONS=" + $external.Count)
 } catch {`r`n  [IO.File]::WriteAllText((Join-Path $Evidence "harness-error.txt"), ($_ | Out-String), [Text.UTF8Encoding]::new($false))`r`n  throw`r`n} finally {
   foreach ($p in $procs.Values) { if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue } }
-  foreach ($port in @(3000,3031,8002,11435)) { Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }
+  foreach ($port in @(3000,3031,8000,11435)) { Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }
   Start-Sleep -Seconds 2
-  foreach ($port in @(3000,3031,8002,11435)) { $free = -not [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue); Write-Output ("PORT_" + $port + "_FREE=" + $free) }
+  foreach ($port in @(3000,3031,8000,11435)) { $free = -not [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue); Write-Output ("PORT_" + $port + "_FREE=" + $free) }
 }

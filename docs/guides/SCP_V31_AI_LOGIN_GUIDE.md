@@ -33,7 +33,7 @@ Bạn tự nhập email, mật khẩu, mã xác minh và CAPTCHA nếu dịch v�
 Mở dashboard SCP Desktop và xem khu vực **SCP có tay chân ở đâu?**. Web Navigator sẽ chuyển từ **Chưa nối browser** sang **Đã nối browser**. Trạng thái backend cũng có thể kiểm tra bằng:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8002/v3/web/status
+Invoke-RestMethod http://127.0.0.1:8000/v3/web/status
 ```
 
 SCP chọn tab theo hostname. Vì vậy nó không gửi câu hỏi nhầm vào tab `about:blank`, tab tài liệu hoặc tab AI khác.
@@ -44,7 +44,7 @@ Khi bạn muốn cho SCP gửi một câu hỏi kiểm tra tới một AI, phả
 
 ```powershell
 $body = @{ ai = "chatgpt"; question = "Trả lời đúng một từ: OK"; approved = $true; useBrowser = $true; allowApiFallback = $false } | ConvertTo-Json
-Invoke-RestMethod http://127.0.0.1:8002/v3/ai/ask -Method Post -ContentType "application/json" -Body $body
+Invoke-RestMethod http://127.0.0.1:8000/v3/ai/ask -Method Post -ContentType "application/json" -Body $body
 ```
 
 Đổi `ai` thành `claude` hoặc `gemini` chỉ sau khi tab tương ứng đã đăng nhập. Nếu tab chưa có hostname đúng hoặc đang ở màn hình đăng nhập, SCP sẽ trả về lỗi “Open a logged-in … tab first” thay vì tự đăng nhập.

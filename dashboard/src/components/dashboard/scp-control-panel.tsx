@@ -464,9 +464,9 @@ export function ScpControlPanel() {
               SCP Control Panel
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Live status của SCP Python FastAPI server (port 8002). Dashboard
+              Live status của SCP Python FastAPI server (port 8000). Dashboard
               gọi <code className="rounded bg-muted px-1.5 py-0.5 text-xs">/api/scp/health</code>{" "}
-              → proxy tới <code className="rounded bg-muted px-1.5 py-0.5 text-xs">http://127.0.0.1:8002/health</code>.
+              → proxy tới <code className="rounded bg-muted px-1.5 py-0.5 text-xs">http://127.0.0.1:8000/health</code>.
             </p>
           </div>
           <Button
@@ -630,7 +630,7 @@ export function ScpControlPanel() {
             <CardDescription>
               All 73 SCP routes (defined in <code>scp/api_server.py</code> +
               <code>scp/api/routes/*.py</code>). Access through gateway: append
-              <code className="ml-1 rounded bg-muted px-1.5 py-0.5">?XTransformPort=8002</code>
+              <code className="ml-1 rounded bg-muted px-1.5 py-0.5">?XTransformPort=8000</code>
               to any path.
             </CardDescription>
           </CardHeader>

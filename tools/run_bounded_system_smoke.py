@@ -1,6 +1,6 @@
 """Run the bounded local SCP smoke used by the release evidence gate.
 
-This deliberately binds only to 127.0.0.1:8002, denies external egress, uses
+This deliberately binds only to 127.0.0.1:8000, denies external egress, uses
 isolated temporary state, and checks both startup behavior and post-stop port
 cleanup. It is a bounded proof, not a production or distributed benchmark.
 """
@@ -18,7 +18,7 @@ from pathlib import Path
 import requests
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = "http://127.0.0.1:8002"
+BASE = "http://127.0.0.1:8000"
 
 
 def port_open(port: int) -> bool:
@@ -44,15 +44,15 @@ def run(output_dir: Path) -> dict:
             path.unlink()
     if port_open(8000):
         raise RuntimeError("refused: port 8000 already in use")
-    if port_open(8002):
-        raise RuntimeError("refused: port 8002 already in use")
+    if port_open(8000):
+        raise RuntimeError("refused: port 8000 already in use")
 
     env = os.environ.copy()
     env.update(
         {
             "PYTHONPATH": str(ROOT),
             "SCP_HOST": "127.0.0.1",
-            "SCP_PORT": "8002",
+            "SCP_PORT": "8000",
             "SCP_MODE": "test",
             "SCP_EGRESS_MODE": "deny",
             "SCP_WEB_FALLBACK": "0",
@@ -68,7 +68,7 @@ def run(output_dir: Path) -> dict:
     log_path = output_dir / "server.log"
     log = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
-        [sys.executable, "-m", "scp", "8002"],
+        [sys.executable, "-m", "scp", "8000"],
         cwd=ROOT,
         env=env,
         stdout=log,
@@ -148,7 +148,7 @@ def run(output_dir: Path) -> dict:
             "schema_version": "scp-bounded-system-smoke-v2",
             "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
             "host": "127.0.0.1",
-            "port": 8002,
+            "port": 8000,
             "port_8000_used": False,
             "egress_mode": "deny",
             "responses": responses,
@@ -171,11 +171,11 @@ def run(output_dir: Path) -> dict:
     time.sleep(0.5)
     cleanup = {
         "process_returncode": process.returncode,
-        "port_8002_free": not port_open(8002),
+        "port_8000_free": not port_open(8000),
         "port_8000_free": not port_open(8000),
     }
     (output_dir / "cleanup.json").write_text(json.dumps(cleanup, indent=2) + "\n", encoding="utf-8")
-    if not cleanup["port_8002_free"] or not cleanup["port_8000_free"]:
+    if not cleanup["port_8000_free"] or not cleanup["port_8000_free"]:
         raise RuntimeError(f"port cleanup failed: {cleanup}")
     return {"evidence": str(output_dir / "evidence.json"), "cleanup": cleanup}
 

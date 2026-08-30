@@ -29,4 +29,4 @@ Một trace contract cục bộ không phải OpenTelemetry exporter; chưa có 
 
 ## Nguyên tắc thực hiện tiếp
 
-Mọi port tiếp theo phải có: provenance của file nguồn, review license, lý do không trùng logic hiện tại, focused tests, CI, full loopback smoke trên `127.0.0.1:8002`, clean stop và rollback ref. Không được đổi trạng thái BLOCKED thành PASS chỉ bằng cách đổi evaluator hoặc tự sinh dữ liệu review.
+Mọi port tiếp theo phải có: provenance của file nguồn, review license, lý do không trùng logic hiện tại, focused tests, CI, full loopback smoke trên `127.0.0.1:8000`, clean stop và rollback ref. Không được đổi trạng thái BLOCKED thành PASS chỉ bằng cách đổi evaluator hoặc tự sinh dữ liệu review.

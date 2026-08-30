@@ -4,7 +4,7 @@
  * Makes the dashboard a CONTROL PANEL (not just a static report).
  *
  * [Task 1-A · Fix 4-d-010] Previously this endpoint ONLY probed the FastAPI
- * Python backend on port 8002. So "SCP online" was a false-green whenever
+ * Python backend on port 8000. So "SCP online" was a false-green whenever
  * the loop-scheduler (port 3030) or the llm-bridge (port 11434) was dead
  * — even though SCP's autofix engine depends on the LLM bridge. Now this
  * endpoint probes all 3 services in parallel with 1s timeouts and returns
@@ -16,7 +16,7 @@
  * preserved for existing consumers (scp-control-panel.tsx). It is derived
  * from the new composite: "online" only if all 3 services ok.
  *
- * SCP started via:    SCP_PORT=8002 python -m scp
+ * SCP started via:    SCP_PORT=8000 python -m scp
  * Scheduler started via: bun run mini-services/loop-scheduler
  * LLM bridge started via: bun run mini-services/llm-bridge
  */
@@ -24,14 +24,14 @@ import { NextRequest, NextResponse } from "next/server"
 
 
 const SCP_BASE_URL =
-  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8002"
+  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8000"
 const LOOP_SCHEDULER_URL =
   process.env.LOOP_SCHEDULER_URL ?? "http://127.0.0.1:3030"
 const LLM_BRIDGE_URL =
   process.env.LLM_BRIDGE_URL ?? "http://127.0.0.1:11434"
 
 const START_HINTS = {
-  fastapi: "Run: SCP_PORT=8002 python -m scp (in your scp folder)",
+  fastapi: "Run: SCP_PORT=8000 python -m scp (in your scp folder)",
   loopScheduler: "Run: bun run mini-services/loop-scheduler (in project root)",
   llmBridge: "Run: bun run mini-services/llm-bridge (in project root)",
 }

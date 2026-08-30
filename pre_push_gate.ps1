@@ -8,12 +8,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "2. Starting Server..."
-$proc = Start-Process -FilePath "python" -ArgumentList "-m scp 8002" -PassThru -WindowStyle Hidden
+$proc = Start-Process -FilePath "python" -ArgumentList "-m scp 8000" -PassThru -WindowStyle Hidden
 Write-Host "Waiting for server to boot..."
 Start-Sleep -Seconds 5
 
 try {
-    $health = Invoke-RestMethod -Uri "http://127.0.0.1:8002/health" -Method GET
+    $health = Invoke-RestMethod -Uri "http://127.0.0.1:8000/health" -Method GET
     Write-Host "Health: $($health.status)"
     
     $admin_key = $env:SCP_ADMIN_KEY
@@ -24,7 +24,7 @@ try {
     }
     
     $token_body = @{ "admin_key" = $admin_key } | ConvertTo-Json
-    $token_res = Invoke-RestMethod -Uri "http://127.0.0.1:8002/auth/token" -Method POST -Body $token_body -ContentType "application/json"
+    $token_res = Invoke-RestMethod -Uri "http://127.0.0.1:8000/auth/token" -Method POST -Body $token_body -ContentType "application/json"
     $token = $token_res.access_token
     Write-Host "Auth: Token Acquired"
 
@@ -36,7 +36,7 @@ try {
         "session_id" = "test_gate_$random_id"
     } | ConvertTo-Json
 
-    $ask_res = Invoke-RestMethod -Uri "http://127.0.0.1:8002/ask" -Method POST -Body $ask_body -ContentType "application/json" -Headers @{ "Authorization" = "Bearer $token" }
+    $ask_res = Invoke-RestMethod -Uri "http://127.0.0.1:8000/ask" -Method POST -Body $ask_body -ContentType "application/json" -Headers @{ "Authorization" = "Bearer $token" }
     
     $ans = $ask_res.final_answer
     Write-Host "Answer: $ans"

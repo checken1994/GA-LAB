@@ -31,7 +31,7 @@ for p in env_example_paths:
     assert "LOOP_SCHEDULER_URL" in src, f"FAIL: LOOP_SCHEDULER_URL not in {p}"
     print(f"PASS [2/3]: LOOP_SCHEDULER_URL in {os.path.basename(p)}")
     # TEST 3: documented defaults present
-    assert "127.0.0.1:8000" in src or "localhost:8000" in src or "127.0.0.1:8002" in src or "localhost:8002" in src, "FAIL: no canonical default for SCP_INTERNAL_URL"
+    assert "127.0.0.1:8000" in src or "localhost:8000" in src or "127.0.0.1:8000" in src or "localhost:8000" in src, "FAIL: no canonical default for SCP_INTERNAL_URL"
     assert "127.0.0.1:3030" in src or "localhost:3030" in src, "FAIL: no default for LOOP_SCHEDULER_URL"
     print(f"PASS [3/3]: documented defaults present")
     found = True

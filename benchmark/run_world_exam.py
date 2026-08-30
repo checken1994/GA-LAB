@@ -15,11 +15,11 @@ async def run_exam(file_path):
     
     # 1. Pre-flight check
     try:
-        req = urllib.request.Request("http://127.0.0.1:8002/health", method="GET")
+        req = urllib.request.Request("http://127.0.0.1:8000/health", method="GET")
         with urllib.request.urlopen(req) as response:
             pass
     except Exception as e:
-        print("LỖI: Máy chủ SCP (Kernel) chưa bật. Vui lòng chạy `python -m scp 8002` trước khi thi.")
+        print("LỖI: Máy chủ SCP (Kernel) chưa bật. Vui lòng chạy `python -m scp 8000` trước khi thi.")
         return
 
     # 2. Đọc file đề thi
@@ -47,7 +47,7 @@ async def run_exam(file_path):
             }).encode('utf-8')
             
             token = create_access_token({"sub": "benchmark-runner"})
-            req = urllib.request.Request("http://127.0.0.1:8002/ask", data=body, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {token}'}, method="POST")
+            req = urllib.request.Request("http://127.0.0.1:8000/ask", data=body, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {token}'}, method="POST")
             
             api_response = {}
             try:

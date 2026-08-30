@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
 export async function POST(request: Request) {
-  const base = process.env.SCP_API_URL || "http://127.0.0.1:8002"
+  const base = process.env.SCP_API_URL || "http://127.0.0.1:8000"
   try {
     const body = await request.json().catch(() => ({}))
     const response = await fetch(`${base}/v3/web/search`, {

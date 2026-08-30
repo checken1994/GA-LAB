@@ -15,7 +15,7 @@ Tuy nhiên bản này **chưa phải release production và chưa phải Agent O
 | Scope | `D:\scp-local-agent\workspace\scp-phase1-test` |
 | Production | Port 8000, PID 25212 — không sửa, không restart |
 | Test | Port 8001, PID 14184 — không sửa, không restart |
-| Isolated backend | Port 8002, PID 29364 — giữ nguyên |
+| Isolated backend | Port 8000, PID 29364 — giữ nguyên |
 | Kernel API adapter | Port 8003, PID 29528 trong smoke test — đã clean stop |
 | Backend commit quan sát được | `4e47add244edadfc1eb53baa4f75ebf239a75e82` |
 | RAG 1.000 câu | Đóng băng; không human review trong phase này |
@@ -27,14 +27,14 @@ Tuy nhiên bản này **chưa phải release production và chưa phải Agent O
 |---|---|---|---|
 | Config | `PASS_WITHIN_SCOPE` | Kernel DB riêng, readiness trả `journal_authoritative=true`, production protected | Chưa có service manifest release đầy đủ cho toàn stack |
 | Static | `PASS_WITHIN_SCOPE` | Compile pass cho Kernel, verifier, recovery, capability, sandbox, trace và tests | Chưa có clean git working tree/lock snapshot trong isolated copy |
-| Runtime | `PASS_WITHIN_SCOPE` | 8000/8001/8002 health đúng PID; 8003 readiness và HTTP smoke pass; 8003 clean stop | Chưa clean start/stop toàn bộ stack từ manifest |
+| Runtime | `PASS_WITHIN_SCOPE` | 8000/8001/8000 health đúng PID; 8003 readiness và HTTP smoke pass; 8003 clean stop | Chưa clean start/stop toàn bộ stack từ manifest |
 | Kernel acceptance | `PASS_WITHIN_SCOPE` | 12 tests pass, gồm lease, fencing, journal, replay, checkpoint, idempotency, restart, kill và verifier commit | Chưa multi-process DB contention |
 | Verifier | `PASS_WITHIN_SCOPE` | 5 tests pass: VERIFIED, CONTRADICTED, INSUFFICIENT, UNKNOWN và evidence gate | Chưa gắn vào `/ask` production-like flow |
 | Recovery/chaos | `PASS_WITHIN_SCOPE` | 4 recovery tests; worker crash sau checkpoint chuyển RECONCILING; retry mù bị chặn; journal tamper bị phát hiện | Chưa provider timeout/network/browser/dashboard chaos thật |
 | Security | `PASS_WITHIN_SCOPE` | Capability 5 tests; sandbox/egress 3 tests; revoke/global kill/path traversal/secret path/private IP deny | Đây là application guard, chưa đủ OS/runtime sandbox proof |
 | Observability | `PASS_WITHIN_SCOPE` | Trace ledger 3 tests, correlation IDs, hash chain, secret redaction | Chưa nối toàn bộ request→/ask→Kernel→tool→verifier trace |
 | Latency | `PASS_WITHIN_SCOPE` | 100 local Kernel operations: p50 4.364 ms, p95 4.824 ms, p99 7.2345 ms | Không đại diện `/ask`, Ollama, retrieval hoặc full provider latency |
-| Golden task | `PASS_WITHIN_SCOPE` | Golden RAG 3/3 replay trước đó trên isolated 8002 | Golden chưa đi xuyên Kernel API mới |
+| Golden task | `PASS_WITHIN_SCOPE` | Golden RAG 3/3 replay trước đó trên isolated 8000 | Golden chưa đi xuyên Kernel API mới |
 | Reproducibility | `BLOCKED` | Hash artifact/test logs có lưu | Isolated copy không có `.git`; chưa có clean lock/rebuild evidence |
 | Rollback | `CANDIDATE` | Backup manifest và `api_server.py.pre-task-kernel` tồn tại | Chưa diễn tập rollback/restore hoàn chỉnh |
 | Full RAG 1.000 | `BLOCKED` | Candidate artifact đã đóng băng | Gold độc lập, Ragas/ARES full và review queue chưa hoàn tất |
@@ -66,7 +66,7 @@ Rollback phase này không cần chạm production. Có backup manifest tại `r
 
 ## Điều kiện để đổi verdict
 
-Để đổi từ `RELEASE_BLOCKED` sang `CANDIDATE` cần nối Kernel vào test runtime 8002 bằng adapter nhỏ có backup, chạy golden task xuyên request→Kernel→verifier→audit, bổ sung multi-process journal contention và clean start/readiness/clean stop. Để đổi sang `PASS` trong một scope cụ thể cần thêm OS sandbox/egress evidence, provider/network chaos, reproducibility snapshot sạch, rollback drill và tất cả gate bắt buộc đạt. Mục tiêu RAG 1.000 vẫn là một gate riêng: phải chờ gold được review, rồi mới chạy Ragas/ARES chuẩn.
+Để đổi từ `RELEASE_BLOCKED` sang `CANDIDATE` cần nối Kernel vào test runtime 8000 bằng adapter nhỏ có backup, chạy golden task xuyên request→Kernel→verifier→audit, bổ sung multi-process journal contention và clean start/readiness/clean stop. Để đổi sang `PASS` trong một scope cụ thể cần thêm OS sandbox/egress evidence, provider/network chaos, reproducibility snapshot sạch, rollback drill và tất cả gate bắt buộc đạt. Mục tiêu RAG 1.000 vẫn là một gate riêng: phải chờ gold được review, rồi mới chạy Ragas/ARES chuẩn.
 
 ## Final verdict
 
@@ -79,7 +79,7 @@ Phần còn thiếu của SCP đã được bổ sung thành candidate có test 
 | File | Vai trò |
 |---|---|
 | `reports/phase4_kernel_gap_matrix_v1.md` | Gap matrix trước khi sửa |
-| `reports/phase4_runtime_audit_v1.json` | Runtime audit 8000/8001/8002/dependencies |
+| `reports/phase4_runtime_audit_v1.json` | Runtime audit 8000/8001/8000/dependencies |
 | `reports/task-kernel-contract-v1.md` | Contract Kernel |
 | `reports/phase4_task_kernel_evidence_v2.json` | Kernel acceptance evidence |
 | `reports/phase4_security_recovery_evidence_v1.json` | Verifier/recovery/security evidence |

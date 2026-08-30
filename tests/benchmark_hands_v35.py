@@ -7,7 +7,7 @@ from collections import Counter
 
 import requests
 
-BASE = "http://127.0.0.1:8002"
+BASE = "http://127.0.0.1:8000"
 
 CASES = [
     ("pc.status", {}, 0, False),

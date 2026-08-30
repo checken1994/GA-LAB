@@ -70,10 +70,10 @@ def _scp_service_identity() -> dict:
                 _port = int(_arg)
                 break
     if _port is None:
-        _port = 8002
+        _port = 8000
     _mode = os.environ.get("SCP_MODE")
     if not _mode:
-        _mode = "production" if _port == 8002 else "test" if _port == 8001 else "unknown"
+        _mode = "production" if _port == 8000 else "test" if _port == 8001 else "unknown"
     if _CACHED_COMMIT is None:
         try:
             _creationflags = getattr(_subprocess, "CREATE_NO_WINDOW", 0) if _sys.platform == "win32" else 0
@@ -868,7 +868,7 @@ app.add_middleware(
 #
 # HTTPS:
 #   HTTPSRedirectMiddleware is OPT-IN via SCP_FORCE_HTTPS=1. We do NOT
-#   force HTTPS in dev (breaks localhost:8002 testing). Production
+#   force HTTPS in dev (breaks localhost:8000 testing). Production
 #   deployments set SCP_FORCE_HTTPS=1 (and typically run behind a TLS-
 #   terminating reverse proxy anyway, so the redirect is a defense-in-
 #   depth backstop, not the primary TLS layer).
@@ -1900,7 +1900,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "scp.api_server:app",
         host="127.0.0.1",
-        port=8002,
+        port=8000,
         reload=False,
         log_level="info",
     )

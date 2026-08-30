@@ -2,7 +2,7 @@ import json,time,requests,datetime
 from pathlib import Path
 import os
 ROOT=Path(os.environ.get('SCP_ROOT', Path(__file__).resolve().parents[1]));SRC=ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl';OUT=ROOT/'reports'/'SCP_FULL_RUNTIME_RAG_1000_2026-08-17.jsonl';OUT.parent.mkdir(parents=True,exist_ok=True)
-SCP_INTERNAL_URL=os.environ.get('SCP_INTERNAL_URL','http://127.0.0.1:8002').rstrip('/')
+SCP_INTERNAL_URL=os.environ.get('SCP_INTERNAL_URL','http://127.0.0.1:8000').rstrip('/')
 seen=set()
 if OUT.exists():
  for line in OUT.read_text(encoding='utf-8').splitlines():

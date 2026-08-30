@@ -12,7 +12,7 @@
 | Snapshot time | `2026-08-25T00:26:10.1861851+07:00` |
 | Working-tree entries | 93 changed/untracked entries reported by `git status --porcelain=v1` |
 | Production port | No listener observed on port 8000 in the snapshot command |
-| Isolated port | No listener observed on port 8002 in the snapshot command |
+| Isolated port | No listener observed on port 8000 in the snapshot command |
 
 ## Observed structure debt
 

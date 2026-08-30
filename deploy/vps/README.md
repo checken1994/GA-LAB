@@ -12,7 +12,7 @@ Danh sách [free-for-dev](https://github.com/ripienaar/free-for-dev) là danh s�
 | [Google Cloud Free Tier](https://docs.cloud.google.com/free/docs/free-cloud-features) | API-only smoke test nhẹ | e2-micro khoảng 1 GB RAM; giới hạn region/băng thông; billing account; trial có thời hạn và resource có thể bị dừng/xóa nếu không chuyển tài khoản | **Ứng viên nhẹ**, không phù hợp chạy Ollama/local model |
 | VPS đã có sẵn của người dùng | Triển khai thực tế nếu có SSH/root hoặc user sudo | Phải biết IP/hostname, hệ điều hành, tài nguyên, firewall, domain và chi phí | **Ưu tiên nếu đã có quyền hợp lệ** |
 
-Với SCP, nên bắt đầu bằng **API loopback + Caddy TLS**, sau đó mới bật dashboard, scheduler, model bridge và external provider. Không đưa port `8002` ra Internet trực tiếp.
+Với SCP, nên bắt đầu bằng **API loopback + Caddy TLS**, sau đó mới bật dashboard, scheduler, model bridge và external provider. Không đưa port `8000` ra Internet trực tiếp.
 
 ## 2. Kiến trúc an toàn
 
@@ -23,14 +23,14 @@ Internet
 Caddy :443  ── TLS, request limit, security headers
    │
    ▼
-SCP API 127.0.0.1:8002  ── systemd, user scp, production guard
+SCP API 127.0.0.1:8000  ── systemd, user scp, production guard
    │
    ├── local data/ and audit artifacts
    ├── optional scheduler 127.0.0.1:3030
    └── optional model service 127.0.0.1:11434
 ```
 
-SCP mặc định chạy bằng `python3 -m scp` trên `127.0.0.1:8002`. Production guard yêu cầu `SCP_PRODUCTION_MODE=1`, `SCP_EGRESS_MODE=deny` hoặc `allowlist`, không bật bypass flags, và auth secret tối thiểu 16 ký tự. Khi bind public trực tiếp, guard còn yêu cầu `SCP_FORCE_HTTPS=1`; recipe này không bind public trực tiếp mà dùng Caddy.
+SCP mặc định chạy bằng `python3 -m scp` trên `127.0.0.1:8000`. Production guard yêu cầu `SCP_PRODUCTION_MODE=1`, `SCP_EGRESS_MODE=deny` hoặc `allowlist`, không bật bypass flags, và auth secret tối thiểu 16 ký tự. Khi bind public trực tiếp, guard còn yêu cầu `SCP_FORCE_HTTPS=1`; recipe này không bind public trực tiếp mà dùng Caddy.
 
 ## 3. Điều kiện cần trước khi triển khai
 
@@ -86,7 +86,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable scp-api.service
 sudo systemctl start scp-api.service
 sudo systemctl is-active scp-api.service
-curl --fail http://127.0.0.1:8002/health
+curl --fail http://127.0.0.1:8000/health
 ```
 
 Nếu health fail, dừng ở đây. Xem trạng thái và log đã redact bằng `systemctl status scp-api` và `journalctl -u scp-api --since "5 minutes ago"`; không đưa secret hoặc raw private log vào issue công khai.
@@ -113,7 +113,7 @@ sudo ufw enable
 sudo ufw status verbose
 ```
 
-Không mở `8002`, `3030` hoặc `11434` ra Internet. Nếu cần dashboard, triển khai nó như một service loopback riêng và chỉ proxy qua Caddy sau khi kiểm tra auth/rate-limit.
+Không mở `8000`, `3030` hoặc `11434` ra Internet. Nếu cần dashboard, triển khai nó như một service loopback riêng và chỉ proxy qua Caddy sau khi kiểm tra auth/rate-limit.
 
 ## 7. Smoke và release evidence
 
@@ -127,7 +127,7 @@ cd /opt/scp
 /opt/scp/.venv/bin/python -m pytest -q
 /opt/scp/.venv/bin/python run_reality_tests_portable.py
 /opt/scp/.venv/bin/python tools/verify_snapshot_manifest.py reports/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
-curl --fail http://127.0.0.1:8002/health
+curl --fail http://127.0.0.1:8000/health
 ```
 
 Auth-negative probe cần kiểm tra endpoint không có token bị từ chối; không in response body chứa dữ liệu riêng tư. Một health `200` chỉ chứng minh liveness, không chứng minh golden task, RAG correctness, recovery, security hoàn chỉnh hoặc 24/7.
@@ -142,7 +142,7 @@ sudo -u scp git -C /opt/scp fetch origin
 sudo -u scp git -C /opt/scp checkout <known-good-commit>
 sudo -u scp /opt/scp/.venv/bin/pip install -r /opt/scp/scp/requirements.txt
 sudo systemctl start scp-api.service
-curl --fail http://127.0.0.1:8002/health
+curl --fail http://127.0.0.1:8000/health
 ```
 
 Nếu không chứng minh được trạng thái trước khi rollback hoặc có side effect đang dở, chuyển sang `RECONCILING`/`HUMAN_REVIEW`; không retry mù.

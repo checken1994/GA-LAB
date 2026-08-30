@@ -22,14 +22,14 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 DEFAULT_ENDPOINTS = {
-    "backend": "http://127.0.0.1:8002/health",
-    "backend_detailed": "http://127.0.0.1:8002/health/detailed",
+    "backend": "http://127.0.0.1:8000/health",
+    "backend_detailed": "http://127.0.0.1:8000/health/detailed",
     "scheduler": "http://127.0.0.1:3030/healthz",
     "dashboard": "http://127.0.0.1:3000/",
     "ollama": "http://127.0.0.1:11434/api/tags",
-    "hands_status": "http://127.0.0.1:8002/v3/hands/status",
-    "hands_capabilities": "http://127.0.0.1:8002/v3/hands/capabilities",
-    "hands_plan": "http://127.0.0.1:8002/v3/hands/plan",
+    "hands_status": "http://127.0.0.1:8000/v3/hands/status",
+    "hands_capabilities": "http://127.0.0.1:8000/v3/hands/capabilities",
+    "hands_plan": "http://127.0.0.1:8000/v3/hands/plan",
 }
 
 
@@ -167,7 +167,7 @@ def run_monitor(root: Path, timeout: float = 8.0) -> dict[str, Any]:
         "unknown_action": probe_http(endpoints["hands_plan"], method="POST", payload=policy_payload("pc.unknown_probe", 0, False), timeout=timeout),
     }
 
-    ports = {str(port): port_probe("127.0.0.1", port) for port in (3000, 3030, 8002, 11434)}
+    ports = {str(port): port_probe("127.0.0.1", port) for port in (3000, 3030, 8000, 11434)}
     failures: list[str] = []
     for name in ("backend", "backend_detailed", "scheduler", "dashboard", "ollama", "hands_status", "hands_capabilities"):
         if not http[name]["ok"]:

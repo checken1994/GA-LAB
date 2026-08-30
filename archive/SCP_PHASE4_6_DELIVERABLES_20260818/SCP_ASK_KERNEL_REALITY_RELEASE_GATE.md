@@ -2,7 +2,7 @@
 
 ## Kết luận điều hành
 
-Theo bộ Skill SCP-DNA, SCP-Reality-Verifier, SCP-Task-Kernel-Review, SCP-Capability-Security-Review, SCP-Safe-Latency-Optimizer, SCP-Computer-Use-Recovery, SCP-Runtime-Audit, SCP-Startup-Troubleshooter và SCP-Release-Evidence-Gate, nhánh RAG của `/ask` đã được nối với Task Kernel trên **isolated backend 8002** bằng adapter có guard chỉ bật khi `SCP_MODE=test` và `SCP_PORT=8002`.
+Theo bộ Skill SCP-DNA, SCP-Reality-Verifier, SCP-Task-Kernel-Review, SCP-Capability-Security-Review, SCP-Safe-Latency-Optimizer, SCP-Computer-Use-Recovery, SCP-Runtime-Audit, SCP-Startup-Troubleshooter và SCP-Release-Evidence-Gate, nhánh RAG của `/ask` đã được nối với Task Kernel trên **isolated backend 8000** bằng adapter có guard chỉ bật khi `SCP_MODE=test` và `SCP_PORT=8000`.
 
 Một request grounded live đã đi qua task lifecycle, lease, checkpoint, RAG response, verifier độc lập, evidence reference, Kernel commit và event journal. Case thiếu context và prompt injection đều không được biến thành grounded answer. Global kill chặn request mới và trả `AskResponse` fail-closed với answer withheld; task mới được task-kill sang `CANCELLED`. Handler crash trong recovery test chuyển task sang `FAILED`. Journal và trace ledger đều kiểm chứng hash-chain hợp lệ.
 
@@ -18,7 +18,7 @@ Một request grounded live đã đi qua task lifecycle, lease, checkpoint, RAG 
 |---|---:|---|---|---|
 | Production 8000 | 25212 | production | health `ok` | Không sửa, không restart |
 | Test 8001 | 14184 | test | health `ok` | Không sửa, không restart |
-| Isolated 8002 | 10800 | test | health `ok`, Kernel readiness `ready` | Đã patch và restart có backup |
+| Isolated 8000 | 10800 | test | health `ok`, Kernel readiness `ready` | Đã patch và restart có backup |
 
 Adapter `/ask` chỉ được bật trên isolated test runtime. Production 8000 không có guard bật adapter và không bị sửa.
 
@@ -26,7 +26,7 @@ Adapter `/ask` chỉ được bật trên isolated test runtime. Production 8000
 
 | Bước | Evidence quan sát được | Verdict |
 |---|---|---|
-| Request | `POST /ask` trên `127.0.0.1:8002`, nhánh RAG | PASS_WITHIN_SCOPE |
+| Request | `POST /ask` trên `127.0.0.1:8000`, nhánh RAG | PASS_WITHIN_SCOPE |
 | Task identity | Kernel tạo `task_id`, input hash, owner `ask-route` và risk `R0` | VERIFIED |
 | Lease | Claim/start bằng `ask-route-worker`, có attempt/fencing | VERIFIED |
 | Checkpoint | Checkpoint `rag-read` trước RAG read boundary, logical idempotency key | VERIFIED |
@@ -74,7 +74,7 @@ Latency đo trên local R0 request có context được cung cấp sẵn. Đây 
 
 ## Patch safety và rollback
 
-Patch `api_server.py` chỉ nằm trong isolated copy. Guard runtime yêu cầu đồng thời `SCP_MODE=test` và `SCP_PORT=8002`. Trước patch đã tạo backup và hash manifest tại `reports/phase3_ask_kernel_adapter_patch_manifest.json`; backup `api_server.py` nằm trong thư mục `reports/backups/ask-kernel-adapter-pre-*`. Compile gate của `api_server.py` và `ask_kernel_adapter.py` đạt trước mỗi restart. Rollback là copy backup về isolated source rồi restart 8002; production không cần rollback vì không bị sửa.
+Patch `api_server.py` chỉ nằm trong isolated copy. Guard runtime yêu cầu đồng thời `SCP_MODE=test` và `SCP_PORT=8000`. Trước patch đã tạo backup và hash manifest tại `reports/phase3_ask_kernel_adapter_patch_manifest.json`; backup `api_server.py` nằm trong thư mục `reports/backups/ask-kernel-adapter-pre-*`. Compile gate của `api_server.py` và `ask_kernel_adapter.py` đạt trước mỗi restart. Rollback là copy backup về isolated source rồi restart 8000; production không cần rollback vì không bị sửa.
 
 ## Remaining gaps — không che giấu
 
@@ -90,7 +90,7 @@ Patch `api_server.py` chỉ nằm trong isolated copy. Guard runtime yêu cầu 
 
 ## Final verdict
 
-`/ask` trên isolated 8002 đã đạt **runtime proof trong workload RAG read-only được kiểm tra**. Đây là bước tiến từ orchestrator-only sang **Kernel-backed runtime candidate**.
+`/ask` trên isolated 8000 đã đạt **runtime proof trong workload RAG read-only được kiểm tra**. Đây là bước tiến từ orchestrator-only sang **Kernel-backed runtime candidate**.
 
 Không được mở rộng claim này thành “SCP production-ready”, “đã trả lời toàn bộ 1.000 câu” hoặc “Ragas/ARES full đã đạt”. Các claim đó vẫn `CANDIDATE_NOT_PROVEN`/`BLOCKED` cho đến khi các gap trên được kiểm chứng riêng.
 

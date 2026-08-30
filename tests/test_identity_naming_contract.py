@@ -98,14 +98,14 @@ def test_dashboard_identity_contract():
     assert "auditRound: CURRENT_ROUND" in status_ts
     assert "historicalEvidenceRound: 9" in status_ts
     assert "Autofix generation 4 (audit R9)" in status_ts
-    assert '127.0.0.1:8002' in status_ts
+    assert '127.0.0.1:8000' in status_ts
     assert "status?.audit.auditRound" in panel_ts
     assert "CURRENT_ROUND" in panel_ts
     assert "status?.audit.round" not in panel_ts
     assert "port 8000" not in panel_ts
     assert "127.0.0.1:8000" not in panel_ts
-    assert '127.0.0.1:8002' in health_proxy_ts
-    assert 'SCP_PORT=8002 python -m scp' in health_proxy_ts
+    assert '127.0.0.1:8000' in health_proxy_ts
+    assert 'SCP_PORT=8000 python -m scp' in health_proxy_ts
 
 
 def test_openai_model_identity_contract():
@@ -129,10 +129,10 @@ def test_minimal_health_note_is_utf8_and_user_visible_contract_is_clean():
 
 
 def test_cli_docstring_matches_canonical_default_port():
-    # [Fix R5] Port unification: 8002 is now canonical across all components
+    # [Fix R5] Port unification: 8000 is now canonical across all components
     # (supervisor, dashboard, CI, Dockerfile, Python entry point).
-    # Running 'python -m scp' without a port now starts on 8002, making it
-    # visible to the dashboard which proxies to 8002.
+    # Running 'python -m scp' without a port now starts on 8000, making it
+    # visible to the dashboard which proxies to 8000.
     source = (ROOT / "scp" / "__main__.py").read_text(encoding="utf-8")
-    assert "Defaults to port 8002" in source
+    assert "Defaults to port 8000" in source
     assert "Defaults to port 8000" not in source

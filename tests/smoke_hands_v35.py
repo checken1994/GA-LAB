@@ -11,7 +11,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
 
-BASE = "http://127.0.0.1:8002"
+BASE = "http://127.0.0.1:8000"
 
 
 def call(method: str, path: str, payload: dict | None = None) -> requests.Response:

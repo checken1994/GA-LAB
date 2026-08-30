@@ -5,7 +5,7 @@ import time
 
 import requests
 
-BASE = "http://127.0.0.1:8002"
+BASE = "http://127.0.0.1:8000"
 
 
 def request(method: str, path: str, payload: dict | None = None) -> dict:

@@ -1,6 +1,6 @@
 # SCP Gateway — How to reach SCP through Caddy
 
-This document explains how SCP (Python FastAPI on `127.0.0.1:8002`) is
+This document explains how SCP (Python FastAPI on `127.0.0.1:8000`) is
 exposed through the Caddy gateway on `:81`, alongside the Next.js
 dashboard on `127.0.0.1:3000`.
 
@@ -16,18 +16,18 @@ dashboard on `127.0.0.1:3000`.
 | Service                | Gateway URL                                              | Backend           |
 | ---------------------- | -------------------------------------------------------- | ----------------- |
 | Next.js dashboard      | `https://<gateway>/`                                     | `localhost:3000`  |
-| SCP root (route list)  | `https://<gateway>/?XTransformPort=8002`                 | `localhost:8002`  |
-| SCP health             | `https://<gateway>/health?XTransformPort=8002`           | `localhost:8002`  |
-| SCP HTML dashboard     | `https://<gateway>/dashboard?XTransformPort=8002`        | `localhost:8002`  |
-| SCP chat (`POST /ask`) | `https://<gateway>/ask?XTransformPort=8002`              | `localhost:8002`  |
+| SCP root (route list)  | `https://<gateway>/?XTransformPort=8000`                 | `localhost:8000`  |
+| SCP health             | `https://<gateway>/health?XTransformPort=8000`           | `localhost:8000`  |
+| SCP HTML dashboard     | `https://<gateway>/dashboard?XTransformPort=8000`        | `localhost:8000`  |
+| SCP chat (`POST /ask`) | `https://<gateway>/ask?XTransformPort=8000`              | `localhost:8000`  |
 
-**Rule of thumb:** append `?XTransformPort=8002` to ANY SCP path to
+**Rule of thumb:** append `?XTransformPort=8000` to ANY SCP path to
 route it through the gateway to SCP. Without that query parameter the
 request goes to the Next.js dashboard (port 3000) instead.
 
 > The orchestrator/system-prompt rule is:
 > *"DO NOT write port in the api request url, only XTransformPort"*.
-> The Caddyfile follows this rule strictly — no `:8002` ever appears in
+> The Caddyfile follows this rule strictly — no `:8000` ever appears in
 > a public URL.
 
 ---
@@ -66,21 +66,21 @@ request goes to the Next.js dashboard (port 3000) instead.
    `XTransformPort=<n>` query parameter.
 2. The first `handle` block reverse-proxies to
    `localhost:{query.XTransformPort}` — i.e. the value of the query
-   parameter becomes the backend port. So `?XTransformPort=8002` →
-   `localhost:8002` (SCP), `?XTransformPort=3000` → `localhost:3000`
+   parameter becomes the backend port. So `?XTransformPort=8000` →
+   `localhost:8000` (SCP), `?XTransformPort=3000` → `localhost:3000`
    (Next.js, same as default).
 3. The fallback `handle` block reverse-proxies everything else (no
    `XTransformPort` query) to `localhost:3000` (Next.js dashboard).
 4. Both blocks set `Host`, `X-Forwarded-For`, `X-Forwarded-Proto`,
    `X-Real-IP` so the backend sees the original client's IP + scheme.
 
-### Why not add a `:8002` block?
+### Why not add a `:8000` block?
 
-The task description suggested adding a `:8002` reverse_proxy handle
+The task description suggested adding a `:8000` reverse_proxy handle
 block. **We deliberately did NOT** — that would publish SCP on a
 separate public port and break the orchestrator's rule ("DO NOT write
 port in the api request url, only XTransformPort"). The
-`?XTransformPort=8002` passthrough is already correct and is the
+`?XTransformPort=8000` passthrough is already correct and is the
 intended SCP access pattern.
 
 ---
@@ -89,16 +89,16 @@ intended SCP access pattern.
 
 ```bash
 # From $SCP_ROOT
-python3 -m scp            # 127.0.0.1:8002 (default)
+python3 -m scp            # 127.0.0.1:8000 (default)
 python3 -m scp 8080       # 127.0.0.1:8080 (custom port — use ?XTransformPort=8080 in URLs)
 SCP_PORT=9000 python3 -m scp   # 127.0.0.1:9000
 ```
 
 Verify SCP is up:
 ```bash
-curl http://127.0.0.1:8002/health
+curl http://127.0.0.1:8000/health
 # or via gateway:
-curl 'https://<gateway>/health?XTransformPort=8002'
+curl 'https://<gateway>/health?XTransformPort=8000'
 ```
 
 ---
@@ -118,10 +118,10 @@ curl 'https://<gateway>/health?XTransformPort=8002'
 
 | Method | Path          | Description                                  | Gateway URL                                         |
 | ------ | ------------- | -------------------------------------------- | --------------------------------------------------- |
-| POST   | `/ask`        | Main: question → V98 pipeline → verdict      | `/ask?XTransformPort=8002`                          |
-| GET    | `/health`     | Health check (liveness)                      | `/health?XTransformPort=8002`                       |
-| GET    | `/dashboard`  | SCP HTML dashboard (server-rendered)         | `/dashboard?XTransformPort=8002`                    |
-| GET    | `/`           | Root — route listing + version               | `/?XTransformPort=8002`                             |
+| POST   | `/ask`        | Main: question → V98 pipeline → verdict      | `/ask?XTransformPort=8000`                          |
+| GET    | `/health`     | Health check (liveness)                      | `/health?XTransformPort=8000`                       |
+| GET    | `/dashboard`  | SCP HTML dashboard (server-rendered)         | `/dashboard?XTransformPort=8000`                    |
+| GET    | `/`           | Root — route listing + version               | `/?XTransformPort=8000`                             |
 
 ### V1 (OpenAI-compatible — for PyRIT/garak)
 
@@ -249,15 +249,15 @@ curl 'https://<gateway>/health?XTransformPort=8002'
 For any SCP route above, the public gateway URL is:
 
 ```
-https://<gateway-host>:<gateway-port>/<scp-path>?XTransformPort=8002
+https://<gateway-host>:<gateway-port>/<scp-path>?XTransformPort=8000
 ```
 
 - `<scp-path>` is the path column from the tables above (e.g. `/v105/autofix/stats`).
-- `XTransformPort=8002` MUST be appended (or merged with existing query
+- `XTransformPort=8000` MUST be appended (or merged with existing query
   params via `&`). Without it, the request falls through to Next.js.
 - The Next.js dashboard calls SCP through its own Next.js API routes
   (`/api/scp/health`, `/api/scp/routes`, `/api/scp/status`) which
-  internally `fetch('http://127.0.0.1:8002/...')` server-side. End
+  internally `fetch('http://127.0.0.1:8000/...')` server-side. End
   users never need to add `XTransformPort` themselves — the dashboard
   abstracts it.
 
@@ -271,18 +271,18 @@ https://<gateway-host>:<gateway-port>/<scp-path>?XTransformPort=8002
 # Check process:
 ps aux | grep -E 'python.*scp' | grep -v grep
 # Check port:
-curl -s http://127.0.0.1:8002/health || echo "SCP not responding"
+curl -s http://127.0.0.1:8000/health || echo "SCP not responding"
 # Start SCP:
 cd $SCP_ROOT && python3 -m scp
 ```
 
 The Next.js dashboard `/api/scp/health` route will return
-`{ "scp": "offline", "hint": "Run: cd $SCP_ROOT && python3 -m scp 8002" }`
+`{ "scp": "offline", "hint": "Run: cd $SCP_ROOT && python3 -m scp 8000" }`
 with HTTP 503 when SCP is down — this is the fail-open behavior.
 
 ### Gateway returns Next.js page when expecting SCP?
 
-You forgot `?XTransformPort=8002` in the URL. Add it.
+You forgot `?XTransformPort=8000` in the URL. Add it.
 
 ### Auth failures on admin endpoints?
 

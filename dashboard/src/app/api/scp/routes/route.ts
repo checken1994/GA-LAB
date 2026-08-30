@@ -193,6 +193,6 @@ export function GET() {
       "scp/api_server.py + scp/api/routes/*.py + scp/api/chat.py + scp/api/webhook.py",
     lastVerified:
       "2026-08-08 (R9 baseline) + [Task 1-A] R12-10 reconciliation: all 4 v105 routers (audit/threat/prediction/stream) wired live in api_server.py:627-649. 73 total app.routes including builtins; 71 documented here are live; 0 are dead code (post-R12-10).",
-    gatewayPattern: "Append ?XTransformPort=8002 to route through Caddy :81 gateway",
+    gatewayPattern: "Append ?XTransformPort=8000 to route through Caddy :81 gateway",
   })
 }

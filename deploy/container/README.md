@@ -9,8 +9,8 @@ Từ thư mục gốc repository:
 ```bash
 docker compose -f compose.yml build scp-api
 docker compose -f compose.yml up -d scp-api
-curl -i http://127.0.0.1:8002/health
-curl -i http://127.0.0.1:8002/ready
+curl -i http://127.0.0.1:8000/health
+curl -i http://127.0.0.1:8000/ready
 docker compose -f compose.yml down
 ```
 

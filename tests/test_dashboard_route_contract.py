@@ -32,4 +32,4 @@ def test_api_routes_have_only_next_allowed_runtime_exports():
 
 def test_route_listing_gateway_hint_matches_isolated_runtime_contract():
     source = ROUTE_LISTING.read_text(encoding="utf-8")
-    assert 'gatewayPattern: "Append ?XTransformPort=8002' in source
+    assert 'gatewayPattern: "Append ?XTransformPort=8000' in source

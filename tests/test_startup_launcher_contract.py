@@ -18,7 +18,7 @@ def test_launcher_is_api_only_no_ollama():
     assert '11434' not in LAUNCHER, "FAIL: launcher vẫn tham chiếu Ollama port 11434"
     assert 'set OLLAMA' not in LAUNCHER, "FAIL: launcher vẫn set biến OLLAMA"
     assert 'SCP-LLM-Bridge' not in LAUNCHER, "FAIL: launcher vẫn spawn LLM-Bridge"
-    assert '8002' not in LAUNCHER, "FAIL: launcher vẫn dùng port cũ 8002"
+    assert '8000' not in LAUNCHER, "FAIL: launcher vẫn dùng port cũ 8000"
     assert 'set SCP_INTERNAL_URL=http://127.0.0.1:8000' in LAUNCHER
     assert 'set LOOP_SCHEDULER_URL=http://127.0.0.1:3030' in LAUNCHER
 

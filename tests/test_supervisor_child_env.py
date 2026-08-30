@@ -28,7 +28,7 @@ def test_dashboard_receives_scheduler_admin_boundary():
 def test_supervisor_recovers_external_ollama_with_budget():
     root = Path(__file__).resolve().parents[1]
     supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
-    assert "$ollamaHealthy = $DryRun -or (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))" in supervisor
+    assert "$ollamaHealthy = $true # [DNA #6] API-first: skip local ollama check" in supervisor
     assert "'OLLAMA_RECOVERED'" in supervisor
     assert "'OLLAMA_RECOVERY_FAILED'" in supervisor
     assert "'external_dependency_restart_budget_exhausted'" in supervisor
@@ -54,7 +54,7 @@ def test_supervisor_rebuilds_stale_dashboard_before_starting_standalone_server()
 def test_supervisor_sets_dashboard_proxy_contract_explicitly():
     root = Path(__file__).resolve().parents[1]
     supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
-    assert "$env:SCP_INTERNAL_URL = 'http://127.0.0.1:8002'" in supervisor
+    assert "$env:SCP_INTERNAL_URL = 'http://127.0.0.1:8000'" in supervisor
     assert "$env:LOOP_SCHEDULER_URL = 'http://127.0.0.1:3030'" in supervisor
     assert "$oldScpInternalUrl = $env:SCP_INTERNAL_URL" in supervisor
     assert "$oldLoopSchedulerUrl = $env:LOOP_SCHEDULER_URL" in supervisor
@@ -63,8 +63,8 @@ def test_supervisor_sets_dashboard_proxy_contract_explicitly():
 def test_supervisor_runtime_map_matches_dashboard_proxy_and_uses_production_start():
     root = Path(__file__).resolve().parents[1]
     supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
-    assert "Args = @('-m', 'scp', '8002')" in supervisor
-    assert "Port = 8002; Url = 'http://127.0.0.1:8002/health'" in supervisor
+    assert "Args = @('-m', 'scp', '8000')" in supervisor
+    assert "Port = 8000; Url = 'http://127.0.0.1:8000/health'" in supervisor
     assert "Name = 'dashboard'; File = $bun; Args = @('run', 'start')" in supervisor
     assert "Args = @('run', 'dev')" in supervisor
 

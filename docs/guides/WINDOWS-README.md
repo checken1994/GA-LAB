@@ -47,7 +47,7 @@ Script tự:
 1. Dừng services cũ (nếu có)
 2. Khởi động LLM Bridge (port 11434)
 3. Khởi động Loop Scheduler (port 3030)
-4. Khởi động SCP Python (port 8002) — đợi ~60s boot
+4. Khởi động SCP Python (port 8000) — đợi ~60s boot
 5. Khởi động Dashboard Next.js (port 3000)
 6. Mở browser tới http://localhost:3000
 
@@ -55,7 +55,7 @@ Script tự:
 ```
 ✅ SCP SYSTEM ĐANG CHẠY!
 📊 Dashboard:       http://localhost:3000
-🔍 SCP /health:     http://localhost:8002/health
+🔍 SCP /health:     http://localhost:8000/health
 ```
 
 ### Dừng SCP
@@ -79,13 +79,13 @@ Double-click **`stop-scp.bat`** — dừng tất cả 4 services.
 | Service | Port | URL | Mục đích |
 |---|---|---|---|
 | Dashboard | 3000 | http://localhost:3000 | Giao diện chính (25 sections) |
-| SCP API | 8002 | http://localhost:8002 | Python server (73 routes) |
+| SCP API | 8000 | http://localhost:8000 | Python server (73 routes) |
 | LLM Bridge | 11434 | http://localhost:11434 | Ollama giả → z-ai-web-dev-sdk |
 | Loop Scheduler | 3030 | http://localhost:3030 | Cron audit mỗi 5 phút |
 
 **Test SCP /ask (trong PowerShell hoặc CMD):**
 ```cmd
-curl -X POST http://localhost:8002/ask -H "Content-Type: application/json" -d "{\"question\":\"What is the capital of France?\"}
+curl -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d "{\"question\":\"What is the capital of France?\"}
 ```
 Kết quả mong đợi:
 ```json
@@ -105,7 +105,7 @@ Kết quả mong đợi:
 - Mở PowerShell, chạy: `npm install -g bun`
 - Nếu npm chưa có → cài Node.js trước: https://nodejs.org/
 
-### Lỗi: "port 3000/8002/11434/3030 đã dùng"
+### Lỗi: "port 3000/8000/11434/3030 đã dùng"
 - Chạy `stop-scp.bat` trước
 - Hoặc mở Task Manager, kill process đang giữ port
 
@@ -138,7 +138,7 @@ C:\Users\check\Downloads\scp\
 │   ├── package.json
 │   └── ...
 ├── scp\                     ← SCP Python codebase (377 .py)
-│   ├── __main__.py          ← Entry point (python -m scp 8002)
+│   ├── __main__.py          ← Entry point (python -m scp 8000)
 │   ├── api_server.py
 │   ├── autofix\             ← Engine v4 (63 .py, 12/12 modules wired)
 │   ├── llm_gateway\

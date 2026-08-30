@@ -2,7 +2,7 @@ import json,requests,time
 from pathlib import Path
 import os
 ROOT=Path(os.environ.get("SCP_ROOT", Path(__file__).resolve().parents[1]));C=ROOT/'data'/'rag_corpus'/'canonical-v1-20260817'/'corpus_1000.jsonl';OUT=ROOT/'data'/'ragas_ares_canonical_1000_20260817.jsonl';rows=[]
-SCP_INTERNAL_URL=os.environ.get("SCP_INTERNAL_URL", "http://127.0.0.1:8002").rstrip("/")
+SCP_INTERNAL_URL=os.environ.get("SCP_INTERNAL_URL", "http://127.0.0.1:8000").rstrip("/")
 for line in C.read_text(encoding='utf-8').splitlines():
  if not line.strip():continue
  c=json.loads(line);base={'question_id':c['question_id'],'question':c['question'],'corpus_version':c['corpus_version'],'gold_chunk_ids':c['gold_chunk_ids'],'gold_answer':c['gold_answer'],'review_status':c['review_status'],'review_source_url':c['review_source_url'],'retrieval_metrics':{'retrieval_recall_at_1':'UNAVAILABLE_NO_INDEX_RUN','retrieval_precision_at_1':'UNAVAILABLE_NO_HUMAN_GOLD','mrr':'UNAVAILABLE_NO_INDEX_RUN','ndcg_at_10':'UNAVAILABLE_NO_INDEX_RUN'},'citation_provenance':'UNAVAILABLE_NOT_RUN'}

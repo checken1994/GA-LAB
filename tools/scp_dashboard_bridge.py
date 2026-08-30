@@ -46,7 +46,7 @@ def token() -> str:
     return value
 
 def read_api(path: str, authenticated: bool) -> tuple[int, object]:
-    host, port = SCP_ENV.get("SCP_HOST", "127.0.0.1"), SCP_ENV.get("SCP_PORT", "8002")
+    host, port = SCP_ENV.get("SCP_HOST", "127.0.0.1"), SCP_ENV.get("SCP_PORT", "8000")
     headers = {"Accept": "application/json"}
     if authenticated: headers["Authorization"] = f"Bearer {token()}"
     try:

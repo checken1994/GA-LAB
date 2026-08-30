@@ -8,7 +8,7 @@ from pathlib import Path
 import requests
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = "http://127.0.0.1:8002"
+BASE = "http://127.0.0.1:8000"
 
 
 def post(path: str, payload: dict) -> dict:

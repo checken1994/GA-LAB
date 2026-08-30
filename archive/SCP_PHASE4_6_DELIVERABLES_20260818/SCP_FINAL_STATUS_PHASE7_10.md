@@ -2,11 +2,11 @@
 
 ## Kết luận
 
-Phần thiếu lớn nhất của SCP — **Task Kernel durable, verifier, recovery, capability guard, sandbox/egress guard, observability và acceptance evidence** — đã được bổ sung và chạy thật trên **isolated backend 8002**. Kernel đã được nối vào backend 8002 bằng router riêng `/v1/kernel`, có DB SQLite WAL riêng, backup trước patch và đã chạy golden task xuyên HTTP.
+Phần thiếu lớn nhất của SCP — **Task Kernel durable, verifier, recovery, capability guard, sandbox/egress guard, observability và acceptance evidence** — đã được bổ sung và chạy thật trên **isolated backend 8000**. Kernel đã được nối vào backend 8000 bằng router riêng `/v1/kernel`, có DB SQLite WAL riêng, backup trước patch và đã chạy golden task xuyên HTTP.
 
 Kết quả E2E quan sát được: một task local đi qua `CREATED → PLANNING → READY → QUEUED → LEASED → RUNNING → WAITING_TOOL → VERIFYING → COMPLETED`; checkpoint được ghi trước boundary; verifier độc lập trả `VERIFIED` với evidence reference; Kernel commit được `COMPLETED`; event journal có 10 event và event cuối là `TASK_COMPLETED`. Một task khác mô phỏng `LOST_RESPONSE` sau action dispatch đã chuyển sang `RECONCILING`, `safe_to_retry=false`, không retry mù.
 
-Đây là **runtime proof trong phạm vi Kernel candidate trên isolated 8002**, chưa phải tuyên bố SCP production-ready và chưa phải bằng chứng RAG 1.000 câu.
+Đây là **runtime proof trong phạm vi Kernel candidate trên isolated 8000**, chưa phải tuyên bố SCP production-ready và chưa phải bằng chứng RAG 1.000 câu.
 
 ## Bằng chứng chính
 
@@ -19,7 +19,7 @@ Kết quả E2E quan sát được: một task local đi qua `CREATED → PLANNI
 | Workspace/egress acceptance | 3/3 PASS |
 | Trace ledger acceptance | 3/3 PASS |
 | Tổng local acceptance | 32 PASS |
-| Golden E2E qua HTTP 8002 | `PASS_WITHIN_SCOPE` |
+| Golden E2E qua HTTP 8000 | `PASS_WITHIN_SCOPE` |
 | Golden task cuối | `COMPLETED`, verifier `VERIFIED`, evidence có thật |
 | Lost-response recovery | `RECONCILING`, `safe_to_retry=false` |
 | Multi-process lease contention | 4 worker, đúng 1 lease, 3 conflict |
@@ -33,9 +33,9 @@ Kết quả E2E quan sát được: một task local đi qua `CREATED → PLANNI
 |---|---:|---|
 | Production 8000 | 25212 | `mode=production`, health `ok`, không sửa |
 | Test 8001 | 14184 | `mode=test`, health `ok`, không restart |
-| Isolated 8002 | 18656 | `mode=test`, health `ok`, Kernel readiness `ready` |
+| Isolated 8000 | 18656 | `mode=test`, health `ok`, Kernel readiness `ready` |
 
-Kernel adapter 8003 trước đó đã được chạy smoke test và clean stop. Kernel router hiện được nối trực tiếp vào isolated 8002, không dùng 8003 cho release.
+Kernel adapter 8003 trước đó đã được chạy smoke test và clean stop. Kernel router hiện được nối trực tiếp vào isolated 8000, không dùng 8003 cho release.
 
 ## Thành phần đã bổ sung
 
@@ -49,7 +49,7 @@ Kernel adapter 8003 trước đó đã được chạy smoke test và clean stop
 
 | Khoảng trống | Trạng thái |
 |---|---|
-| Nối Kernel vào `/ask` RAG hiện tại | Chưa làm; mới có `/v1/kernel` adapter trên 8002 |
+| Nối Kernel vào `/ask` RAG hiện tại | Chưa làm; mới có `/v1/kernel` adapter trên 8000 |
 | OS-level sandbox cho toàn bộ child process/browser/MCP | Chưa có evidence runtime |
 | Egress proxy thật và provider/network chaos | Chưa chạy; hiện mới có application guard |
 | Clean start/stop toàn bộ stack bằng release manifest | Chưa chạy đủ |
@@ -59,7 +59,7 @@ Kernel adapter 8003 trước đó đã được chạy smoke test và clean stop
 
 ## Verdict thật
 
-**Kernel/Recovery candidate trên isolated 8002: `RUNTIME_PROVEN_WITHIN_SCOPE`.**
+**Kernel/Recovery candidate trên isolated 8000: `RUNTIME_PROVEN_WITHIN_SCOPE`.**
 
 **SCP tổng thể production/Agent OS: `CANDIDATE_NOT_PROVEN`.**
 
@@ -71,7 +71,7 @@ Không có cơ sở để nói SCP đã hoàn thành mục tiêu trả lời to�
 
 | File | Nội dung |
 |---|---|
-| `reports/phase7_kernel_e2e_golden_result.json` | Golden E2E qua HTTP 8002 |
+| `reports/phase7_kernel_e2e_golden_result.json` | Golden E2E qua HTTP 8000 |
 | `reports/phase9_repro_rollback_result.json` | Multi-process contention và rollback drill |
 | `reports/phase6_release_evidence_gate_v1.json` | Release manifest/hash |
 | `reports/phase5_full_acceptance.log` | 32 acceptance tests |
