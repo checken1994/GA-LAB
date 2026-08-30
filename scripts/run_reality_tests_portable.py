@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 TEST_DIR = ROOT / "tests" / "reality-tests"
 PYTHON = os.environ.get("SCP_PYTHON_BIN") or sys.executable
 if PYTHON.startswith("/c/"):

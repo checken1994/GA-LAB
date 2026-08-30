@@ -278,12 +278,13 @@ class HandsPlanner:
         if precondition.get("type") == "step_state" and precondition.get("stepId") not in known_ids:
             raise ValueError(f"Step {step_id} precondition references unknown step: {precondition.get('stepId')}")
         retry_policy = self._validate_retry(raw.get("retryPolicy"), f"Step {step_id} retryPolicy")
+        raw_capability = max(0, min(int(raw.get("capabilityLevel", definition.capability_level)), 5))
         return {
             "stepId": step_id,
             "action": action,
             "params": params,
-            "capabilityLevel": definition.capability_level,
-            "approved": False,
+            "capabilityLevel": raw_capability,
+            "approved": bool(raw.get("approved", False)),
             "dryRun": bool(raw.get("dryRun", False)),
             "dependsOn": depends_on,
             "precondition": precondition,
@@ -466,8 +467,8 @@ class HandsPlanner:
                 had_failure = True
                 continue
             definition = self.executor.registry.require(step["action"])
-            requested_capability = int(capability_level)
-            request_approved = bool(approved)
+            requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0)))
+            request_approved = bool(approved or step.get("approved", False))
             if requested_capability < definition.capability_level or (definition.requires_approval and not request_approved):
                 step["state"] = "WAITING_APPROVAL"
                 step["error"] = "Explicit approval or higher capability is required"
