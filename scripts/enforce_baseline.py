@@ -32,7 +32,7 @@ def main() -> int:
     run(
         [
             sys.executable,
-            "scripts/run_scp_acceptance.py",
+            "scripts/run_scp_acceptance_ci.py",
             "--output-dir",
             str(ACCEPTANCE_DIR),
         ],
