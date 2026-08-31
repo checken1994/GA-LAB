@@ -391,7 +391,7 @@ _PLACEHOLDER_KEYS = {"", "changeme", "your-key", "your_api_key", "placeholder", 
 class EnvCompatProvider(OpenRouterProvider):
     """Provider OpenAI-compatible khai báo qua env (instance-keyed)."""
 
-    def __init__(self, name: str, task: str, key_env: str, base_url_env: str, model_env: str, default_model: str = ""):
+    def __init__(self, name: str, task: str, key_env: str, base_url_env: str, model_env: str, default_model: str = "", default_base_url: str = ""):
         self.PROVIDER_NAME = name
         self.task = task
         key = os.environ.get(key_env, "").strip()
@@ -399,7 +399,7 @@ class EnvCompatProvider(OpenRouterProvider):
         self._instance_key_cycle = itertools.cycle(self._instance_keys) if self._instance_keys else None
         self.model = os.environ.get(model_env, default_model)
         self.free_fallback = self.model
-        self.base_url = os.environ.get(base_url_env, "").rstrip("/")
+        self.base_url = os.environ.get(base_url_env, default_base_url).rstrip("/")
         self._breaker = CircuitBreaker(
             failure_threshold=int(os.environ.get("SCP_LLM_BREAKER_THRESHOLD", "3")),
             cooldown_seconds=float(os.environ.get("SCP_LLM_BREAKER_COOLDOWN_SEC", "300")),
@@ -505,6 +505,12 @@ class LLMGateway:
                 self._extra_providers.setdefault(task, []).append(
                     EnvCompatProvider(name, task, key_env, base_env, model_env)
                 )
+
+        # [FAILOVER FIX] Actually inject Groq fallback as promised in the docs
+        for task in tasks:
+            self._extra_providers.setdefault(task, []).append(
+                EnvCompatProvider("groq", task, "GROQ_API_KEY", "GROQ_BASE_URL", "GROQ_MODEL", default_model="llama3-8b-8192", default_base_url="https://api.groq.com/openai/v1")
+            )
 
     def _provider_chain(self, task: str, text: str = "") -> list:
         """Chuỗi failover theo task. [#40 Budget Engine] Khi SCP_BUDGET_ROUTING=1,

@@ -15,8 +15,9 @@ import asyncio
 import time
 import uuid
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
+from scp.security.jwt_guard import get_current_user
 
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)
 from scp.api._shared import _extract_v98_context, get_judge, logger
@@ -31,7 +32,7 @@ router = APIRouter(tags=["openai-compat"])
 
 @router.post("/v1/chat/completions")
 @traced_request(_OPENAI_COMPAT_LEDGER, require_write=False, action="openai_chat")
-async def openai_chat(request: Request):
+async def openai_chat(request: Request, current_user: str = Depends(get_current_user)):
     """OpenAI-compatible endpoint â€” PyRIT/garak gá»i endpoint nĂ y.
 
     Extracts user message â†’ runs V98 pipeline â†’ returns OpenAI-format response.
@@ -79,22 +80,22 @@ async def openai_chat(request: Request):
     # Fix: record verdict after judge completes.
     if hasattr(judge, 'dos_protection') and judge.dos_protection:
         try:
-            judge.dos_protection.record_verdict(v.verdict)
+            judge.dos_protection.record_verdict(v.get("verdict", ""))
         except Exception as e:
             logger.debug(f"[V104.41 #AC] DoS record_verdict error: {e}")
 
     # [V104.41 #X] Enforce KILL/FAIL/FLAGGED at OpenAI boundary too (consistency with /ask)
-    answer = v.final_answer
-    _gov = v.evidence.get("governance_decision", "")
-    if _gov == "KILL" or v.verdict in ("FAIL", "FLAGGED"):
+    answer = v.get("final_answer", "")
+    _gov = v.get("evidence", {}).get("governance_decision", "")
+    if _gov == "KILL" or v.get("verdict", "") in ("FAIL", "FLAGGED"):
         answer = "I cannot comply with this request."
-    elif v.verdict == "UNKNOWN" and answer:
+    elif v.get("verdict", "") == "UNKNOWN" and answer:
         answer = answer + "\n\n[SCP: unverified â€” confidence below threshold]"
 
     # [V104.41 #AB] Táº I SAO: canary was appended to visible content â†’ attacker sees it
     # immediately â†’ honeypot value destroyed. Fix: put canary in response metadata only,
     # NOT in visible content.
-    canary = v.evidence.get("v98_canary_token")
+    canary = v.get("evidence", {}).get("v98_canary_token")
 
     return {
         "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
@@ -108,15 +109,15 @@ async def openai_chat(request: Request):
         }],
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         "scp_metadata": {
-            "verdict": v.verdict,
-            "confidence": v.confidence,
-            "falsification_status": v.evidence.get("falsification_status"),
-            "governance_decision": v.evidence.get("governance_decision"),
-            "v98_guard": v.evidence.get("v98_guard_verdict", {}).get("recommendation") if v.evidence.get("v98_guard_verdict") else None,
-            "v98_classification": v.evidence.get("v98_classification", {}).get("actor") if v.evidence.get("v98_classification") else None,
-            "v98_counter_phase": v.evidence.get("v98_attack_policy", {}).get("phase") if v.evidence.get("v98_attack_policy") else 0,
+            "verdict": v.get("verdict", ""),
+            "confidence": v.get("confidence", 0.0),
+            "falsification_status": v.get("evidence", {}).get("falsification_status"),
+            "governance_decision": v.get("evidence", {}).get("governance_decision"),
+            "v98_guard": v.get("evidence", {}).get("v98_guard_verdict", {}).get("recommendation") if v.get("evidence", {}).get("v98_guard_verdict") else None,
+            "v98_classification": v.get("evidence", {}).get("v98_classification", {}).get("actor") if v.get("evidence", {}).get("v98_classification") else None,
+            "v98_counter_phase": v.get("evidence", {}).get("v98_attack_policy", {}).get("phase") if v.get("evidence", {}).get("v98_attack_policy") else 0,
             "v98_canary_token": canary,
-            "v98_bypass_recorded": v.evidence.get("v98_bypass_recorded", False),
+            "v98_bypass_recorded": v.get("evidence", {}).get("v98_bypass_recorded", False),
             "elapsed_ms": round((time.perf_counter() - _t0) * 1000, 1),
         },
     }
@@ -124,7 +125,7 @@ async def openai_chat(request: Request):
 
 @router.get("/v1/models")
 @traced_request(_OPENAI_COMPAT_LEDGER, require_write=False, action="openai_models")
-async def openai_models():
+async def openai_models(current_user: str = Depends(get_current_user)):
     """OpenAI-compatible models list."""
     return {
         "object": "list",
