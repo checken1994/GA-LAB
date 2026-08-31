@@ -10,7 +10,7 @@ jobs:
   gate:
     runs-on: windows-latest
     env:
-        SCP_JWT_SECRET: "dummy_secret_for_ci"
+      SCP_JWT_SECRET: "dummy_secret_for_ci"
       SCP_PRODUCTION_MODE: '0'
       SCP_SKIP_STARTUP_GATE: '0'
       SCP_EGRESS_MODE: deny

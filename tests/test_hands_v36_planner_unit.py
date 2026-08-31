@@ -107,7 +107,7 @@ class PlannerV361Tests(unittest.IsolatedAsyncioTestCase):
 
     async def test_run_verifies_postcondition_and_completes(self) -> None:
         plan = self.planner.create_plan("Observe public page", [{"action": "web.tab_snapshot"}, {"action": "web.dom_snapshot", "capabilityLevel": 1, "approved": True, "postcondition": {"type": "text_contains", "value": "Example Domain"}}])
-        result = await self.planner.run_plan(plan["planId"])
+        result = await self.planner.run_plan(plan["planId"], agent_id="SCP")
         self.assertTrue(result["success"])
         self.assertEqual(result["plan"]["state"], "COMPLETED")
         self.assertEqual([step["state"] for step in result["plan"]["steps"]], ["VERIFIED", "VERIFIED"])
@@ -115,7 +115,7 @@ class PlannerV361Tests(unittest.IsolatedAsyncioTestCase):
 
     async def test_precondition_failure_stops_before_executor(self) -> None:
         plan = self.planner.create_plan("Wait for impossible state", [{"action": "pc.status", "precondition": {"type": "plan_state", "equals": "COMPLETED"}}])
-        result = await self.planner.run_plan(plan["planId"])
+        result = await self.planner.run_plan(plan["planId"], agent_id="SCP")
         self.assertFalse(result["success"])
         self.assertEqual(result["plan"]["state"], "FAILED")
         self.assertIn("Precondition failed", result["plan"]["steps"][0]["error"])
@@ -123,7 +123,7 @@ class PlannerV361Tests(unittest.IsolatedAsyncioTestCase):
 
     async def test_postcondition_failure_is_not_marked_verified(self) -> None:
         plan = self.planner.create_plan("Require missing phrase", [{"action": "web.browse_public", "params": {"url": "https://example.com"}, "postcondition": {"type": "text_contains", "value": "NOT_PRESENT"}}])
-        result = await self.planner.run_plan(plan["planId"])
+        result = await self.planner.run_plan(plan["planId"], agent_id="SCP")
         self.assertFalse(result["success"])
         self.assertEqual(result["plan"]["steps"][0]["state"], "FAILED")
         self.assertFalse(result["plan"]["steps"][0]["evidence"]["postconditionPassed"])
@@ -140,7 +140,7 @@ class PlannerV361Tests(unittest.IsolatedAsyncioTestCase):
 
         self.planner.executor.execute = flaky_execute
         plan = self.planner.create_plan("Retry transient failure", [{"action": "pc.status", "retryPolicy": {"maxAttempts": 2, "on": "execution_error"}}])
-        result = await self.planner.run_plan(plan["planId"])
+        result = await self.planner.run_plan(plan["planId"], agent_id="SCP")
         self.assertTrue(result["success"])
         self.assertEqual(calls, 2)
         self.assertEqual(result["plan"]["steps"][0]["attempts"], 2)
@@ -149,7 +149,7 @@ class PlannerV361Tests(unittest.IsolatedAsyncioTestCase):
 
     async def test_risky_step_pauses_for_approval_without_execution(self) -> None:
         plan = self.planner.create_plan("Open public tab", [{"action": "web.open_public_tab", "params": {"url": "https://example.com"}, "capabilityLevel": 2}])
-        result = await self.planner.run_plan(plan["planId"], capability_level=2, approved=False)
+        result = await self.planner.run_plan(plan["planId"], capability_level=2, approved=False, agent_id="SCP")
         self.assertFalse(result["success"])
         self.assertTrue(result["waitingApproval"])
         self.assertEqual(result["plan"]["state"], "WAITING_APPROVAL")
@@ -158,7 +158,7 @@ class PlannerV361Tests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_browser_target_becomes_failed_with_evidence(self) -> None:
         planner = HandsPlanner(make_executor(self.root, pages=[], suffix="empty-hands"))
         plan = planner.create_plan("Need a page", [{"action": "web.dom_snapshot", "capabilityLevel": 1, "approved": True}])
-        result = await planner.run_plan(plan["planId"])
+        result = await planner.run_plan(plan["planId"], agent_id="SCP")
         self.assertFalse(result["success"])
         self.assertEqual(result["plan"]["state"], "FAILED")
         self.assertFalse(result["plan"]["steps"][0]["evidence"]["verificationPassed"])

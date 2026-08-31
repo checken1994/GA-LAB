@@ -25,6 +25,12 @@ def test_text_capable_rejects_audio_video() -> None:
 
 def test_text_capable_accepts_text_and_absent() -> None:
     assert fc._text_capable({"output_modalities": ["text"]}) is True
+    assert fc._text_capable({}) is True
+
+
+def test_text_capable_supports_nested_architecture_schema() -> None:
+    assert fc._text_capable({"architecture": {"output_modalities": ["text"]}}) is True
+    assert fc._text_capable({"architecture": {"output_modalities": ["audio"]}}) is False
 
 
 def test_refresh_replaces_allowlist_and_filters_audio(monkeypatch) -> None:

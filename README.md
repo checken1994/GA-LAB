@@ -39,7 +39,7 @@ Chi tiết đầy đủ: [`docs/SCP_CHAIN_AUDIT_20260829.md`](docs/SCP_CHAIN_AUD
 
 | Gate | Kết quả |
 |---|---|
-| pytest | **215 passed, 1 skipped** (PYTEST_EXIT=0) |
+| pytest | **190 passed, 1 skipped** (PYTEST_EXIT=0) |
 | Reality suite | **76/76 PASS** (gồm chaos recovery, hermetic boot, warehouse, wiring) |
 | Pre-push gate | **PASS** (import manifest + clean start + auth + RAG-verified ask) |
 | Live E2E | `/ask` chat PASS · repeat re-ask PASS · RAG-verified PASS · prompt-injection KILL |
@@ -97,7 +97,7 @@ scp/                  # Core package (kernel, gateway, judge, security, learning
 docs/                 #   Architecture + audit + hardening reports
 tests/                #   pytest (215) + reality tests (76) + golden suite
 scripts/              #   Setup, generation, audit tools
-agents/skills/        #   12 SCP skills (DNA + domain-specific)
+agents/skills/        #   13 SCP skills (DNA + domain-specific)
 benchmark/            #   Benchmark runner + grader (exact-match, no LLM grading)
 ```
 

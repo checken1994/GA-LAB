@@ -53,6 +53,11 @@ tools/audit/local/
 benchmark_report.txt
 raw_results.jsonl
 
+# Machine-local probes and one-off repair scripts (not release source)
+desktop.ini
+check_or.py
+scp/patches/
+
 # pytest basetemp artifacts (must never be tracked)
 tmp_pytest/
 data-test/

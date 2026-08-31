@@ -72,9 +72,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-volumes:
-  scp-data:
-
   # Mảnh ghép 1 & 3: SWE-bench Environment Harness & OpenAI Adapter
   swe-bench-runner:
     profiles: ["swe-bench"]
@@ -88,3 +85,7 @@ volumes:
     depends_on:
       scp-api:
         condition: service_started
+
+volumes:
+  scp-data:
+

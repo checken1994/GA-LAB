@@ -62,3 +62,7 @@ filterwarnings = [
     "ignore::PendingDeprecationWarning",
 ]
 
+
+[project.scripts]
+scp = "scp.__main__:main"
+

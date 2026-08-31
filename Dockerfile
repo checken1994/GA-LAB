@@ -1,38 +1,34 @@
-# syntax=docker/dockerfile:1.7
-# SCP API — reproducible local/container candidate.
-# This image does not bundle Ollama, provider credentials, datasets, or private evidence.
+# SCP CLI Docker Image
+# Base: python:3.12-slim with uv for fast dependency installation
+FROM python:3.12-slim
 
-FROM python:3.12-slim AS runtime
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1 \
-    SCP_HOST=0.0.0.0 \
-    SCP_PORT=8000 \
-    SCP_DATA_DIR=/var/lib/scp/data
+# Install uv
+RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 
-# Install only pinned runtime dependencies. Build tools are intentionally absent.
-COPY scp/requirements.txt /tmp/scp-requirements.txt
-RUN python -m pip install --no-cache-dir -r /tmp/scp-requirements.txt
+# Copy dependency files first for layer caching
+COPY scp/requirements.txt scp/requirements-otel.txt ./
 
-# Copy source only. .dockerignore excludes .env, private evidence, caches and VCS data.
-COPY scp ./scp
+# Install dependencies
+RUN uv pip install --system --no-cache -r requirements.txt || pip install --no-cache-dir -r requirements.txt
 
-# The API may create runtime state under SCP_DATA_DIR; keep it writable without
-# granting the process root privileges.
-RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin scp \
-    && install --directory --owner=scp --group=scp /var/lib/scp/data \
-    && chown -R scp:scp /app
+# Copy source code
+COPY scp/ ./scp/
+COPY pyproject.toml setup.cfg* README* ./
 
-USER scp
-EXPOSE 8000
+# Install the package itself
+RUN uv pip install --system --no-cache -e . 2>/dev/null || pip install --no-cache-dir -e .
 
-# Liveness is deliberately separate from readiness: /health can be 200 while
-# startup dependencies are still initializing; /ready is the promotion gate.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+# Environment variable placeholders (override at runtime)
+ENV OPENROUTER_API_KEY=""
+ENV OPENROUTER_MODEL="deepseek/deepseek-v4-flash-0731"
+ENV OPENROUTER_MODEL_AUTO="0"
+ENV SCP_FALLBACK_WATCH_INTERVAL="21600"
+ENV SCP_RETRY_TIMEOUT_SEC="300"
+ENV SCP_KW_ENABLE="0"
+
+EXPOSE 8080
 
 ENTRYPOINT ["python", "-m", "scp"]
+CMD ["--help"]

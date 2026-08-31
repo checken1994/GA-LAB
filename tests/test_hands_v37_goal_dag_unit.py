@@ -55,7 +55,7 @@ class GoalParserDagV37Tests(unittest.IsolatedAsyncioTestCase):
             {"stepId": "b", "action": "web.tab_snapshot"},
             {"stepId": "c", "action": "pc.status", "dependsOn": ["a", "b"]},
         ])
-        result = await self.planner.run_dag(plan["planId"], max_parallel=2)
+        result = await self.planner.run_dag(plan["planId"], max_parallel=2, agent_id="SCP")
         self.assertTrue(result["success"])
         self.assertEqual(result["plan"]["version"], "3.7")
         self.assertEqual(result["plan"]["scheduler"], "dag")
@@ -64,7 +64,7 @@ class GoalParserDagV37Tests(unittest.IsolatedAsyncioTestCase):
 
     async def test_dag_risky_node_waits_for_approval(self) -> None:
         plan = self.planner.create_plan("Approval DAG", [{"stepId": "open", "action": "web.open_public_tab", "params": {"url": "https://example.com"}, "capabilityLevel": 2}])
-        result = await self.planner.run_dag(plan["planId"], capability_level=2, approved=False, max_parallel=2)
+        result = await self.planner.run_dag(plan["planId"], capability_level=2, approved=False, max_parallel=2, agent_id="SCP")
         self.assertFalse(result["success"])
         self.assertTrue(result["waitingApproval"])
         self.assertEqual(result["plan"]["state"], "WAITING_APPROVAL")

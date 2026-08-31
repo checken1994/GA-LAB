@@ -60,13 +60,25 @@ def _fetch_free_models(timeout: float = FREE_CATALOG_TIMEOUT_SEC) -> list | None
 
 
 def _text_capable(m: dict) -> bool:
-    """P0: reject models whose OUTPUT modality is audio/video (they cannot
-    be used for text chat/learning/vision). Absent modality fields treat as text."""
-    modalities = m.get("output_modalities") or []
-    if isinstance(modalities, list):
-        for x in modalities:
-            if any(k in str(x).lower() for k in ("audio", "video")):
-                return False
+    """Return True only for models that can produce textual output.
+    The function looks for an `output_modalities` list either at the top level of the model
+    dict or nested under `architecture`. If the list contains "audio" or "video" the model
+    is considered *not* text‑capable. When the key is missing we assume the model is text‑only.
+    """
+    # 1. Prefer a top‑level ``output_modalities`` field (used by OpenRouter catalog).
+    modalities = m.get("output_modalities")
+    # 2. Fallback to the older ``architecture.output_modalities`` location.
+    if modalities is None:
+        modalities = m.get("architecture", {}).get("output_modalities")
+    # Normalise to a list – if the field is missing or malformed treat as empty list.
+    if not isinstance(modalities, list):
+        modalities = []
+    # If the list explicitly contains "audio" or "video" we reject the model.
+    for mod in modalities:
+        mod_str = str(mod).lower()
+        if "audio" in mod_str or "video" in mod_str:
+            return False
+    # No disallowed modalities found – assume the model can emit text.
     return True
 
 
