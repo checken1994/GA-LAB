@@ -8,6 +8,11 @@ permissions:
 jobs:
   p0-baseline:
     runs-on: ubuntu-latest
+    env:
+      SCP_JWT_SECRET: "dummy_secret_for_ci"
+      SCP_PRODUCTION_MODE: '0'
+      SCP_SKIP_STARTUP_GATE: '0'
+      SCP_EGRESS_MODE: deny
     steps:
       - uses: actions/checkout@v4
         with:
