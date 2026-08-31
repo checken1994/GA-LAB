@@ -1,4 +1,4 @@
-"""Failover đa API: OpenRouter (primary) → env extras → Groq (fallback).
+"""Failover đa API: OpenRouter (primary) → env extras (OPENAI_API_KEY / SCP_LLM_FALLBACK_PROVIDERS).
 
 Chaos-style hermetic tests: giả lập 429/endpoint chết/breaker open bằng fake
 client — không gọi mạng thật. Kèm runtime test cho Sandbox Job Object
@@ -79,9 +79,9 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
 
     chain = gateway._provider_chain("chat")
     names = [p.PROVIDER_NAME for p in chain]
-    assert names == ["openrouter", "deepseek", "groq"]
+    assert names == ["openrouter", "deepseek"]
 
-    # Cả OpenRouter lẫn Groq chết → deepseek cứu
+    # Cả OpenRouter chết → deepseek cứu
     gateway.openrouter_chat._client = FakeClient([FakeResponse(429)])
     deepseek_provider = next(p for p in gateway._extra_providers["chat"] if p.PROVIDER_NAME == "deepseek")
     deepseek_provider._client = FakeClient([FakeResponse(200, "deepseek answers")])
@@ -154,3 +154,4 @@ def test_sandbox_rejects_invalid_capability():
         forged = CapabilityToken(subject="intruder", epoch=999, token_id="fake", issued_at=0.0)
         with pytest.raises(PermissionError):
             pie.execute_bounded(forged, ["cmd", "/c", "echo", "should-not-run"])
+
