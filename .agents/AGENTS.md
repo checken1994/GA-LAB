@@ -7,7 +7,8 @@
 
 ## 1. Bộ Kỹ Năng SCP Cốt Lõi (SCP Skills Pack)
 
-Toàn bộ 9 kỹ năng SCP đã được tích hợp vào bộ nhớ và cấu hình hệ thống tại `.agents/skills/` và plugin toàn cục:
+Toàn bộ 13 kỹ năng SCP đã được tích hợp vào bộ nhớ và cấu hình hệ thống tại `.agents/skills/` và plugin toàn cục:
+
 
 | Kỹ năng (Skill) | Mục đích & Trọng tâm |
 |---|---|
@@ -20,6 +21,10 @@ Toàn bộ 9 kỹ năng SCP đã được tích hợp vào bộ nhớ và cấu 
 | **`scp-startup-troubleshooter`** | Xử lý lỗi khởi động, phát hiện xung đột cổng và bất đồng bộ biến môi trường. |
 | **`scp-safe-latency-optimizer`** | Tối ưu hóa độ trễ mà không làm suy yếu các cổng an toàn hoặc cơ chế khôi phục. |
 | **`scp-computer-use-recovery`** | Cơ chế phục hồi khi tác vụ ngoại vi, browser hoặc worker bị ngắt quãng giữa chừng. |
+| **`scp-gateway-resilience`** | Kiểm soát LLM Gateway, Circuit Breakers, Model Fallback Cascade, và API rate limits — độ trễ và độ bền của tầng LLM outbound. |
+| **`scp-learning-loop-guard`** | Kiểm soát vòng lặp học liên tục, Knowledge Warehouse, Deep Scraper, và Autofix engine — chống Knowledge Poisoning và Catastrophic Forgetting. |
+| **`scp-web-orchestration-safety`** | Kiểm soát browser sessions, DOM manipulation, CDP protocol, và anti-honeypot tactics — chống bẫy thực thi trên web.. |
+| **`scp-skill-review`** | Chuẩn audit bộ skill: index nhất quán, bằng chứng, calibration, và định xem skill nào đáng tin làm chuẩn sửa chính SCP. |
 
 ---
 

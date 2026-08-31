@@ -8,17 +8,22 @@
 
 The pack is designed for the part of an agent system that ordinary coding workflows often leave implicit: what the agent is allowed to do, what actually happened after an action, how to recover when a response is lost, and what evidence is required before calling a task or release complete.
 
+
 | Skill | Main question it answers |
 |---|---|
 | [`scp-dna`](scp-dna/SKILL.md) | How do we reason from evidence, find missing pieces, and avoid confusing PASS with truth? |
-| [`scp-capability-security-review`](scp-capability-security-review/SKILL.md) | Is this action allowed for this task, attempt, resource, operation, and risk tier? |
+| [`scp-capability-security-review`](scp-capability-security-review/SKILL.md) | Is this action allowed for this task, attempt, resource, operation,and risk tier? |
 | [`scp-computer-use-recovery`](scp-computer-use-recovery/SKILL.md) | What should happen when a browser/tool/worker fails after a side effect may already have happened? |
+| [`scp-gateway-resilience`](scp-gateway-resilience/SKILL.md) | Govern the LLM Gateway, Circuit Breakers, Model Fallback Cascade,and API rate limits. |
+| [`scp-learning-loop-guard`](scp-learning-loop-guard/SKILL.md) | Govern the continuous learning loop, knowledge warehouse, Deep Scraper,and Autofix engine. |
 | [`scp-reality-verifier`](scp-reality-verifier/SKILL.md) | Is the result static evidence, integration evidence, end-to-end proof, or recovery proof? |
 | [`scp-release-evidence-gate`](scp-release-evidence-gate/SKILL.md) | What must be checked before calling an agent-runtime candidate stable? |
-| [`scp-runtime-audit`](scp-runtime-audit/SKILL.md) | Are the process, port, health, readiness, test runner, and runtime evidence real now? |
+| [`scp-runtime-audit`](scp-runtime-audit/SKILL.md) | Are the process, port, health, readiness, test runner,and runtime evidence real now? |
 | [`scp-safe-latency-optimizer`](scp-safe-latency-optimizer/SKILL.md) | How can latency be reduced without removing policy, verifier, revocation, egress, or recovery controls? |
 | [`scp-startup-troubleshooter`](scp-startup-troubleshooter/SKILL.md) | Why does a service fail to start or report the wrong port/readiness state? |
 | [`scp-task-kernel-review`](scp-task-kernel-review/SKILL.md) | Is the runtime a durable task kernel or only an orchestrator with loosely connected modules? |
+| [`scp-web-orchestration-safety`](scp-web-orchestration-safety/SKILL.md) | Govern browser sessions, DOM manipulation, CDP protocol rules,and anti-honeypot tactics. |
+| [`scp-skill-review`](scp-skill-review/SKILL.md) | Review bộ skill: index nhất quán, bằng chứng, calibration, và định xem skill nào đáng tin làm chuẩn sửa chính SCP? |
 
 ## Recommended order
 
@@ -34,7 +39,7 @@ cp -R skills/scp-dna /path/to/your/agent/skills/
 cp -R skills/scp-reality-verifier /path/to/your/agent/skills/
 ```
 
-For a complete SCP review, copy all nine directories and preserve `scp-dna/references/dna-principles.md`. Do not install only `SKILL.md` when a skill refers to a local `references/` file.
+For a complete SCP review, copy all thirteen skill directoriesand preserve `scp-dna/references/dna-principles.md`. Count verified against `.agents/skills/*/SKILL.md` (13 dirs): `scp-skill-review` is now part of the pack.
 
 ## How to use them safely
 
