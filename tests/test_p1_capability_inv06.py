@@ -1,4 +1,5 @@
 from __future__ import annotations
+from scp.core.capability_token import mint_token
 
 import asyncio
 import sys

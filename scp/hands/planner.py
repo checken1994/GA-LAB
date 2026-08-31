@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scp.core.capability_token import verify_token
 """SCP Hands v3.6.1 bounded planner and plan runner.
 
@@ -5,7 +6,6 @@ The planner is deterministic and explicit. It accepts only registered Hands
 actions, evaluates a small allowlisted condition language, retries bounded
 failures, records evidence, and requires approval before risky steps.
 """
-from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -409,7 +409,7 @@ class HandsPlanner:
             self._run_tokens[plan_id] = lease_token
         heartbeat = asyncio.create_task(self._lease_heartbeat(plan_id, lease_token))
         try:
-            return await self._run_plan_locked(plan_id, capability_level, approved, dry_run, stop_on_failure, agent_id)
+            return await self._run_plan_locked(plan_id, capability_level, approved, dry_run, stop_on_failure, capability_token)
         finally:
             heartbeat.cancel()
             await asyncio.gather(heartbeat, return_exceptions=True)
@@ -634,7 +634,7 @@ class HandsPlanner:
             self._run_tokens[plan_id] = lease_token
         heartbeat = asyncio.create_task(self._lease_heartbeat(plan_id, lease_token))
         try:
-            return await self._run_dag_locked(plan_id, capability_level, approved, dry_run, max_parallel, stop_on_failure, agent_id)
+            return await self._run_dag_locked(plan_id, capability_level, approved, dry_run, max_parallel, stop_on_failure, capability_token)
         finally:
             heartbeat.cancel()
             await asyncio.gather(heartbeat, return_exceptions=True)

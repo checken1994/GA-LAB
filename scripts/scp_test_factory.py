@@ -1,3 +1,4 @@
+from mutation_engine import run_mutation_tests
 import os
 import sys
 import json
@@ -58,7 +59,7 @@ def validate_ast(code: str) -> bool:
         print(f"[TestFactory] AST Validation Failed: {e}")
         return False
 
-def autofix_test_generation(target_file_rel: str):
+def autofix_test_generation(target_file_rel: str, force_mutation: bool = True):
     """The SCP Autofix loop for generating and fixing tests (Safe Version)."""
     missing = get_missing_lines(target_file_rel)
     if not missing:
@@ -85,8 +86,7 @@ def autofix_test_generation(target_file_rel: str):
     print(f"[TestFactory] Generating coverage for {target_file_rel} (missing {len(missing)} lines)")
     
     system_prompt = (
-        "You are the SCP Test Factory Autofix Engine. Output ONLY valid Python code block. "
-        "Do not write explanations."
+        "You are the SCP Test Factory Autofix Engine. DO NOT optimize for mere line coverage. You MUST shift the primary metrics to mutation score, contract invariants, regression reproducers, and property/differential tests (e.g. using hypothesis). Output ONLY valid Python code block. Do not write explanations."
     )
     
     context = f"Target File: {target_file_rel}\n\nCode:\n```python\n{code_content}\n```\nMissing Coverage Lines: {missing}\n"

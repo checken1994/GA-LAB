@@ -35,13 +35,16 @@ def test_api_rate_limit_retry_after_caps_at_window(monkeypatch) -> None:
     assert alert.recommended_headers["Retry-After"] == "60"
 
 
-def test_openrouter_provider_429_falls_back_to_task_model() -> None:
+def test_openrouter_provider_429_falls_back_to_task_model(monkeypatch) -> None:
+    monkeypatch.setenv('OPENROUTER_MODEL', 'deepseek/deepseek-v4-flash-0731')
+    monkeypatch.delenv('SCP_BUDGET_ROUTING', raising=False)
     async def scenario() -> tuple[list[str], str | None, str]:
         provider = OpenRouterProvider(task="default")
         provider._API_KEYS = ["test-key"]
         provider._next_key = lambda: "test-key"  # type: ignore[method-assign]
         calls: list[str] = []
         paid_model = provider.model
+        print("PAID:", paid_model, "ENV:", os.environ.get("OPENROUTER_MODEL"))
 
         async def fake_call(model: str, messages: list[dict], api_key: str):
             calls.append(model)

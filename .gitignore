@@ -32,7 +32,9 @@ build/
 *.bak-*
 *.before-*
 *.tmp
+soak.sqlite3
 reports/pytest-basetemp/
+
 # Portable reality output is generated evidence, not tracked source.
 reports/reality/*.json
 !reports/reality/README.md
