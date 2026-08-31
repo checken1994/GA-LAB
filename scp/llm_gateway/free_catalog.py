@@ -95,8 +95,8 @@ def refresh_free_catalog() -> bool:
     if not usable:
         logger.warning("[free_catalog] no text-capable free models - keep hardcoded allowlist")
         return False
-    global OPENROUTER_FREE_MODELS
-    OPENROUTER_FREE_MODELS = [m["id"] for m in usable]
+    from scp.llm_gateway import client as _client
+    _client.OPENROUTER_FREE_MODELS = [m["id"] for m in usable]
     _last_ok = time.time()
     logger.info("[free_catalog] refreshed allowlist: %d text-capable models", len(usable))
     return True
