@@ -1,24 +1,14 @@
 # -*- coding: utf-8 -*-
 """Shared free-model catalog refresh for the LLM gateway (P0/P1).
 
-One module-level mechanism replaces the two duplicated per-class
-_init_dynamic_models methods that used to fire a blocking requests.get
-on the hot path. Design rules:
-  1. Fetch at most once per process (guarded by _free_catalog_fetched).
-  2. Uses httpx (already the project's async-first dependency), no new
-     sync 'requests' import.
-
-  3. Small timeout (5s) so a stalled catalog can never block inference;
-     failure keeps the hardcoded allowlist (fail-closed.
-.
-  4. Never mutates TASK_FREE_FALLBACK_MAP - it stays the curated whitelist
-     (P0: no heuristic task inference from model names)..
-  5. Background daemon refreshes the allowlist every 6h WITHOUT touching
-     the task map (keeps the free list fresh off the hot path).
+The catalog is advisory only. In deny-egress mode SCP must not create a
+network side effect merely to refresh model metadata; the curated hardcoded
+allowlist remains the fallback in that mode.
 """
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 
@@ -36,13 +26,26 @@ _last_ok: float | None = None
 _refresh_thread_started = False
 
 
+def _external_egress_allowed() -> bool:
+    """Return False when the runtime explicitly denies external egress."""
+    return os.environ.get("SCP_EGRESS_MODE", "allow").strip().lower() not in {
+        "deny",
+        "disabled",
+        "off",
+        "none",
+    }
+
+
 def _fetch_free_models(timeout: float = FREE_CATALOG_TIMEOUT_SEC) -> list | None:
-    """Crawl OpenRouter catalog, keep zero-price (free) models.
+    """Fetch the OpenRouter catalog when external egress is allowed.
 
-
-
-    Returns [] when the catalog was fetched but no free models found,
-    None when the fetch failed (caller keeps the hardcoded allowlist)."""
+    Returns ``None`` for denied/failed fetches so callers keep the curated
+    hardcoded allowlist.  Denied egress is a policy decision, not a degraded
+    success that should attempt the network anyway.
+    """
+    if not _external_egress_allowed():
+        logger.info("[free_catalog] external egress denied - keep hardcoded allowlist")
+        return None
     try:
         with httpx.Client(timeout=timeout) as client:
             resp = client.get(OPENROUTER_CATALOG_URL)
@@ -50,50 +53,35 @@ def _fetch_free_models(timeout: float = FREE_CATALOG_TIMEOUT_SEC) -> list | None
                 return None
             models = resp.json().get("data", [])
             out = []
-            for m in models:
-                pricing = m.get("pricing", {})
+            for model in models:
+                pricing = model.get("pricing", {})
                 if float(pricing.get("prompt", 1)) == 0 and float(pricing.get("completion", 1)) == 0:
-                    out.append(m)
+                    out.append(model)
             return out
     except Exception:
         return None
 
 
-def _text_capable(m: dict) -> bool:
-    """Return True only for models that can produce textual output.
-    The function looks for an `output_modalities` list either at the top level of the model
-    dict or nested under `architecture`. If the list contains "audio" or "video" the model
-    is considered *not* text‑capable. When the key is missing we assume the model is text‑only.
-    """
-    # 1. Prefer a top‑level ``output_modalities`` field (used by OpenRouter catalog).
-    modalities = m.get("output_modalities")
-    # 2. Fallback to the older ``architecture.output_modalities`` location.
+def _text_capable(model: dict) -> bool:
+    """Return True only for models that can produce textual output."""
+    modalities = model.get("output_modalities")
     if modalities is None:
-        modalities = m.get("architecture", {}).get("output_modalities")
-    # Normalise to a list – if the field is missing or malformed treat as empty list.
+        modalities = model.get("architecture", {}).get("output_modalities")
     if not isinstance(modalities, list):
         modalities = []
-    # If the list explicitly contains "audio" or "video" we reject the model.
-    for mod in modalities:
-        mod_str = str(mod).lower()
-        if "audio" in mod_str or "video" in mod_str:
-            return False
-    # No disallowed modalities found – assume the model can emit text.
-    return True
+    return not any("audio" in str(item).lower() or "video" in str(item).lower() for item in modalities)
 
 
 def _sort_free_models(free_models: list) -> list:
-    """Stable + deterministic tie-break: context length desc, then id asc."""
+    """Stable deterministic tie-break: context length desc, then id asc."""
     return sorted(
         free_models,
-        key=lambda m: (-int(m.get("context_length", 0) or 0), m.get("id", "")),
+        key=lambda model: (-int(model.get("context_length", 0) or 0), model.get("id", "")),
     )
 
 
 def refresh_free_catalog(force: bool = False) -> bool:
-    """Fetch the fresh free-model allowlist at most ONCE per process (or every
-    call when force=True). Never mutates TASK_FREE_FALLBACK_MAP. Returns
-    True whenthel catalog replaced; False when hardcoded allowlist kept."""
+    """Refresh the free-model allowlist without changing task routing."""
     global _fetched, _last_ok
     with _lock:
         if _fetched and not force:
@@ -101,27 +89,27 @@ def refresh_free_catalog(force: bool = False) -> bool:
         _fetched = True
     catalog = _fetch_free_models()
     if not catalog:
-        logger.warning("[free_catalog] fetch returned nothing - keep hardcoded allowlist")
+        logger.warning("[free_catalog] fetch unavailable - keep hardcoded allowlist")
         return False
-    usable = [m for m in _sort_free_models(catalog) if _text_capable(m)]
+    usable = [model for model in _sort_free_models(catalog) if _text_capable(model)]
     if not usable:
         logger.warning("[free_catalog] no text-capable free models - keep hardcoded allowlist")
         return False
     from scp.llm_gateway import client as _client
-    _client.OPENROUTER_FREE_MODELS = [m["id"] for m in usable]
+
+    _client.OPENROUTER_FREE_MODELS = [model["id"] for model in usable]
     _last_ok = time.time()
     logger.info("[free_catalog] refreshed allowlist: %d text-capable models", len(usable))
     return True
 
 
 def start_background_refresh() -> None:
-    """Daemon refresh every 6h - off the hot path, never touches task map."""
+    """Daemon refresh every 6h; deny-egress remains authoritative each cycle."""
     global _refresh_thread_started
     with _lock:
         if _refresh_thread_started:
             return
         _refresh_thread_started = True
-
 
     def loop() -> None:
         while True:
@@ -130,6 +118,5 @@ def start_background_refresh() -> None:
                 refresh_free_catalog(force=True)
             except Exception:
                 logger.exception("[free_catalog] background refresh failed")
-
 
     threading.Thread(target=loop, daemon=True, name="llm-gateway-free-catalog-refresh").start()
