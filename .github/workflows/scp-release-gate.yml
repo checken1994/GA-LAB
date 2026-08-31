@@ -94,13 +94,25 @@ jobs:
         shell: pwsh
         run: python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/post_fix_verify.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/llm_gateway/free_catalog.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/multi_llm_crosscheck.py scp/runtime/safe_math.py scp/security/cisa_kev.py scp/ask_kernel_adapter.py tests/test_enforce_baseline.py tests/test_multi_llm_crosscheck_concurrency.py tests/test_ask_kernel_storage_integrity.py tests/external_audit/test_cascade.py tests/reality-tests/reality_4-d-024.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py scripts/mutation_engine.py scripts/scp_soak_test.py scripts/run_scp_acceptance.py scripts/run_scp_acceptance_ci.py --select E9,F
       - name: production security scan
+        id: bandit
         shell: pwsh
         run: |
           python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
           $banditExit = $LASTEXITCODE
           python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
+          python -c 'import json; data=json.load(open("bandit-prod.json", encoding="utf-8")); [print(f"{r.get('"'"'test_id'"'"')} {r.get('"'"'issue_severity'"'"')} {r.get('"'"'filename'"'"')}:{r.get('"'"'line_number'"'"')} {r.get('"'"'issue_text'"'"')}") for r in data.get("results", []) if r.get("issue_severity") == "MEDIUM"]'
           python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
           if ($banditExit -gt 1) { exit $banditExit }
+      - name: upload production security evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scp-bandit-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            bandit-prod.json
+            bandit-prod-summary.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: bounded full-system runtime smoke
         shell: pwsh
         run: python tools/run_bounded_system_smoke.py --output-dir reports/bounded_system_smoke_ci
