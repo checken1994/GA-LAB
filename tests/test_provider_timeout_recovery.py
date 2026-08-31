@@ -25,6 +25,12 @@ def test_openrouter_timeout_recovers_via_task_free_fallback() -> None:
         return calls, answer, name
 
     calls, answer, provider_name = asyncio.run(actual())
-    assert calls[:2] == [os.environ.get("OPENROUTER_MODEL_JUDGE_PRIMARY", "anthropic/claude-3-5-sonnet"), os.environ.get("OPENROUTER_MODEL_JUDGE", "nvidia/nemotron-3-super-120b-a12b:free")]
+    expected_primary = os.environ.get(
+        "OPENROUTER_MODEL_JUDGE_PRIMARY", "anthropic/claude-3-5-sonnet"
+    )
+    expected_fallback = os.environ.get(
+        "OPENROUTER_MODEL_JUDGE", "nvidia/nemotron-3-super-120b-a12b:free"
+    )
+    assert calls[:2] == [expected_primary, expected_fallback]
     assert answer == "recovered fallback answer"
-    assert provider_name == "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
+    assert provider_name == f"openrouter:{expected_fallback}"

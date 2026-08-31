@@ -99,7 +99,7 @@ def test_gateway_returns_none_when_all_providers_fail(monkeypatch) -> None:
         from scp.llm_gateway.client import CircuitBreaker as _CB
         _breaker = _CB()  # contract: provider phải có breaker để gateway sắp thứ tự sức khỏe
 
-        async def chat(self, question, context, system_prompt):
+        async def chat(self, question, context, system_prompt, prioritize_free=False):
             return None, "none"
 
         def stats(self):
@@ -115,3 +115,33 @@ def test_gateway_returns_none_when_all_providers_fail(monkeypatch) -> None:
     assert answer is None
     assert provider == "none"
     assert gateway.stats()["failures"] == 1
+
+
+def test_gateway_propagates_budget_free_priority(monkeypatch) -> None:
+    """Budget routing must reach the provider instead of becoming dead state."""
+    from scp.core import budget_engine
+
+    class RecordingProvider:
+        PROVIDER_NAME = "recording"
+        enabled = True
+        model = "recording"
+        from scp.llm_gateway.client import CircuitBreaker as _CB
+        _breaker = _CB()
+
+        def __init__(self) -> None:
+            self.prioritize_free = None
+
+        async def chat(self, question, context, system_prompt, prioritize_free=False):
+            self.prioritize_free = prioritize_free
+            return "answer", "recording:free"
+
+    provider = RecordingProvider()
+    gateway = LLMGateway()
+    monkeypatch.setenv("SCP_BUDGET_ROUTING", "1")
+    monkeypatch.setattr(budget_engine, "order_tiers", lambda *_args: ["free", "paid"])
+    monkeypatch.setattr(gateway, "_provider_chain", lambda _task: [provider])
+
+    answer, label = asyncio.run(gateway.chat("question", task="default"))
+
+    assert (answer, label) == ("answer", "recording:free")
+    assert provider.prioritize_free is True

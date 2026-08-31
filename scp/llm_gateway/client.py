@@ -153,6 +153,7 @@ class OpenRouterProvider:
         "why":           "deepseek/deepseek-chat:free",
         "learning":      "qwen/qwen-2.5-72b-instruct:free",
         "fast_learning": "meta-llama/llama-3.3-70b-instruct:free",
+        "judge":         "nvidia/nemotron-3-super-120b-a12b:free",
         "chat":          "google/gemini-2.5-flash:free",
         "vision":        "google/gemini-2.5-flash:free",
         "coding":        "qwen/qwen-2.5-coder-32b-instruct:free",
@@ -640,7 +641,12 @@ class LLMGateway:
         for provider in rotation:
             attempted += 1
             self._stats[f"{provider.PROVIDER_NAME}_calls"] = self._stats.get(f"{provider.PROVIDER_NAME}_calls", 0) + 1
-            answer, _provider_label = await provider.chat(question, context, system_prompt)
+            answer, _provider_label = await provider.chat(
+                question,
+                context,
+                system_prompt,
+                prioritize_free=prioritize_free,
+            )
             if answer:
                 if attempted > 1:
                     self._stats["failover_count"] += 1
