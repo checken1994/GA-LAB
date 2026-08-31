@@ -83,7 +83,8 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
 
     # Cả OpenRouter lẫn Groq chết → deepseek cứu
     gateway.openrouter_chat._client = FakeClient([FakeResponse(429)])
-    gateway._extra_providers["chat"][0]._client = FakeClient([FakeResponse(200, "deepseek answers")])
+    deepseek_provider = next(p for p in gateway._extra_providers["chat"] if p.PROVIDER_NAME == "deepseek")
+    deepseek_provider._client = FakeClient([FakeResponse(200, "deepseek answers")])
 
     answer, label = asyncio.run(gateway.chat("q", task="chat"))
     assert answer == "deepseek answers"
