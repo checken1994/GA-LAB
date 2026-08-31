@@ -44,6 +44,39 @@ SCRAPER_HOSTS = frozenset({
 _CURATED_BUCKET = TokenBucket(capacity=30, refill_seconds=1.0)
 
 
+def _validate_scraper_url(url: str) -> None:
+    """Fail closed unless a scraper URL stays on an explicit source host."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError(f"unsupported scraper URL scheme: {parsed.scheme!r}")
+    if parsed.hostname is None or parsed.hostname.lower() not in SCRAPER_HOSTS:
+        raise ValueError(f"scraper host is not allowlisted: {parsed.hostname!r}")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("scraper URL credentials are not allowed")
+    expected_port = 80 if parsed.scheme == "http" else 443
+    if parsed.port not in {None, expected_port}:
+        raise ValueError(f"scraper URL port is not allowed: {parsed.port}")
+
+
+class _AllowlistedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Apply the same source allowlist to every redirect hop."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ANN201
+        _validate_scraper_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_SCRAPER_OPENER = urllib.request.build_opener(_AllowlistedRedirectHandler())
+
+
+def _open_scraper_url(url: str, *, timeout: float = 15.0):  # noqa: ANN201
+    """Open one bounded, rate-limited request after URL/redirect validation."""
+    _validate_scraper_url(url)
+    _CURATED_BUCKET.acquire()
+    req = urllib.request.Request(url, headers={"User-Agent": "SCP-Curation/1.0"})
+    return _SCRAPER_OPENER.open(req, timeout=timeout)
+
+
 def scrape_arxiv(query: str, per_source: int = 3) -> list[dict[str, Any]]:
     """arXiv API — free, không key, papers nghiên cứu."""
     url = (
@@ -51,8 +84,7 @@ def scrape_arxiv(query: str, per_source: int = 3) -> list[dict[str, Any]]:
         + urllib.parse.quote(query)
         + f"&max_results={per_source}&sortBy=relevance"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": "SCP-Curation/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with _open_scraper_url(url) as resp:
         text = resp.read(500_000).decode("utf-8", errors="replace")
     # Parse Atom XML minimally
     entries = re.findall(r"<entry>(.*?)</entry>", text, re.DOTALL)
@@ -74,14 +106,12 @@ def scrape_arxiv(query: str, per_source: int = 3) -> list[dict[str, Any]]:
 
 def scrape_hackernews(query: str, per_source: int = 3) -> list[dict[str, Any]]:
     """Hacker News Algolia API — free, không key, community-curated."""
-    import urllib.request
     url = (
         "https://hn.algolia.com/api/v1/search?query="
         + urllib.parse.quote(query)
         + f"&tags=story&hitsPerPage={per_source}"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": "SCP-Curation/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with _open_scraper_url(url) as resp:
         data = json.loads(resp.read(200_000).decode("utf-8", errors="replace"))
     out = []
     for hit in data.get("hits", [])[:per_source]:
@@ -100,14 +130,12 @@ def scrape_hackernews(query: str, per_source: int = 3) -> list[dict[str, Any]]:
 
 def scrape_stackoverflow(query: str, per_source: int = 3) -> list[dict[str, Any]]:
     """Stack Exchange API — free, không key (300 req/day limit)."""
-    import urllib.request
     url = (
         "https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance"
         + f"&q={urllib.parse.quote(query)}&site=stackoverflow&pagesize={per_source}"
         + "&filter=withbody"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": "SCP-Curation/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with _open_scraper_url(url) as resp:
         data = json.loads(resp.read(200_000).decode("utf-8", errors="replace"))
     out = []
     for item in data.get("items", [])[:per_source]:

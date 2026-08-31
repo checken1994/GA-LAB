@@ -187,8 +187,8 @@ def _file_to_module_path(file_path: Path) -> str | None:
     return mod
 
 
-def _build_strategy_call(node: ast.FunctionDef) -> str | None:
-    """Build a hypothesis `@given(...)` decorator source string for a function.
+def _build_strategy_specs(node: ast.FunctionDef) -> tuple[str, ...] | None:
+    """Build strict, internal strategy specifications for a function.
 
     Returns None if no args can be mapped (skip function).
     """
@@ -201,13 +201,47 @@ def _build_strategy_call(node: ast.FunctionDef) -> str | None:
         parts.append(strat)
     if not parts:
         return None
-    return "@given(" + ", ".join(parts) + ")"
+    return tuple(parts)
+
+
+def _strategy_from_spec(spec: str, st: Any) -> Any:
+    """Resolve one scanner-owned strategy spec without evaluating source code.
+
+    ``spec`` can only originate from ``_ANNOTATION_TO_STRATEGY``.  Keeping the
+    mapping explicit makes that trust boundary mechanical: a malformed or new
+    value fails closed instead of reaching ``eval``.
+    """
+    if spec == "st.text()":
+        return st.text()
+    if spec == "st.integers()":
+        return st.integers()
+    if spec == "st.floats(allow_nan=False, allow_infinity=False)":
+        return st.floats(allow_nan=False, allow_infinity=False)
+    if spec == "st.booleans()":
+        return st.booleans()
+    if spec == "st.lists(st.text(), max_size=5)":
+        return st.lists(st.text(), max_size=5)
+    if spec == "st.dictionaries(st.text(), st.text(), max_size=5)":
+        return st.dictionaries(st.text(), st.text(), max_size=5)
+    if spec == "st.sets(st.text(), max_size=5)":
+        return st.sets(st.text(), max_size=5)
+    if spec == "st.tuples(st.text())":
+        return st.tuples(st.text())
+    if spec == "st.binary(max_size=64)":
+        return st.binary(max_size=64)
+    if spec == "st.none()":
+        return st.none()
+    if spec == "st.one_of(st.none(), st.text())":
+        return st.one_of(st.none(), st.text())
+    if spec == "st.one_of(st.none(), st.integers())":
+        return st.one_of(st.none(), st.integers())
+    raise ValueError(f"unsupported hypothesis strategy spec: {spec!r}")
 
 
 def _test_function_with_hypothesis(
     module_path: str,
     func_name: str,
-    strategy_call: str,
+    strategy_specs: tuple[str, ...],
     max_examples: int = _MAX_HYPOTHESIS_EXAMPLES,
 ) -> tuple[bool, str]:
     """Dynamically test a function with hypothesis-generated inputs.
@@ -234,20 +268,10 @@ def _test_function_with_hypothesis(
     if func is None or not callable(func):
         return False, f"AttributeError: {module_path}.{func_name} not callable"
 
-    # Build strategy tuple by evaluating strategy_call in a restricted namespace.
-    # strategy_call looks like: "@given(st.text(), st.integers())"
-    # Strip "@given(" prefix and ")" suffix to get the args string.
-    if not strategy_call.startswith("@given(") or not strategy_call.endswith(")"):
-        return True, "malformed strategy_call, skip"
-    args_str = strategy_call[len("@given("):-1]
     try:
-        # Safe-ish eval: only allow `st` namespace (no builtins).
-        strategies = eval(args_str, {"__builtins__": {}}, {"st": st})  # noqa: S307 — restricted namespace
+        strategies = tuple(_strategy_from_spec(spec, st) for spec in strategy_specs)
     except Exception as e:  # noqa: BLE001
-        return True, f"strategy eval failed (skip): {e}"
-
-    if not isinstance(strategies, tuple):
-        strategies = (strategies,)
+        return True, f"strategy resolution failed (skip): {e}"
 
     # Capture failures
     failure_msg_holder: list[str] = []
@@ -360,11 +384,11 @@ class HypothesisScanner:
             if not eligible:
                 continue
             for func_name, node in eligible[: self.max_functions_per_file]:
-                strategy = _build_strategy_call(node)
-                if strategy is None:
+                strategy_specs = _build_strategy_specs(node)
+                if strategy_specs is None:
                     continue
                 ok, msg = _test_function_with_hypothesis(
-                    module_path, func_name, strategy, self.max_examples
+                    module_path, func_name, strategy_specs, self.max_examples
                 )
                 if not ok:
                     bug = BugReport(

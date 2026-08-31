@@ -18,7 +18,9 @@ def build_bwrap_argv(cmd: List[str]) -> List[str]:
         "--unshare-all",
         "--die-with-parent",
         "--ro-bind", "/", "/",
-        "--tmpfs", "/tmp",
+        # Bubblewrap requires an in-sandbox mount point; this does not create a
+        # predictable host temporary file or directory.
+        "--tmpfs", "/tmp",  # nosec B108
         "--dev", "/dev",
         "--proc", "/proc",
         "--",
