@@ -185,59 +185,11 @@ class OpenRouterProvider:
     def _init_dynamic_models(cls) -> None:
         if cls._dynamic_models_loaded:
             return
-        
         try:
-            import requests
-            # Fetch the latest models from OpenRouter
-            resp = requests.get("https://openrouter.ai/api/v1/models", timeout=5)
-            if resp.status_code == 200:
-                models = resp.json().get("data", [])
-                
-                free_models = []
-                for m in models:
-                    pricing = m.get("pricing", {})
-                    # Ensure both prompt and completion are exactly 0
-                    if float(pricing.get("prompt", 1)) == 0 and float(pricing.get("completion", 1)) == 0:
-                        free_models.append(m)
-                
-                if free_models:
-                    # Sort by context length descending as a proxy for capability
-                    free_models.sort(key=lambda x: int(x.get("context_length", 0)), reverse=True)
-                    
-                    # Overwrite the hardcoded list with fresh dynamic ones
-                    global OPENROUTER_FREE_MODELS
-                    OPENROUTER_FREE_MODELS = [m["id"] for m in free_models]
-                    
-                    # Auto-assign task map based on heuristics
-                    new_map = {"default": "openrouter/free"}
-                    for m in free_models:
-                        name = m["id"].lower()
-                        # Reasoning/Logic models
-                        if "reason" in name or "think" in name or "r1" in name:
-                            if "autofix" not in new_map: new_map["autofix"] = m["id"]
-                            if "fact_check" not in new_map: new_map["fact_check"] = m["id"]
-                        
-                        # Coding models
-                        if "code" in name or "coder" in name:
-                            if "coding" not in new_map: new_map["coding"] = m["id"]
-                            
-                        # General large models
-                        if "chat" in name or "instruct" in name or "pro" in name or "ultra" in name:
-                            if "learning" not in new_map: new_map["learning"] = m["id"]
-                            if "chat" not in new_map: new_map["chat"] = m["id"]
-                    
-                    # Fill any missing tasks with the absolute largest context model available
-                    largest_model = free_models[0]["id"]
-                    for task in ["autofix", "why", "learning", "fast_learning", "chat", "vision", "coding", "fact_check"]:
-                        if task not in new_map:
-                            new_map[task] = largest_model
-                            
-                    cls.TASK_FREE_FALLBACK_MAP = new_map
-                    logger.info(f"[LLM Gateway] Dynamically loaded {len(free_models)} free models from OpenRouter.")
-                    
+            from scp.llm_gateway.free_catalog import refresh_free_catalog
+            refresh_free_catalog()
         except Exception as e:
-            logger.warning(f"[LLM Gateway] Failed to dynamically fetch free models: {e}. Falling back to hardcoded list.")
-        
+            logger.warning('[LLM Gateway] free-catalog refresh failed: %s', e)
         cls._dynamic_models_loaded = True
 
 
@@ -465,59 +417,11 @@ class EnvCompatProvider(OpenRouterProvider):
     def _init_dynamic_models(cls) -> None:
         if cls._dynamic_models_loaded:
             return
-        
         try:
-            import requests
-            # Fetch the latest models from OpenRouter
-            resp = requests.get("https://openrouter.ai/api/v1/models", timeout=5)
-            if resp.status_code == 200:
-                models = resp.json().get("data", [])
-                
-                free_models = []
-                for m in models:
-                    pricing = m.get("pricing", {})
-                    # Ensure both prompt and completion are exactly 0
-                    if float(pricing.get("prompt", 1)) == 0 and float(pricing.get("completion", 1)) == 0:
-                        free_models.append(m)
-                
-                if free_models:
-                    # Sort by context length descending as a proxy for capability
-                    free_models.sort(key=lambda x: int(x.get("context_length", 0)), reverse=True)
-                    
-                    # Overwrite the hardcoded list with fresh dynamic ones
-                    global OPENROUTER_FREE_MODELS
-                    OPENROUTER_FREE_MODELS = [m["id"] for m in free_models]
-                    
-                    # Auto-assign task map based on heuristics
-                    new_map = {"default": "openrouter/free"}
-                    for m in free_models:
-                        name = m["id"].lower()
-                        # Reasoning/Logic models
-                        if "reason" in name or "think" in name or "r1" in name:
-                            if "autofix" not in new_map: new_map["autofix"] = m["id"]
-                            if "fact_check" not in new_map: new_map["fact_check"] = m["id"]
-                        
-                        # Coding models
-                        if "code" in name or "coder" in name:
-                            if "coding" not in new_map: new_map["coding"] = m["id"]
-                            
-                        # General large models
-                        if "chat" in name or "instruct" in name or "pro" in name or "ultra" in name:
-                            if "learning" not in new_map: new_map["learning"] = m["id"]
-                            if "chat" not in new_map: new_map["chat"] = m["id"]
-                    
-                    # Fill any missing tasks with the absolute largest context model available
-                    largest_model = free_models[0]["id"]
-                    for task in ["autofix", "why", "learning", "fast_learning", "chat", "vision", "coding", "fact_check"]:
-                        if task not in new_map:
-                            new_map[task] = largest_model
-                            
-                    cls.TASK_FREE_FALLBACK_MAP = new_map
-                    logger.info(f"[LLM Gateway] Dynamically loaded {len(free_models)} free models from OpenRouter.")
-                    
+            from scp.llm_gateway.free_catalog import refresh_free_catalog
+            refresh_free_catalog()
         except Exception as e:
-            logger.warning(f"[LLM Gateway] Failed to dynamically fetch free models: {e}. Falling back to hardcoded list.")
-        
+            logger.warning('[LLM Gateway] free-catalog refresh failed: %s', e)
         cls._dynamic_models_loaded = True
 
 
