@@ -100,7 +100,7 @@ jobs:
           python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
           $banditExit = $LASTEXITCODE
           python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
-          python -c 'import json; data=json.load(open("bandit-prod.json", encoding="utf-8")); [print(f"{r.get('"'"'test_id'"'"')} {r.get('"'"'issue_severity'"'"')} {r.get('"'"'filename'"'"')}:{r.get('"'"'line_number'"'"')} {r.get('"'"'issue_text'"'"')}") for r in data.get("results", []) if r.get("issue_severity") == "MEDIUM"]'
+          Get-Content bandit-prod-summary.json
           python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
           if ($banditExit -gt 1) { exit $banditExit }
       - name: upload production security evidence
