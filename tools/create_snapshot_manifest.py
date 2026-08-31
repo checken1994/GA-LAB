@@ -21,10 +21,10 @@ REQUIRED_PATHS = (
     "scp/core/knowledge_io.py",
     "reports/SCP_KERNEL_ASK_INTEGRATION_REPORT_20260825.md",
     "reports/ddg_candidate_provenance_20260825.json",
-    "reports/runtime_8000_20260825_v2/runtime_evidence_summary.json",
-    "reports/runtime_8000_20260826_remediation/runtime_evidence_summary.json",
+    "reports/runtime_8002_20260825_v2/runtime_evidence_summary.json",
+    "reports/runtime_8002_20260826_remediation/runtime_evidence_summary.json",
     "reports/core_repo_matrix_20260825/summary.json",
-    "tests/test_glm_security_remediation.py",
+    "tests/test_enforce_baseline.py",
     "tools/summarize_bandit_report.py",
 )
 
@@ -47,7 +47,7 @@ def tree_inventory(commit: str) -> list[dict[str, str]]:
         mode, kind, oid = meta.decode("ascii").split(" ", 2)
         path_text = path.decode("utf-8")
         # The manifest is committed after capture and must not hash itself.
-        if path_text == "reports/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json":
+        if path_text == "reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json":
             continue
         entries.append({"mode": mode, "type": kind, "blob": oid, "path": path_text})
     entries.sort(key=lambda row: row["path"])
