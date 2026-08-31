@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 from scripts import run_full_audit as base
-from tools.run_bounded_system_smoke import run as run_bounded_smoke
+from tools.run_bounded_system_smoke import port_open, run as run_bounded_smoke
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_DIR = ROOT / "reports" / "system_audit_strict"
@@ -105,8 +105,18 @@ def step_contract_tests() -> dict:
 
 
 def step_full_pytest() -> dict:
-    result = base.step_pytest()
-    return {**result, "ok": bool(result.get("ok"))}
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "--tb=no"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    return {
+        "ok": proc.returncode == 0,
+        "returncode": proc.returncode,
+        "output_tail": (proc.stdout + "\n" + proc.stderr)[-4000:],
+    }
 
 
 def step_reality_suite() -> dict:
@@ -124,30 +134,84 @@ def step_hermetic_boot() -> dict:
     return {**result, "ok": bool(result.get("ok"))}
 
 
+def _read_json_if_present(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _run_one_bounded(output_dir: Path) -> dict:
+    error = None
+    result = None
+    try:
+        result = run_bounded_smoke(output_dir)
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+
+    # The bounded runner always terminates the child process in a finally block,
+    # even when one of its checks fails. Verify that cleanup independently.
+    time.sleep(0.5)
+    evidence = _read_json_if_present(output_dir / "evidence.json")
+    cleanup = _read_json_if_present(output_dir / "cleanup.json")
+    log_path = output_dir / "server.log"
+    server_log = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+    outbound_lines = [
+        line for line in server_log.splitlines()
+        if "HTTP Request:" in line and ("http://" in line or "https://" in line)
+    ]
+    port_free = not port_open(8000)
+
+    response_checks = evidence.get("checks", {}) or {}
+    checks = {
+        "evidence_written": bool(evidence),
+        "health_200": response_checks.get("health_200") is True,
+        "hands_status_200": response_checks.get("hands_status_200") is True,
+        "hands_plan_allowed": response_checks.get("hands_plan_allowed") is True,
+        "hands_dry_run_success": response_checks.get("hands_execute_success") is True and response_checks.get("hands_execute_dry_run") is True,
+        "positive_ask_pass": response_checks.get("ask_verdict_pass") is True,
+        "positive_ask_run_success": response_checks.get("ask_run_status_success") is True,
+        "ledger_ok": response_checks.get("ask_ledger_status_ok") is True,
+        "no_external_egress_when_denied": not outbound_lines,
+        "port_cleanup": port_free,
+    }
+    return {
+        "ok": all(checks.values()),
+        "checks": checks,
+        "runner_result": result,
+        "runner_error": error,
+        "evidence": evidence,
+        "cleanup": cleanup,
+        "port_free_observed": port_free,
+        "external_http_requests": outbound_lines,
+        "server_log_tail": server_log[-6000:],
+    }
+
+
 def step_bounded_smoke_twice() -> dict:
     first_dir = REPORT_DIR / "bounded_smoke_first"
     second_dir = REPORT_DIR / "bounded_smoke_restart"
-    first = run_bounded_smoke(first_dir)
-    second = run_bounded_smoke(second_dir)
 
-    first_evidence = json.loads((first_dir / "evidence.json").read_text(encoding="utf-8"))
-    second_evidence = json.loads((second_dir / "evidence.json").read_text(encoding="utf-8"))
-    first_cleanup = json.loads((first_dir / "cleanup.json").read_text(encoding="utf-8"))
-    second_cleanup = json.loads((second_dir / "cleanup.json").read_text(encoding="utf-8"))
+    first = _run_one_bounded(first_dir)
+    second = _run_one_bounded(second_dir) if first.get("port_free_observed") else {
+        "ok": False,
+        "skipped": True,
+        "reason": "port 8000 was not released after first smoke",
+    }
 
     checks = {
-        "first_smoke_pass": first_evidence.get("pass") is True,
-        "first_port_cleanup": first_cleanup.get("port_8000_free") is True,
-        "restart_smoke_pass": second_evidence.get("pass") is True,
-        "restart_port_cleanup": second_cleanup.get("port_8000_free") is True,
+        "first_cycle": first.get("ok") is True,
+        "restart_cycle": second.get("ok") is True,
+        "first_port_cleanup": first.get("port_free_observed") is True,
+        "restart_port_cleanup": second.get("port_free_observed") is True,
     }
     return {
         "ok": all(checks.values()),
         "checks": checks,
         "first": first,
         "second": second,
-        "first_evidence": first_evidence,
-        "second_evidence": second_evidence,
     }
 
 
@@ -183,7 +247,7 @@ def main() -> int:
 
     all_pass = all(step.get("status") == "PASS" for step in steps)
     report = {
-        "schema_version": "scp-strict-system-audit-v1",
+        "schema_version": "scp-strict-system-audit-v2",
         "commit": commit,
         "started_at": started,
         "completed_at": time.time(),
@@ -195,8 +259,8 @@ def main() -> int:
             "Isolated local system audit: boot/readiness, auth brute-force and valid token, "
             "fail-closed ask semantics, prompt-injection kill/withhold, GOD/provider contracts, "
             "full pytest, Reality suite, fitness suite, hermetic boot, and two sequential bounded "
-            "API→router→ledger/kernel→RAG governance→Hands dry-run smoke cycles with port cleanup. "
-            "No claim about external-provider availability or distributed production deployment."
+            "API→router→ledger/kernel→RAG governance→Hands dry-run smoke cycles with independent "
+            "port-cleanup and deny-egress observation. No claim about distributed production deployment."
         ),
     }
     report_path = REPORT_DIR / "report.json"
