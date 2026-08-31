@@ -48,7 +48,6 @@ def _keyed(monkeypatch, provider):
     monkeypatch.setattr(target, "_key_cycle", itertools.cycle(["test-key"]), raising=False)
 
 
-
 def test_breaker_open_skips_dead_provider_without_network_call(monkeypatch):
     from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
@@ -103,7 +102,6 @@ def test_all_providers_down_fails_closed(monkeypatch):
     assert gateway._stats["failures"] == 1
 
 
-
 def test_env_compat_placeholder_key_is_disabled(monkeypatch):
     from scp.llm_gateway.client import EnvCompatProvider
 
@@ -113,6 +111,21 @@ def test_env_compat_placeholder_key_is_disabled(monkeypatch):
     monkeypatch.setenv("FAKE_MODEL", "fake-1")
     provider2 = EnvCompatProvider("fake", "chat", "FAKE_KEY", "FAKE_URL", "FAKE_MODEL")
     assert provider2.enabled is False
+
+
+def test_free_catalog_respects_deny_egress_without_network(monkeypatch):
+    from scp.llm_gateway import free_catalog
+
+    class ForbiddenNetworkClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("network client constructed while SCP_EGRESS_MODE=deny")
+
+    monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
+    monkeypatch.setattr(free_catalog.httpx, "Client", ForbiddenNetworkClient)
+    monkeypatch.setattr(free_catalog, "_fetched", False)
+    monkeypatch.setattr(free_catalog, "_last_ok", None)
+
+    assert free_catalog.refresh_free_catalog(force=True) is False
 
 
 # ---------------------------------------------------------------------------
@@ -154,4 +167,3 @@ def test_sandbox_rejects_invalid_capability():
         forged = CapabilityToken(subject="intruder", epoch=999, token_id="fake", issued_at=0.0)
         with pytest.raises(PermissionError):
             pie.execute_bounded(forged, ["cmd", "/c", "echo", "should-not-run"])
-
