@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import re
 import sqlite3
 import threading
 import uuid
@@ -467,6 +466,5 @@ def json_bytes(value: Any) -> bytes:
     import json
 
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-
 
 
