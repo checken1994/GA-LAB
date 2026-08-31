@@ -1,3 +1,4 @@
+import argparse
 import ast
 import subprocess
 from pathlib import Path
@@ -137,3 +138,27 @@ def run_mutation_tests(file_path_rel: str, test_file_path: str | None = None) ->
     score = killed / len(mutants)
     print(f"[MutationEngine] Score: {score*100:.1f}% ({killed}/{len(mutants)} killed)")
     return score
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Fail-closed mutation gate")
+    parser.add_argument("target")
+    parser.add_argument("--test", required=True, dest="test_file")
+    parser.add_argument("--min-score", type=float, default=0.0)
+    args = parser.parse_args()
+
+    if not 0.0 <= args.min_score <= 1.0:
+        raise SystemExit("--min-score must be within [0, 1]")
+
+    score = run_mutation_tests(args.target, args.test_file)
+    if score < args.min_score:
+        print(
+            f"[MutationEngine] FAIL: score {score:.3f} below required {args.min_score:.3f}"
+        )
+        return 1
+    print(f"[MutationEngine] PASS: score {score:.3f} >= {args.min_score:.3f}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
