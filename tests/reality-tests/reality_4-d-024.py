@@ -8,8 +8,13 @@ source stays unchanged while a review item and actionable review guide appear.
 """
 from __future__ import annotations
 
+import sys
 import tempfile
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def main() -> int:
@@ -43,9 +48,7 @@ def main() -> int:
         print("PASS [1/5]: unparseable suggestion fails closed and source is unchanged")
 
         pending_dir = root / "pending_fixes"
-        pending_items = sorted(
-            p for p in pending_dir.glob("*.py") if p.is_file()
-        )
+        pending_items = sorted(p for p in pending_dir.glob("*.py") if p.is_file())
         assert len(pending_items) == 1, (
             f"FAIL: expected exactly one queued review item, found {len(pending_items)}"
         )
