@@ -1,0 +1,44 @@
+name: SCP Snapshot Manifest Draft
+
+on:
+  push:
+    branches:
+      - audit/tmp-manifest-draft-20260901
+
+permissions:
+  contents: read
+
+jobs:
+  generate-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Generate manifest for strict-tested integration commit
+        run: >-
+          python tools/create_snapshot_manifest.py
+          --commit 3406275931e48ad6142f9c663de9f7708b9457a6
+          --output snapshot-manifest-draft.json
+      - name: Verify draft targets exact commit
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('snapshot-manifest-draft.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          expected = '3406275931e48ad6142f9c663de9f7708b9457a6'
+          assert data['captured_commit'] == expected, data['captured_commit']
+          assert data['captured_tree'] == '160c36e89a09e73ee21fd3d1cf58343c375d4a28', data['captured_tree']
+          print(data['tracked_count'], data['inventory_sha256'])
+          PY
+      - name: Upload manifest draft
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scp-snapshot-manifest-draft-${{ github.run_id }}
+          path: snapshot-manifest-draft.json
+          if-no-files-found: error
+          retention-days: 3
