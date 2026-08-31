@@ -4,13 +4,15 @@ import hashlib
 import json
 import re
 import secrets
-import sqlite3
-import threading
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# Persistence abstraction — allows future swap to Postgres/etcd
+from scp.kernel_storage import KernelStorage, StorageIntegrityError, make_storage
+
 
 
 STATES = {
@@ -144,47 +146,33 @@ class TaskKernel:
     (WAL sinh tồn đa connection), transaction không còn dính chéo thread.
     """
 
-    def __init__(self, db_path: str | Path):
-        self.db_path = str(db_path)
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn_local = threading.local()
-        self._all_conns: list[sqlite3.Connection] = []
-        self._conn_guard = threading.Lock()
-        self._tx_lock = threading.RLock()
-        self._tx_state = threading.local()
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute("PRAGMA foreign_keys=ON")
-        self.conn.execute("PRAGMA busy_timeout=10000")
+    def __init__(self, db_path: str | Path | None = None, *, storage: KernelStorage | None = None) -> None:
+        """Initialise the kernel.
+
+        Backward-compat: TaskKernel(db_path) still works.
+        DI-ready: TaskKernel(storage=my_storage) injects a custom backend.
+        Future: when TaskKernel is fully decoupled, the db_path arg will be removed.
+        """
+        if storage is not None:
+            # DI path: caller provides their own KernelStorage
+            self._storage = storage
+            self.db_path = getattr(storage, "db_path", str(db_path or ""))
+        else:
+            # Legacy path: create SQLiteKernelStorage from db_path
+            if db_path is None:
+                raise ValueError("Either db_path or storage= must be provided")
+            self._storage = make_storage(db_path)
+            self.db_path = str(db_path)
+
         self._schema()
 
-    def _new_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, timeout=10, isolation_level=None, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("PRAGMA busy_timeout=10000")
-        return conn
-
     @property
-    def conn(self) -> sqlite3.Connection:
-        """Connection của thread hiện tại (lazy-create, tracked để close)."""
-        conn = getattr(self._conn_local, "conn", None)
-        if conn is None:
-            conn = self._new_connection()
-            self._conn_local.conn = conn
-            with self._conn_guard:
-                self._all_conns.append(conn)
-        return conn
+    def conn(self) -> KernelStorage:
+        """Backward-compatible query facade backed by the injected storage."""
+        return self._storage
 
     def close(self) -> None:
-        with self._conn_guard:
-            for conn in self._all_conns:
-                try:
-                    conn.close()
-                except sqlite3.Error:
-                    pass
-            self._all_conns.clear()
-            self._conn_local = threading.local()
+        self._storage.close()
 
     def _schema(self) -> None:
         self.conn.executescript(
@@ -284,46 +272,18 @@ class TaskKernel:
         """Acquire the write slot + BEGIN IMMEDIATE, với bounded retry trên
         'database is locked' (multi-connection WAL contention khi hệ thống
         đang chạy phụ trợ khác cùng lúc). Đã hết retry → raise, fail-closed."""
-        self._tx_lock.acquire()
-        try:
-            last_error: Exception | None = None
-            for attempt in range(3):
-                try:
-                    self.conn.execute("BEGIN IMMEDIATE")
-                    self._tx_state.held = True
-                    return
-                except sqlite3.OperationalError as exc:
-                    if "locked" not in str(exc).lower():
-                        raise
-                    last_error = exc
-                    time.sleep(0.05 * (attempt + 1))
-            raise last_error if last_error else KernelError("begin failed")
-        except BaseException:
-            self._tx_lock.release()
-            raise
-
-    def _release_tx_lock(self) -> None:
-        if getattr(self._tx_state, "held", False):
-            self._tx_state.held = False
-            self._tx_lock.release()
+        self._storage.begin()
 
     def _commit(self) -> None:
-        try:
-            self.conn.execute("COMMIT")
-        finally:
-            self._release_tx_lock()
+        self._storage.commit()
 
     def _rollback(self) -> None:
-        try:
-            if self.conn.in_transaction:
-                self.conn.execute("ROLLBACK")
-        finally:
-            self._release_tx_lock()
+        self._storage.rollback()
 
-    def _control(self) -> sqlite3.Row:
+    def _control(self) -> Any:
         return self.conn.execute("SELECT * FROM control WHERE id=1").fetchone()
 
-    def _task(self, task_id: str) -> sqlite3.Row:
+    def _task(self, task_id: str) -> Any:
         row = self.conn.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
         if not row:
             raise NotFound(task_id)
@@ -356,7 +316,7 @@ class TaskKernel:
             self.conn.execute(
                 "INSERT INTO events(event_id,task_id,seq,type,from_state,to_state,actor,reason,payload_json,policy_hash,prev_event_hash,event_hash,created_at) VALUES (:event_id,:task_id,:seq,:type,:from_state,:to_state,:actor,:reason,:payload_json,:policy_hash,:prev_event_hash,:event_hash,:created_at)", row
             )
-        except sqlite3.IntegrityError:
+        except StorageIntegrityError:
             existing = self.conn.execute("SELECT * FROM events WHERE event_id=?", (event_id,)).fetchone()
             if existing:
                 return dict(existing)
@@ -431,7 +391,7 @@ class TaskKernel:
             raise
         return self.get_task(task_id)
 
-    def _assert_not_killed(self) -> sqlite3.Row:
+    def _assert_not_killed(self) -> Any:
         control = self._control()
         if control["global_kill"]:
             raise KillSwitchActive("global kill switch active")
@@ -543,13 +503,13 @@ class TaskKernel:
         queued = self.conn.execute("SELECT COUNT(*) AS n FROM tasks WHERE state='QUEUED'").fetchone()["n"]
         return {"queued": int(queued), "owners": [dict(row) for row in rows]}
 
-    def _lease(self, lease_id: str) -> sqlite3.Row:
+    def _lease(self, lease_id: str) -> Any:
         row = self.conn.execute("SELECT * FROM leases WHERE lease_id=?", (lease_id,)).fetchone()
         if not row:
             raise StaleLease(lease_id)
         return row
 
-    def _assert_lease(self, lease_id: str, task_id: str) -> sqlite3.Row:
+    def _assert_lease(self, lease_id: str, task_id: str) -> Any:
         lease = self._lease(lease_id); control = self._control(); now = time.time()
         if lease["task_id"] != task_id or lease["released"] or lease["expires_at"] <= now or lease["global_kill_epoch"] != control["global_kill_epoch"] or control["global_kill"]:
             raise StaleLease(lease_id)
@@ -993,7 +953,7 @@ class TaskKernel:
         '''Tự động rà soát các task bị mồ côi (chết do crash, mất kết nối) và đưa vào RECONCILING'''
         orphans = []
         try:
-            self.conn.execute("BEGIN IMMEDIATE")
+            self._begin()
             # Tìm các task đang LEASED, RUNNING, PATROLLING nhưng đã quá hạn lease (60 giây mặc định)
             rows = self.conn.execute('''
                 SELECT task_id, state 
@@ -1015,7 +975,7 @@ class TaskKernel:
                     self._append_event(tid, "STATE_TRANSITION", "UNKNOWN", "RECONCILING", actor, "AUTO_RECONCILE_INITIATED", {})
                 orphans.append(tid)
             self._commit()
-        except Exception as e:
+        except Exception:
             self._rollback()
             raise
         return orphans
@@ -1047,11 +1007,7 @@ class TaskKernel:
         import uuid
         stamp = f"{_time.strftime('%Y%m%d-%H%M%S')}-{_time.time_ns() % 10**9:09d}-{uuid.uuid4().hex[:6]}"
         target = dest / f"kernel-backup-{stamp}.sqlite3"
-        dst_conn = sqlite3.connect(str(target))
-        try:
-            self.conn.backup(dst_conn)
-        finally:
-            dst_conn.close()
+        self._storage.backup_to(target)
         backups = sorted(dest.glob("kernel-backup-*.sqlite3"))
         pruned = 0
         for old in backups[: max(0, len(backups) - int(retain))]:

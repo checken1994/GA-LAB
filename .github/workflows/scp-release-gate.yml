@@ -44,6 +44,18 @@ jobs:
         run: python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/reality_test.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/safe_math.py scp/security/cisa_kev.py tests/test_glm_security_remediation.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py --select E9,F
       - shell: pwsh
         run: python -m pytest -q
+      - name: bounded live mutation score gate
+        if: matrix.os == 'ubuntu-latest'
+        shell: pwsh
+        run: python scripts/run_mutation_ci.py --max-mutants 5 --min-score 0.40 --report reports/mutation/mutation_report.json
+      - name: upload mutation evidence
+        if: ${{ always() && matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scp-mutation-evidence-${{ github.run_id }}
+          path: reports/mutation/mutation_report.json
+          if-no-files-found: error
+          retention-days: 14
       - shell: pwsh
         run: |
           python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json

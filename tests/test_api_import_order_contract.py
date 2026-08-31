@@ -34,6 +34,9 @@ def _run_import_probe(mode: str) -> tuple[dict[str, int], str]:
     env = os.environ.copy()
     env["SCP_TEST_PROJECT_ROOT"] = str(PROJECT_ROOT)
     env["SCP_IMPORT_ORDER_MODE"] = mode
+    # This contract measures full-router import stability, independent of the
+    # production default API-surface profile.
+    env["SCP_API_PROFILE"] = "full"
     completed = subprocess.run(
         [sys.executable, "-c", _CHILD_PROBE],
         cwd=PROJECT_ROOT,

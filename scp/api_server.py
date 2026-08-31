@@ -809,6 +809,15 @@ async def lifespan(app: FastAPI):
 # ============================================================
 # FastAPI app
 # ============================================================
+from scp.api.route_profile import resolve_api_profile, route_group_enabled
+
+_API_PROFILE = resolve_api_profile()
+
+
+def _route_enabled(group: str) -> bool:
+    return route_group_enabled(group, _API_PROFILE)
+
+
 app = FastAPI(
     title=f"{RELEASE_LABEL} - Self-Correcting Pipeline API",
     description=f"{DOMAIN_EXPERT_ENSEMBLE_TERM} + FalsificationEngine + Governance + Chat + Evolution",
@@ -895,11 +904,11 @@ except ImportError:
 logger.info("[Security] CSRF protection: Bearer token auth (attacker cannot forge Authorization header)")
 
 # [V104.48] Register chat router AFTER app creation
-if _CHAT_AVAILABLE:
+if _CHAT_AVAILABLE and _route_enabled("chat"):
     app.include_router(chat_router, tags=["chat"])
 
 # [Task 7-A] Register V98 + V100 admin routers (extracted from inline routes)
-if _V98_V100_ROUTERS_AVAILABLE:
+if _V98_V100_ROUTERS_AVAILABLE and _route_enabled("versioned_admin"):
     app.include_router(v98_admin_router)
     app.include_router(v100_admin_router)
 
@@ -922,18 +931,24 @@ except ImportError as e:
     _EXTRA_ROUTERS_AVAILABLE = False
 
 if _EXTRA_ROUTERS_AVAILABLE:
-    app.include_router(openai_compat_router)
-    app.include_router(v102_v103_router)
-    app.include_router(import_router)
-    app.include_router(v104_router)
-    app.include_router(v105_router)
+    if _route_enabled("openai_compat"):
+        app.include_router(openai_compat_router)
+    if _route_enabled("versioned_admin"):
+        app.include_router(v102_v103_router)
+        app.include_router(v104_router)
+        app.include_router(v105_router)
+    if _route_enabled("import"):
+        app.include_router(import_router)
 
 # SCP control plane: authenticated capability and escalation decisions.
 # Import is fail-safe so an optional control module cannot kill startup.
 try:
     from scp.api.routes.control_routes import router as control_router
-    app.include_router(control_router, tags=["control"])
-    _CONTROL_ROUTES_AVAILABLE = True
+    if _route_enabled("control"):
+        app.include_router(control_router, tags=["control"])
+        _CONTROL_ROUTES_AVAILABLE = True
+    else:
+        _CONTROL_ROUTES_AVAILABLE = False
 except ImportError as e:
     logger.warning(f"[SCP Control] Control router unavailable: {e}")
     _CONTROL_ROUTES_AVAILABLE = False
@@ -952,25 +967,29 @@ except ImportError as e:
 #                         GET  /v105/predictions/{pending,all,stats}
 try:
     from scp.api.routes.stream_routes import router as stream_router
-    app.include_router(stream_router, tags=["stream"])
+    if _route_enabled("stream"):
+        app.include_router(stream_router, tags=["stream"])
 except ImportError as _e:
     logger.warning(f" stream_routes router unavailable: {_e}")
 
 try:
     from scp.api.routes.threat_routes import router as threat_router
-    app.include_router(threat_router, tags=["threats"])
+    if _route_enabled("threat"):
+        app.include_router(threat_router, tags=["threats"])
 except ImportError as _e:
     logger.warning(f" threat_routes router unavailable: {_e}")
 
 try:
     from scp.api.routes.audit_routes import router as audit_router
-    app.include_router(audit_router, tags=["audit"])
+    if _route_enabled("audit"):
+        app.include_router(audit_router, tags=["audit"])
 except ImportError as _e:
     logger.warning(f" audit_routes router unavailable: {_e}")
 
 try:
     from scp.api.routes.prediction_routes import router as prediction_router
-    app.include_router(prediction_router, tags=["predictions"])
+    if _route_enabled("prediction"):
+        app.include_router(prediction_router, tags=["predictions"])
 except ImportError as _e:
     logger.warning(f" prediction_routes router unavailable: {_e}")
 
@@ -980,8 +999,11 @@ except ImportError as _e:
 # prompts for analysis. DNA SCP #9 No harm: webhook is read-only (analyze, no exec).
 try:
     from scp.api.webhook import router as webhook_router
-    app.include_router(webhook_router)
-    _WEBHOOK_ROUTER_AVAILABLE = True
+    if _route_enabled("webhook"):
+        app.include_router(webhook_router)
+        _WEBHOOK_ROUTER_AVAILABLE = True
+    else:
+        _WEBHOOK_ROUTER_AVAILABLE = False
 except ImportError as e:
     logger.warning(f"[Task 42-B] Webhook router unavailable: {e}")
     _WEBHOOK_ROUTER_AVAILABLE = False
@@ -990,8 +1012,11 @@ except ImportError as e:
 # SCP V3.1 PC Controller │Ă¢â€Â¬Ă¢â‚¬Â local-only by default, policy-gated actions.
 try:
     from scp.api.routes.pc_controller_routes import router as pc_controller_router
-    app.include_router(pc_controller_router)
-    _PC_CONTROLLER_AVAILABLE = True
+    if _route_enabled("pc_controller"):
+        app.include_router(pc_controller_router)
+        _PC_CONTROLLER_AVAILABLE = True
+    else:
+        _PC_CONTROLLER_AVAILABLE = False
 except ImportError as e:
     logger.warning(f"[V3.1] PC Controller router unavailable: {e}")
     _PC_CONTROLLER_AVAILABLE = False
@@ -999,8 +1024,11 @@ except ImportError as e:
 # SCP V3.1 browser and AI orchestration │Ă¢â€Â¬Ă¢â‚¬Â local browser session first.
 try:
     from scp.api.routes.web_control_routes import router as web_control_router
-    app.include_router(web_control_router)
-    _WEB_CONTROL_AVAILABLE = True
+    if _route_enabled("web_control"):
+        app.include_router(web_control_router)
+        _WEB_CONTROL_AVAILABLE = True
+    else:
+        _WEB_CONTROL_AVAILABLE = False
 except ImportError as e:
     logger.warning(f"[V3.1] Web control router unavailable: {e}")
     _WEB_CONTROL_AVAILABLE = False
@@ -1915,10 +1943,12 @@ if __name__ == "__main__":
 # SCP Hands v3.2 Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â action fabric
 try:
     from scp.api.routes.hands_routes import router as hands_router
-    app.include_router(hands_router)
+    if _route_enabled("hands"):
+        app.include_router(hands_router)
     from scp.api.routes.batch_benchmark_routes import router as batch_benchmark_router
-    app.include_router(batch_benchmark_router)
-    _HANDS_AVAILABLE = True
+    if _route_enabled("batch_benchmark"):
+        app.include_router(batch_benchmark_router)
+    _HANDS_AVAILABLE = _route_enabled("hands")
 except ImportError as e:
     logger.warning(f"[SCP Hands v3.2] Hands router unavailable: {e}")
     _HANDS_AVAILABLE = False
@@ -1928,8 +1958,11 @@ except ImportError as e:
 # legacy chat/judge path until its reality contract is verified.
 try:
     from scp.api.routes.agent_routes import router as agent_router
-    app.include_router(agent_router)
-    _AGENT_ORCHESTRATOR_AVAILABLE = True
+    if _route_enabled("agent"):
+        app.include_router(agent_router)
+        _AGENT_ORCHESTRATOR_AVAILABLE = True
+    else:
+        _AGENT_ORCHESTRATOR_AVAILABLE = False
 except ImportError as e:
     logger.warning(f"[SCP Agent] Agent orchestrator router unavailable: {e}")
     _AGENT_ORCHESTRATOR_AVAILABLE = False
@@ -1937,8 +1970,11 @@ except ImportError as e:
 # SCP local WebRTC signaling: relay-only, bounded, no media storage.
 try:
     from scp.api.routes.call_routes import router as call_router
-    app.include_router(call_router)
-    _CALL_SIGNALING_AVAILABLE = True
+    if _route_enabled("call"):
+        app.include_router(call_router)
+        _CALL_SIGNALING_AVAILABLE = True
+    else:
+        _CALL_SIGNALING_AVAILABLE = False
 except ImportError as e:
     logger.warning(f"[SCP Call] Call signaling router unavailable: {e}")
     _CALL_SIGNALING_AVAILABLE = False

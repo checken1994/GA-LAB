@@ -34,6 +34,8 @@ build/
 *.tmp
 soak.sqlite3
 reports/pytest-basetemp/
+reports/mutation/
+reports/soak/
 
 # Portable reality output is generated evidence, not tracked source.
 reports/reality/*.json
