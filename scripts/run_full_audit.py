@@ -117,12 +117,20 @@ def step_boot_and_probe(env_file: str) -> dict:
             time.sleep(1)
         findings["health"] = {"status_code": code, "identity": health.get("service_identity", {})}
 
-        # 2. Readiness
-        for _ in range(30):
+        # 2. Complete readiness: HTTP 200 means judge is ready, while the
+        # scheduler flips its own flag on the next async bootstrap tick. Observe
+        # both postconditions within a bounded window instead of sampling that
+        # startup race once.
+        for _ in range(60):
             code, ready = _get(f"{AUDIT_BASE}/ready")
-            if code == 200:
+            checks = ready.get("checks", {}) if isinstance(ready, dict) else {}
+            if (
+                code == 200
+                and checks.get("judge") == "ok"
+                and checks.get("background_scheduler") == "ok"
+            ):
                 break
-            time.sleep(1)
+            time.sleep(0.5)
         findings["readiness"] = {"status_code": code, "checks": ready.get("checks", {})}
 
         # 3. Auth: wrong key → 401, brute-force → 429
@@ -295,4 +303,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
