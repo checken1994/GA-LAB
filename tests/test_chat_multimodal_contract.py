@@ -23,7 +23,7 @@ def test_dashboard_preserves_session_and_has_explicit_media_controls():
 
 def test_real_ask_path_prioritizes_current_question_and_accepts_image_data():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "scp" / "api_server.py").read_text(encoding="utf-8")
+    source = (root / "scp" / "api_server_parts" / "_ask_impl.py").read_text(encoding="utf-8")
     assert "_history = []" in source
     assert "_history" in source
     assert "current question" in source.lower()
@@ -55,7 +55,7 @@ def test_chat_runtime_user_visible_strings_are_clean_and_vietnamese_keywords_wor
 
 def test_ask_runtime_user_visible_strings_and_fact_check_keywords_are_clean():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "scp" / "api_server.py").read_text(encoding="utf-8")
+    source = (root / "scp" / "api_server_parts" / "_ask_impl.py").read_text(encoding="utf-8")
     assert '"Bạn là SCP — một trợ lý AI thông minh.' in source
     assert '"có thật", "đúng không", "có thật không", "kiểm chứng"' in source
     assert '"[SCP: Answer withheld — Governance KILL]"' in source
