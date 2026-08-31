@@ -19,8 +19,14 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 
-class StorageIntegrityError(RuntimeError):
-    """Backend-neutral uniqueness/integrity conflict."""
+class StorageIntegrityError(sqlite3.IntegrityError):
+    """Backend-neutral uniqueness/integrity conflict.
+
+    It temporarily retains ``sqlite3.IntegrityError`` compatibility so callers
+    written before the storage abstraction continue to fail closed while they
+    migrate to the backend-neutral exception.  The storage layer remains the
+    only place that translates backend-specific integrity failures.
+    """
 
 
 @runtime_checkable

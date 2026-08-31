@@ -13,11 +13,9 @@ from typing import Any, Awaitable, Callable
 _c3_logger = logging.getLogger("scp.ask_kernel_adapter")
 
 try:
-    from .kernel_storage import StorageIntegrityError
     from .task_kernel import KernelError, TaskKernel
     from .trace_ledger import TraceLedger
 except ImportError:
-    from kernel_storage import StorageIntegrityError
     from task_kernel import KernelError, TaskKernel
     from trace_ledger import TraceLedger
 try:
@@ -202,10 +200,11 @@ class AskKernelAdapter:
                 "checkpoint_id": checkpoint_id,
                 "input_hash": input_hash,
             }
-        except (sqlite3.IntegrityError, StorageIntegrityError) as exc:
-            # Storage abstraction translates backend uniqueness errors into
-            # StorageIntegrityError.  Preserve the original stable-idempotency
-            # behavior instead of leaking a backend refactor as HTTP 500.
+        except sqlite3.IntegrityError as exc:
+            # Duplicate durable identity: within the idempotency window this is
+            # a transport retry — a safe block, not a second handler execution.
+            # Past the window a terminal duplicate is a NEW ask — re-ask once
+            # with a uniquified id instead of blocking forever.
             existing = self._existing_task(task_id)
             if not _retried and self._duplicate_is_reaskable(existing):
                 return self.begin(question, contexts, retrieved_context, session_id, request=request, _retried=True)
@@ -366,57 +365,108 @@ class AskKernelAdapter:
                 step_id="rag-read",
                 lease_id=lease_id,
                 checkpoint_id=task.get("checkpoint_id"),
-                outcome="VERIFIED" if verification["verdict"] == "VERIFIED" else "REJECTED",
-                verification=verification,
-                response_hash=stable_response_hash(response_data),
+                verifier_id=verification.get("verifier_id"),
+                evidence_ref=verification.get("evidence_ref"),
+                run_id=response_data.get("run_id"),
+                trace_id=response_data.get("trace_id"),
+                outcome=final_task.get("state"),
+                verdict=verification.get("verdict"),
+                grounded_ratio=verification.get("grounded_ratio"),
+                response_elapsed_ms=response_data.get("elapsed_ms"),
             )
-        return {"response": self._safe_response(response, verification), "task": final_task, "verification": verification}
+        return {
+            "task": final_task,
+            "verification": verification,
+            "safe_response": self._safe_response(response, verification),
+        }
 
-    async def execute(
-        self,
-        req: Any,
-        handler: Callable[[Any], Awaitable[Any]],
-        request: Any = None,
-    ) -> Any:
-        question = str(getattr(req, "question", ""))
-        contexts = [str(value) for value in (getattr(req, "contexts", None) or [])]
-        retrieved_context = str(getattr(req, "retrieved_context", "") or "")
-        session_id = getattr(req, "session_id", None)
+    def fail(self, task: dict[str, Any], reason: str) -> None:
         try:
-            task = self.begin(question, contexts, retrieved_context, session_id, request=request)
-        except KernelError as exc:
-            return self._kernel_gate_response(req, exc)
-        response = await handler(req)
-        finalized = await self.finalize(task, response, req)
-        return finalized["response"]
+            current = self.kernel.get_task(task["task_id"])
+            if current["state"] not in _TERMINAL:
+                self.kernel.transition(task["task_id"], "FAILED", actor="ask-kernel-adapter", reason=reason)
+            with _TRACE_LOCK:
+                self.trace.append(
+                    task_id=task["task_id"],
+                    attempt_id=task.get("attempt_id"),
+                    lease_id=task.get("lease_id"),
+                    checkpoint_id=task.get("checkpoint_id"),
+                    outcome="FAILED",
+                    reason=reason,
+                )
+        except Exception as exc:  # non-fatal audit fallback; original error wins
+            try:
+                from scp.core.exception_policy import observe_nonfatal
 
-    @staticmethod
-    def _kernel_gate_response(req: Any, exc: Exception) -> Any:
+                observe_nonfatal(component="scp/ask_kernel_adapter.py:fail", exception_type=type(exc).__name__)
+            except Exception:
+                return
+
+    def _kernel_blocked_response(self, req: Any, exc: Exception) -> Any:
+        session = getattr(req, "session_id", None) or "ask-kernel-blocked"
+        trace_id = "trace-kernel-blocked-" + uuid.uuid4().hex
+        msg = f"[SCP: Answer withheld — Kernel gate blocked: {type(exc).__name__} - {str(exc)}]"
         if AskResponse is None:
             return {
                 "verdict": "FAIL",
-                "final_answer": f"[SCP: Answer withheld — Kernel gate blocked: {type(exc).__name__} - {exc}]",
+                "final_answer": msg,
                 "confidence": 0.0,
-                "domain": str(getattr(req, "domain", "general")),
-                "governance_decision": "KILL",
+                "domain": getattr(req, "domain_override", "") or getattr(req, "domain", "") or "general",
+                "run_status": "REJECTED",
+                "trace_id": trace_id,
+                "governance_decision": "KILL"
             }
         return AskResponse(
             verdict="FAIL",
-            final_answer=f"[SCP: Answer withheld — Kernel gate blocked: {type(exc).__name__} - {exc}]",
+            final_answer=msg,
             confidence=0.0,
-            domain=str(getattr(req, "domain", "general")),
+            domain=getattr(req, "domain_override", "") or getattr(req, "domain", "") or "general",
             falsification_status="KERNEL_GATE",
             governance_decision="KILL",
-            v98_guard={"mode": "rag-verified", "readOnly": True, "security_blocked": True, "kernel_error": type(exc).__name__},
+            v98_guard={
+                "mode": "rag-verified",
+                "readOnly": True,
+                "security_blocked": True,
+                "kernel_error": type(exc).__name__,
+            },
             v98_classification={"provenance": "kernel_gate", "evidence_count": 0},
-            session_id=getattr(req, "session_id", None),
+            elapsed_ms=0.0,
+            session_id=session,
+            run_id="run-kernel-blocked-" + uuid.uuid4().hex,
+            trace_id=trace_id,
+            run_status="REJECTED",
+            ledger_status="BLOCKED",
         )
+
+    async def run_rag(
+        self,
+        req: Any,
+        request: Any,
+        handler: Callable[[Any, Any], Awaitable[Any]],
+    ) -> Any:
+        try:
+            task = self.begin(
+                req.question,
+                list(req.contexts or []),
+                req.retrieved_context or "",
+                req.session_id,
+                request=request,
+            )
+        except Exception as exc:
+            return self._kernel_blocked_response(req, exc)
+        try:
+            response = await handler(req, request)
+            result = await self.finalize(task, response, req)
+            return result["safe_response"]
+        except Exception:
+            self.fail(task, "ask_rag_exception")
+            raise
 
 
 def json_bytes(value: Any) -> bytes:
     import json
+
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
-def stable_response_hash(value: Any) -> str:
-    return "sha256:" + hashlib.sha256(json_bytes(value)).hexdigest()
+
