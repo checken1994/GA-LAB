@@ -17,7 +17,6 @@ import json
 import os
 import platform
 import socket
-import sqlite3
 import subprocess
 import sys
 import threading
