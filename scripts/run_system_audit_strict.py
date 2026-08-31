@@ -11,7 +11,9 @@ import os
 import secrets
 import subprocess
 import sys
+import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from scripts import run_full_audit as base
@@ -134,6 +136,143 @@ def step_hermetic_boot() -> dict:
     return {**result, "ok": bool(result.get("ok"))}
 
 
+def step_kernel_recovery_integrity() -> dict:
+    """Exercise durable-kernel invariants against a real SQLite backend."""
+    from scp.task_kernel import TaskKernel
+
+    with tempfile.TemporaryDirectory(prefix="scp-kernel-reality-") as tmp:
+        db_path = Path(tmp) / "kernel.sqlite3"
+        kernel = TaskKernel(db_path)
+
+        # Idempotent replay: the same event id must not append a duplicate event.
+        kernel.create_task("idem-task", "audit", "idempotency reality check")
+        kernel.transition(
+            "idem-task",
+            "PLANNING",
+            actor="audit",
+            reason="first replay",
+            event_id="evt-system-audit-idempotent",
+        )
+        event_count_before = len(kernel.get_events("idem-task"))
+        kernel.transition(
+            "idem-task",
+            "PLANNING",
+            actor="audit",
+            reason="duplicate replay",
+            event_id="evt-system-audit-idempotent",
+        )
+        event_count_after = len(kernel.get_events("idem-task"))
+
+        # Put a task in LEASED state, close the process-level object, reopen the
+        # same DB, and require boot recovery to move it to RECOVERING.
+        kernel.transition("idem-task", "READY", actor="audit", reason="prepare queue")
+        kernel.transition("idem-task", "QUEUED", actor="audit", reason="queue task")
+        lease = kernel.claim("idem-task", "audit-worker", ttl_seconds=60.0)
+        leased_state = kernel.get_task("idem-task")["state"]
+        journal_before_restart = kernel.verify_journal("idem-task")
+        kernel.close()
+
+        reopened = TaskKernel(db_path)
+        recovery = reopened.recover_on_boot(actor="strict_system_audit")
+        recovered_state = reopened.get_task("idem-task")["state"]
+        journal_after_restart = reopened.verify_journal("idem-task")
+
+        # Tamper with persisted evidence and require both the verifier and boot
+        # recovery to refuse to treat the corrupted chain as valid.
+        reopened.create_task("tamper-task", "audit", "tamper reality check")
+        reopened.transition("tamper-task", "PLANNING", actor="audit", reason="before tamper")
+        tamper_before = reopened.verify_journal("tamper-task")
+        reopened.conn.execute(
+            "UPDATE events SET payload_json=? WHERE task_id=? AND seq=?",
+            (json.dumps({"tampered": True}), "tamper-task", 2),
+        )
+        reopened.conn.commit()
+        tamper_after = reopened.verify_journal("tamper-task")
+        recovery_after_tamper = reopened.recover_on_boot(actor="strict_system_audit_tamper")
+        reopened.close()
+
+        # Parallel consistency: each worker opens its own kernel/storage facade
+        # against one WAL database. Every task and every journal must survive.
+        parallel_count = 24
+
+        def _parallel_create(i: int) -> str:
+            task_id = f"parallel-{i:02d}"
+            k = TaskKernel(db_path)
+            try:
+                k.create_task(task_id, f"owner-{i % 4}", f"parallel reality {i}")
+                return task_id
+            finally:
+                k.close()
+
+        parallel_errors: list[str] = []
+        created_ids: list[str] = []
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(_parallel_create, i) for i in range(parallel_count)]
+            for future in as_completed(futures):
+                try:
+                    created_ids.append(future.result())
+                except Exception as exc:
+                    parallel_errors.append(f"{type(exc).__name__}: {exc}")
+
+        final_kernel = TaskKernel(db_path)
+        try:
+            persisted_parallel = int(
+                final_kernel.conn.execute(
+                    "SELECT COUNT(*) AS n FROM tasks WHERE task_id LIKE 'parallel-%'"
+                ).fetchone()["n"]
+            )
+            invalid_parallel = []
+            for task_id in sorted(created_ids):
+                result = final_kernel.verify_journal(task_id)
+                if not result.get("hash_chain_valid"):
+                    invalid_parallel.append({"task_id": task_id, "errors": result.get("errors")})
+        finally:
+            final_kernel.close()
+
+        corrupted_ids = {
+            item.get("task_id") for item in recovery_after_tamper.get("corrupted", [])
+        }
+        recovered_entries = recovery.get("recovered", [])
+        recovered_match = any(
+            item.get("task_id") == "idem-task"
+            and item.get("from") == "LEASED"
+            and item.get("to") == "RECOVERING"
+            for item in recovered_entries
+        )
+
+        checks = {
+            "idempotent_event_replay": event_count_before == event_count_after,
+            "leased_before_restart": leased_state == "LEASED" and bool(lease.lease_id),
+            "journal_valid_before_restart": journal_before_restart.get("hash_chain_valid") is True,
+            "boot_recovery_to_recovering": recovered_state == "RECOVERING" and recovered_match,
+            "journal_valid_after_restart": journal_after_restart.get("hash_chain_valid") is True,
+            "tamper_baseline_valid": tamper_before.get("hash_chain_valid") is True,
+            "tamper_detected": tamper_after.get("hash_chain_valid") is False,
+            "tamper_fail_closed_on_boot": "tamper-task" in corrupted_ids,
+            "parallel_no_worker_errors": not parallel_errors,
+            "parallel_all_persisted": persisted_parallel == parallel_count,
+            "parallel_journals_valid": not invalid_parallel,
+        }
+        return {
+            "ok": all(checks.values()),
+            "checks": checks,
+            "event_count_before_replay": event_count_before,
+            "event_count_after_replay": event_count_after,
+            "lease": {
+                "lease_id": lease.lease_id,
+                "fencing_token": lease.fencing_token,
+            },
+            "recovery": recovery,
+            "tamper_before": tamper_before,
+            "tamper_after": tamper_after,
+            "recovery_after_tamper": recovery_after_tamper,
+            "parallel_created": len(created_ids),
+            "parallel_persisted": persisted_parallel,
+            "parallel_errors": parallel_errors,
+            "invalid_parallel_journals": invalid_parallel,
+        }
+
+
 def _read_json_if_present(path: Path) -> dict:
     if not path.exists():
         return {}
@@ -241,13 +380,14 @@ def main() -> int:
         steps.append(_run_step("reality_suite", step_reality_suite))
         steps.append(_run_step("fitness_golden_suite", step_fitness))
         steps.append(_run_step("hermetic_boot", step_hermetic_boot))
+        steps.append(_run_step("kernel_recovery_integrity", step_kernel_recovery_integrity))
         steps.append(_run_step("bounded_smoke_and_restart", step_bounded_smoke_twice))
     finally:
         env_file.unlink(missing_ok=True)
 
     all_pass = all(step.get("status") == "PASS" for step in steps)
     report = {
-        "schema_version": "scp-strict-system-audit-v2",
+        "schema_version": "scp-strict-system-audit-v3",
         "commit": commit,
         "started_at": started,
         "completed_at": time.time(),
@@ -258,9 +398,11 @@ def main() -> int:
         "scope": (
             "Isolated local system audit: boot/readiness, auth brute-force and valid token, "
             "fail-closed ask semantics, prompt-injection kill/withhold, GOD/provider contracts, "
-            "full pytest, Reality suite, fitness suite, hermetic boot, and two sequential bounded "
-            "API→router→ledger/kernel→RAG governance→Hands dry-run smoke cycles with independent "
-            "port-cleanup and deny-egress observation. No claim about distributed production deployment."
+            "full pytest, Reality suite, fitness suite, hermetic boot, durable-kernel idempotent "
+            "replay/crash recovery/tamper detection/parallel journal consistency, and two sequential "
+            "bounded API→router→ledger/kernel→RAG governance→Hands dry-run smoke cycles with "
+            "independent port-cleanup and deny-egress observation. No claim about distributed "
+            "production deployment or live third-party-provider correctness."
         ),
     }
     report_path = REPORT_DIR / "report.json"
