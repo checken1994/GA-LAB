@@ -38,7 +38,7 @@ jobs:
         run: python -m pip install -r scp/requirements-dev.txt
       - name: compile critical paths
         shell: pwsh
-        run: python -m py_compile scp/runtime/judge.py scp/runtime/multi_llm_crosscheck.py scp/api_server.py scp/__main__.py scp/task_kernel.py scp/kernel_storage.py scp/security/auth.py scp/security/production_guard.py scp/security/secret_loader.py scp/autofix/llm_fix.py scp/autofix/runner_phases/ast_scan.py scp/autofix/restricted_exec.py scp/runtime/safe_math.py scp/history/migration.py scp/llm_gateway/free_catalog.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py scripts/mutation_engine.py scripts/scp_soak_test.py scripts/run_scp_acceptance.py scripts/run_scp_acceptance_ci.py
+        run: python -m py_compile scp/runtime/judge.py scp/runtime/multi_llm_crosscheck.py scp/api_server.py scp/__main__.py scp/task_kernel.py scp/kernel_storage.py scp/ask_kernel_adapter.py scp/security/auth.py scp/security/production_guard.py scp/security/secret_loader.py scp/autofix/llm_fix.py scp/autofix/runner_phases/ast_scan.py scp/autofix/restricted_exec.py scp/runtime/safe_math.py scp/history/migration.py scp/llm_gateway/free_catalog.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py scripts/mutation_engine.py scripts/scp_soak_test.py scripts/run_scp_acceptance.py scripts/run_scp_acceptance_ci.py
 
       # Release authority: assembled SCP behavior through real process, HTTP,
       # provider boundaries, persistence, restart and corruption scenarios.
@@ -76,10 +76,11 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: bounded TaskKernel soak diagnostic
+        id: soak
         shell: pwsh
         run: python scripts/scp_soak_test.py --duration-seconds 5 --run-id ci-${{ matrix.os }}-${{ github.run_id }} --output-dir reports/soak_ci/${{ matrix.os }} --workers 2 --batch-size 2 --interval-seconds 0.2 --integrity-interval-seconds 2 --report-interval-seconds 1 --min-free-mb 128
       - name: upload soak evidence
-        if: always()
+        if: ${{ always() && (steps.soak.outcome == 'success' || steps.soak.outcome == 'failure') }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scp-soak-${{ matrix.os }}-${{ github.run_id }}
@@ -91,7 +92,7 @@ jobs:
         run: python scripts/run_reality_tests_portable.py
       - name: static lint gate
         shell: pwsh
-        run: python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/post_fix_verify.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/llm_gateway/free_catalog.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/multi_llm_crosscheck.py scp/runtime/safe_math.py scp/security/cisa_kev.py tests/test_enforce_baseline.py tests/test_multi_llm_crosscheck_concurrency.py tests/external_audit/test_cascade.py tests/reality-tests/reality_4-d-024.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py scripts/mutation_engine.py scripts/scp_soak_test.py scripts/run_scp_acceptance.py scripts/run_scp_acceptance_ci.py --select E9,F
+        run: python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/post_fix_verify.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/llm_gateway/free_catalog.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/multi_llm_crosscheck.py scp/runtime/safe_math.py scp/security/cisa_kev.py scp/ask_kernel_adapter.py tests/test_enforce_baseline.py tests/test_multi_llm_crosscheck_concurrency.py tests/test_ask_kernel_storage_integrity.py tests/external_audit/test_cascade.py tests/reality-tests/reality_4-d-024.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py scripts/mutation_engine.py scripts/scp_soak_test.py scripts/run_scp_acceptance.py scripts/run_scp_acceptance_ci.py --select E9,F
       - name: production security scan
         shell: pwsh
         run: |
