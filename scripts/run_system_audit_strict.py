@@ -1,14 +1,15 @@
-"""Strict system-level audit for an integration candidate.
+"""Fail-closed system audit for an SCP integration candidate.
 
-This runner treats evidence as authoritative: every step has an explicit
-postcondition and any missing/contradictory evidence fails the audit.
-It intentionally uses isolated local state and denies external egress.
+The runner records exact-commit evidence and treats missing or contradictory
+postconditions as blockers. Product behavior is never changed to make this
+runner pass.
 """
 from __future__ import annotations
 
 import json
 import os
 import secrets
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -51,14 +52,10 @@ def _validate_boot_findings(findings: dict) -> dict:
     auth = findings.get("auth_valid", {})
     rag = findings.get("rag_ask", {})
     attack = findings.get("prompt_injection", {})
-
     ready_checks = readiness.get("checks", {}) or {}
+
     rag_verdict = rag.get("verdict")
     rag_withheld = bool(rag.get("withheld"))
-
-    # PASS must never coexist with a withheld answer. Conversely, a non-PASS
-    # verdict must fail closed by withholding the answer. This remains valid
-    # when the environment intentionally denies external egress.
     rag_fail_closed_coherent = (
         rag.get("status_code") == 200
         and (
@@ -88,22 +85,26 @@ def step_boot_strict(env_file: str) -> dict:
     return _validate_boot_findings(raw.get("findings", {}))
 
 
-def step_contract_tests() -> dict:
-    cmd = [
-        sys.executable,
-        "-m",
-        "pytest",
-        "-q",
-        "tests/test_god_split_semantic_parity.py",
-        "tests/test_provider_failover.py",
-        "--tb=short",
-    ]
-    proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=300)
+def _run_pytest(paths: list[str], timeout: int) -> dict:
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", *paths, "--tb=short"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
     return {
         "ok": proc.returncode == 0,
         "returncode": proc.returncode,
-        "output_tail": (proc.stdout + "\n" + proc.stderr)[-4000:],
+        "output_tail": (proc.stdout + "\n" + proc.stderr)[-6000:],
     }
+
+
+def step_contract_tests() -> dict:
+    return _run_pytest(
+        ["tests/test_god_split_semantic_parity.py", "tests/test_provider_failover.py"],
+        300,
+    )
 
 
 def step_full_pytest() -> dict:
@@ -117,7 +118,7 @@ def step_full_pytest() -> dict:
     return {
         "ok": proc.returncode == 0,
         "returncode": proc.returncode,
-        "output_tail": (proc.stdout + "\n" + proc.stderr)[-4000:],
+        "output_tail": (proc.stdout + "\n" + proc.stderr)[-6000:],
     }
 
 
@@ -137,34 +138,26 @@ def step_hermetic_boot() -> dict:
 
 
 def step_kernel_recovery_integrity() -> dict:
-    """Exercise durable-kernel invariants against a real SQLite backend."""
+    """Exercise durable-kernel invariants on one real SQLite/WAL database."""
     from scp.task_kernel import TaskKernel
 
     with tempfile.TemporaryDirectory(prefix="scp-kernel-reality-") as tmp:
         db_path = Path(tmp) / "kernel.sqlite3"
         kernel = TaskKernel(db_path)
 
-        # Idempotent replay: the same event id must not append a duplicate event.
+        # Idempotent event replay must not append a duplicate event.
         kernel.create_task("idem-task", "audit", "idempotency reality check")
+        event_id = "evt-system-audit-idempotent"
         kernel.transition(
-            "idem-task",
-            "PLANNING",
-            actor="audit",
-            reason="first replay",
-            event_id="evt-system-audit-idempotent",
+            "idem-task", "PLANNING", actor="audit", reason="first replay", event_id=event_id
         )
         event_count_before = len(kernel.get_events("idem-task"))
         kernel.transition(
-            "idem-task",
-            "PLANNING",
-            actor="audit",
-            reason="duplicate replay",
-            event_id="evt-system-audit-idempotent",
+            "idem-task", "PLANNING", actor="audit", reason="duplicate replay", event_id=event_id
         )
         event_count_after = len(kernel.get_events("idem-task"))
 
-        # Put a task in LEASED state, close the process-level object, reopen the
-        # same DB, and require boot recovery to move it to RECOVERING.
+        # Simulate process loss with a leased task, then reopen the same database.
         kernel.transition("idem-task", "READY", actor="audit", reason="prepare queue")
         kernel.transition("idem-task", "QUEUED", actor="audit", reason="queue task")
         lease = kernel.claim("idem-task", "audit-worker", ttl_seconds=60.0)
@@ -177,22 +170,32 @@ def step_kernel_recovery_integrity() -> dict:
         recovered_state = reopened.get_task("idem-task")["state"]
         journal_after_restart = reopened.verify_journal("idem-task")
 
-        # Tamper with persisted evidence and require both the verifier and boot
-        # recovery to refuse to treat the corrupted chain as valid.
+        # Establish a valid chain, then close the application and tamper through
+        # an independent SQLite connection, as an external process would.
         reopened.create_task("tamper-task", "audit", "tamper reality check")
         reopened.transition("tamper-task", "PLANNING", actor="audit", reason="before tamper")
         tamper_before = reopened.verify_journal("tamper-task")
-        reopened.conn.execute(
-            "UPDATE events SET payload_json=? WHERE task_id=? AND seq=?",
-            (json.dumps({"tampered": True}), "tamper-task", 2),
-        )
-        reopened.conn.commit()
-        tamper_after = reopened.verify_journal("tamper-task")
-        recovery_after_tamper = reopened.recover_on_boot(actor="strict_system_audit_tamper")
         reopened.close()
 
-        # Parallel consistency: each worker opens its own kernel/storage facade
-        # against one WAL database. Every task and every journal must survive.
+        raw = sqlite3.connect(str(db_path), timeout=10.0)
+        try:
+            raw.execute(
+                "UPDATE events SET payload_json=? WHERE task_id=? AND seq=?",
+                (json.dumps({"tampered": True}), "tamper-task", 2),
+            )
+            raw.commit()
+        finally:
+            raw.close()
+
+        tampered_kernel = TaskKernel(db_path)
+        tamper_after = tampered_kernel.verify_journal("tamper-task")
+        recovery_after_tamper = tampered_kernel.recover_on_boot(
+            actor="strict_system_audit_tamper"
+        )
+        tampered_kernel.close()
+
+        # Parallel consistency: each worker opens its own storage facade against
+        # one database. Every successful create must remain durable and valid.
         parallel_count = 24
 
         def _parallel_create(i: int) -> str:
@@ -225,19 +228,20 @@ def step_kernel_recovery_integrity() -> dict:
             for task_id in sorted(created_ids):
                 result = final_kernel.verify_journal(task_id)
                 if not result.get("hash_chain_valid"):
-                    invalid_parallel.append({"task_id": task_id, "errors": result.get("errors")})
+                    invalid_parallel.append(
+                        {"task_id": task_id, "errors": result.get("errors")}
+                    )
         finally:
             final_kernel.close()
 
         corrupted_ids = {
             item.get("task_id") for item in recovery_after_tamper.get("corrupted", [])
         }
-        recovered_entries = recovery.get("recovered", [])
         recovered_match = any(
             item.get("task_id") == "idem-task"
             and item.get("from") == "LEASED"
             and item.get("to") == "RECOVERING"
-            for item in recovered_entries
+            for item in recovery.get("recovered", [])
         )
 
         checks = {
@@ -258,10 +262,7 @@ def step_kernel_recovery_integrity() -> dict:
             "checks": checks,
             "event_count_before_replay": event_count_before,
             "event_count_after_replay": event_count_after,
-            "lease": {
-                "lease_id": lease.lease_id,
-                "fencing_token": lease.fencing_token,
-            },
+            "lease": {"lease_id": lease.lease_id, "fencing_token": lease.fencing_token},
             "recovery": recovery,
             "tamper_before": tamper_before,
             "tamper_after": tamper_after,
@@ -290,15 +291,16 @@ def _run_one_bounded(output_dir: Path) -> dict:
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
 
-    # The bounded runner always terminates the child process in a finally block,
-    # even when one of its checks fails. Verify that cleanup independently.
     time.sleep(0.5)
     evidence = _read_json_if_present(output_dir / "evidence.json")
     cleanup = _read_json_if_present(output_dir / "cleanup.json")
     log_path = output_dir / "server.log"
-    server_log = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+    server_log = (
+        log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+    )
     outbound_lines = [
-        line for line in server_log.splitlines()
+        line
+        for line in server_log.splitlines()
         if "HTTP Request:" in line and ("http://" in line or "https://" in line)
     ]
     port_free = not port_open(8000)
@@ -309,7 +311,10 @@ def _run_one_bounded(output_dir: Path) -> dict:
         "health_200": response_checks.get("health_200") is True,
         "hands_status_200": response_checks.get("hands_status_200") is True,
         "hands_plan_allowed": response_checks.get("hands_plan_allowed") is True,
-        "hands_dry_run_success": response_checks.get("hands_execute_success") is True and response_checks.get("hands_execute_dry_run") is True,
+        "hands_dry_run_success": (
+            response_checks.get("hands_execute_success") is True
+            and response_checks.get("hands_execute_dry_run") is True
+        ),
         "positive_ask_pass": response_checks.get("ask_verdict_pass") is True,
         "positive_ask_run_success": response_checks.get("ask_run_status_success") is True,
         "ledger_ok": response_checks.get("ask_ledger_status_ok") is True,
@@ -332,26 +337,23 @@ def _run_one_bounded(output_dir: Path) -> dict:
 def step_bounded_smoke_twice() -> dict:
     first_dir = REPORT_DIR / "bounded_smoke_first"
     second_dir = REPORT_DIR / "bounded_smoke_restart"
-
     first = _run_one_bounded(first_dir)
-    second = _run_one_bounded(second_dir) if first.get("port_free_observed") else {
-        "ok": False,
-        "skipped": True,
-        "reason": "port 8000 was not released after first smoke",
-    }
-
+    second = (
+        _run_one_bounded(second_dir)
+        if first.get("port_free_observed")
+        else {
+            "ok": False,
+            "skipped": True,
+            "reason": "port 8000 was not released after first smoke",
+        }
+    )
     checks = {
         "first_cycle": first.get("ok") is True,
         "restart_cycle": second.get("ok") is True,
         "first_port_cleanup": first.get("port_free_observed") is True,
         "restart_port_cleanup": second.get("port_free_observed") is True,
     }
-    return {
-        "ok": all(checks.values()),
-        "checks": checks,
-        "first": first,
-        "second": second,
-    }
+    return {"ok": all(checks.values()), "checks": checks, "first": first, "second": second}
 
 
 def main() -> int:
@@ -366,7 +368,6 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    # Explicitly deny external egress for deterministic system evidence.
     os.environ.setdefault("SCP_EGRESS_MODE", "deny")
     os.environ.setdefault("SCP_PRODUCTION_MODE", "0")
     os.environ.setdefault("SCP_SKIP_STARTUP_GATE", "0")
@@ -387,7 +388,7 @@ def main() -> int:
 
     all_pass = all(step.get("status") == "PASS" for step in steps)
     report = {
-        "schema_version": "scp-strict-system-audit-v3",
+        "schema_version": "scp-strict-system-audit-v4",
         "commit": commit,
         "started_at": started,
         "completed_at": time.time(),
@@ -399,21 +400,27 @@ def main() -> int:
             "Isolated local system audit: boot/readiness, auth brute-force and valid token, "
             "fail-closed ask semantics, prompt-injection kill/withhold, GOD/provider contracts, "
             "full pytest, Reality suite, fitness suite, hermetic boot, durable-kernel idempotent "
-            "replay/crash recovery/tamper detection/parallel journal consistency, and two sequential "
-            "bounded API→router→ledger/kernel→RAG governance→Hands dry-run smoke cycles with "
-            "independent port-cleanup and deny-egress observation. No claim about distributed "
-            "production deployment or live third-party-provider correctness."
+            "replay/crash recovery/external tamper detection/parallel journal consistency, and "
+            "two sequential bounded API→router→ledger/kernel→RAG governance→Hands dry-run smoke "
+            "cycles with independent port-cleanup and deny-egress observation. No claim about "
+            "distributed production deployment or live third-party-provider correctness."
         ),
     }
     report_path = REPORT_DIR / "report.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    print(json.dumps({
-        "commit": commit,
-        "overall_verdict": report["overall_verdict"],
-        "steps": [{"name": s["name"], "status": s["status"]} for s in steps],
-        "report": str(report_path),
-    }, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "commit": commit,
+                "overall_verdict": report["overall_verdict"],
+                "steps": [{"name": s["name"], "status": s["status"]} for s in steps],
+                "report": str(report_path),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0 if all_pass else 1
 
 
