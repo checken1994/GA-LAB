@@ -1,6 +1,7 @@
-"""Regression tests for the test infrastructure itself.
+"""Regression tests for verification infrastructure.
 
-The core invariant: infrastructure failure/unknown must never be reported as PASS.
+Infrastructure failure/unknown must never be reported as PASS, and a deny-egress
+runtime must not create hidden network traffic from test or model metadata paths.
 """
 from __future__ import annotations
 
@@ -8,6 +9,7 @@ import subprocess
 
 import pytest
 
+from scp.llm_gateway import free_catalog
 from scripts import mutation_engine
 from scripts import scp_soak_test
 
@@ -87,3 +89,14 @@ def test_soak_workload_timeout_is_recorded(monkeypatch):
 def test_zero_duration_soak_is_not_a_pass(tmp_path, monkeypatch):
     monkeypatch.setattr(scp_soak_test, "ROOT", tmp_path)
     assert scp_soak_test.soak_loop(0) is False
+
+
+def test_deny_egress_never_fetches_free_catalog(monkeypatch):
+    monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
+
+    class ForbiddenClient:
+        def __init__(self, *_args, **_kwargs):
+            raise AssertionError("HTTP client must not be created in deny-egress mode")
+
+    monkeypatch.setattr(free_catalog.httpx, "Client", ForbiddenClient)
+    assert free_catalog._fetch_free_models() is None
