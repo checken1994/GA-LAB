@@ -35,6 +35,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from scp.core.pending_fix_review import ensure_review_guide
 from scp.core.safe_process import safe_run
 
 logger = logging.getLogger("scp.evolution")
@@ -414,6 +415,7 @@ FIX:"""
             f"# " + fix[:2000].replace('\n', '\n# ') + "\n"
         )
         pending_file.write_text(review_content, encoding='utf-8')
+        ensure_review_guide(pending_dir)
         logger.info(f"[V104.48] Fix queued for human review: {pending_file}")
         return False
 
