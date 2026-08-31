@@ -1,12 +1,3 @@
-from .llm_fix_parts._top_systems_references import _top_systems_references
-from .llm_fix_parts._generate_bare_except_fix import _generate_bare_except_fix
-from .llm_fix_parts._call_smart_llm import _call_smart_llm
-from .llm_fix_parts._call_openrouter import _call_openrouter
-from .llm_fix_parts._extract_search_replace_block import _extract_search_replace_block
-from .llm_fix_parts.generate_fix_for_bug import generate_fix_for_bug
-from .llm_fix_parts.process_bug_with_llm import process_bug_with_llm
-from .llm_fix_parts._generate_deterministic_fix import _generate_deterministic_fix
-
 """
 SCP LLM-Powered Fix Generator — lets SCP fix itself using LLM.
 
@@ -26,6 +17,15 @@ This is the missing piece that makes "SCP tự fix SCP" actually work.
 Before this, AutoFix reported "fixed" but patched=False (Bug #23).
 """
 from __future__ import annotations
+
+from .llm_fix_parts._top_systems_references import _top_systems_references
+from .llm_fix_parts._generate_bare_except_fix import _generate_bare_except_fix
+from .llm_fix_parts._call_smart_llm import _call_smart_llm
+from .llm_fix_parts._call_openrouter import _call_openrouter
+from .llm_fix_parts._extract_search_replace_block import _extract_search_replace_block
+from .llm_fix_parts.generate_fix_for_bug import generate_fix_for_bug
+from .llm_fix_parts.process_bug_with_llm import process_bug_with_llm
+from .llm_fix_parts._generate_deterministic_fix import _generate_deterministic_fix
 import json
 import logging
 import os
