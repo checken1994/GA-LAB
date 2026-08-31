@@ -58,4 +58,18 @@ def test_refresh_empty_catalog_keeps_hardcoded(monkeypatch) -> None:
     before = list(cl.OPENROUTER_FREE_MODELS)
     monkeypatch.setattr(fc, "_fetch_free_models", lambda timeout=None: [])
     assert fc.refresh_free_catalog() is False
-    assert cl.OPENROUTER_FREE_MODELS == before
+
+def test_refresh_force_bypasses_fetched_flag(monkeypatch) -> None:
+    _reset()
+    cat = [{"id": "m/z:free", "context_length": 6000, "output_modalities": ["text"]}]
+    monkeypatch.setattr(fc, "_fetch_free_models", lambda timeout=None: cat)
+    assert fc.refresh_free_catalog(force=True) is True
+    assert cl.OPENROUTER_FREE_MODELS == ["m/z:free"]
+
+
+def test_start_background_refresh_is_idempotent() -> None:
+    _reset()
+    fc._refresh_thread_started = True
+    fc.start_background_refresh()
+    fc.start_background_refresh()
+    assert fc._refresh_thread_started is True

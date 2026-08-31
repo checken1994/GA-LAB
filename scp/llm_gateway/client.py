@@ -680,6 +680,11 @@ def get_gateway() -> LLMGateway:
             # we were waiting.
             if _gateway is None:
                 _gateway = LLMGateway()
+                try:
+                    from scp.llm_gateway.free_catalog import start_background_refresh
+                    start_background_refresh()
+                except Exception:
+                    pass
     return _gateway
 
 

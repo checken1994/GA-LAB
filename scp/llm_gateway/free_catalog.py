@@ -8,7 +8,7 @@ on the hot path. Design rules:
   2. Uses httpx (already the project's async-first dependency), no new
      sync 'requests' import.
 
-  3. Small timeout (1s) so a stalled catalog can never block inference;
+  3. Small timeout (5s) so a stalled catalog can never block inference;
      failure keeps the hardcoded allowlist (fail-closed.
 .
   4. Never mutates TASK_FREE_FALLBACK_MAP - it stays the curated whitelist
@@ -27,7 +27,7 @@ import httpx
 logger = logging.getLogger("scp.llm_gateway.free_catalog")
 
 OPENROUTER_CATALOG_URL = "https://openrouter.ai/api/v1/models"
-FREE_CATALOG_TIMEOUT_SEC = 1
+FREE_CATALOG_TIMEOUT_SEC = 5
 FREE_CATALOG_REFRESH_SEC = 21600  # 6h background refresh
 
 _lock = threading.Lock()
@@ -78,13 +78,13 @@ def _sort_free_models(free_models: list) -> list:
     )
 
 
-def refresh_free_catalog() -> bool:
-    """Fetch the fresh free-model allowlist at most ONCE per process. Never
-    mutates TASK_FREE_FALLBACK_MAP. Returns True whenthel catalog replaced;
-    False when hardcoded allowlist kept."""
+def refresh_free_catalog(force: bool = False) -> bool:
+    """Fetch the fresh free-model allowlist at most ONCE per process (or every
+    call when force=True). Never mutates TASK_FREE_FALLBACK_MAP. Returns
+    True whenthel catalog replaced; False when hardcoded allowlist kept."""
     global _fetched, _last_ok
     with _lock:
-        if _fetched:
+        if _fetched and not force:
             return bool(_last_ok)
         _fetched = True
     catalog = _fetch_free_models()
