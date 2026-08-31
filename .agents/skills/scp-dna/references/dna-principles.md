@@ -1,4 +1,4 @@
-# SCP DNA — 26 Nguyên tắc cốt lõi
+# SCP DNA — 29 Nguyên tắc cốt lõi
 
 Nguồn: SCP Continuity Archive + DNA Audit Rounds.
 
