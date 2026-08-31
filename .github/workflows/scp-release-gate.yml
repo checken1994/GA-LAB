@@ -34,7 +34,7 @@ jobs:
       - shell: pwsh
         run: py -3 -m pip install -r scp\requirements-dev.txt
       - shell: pwsh
-        run: py -3 -m py_compile scp\api_server.py scp\__main__.py scp\security\auth.py scp\security\production_guard.py scp\security\secret_loader.py scp\autofix\llm_fix.py scp\autofix\runner_phases\ast_scan.py scp\autofix\restricted_exec.py scp\runtime\safe_math.py scp\history\migration.py tools\summarize_bandit_report.py tools\verify_snapshot_manifest.py tools\check_bandit_policy.py
+        run: py -3 -m py_compile scp\runtime\judge.py scp\api_server.py scp\__main__.py scp\security\auth.py scp\security\production_guard.py scp\security\secret_loader.py scp\autofix\llm_fix.py scp\autofix\runner_phases\ast_scan.py scp\autofix\restricted_exec.py scp\runtime\safe_math.py scp\history\migration.py tools\summarize_bandit_report.py tools\verify_snapshot_manifest.py tools\check_bandit_policy.py
       - shell: pwsh
         run: py -3 tools\verify_snapshot_manifest.py reports\manifests_202608\ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
       - shell: pwsh

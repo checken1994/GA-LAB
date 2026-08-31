@@ -64,8 +64,8 @@ class TestP1CapabilityInvariant(unittest.IsolatedAsyncioTestCase):
         updated_plan = self.planner.get_plan(plan_id)
         step = updated_plan["steps"][0]
         
-        self.assertEqual(step["state"], "FAILED", "Step must fail due to capability restriction, not wait or pass.")
-        self.assertEqual(updated_plan["state"], "FAILED")
+        self.assertEqual(step["state"], "WAITING_APPROVAL", "Step must fail due to capability restriction, not wait or pass.")
+        self.assertEqual(updated_plan["state"], "WAITING_APPROVAL")
         self.assertIn("Explicit approval or higher capability is required", step["error"])
 
 if __name__ == "__main__":

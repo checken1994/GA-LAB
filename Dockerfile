@@ -30,5 +30,8 @@ ENV SCP_KW_ENABLE="0"
 
 EXPOSE 8080
 
+RUN useradd -u 10001 -m scpuser
+USER 10001
+
 ENTRYPOINT ["python", "-m", "scp"]
 CMD ["--help"]

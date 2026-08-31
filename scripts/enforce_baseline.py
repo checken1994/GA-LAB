@@ -15,7 +15,7 @@ def main():
     
     # 1. Check pytest passes
     logger.info("Running pytest...")
-    result = subprocess.run(["pytest", "-q", "scp/tests"], capture_output=True, text=True)
+    result = subprocess.run(["pytest", "-q", "tests/", "scp/tests/"], capture_output=True, text=True)
     if result.returncode != 0:
         logger.error("Pytest failed! Baseline broken.")
         logger.error(result.stdout)
