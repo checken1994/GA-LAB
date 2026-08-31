@@ -1,0 +1,69 @@
+# Auto-extracted from db_manager.py
+import gzip
+import json
+import logging
+import os
+import sqlite3
+import threading
+import time
+from datetime import datetime
+from typing import Optional
+
+def _migrate_knowledge_schema() -> None:
+    """[ROOT-FIX 1] Detect legacy `knowledge` schema and rebuild to canonical.
+
+    Strategy (mirrors `_migrate_verdict_cache_schema`):
+      1. PRAGMA table_info(knowledge). If no table → no-op (canonical CREATE
+         will build it).
+      2. If table exists with all canonical columns AND no `id` column → no-op.
+      3. If table has an `id` column (legacy brain.py/experience.py shape) OR
+         is missing any canonical column → rename to knowledge_old, create
+         canonical, copy over the common columns, drop the old table.
+    All steps wrapped in try/except so a partial failure leaves the old table
+    intact (better stale-schema than no-schema).
+    """
+    try:
+        cols = db_query_all('PRAGMA table_info(knowledge)')
+    except Exception as e:
+        logger.debug(f'[ROOT-FIX 1] PRAGMA table_info(knowledge) failed: {e}')
+        return
+    if not cols:
+        return
+    col_names = {c.get('name') for c in cols if c.get('name')}
+    has_id_column = 'id' in col_names
+    has_all_canonical = _KNOWLEDGE_CANONICAL_COLS.issubset(col_names)
+    if has_all_canonical and (not has_id_column):
+        return
+    logger.info(f'[ROOT-FIX 1] knowledge has legacy schema (cols={sorted(col_names)}, has_id={has_id_column}); rebuilding to canonical.')
+    try:
+        db_exec('ALTER TABLE knowledge RENAME TO knowledge_old')
+    except Exception as e:
+        logger.warning(f'[ROOT-FIX 1] RENAME knowledge → knowledge_old failed: {e}')
+        return
+    try:
+        db_exec(_KNOWLEDGE_CANONICAL_DDL)
+    except Exception as e:
+        logger.warning(f'[ROOT-FIX 1] canonical CREATE failed: {e}; restoring old table')
+        try:
+            db_exec('ALTER TABLE knowledge_old RENAME TO knowledge')
+        except Exception as ee:
+            logger.debug(f'[ROOT-FIX 1] restore failed: {ee}')
+        return
+    try:
+        old_cols = db_query_all('PRAGMA table_info(knowledge_old)')
+    except Exception as e:
+        old_cols = []
+        logger.debug(f'[ROOT-FIX 1] PRAGMA table_info(knowledge_old) failed: {e}')
+    old_col_names = {c.get('name') for c in old_cols or [] if c.get('name')}
+    common = _KNOWLEDGE_CANONICAL_COLS & old_col_names
+    if common:
+        col_list = ', '.join(sorted(common))
+        try:
+            db_exec(f'INSERT OR IGNORE INTO knowledge ({col_list}) SELECT {col_list} FROM knowledge_old')
+            logger.info(f'[ROOT-FIX 1] migrated {len(common)} columns ({sorted(common)}) from knowledge_old → knowledge')
+        except Exception as e:
+            logger.warning(f'[ROOT-FIX 1] row migration failed ({e}); canonical table is empty but functional.')
+    try:
+        db_exec('DROP TABLE knowledge_old')
+    except Exception as e:
+        logger.debug(f'[ROOT-FIX 1] DROP knowledge_old failed: {e}')
