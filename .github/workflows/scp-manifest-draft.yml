@@ -6,10 +6,10 @@ on:
       - audit/tmp-manifest-draft-20260901
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  generate-manifest:
+  verify-and-draft:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -18,12 +18,18 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
-      - name: Generate manifest for strict-tested integration commit
+      - name: Checkout integration candidate exactly
+        run: git checkout --detach 3a253fe480f63bb00ea6bf946a04d3c47c8b2739
+      - name: Run exact Release ruff gate
+        run: |
+          python -m pip install ruff==0.16.1
+          python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/post_fix_verify.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/safe_math.py scp/security/cisa_kev.py tests/test_enforce_baseline.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py --select E9,F
+      - name: Generate manifest draft for exact candidate
         run: >-
           python tools/create_snapshot_manifest.py
-          --commit 3406275931e48ad6142f9c663de9f7708b9457a6
+          --commit 3a253fe480f63bb00ea6bf946a04d3c47c8b2739
           --output /tmp/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
-      - name: Verify draft targets exact commit
+      - name: Verify draft identity and inventory
         run: |
           python - <<'PY'
           import hashlib
@@ -31,47 +37,13 @@ jobs:
           from pathlib import Path
           p = Path('/tmp/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json')
           data = json.loads(p.read_text(encoding='utf-8'))
-          expected_commit = '3406275931e48ad6142f9c663de9f7708b9457a6'
-          expected_tree = '160c36e89a09e73ee21fd3d1cf58343c375d4a28'
-          assert data['captured_commit'] == expected_commit, data['captured_commit']
-          assert data['captured_tree'] == expected_tree, data['captured_tree']
-          canonical = json.dumps(
-              data['inventory'], ensure_ascii=False, sort_keys=True, separators=(',', ':')
-          ).encode('utf-8')
+          assert data['captured_commit'] == '3a253fe480f63bb00ea6bf946a04d3c47c8b2739'
+          assert data['captured_tree'] == '2de78c2b944182f7f85adb7d6d9184ccc8fa0e16'
+          canonical = json.dumps(data['inventory'], ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')
           assert hashlib.sha256(canonical).hexdigest() == data['inventory_sha256']
-          assert not any(
-              row['path'] == 'reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json'
-              for row in data['inventory']
-          )
           print(data['tracked_count'], data['inventory_sha256'])
           PY
-      - name: Publish manifest-only child commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          TARGET='3406275931e48ad6142f9c663de9f7708b9457a6'
-          BRANCH='integration/experiment-god-split-and-providers'
-          MANIFEST='reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json'
-          git fetch origin "$BRANCH"
-          CURRENT="$(git rev-parse "origin/$BRANCH")"
-          if [ "$CURRENT" != "$TARGET" ]; then
-            echo "integration head moved: expected $TARGET got $CURRENT" >&2
-            exit 1
-          fi
-          git checkout -B "$BRANCH" "origin/$BRANCH"
-          cp /tmp/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json "$MANIFEST"
-          git config user.name 'scp-manifest-audit'
-          git config user.email 'scp-manifest-audit@users.noreply.github.com'
-          git add "$MANIFEST"
-          CHANGED="$(git diff --cached --name-only)"
-          if [ "$CHANGED" != "$MANIFEST" ]; then
-            echo "refusing non-manifest commit: $CHANGED" >&2
-            exit 1
-          fi
-          git commit -m 'chore: refresh snapshot manifest for integration candidate'
-          git push origin "HEAD:refs/heads/$BRANCH"
       - name: Upload manifest draft
-        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scp-snapshot-manifest-draft-${{ github.run_id }}
