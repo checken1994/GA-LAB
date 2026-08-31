@@ -79,7 +79,7 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
 
     chain = gateway._provider_chain("chat")
     names = [p.PROVIDER_NAME for p in chain]
-    assert names == ["openrouter", "deepseek"]
+    assert names == ["openrouter", "deepseek", "groq"]
 
     # Cả OpenRouter lẫn Groq chết → deepseek cứu
     gateway.openrouter_chat._client = FakeClient([FakeResponse(429)])

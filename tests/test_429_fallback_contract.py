@@ -54,6 +54,6 @@ def test_openrouter_provider_429_falls_back_to_task_model() -> None:
         return calls, answer, name
 
     calls, answer, provider_name = asyncio.run(scenario())
-    assert calls[:2] == [os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-0731"), os.environ.get("OPENROUTER_MODEL_DEFAULT", "openai/gpt-oss-20b:free")]
+    assert calls[:2] == [os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-0731"), os.environ.get("OPENROUTER_MODEL_DEFAULT", "openrouter/free")]
     assert answer == "fallback answer"
-    assert provider_name == "openrouter:openai/gpt-oss-20b:free"
+    assert provider_name == "openrouter:openrouter/free"

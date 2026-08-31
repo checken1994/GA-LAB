@@ -18,7 +18,7 @@ from typing import Any
 logger = logging.getLogger("scp.runtime.multi_llm_crosscheck")
 
 
-def cross_verify(
+async def cross_verify(
     question: str,
     ai_answer: str,
     context: str = "",
@@ -49,7 +49,7 @@ def cross_verify(
     results: dict[str, dict[str, Any]] = {}
     for role, task in tasks:  # ← FOR-LOOP ĐÃ BỊ XÓA — giờ thêm lại
         try:
-            content, provider = gateway.chat_sync(prompt, system_prompt=system, task=task)
+            content, provider = await gateway.chat(prompt, system_prompt=system, task=task)
             results[role] = {
                 "verdict": _parse_verdict(content),
                 "provider": provider,
@@ -64,7 +64,12 @@ def cross_verify(
 
 
     if p is not None and s is not None:
-        if p == s:
+        p_fam = p_provider.split(":")[0] if ":" in p_provider else p_provider
+        s_fam = s_provider.split(":")[0] if ":" in s_provider else s_provider
+        if p_fam == s_fam:
+            consensus = "insufficient_independence"
+            final = None
+        elif p == s:
             consensus = "agree"
             final = p
         else:

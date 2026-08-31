@@ -190,9 +190,8 @@ class ProcessIsolationEnvironment:
         if self.is_windows:
             try:
                 return self._execute_windows_job(cmd, cwd, safe_env)
-            except ImportError:
-                # win32 modules not available — use resource-limited subprocess below
-                pass
+            except ImportError as e:
+                raise RuntimeError("CRITICAL [DNA #27]: win32job/win32 modules missing on Windows. Fail-closed to prevent unisolated execution.") from e
             except TimeoutError:
                 raise  # timeout là kết quả thực thi, không phải lỗi isolation
             except Exception as exc:

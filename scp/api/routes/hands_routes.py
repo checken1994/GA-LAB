@@ -68,6 +68,7 @@ class PlannerRunRequest(BaseModel):
     approved: bool = False
     dryRun: bool = False
     stopOnFailure: bool = True
+    capabilityToken: str = ""
 
 
 class PlannerDagRunRequest(BaseModel):
@@ -76,6 +77,7 @@ class PlannerDagRunRequest(BaseModel):
     dryRun: bool = False
     maxParallel: int = Field(default=2, ge=1, le=4)
     stopOnFailure: bool = True
+    capabilityToken: str = ""
 
 
 class GoalParseRequest(BaseModel):
@@ -224,7 +226,7 @@ async def planner_create(payload: PlannerCreateRequest, request: Request, x_scp_
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_run")
 async def planner_run(plan_id: str, payload: PlannerRunRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _planner.run_plan(plan_id, payload.capabilityLevel, payload.approved, payload.dryRun, payload.stopOnFailure)
+    return await _planner.run_plan(plan_id, payload.capabilityLevel, payload.approved, payload.dryRun, payload.stopOnFailure, capability_token=payload.capabilityToken)
 
 
 @router.post("/planner/parse")
@@ -238,7 +240,7 @@ async def planner_parse(payload: GoalParseRequest, request: Request, x_scp_pc_to
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_run_dag")
 async def planner_run_dag(plan_id: str, payload: PlannerDagRunRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _planner.run_dag(plan_id, payload.capabilityLevel, payload.approved, payload.dryRun, payload.maxParallel, payload.stopOnFailure)
+    return await _planner.run_dag(plan_id, payload.capabilityLevel, payload.approved, payload.dryRun, payload.maxParallel, payload.stopOnFailure, capability_token=payload.capabilityToken)
 
 
 @router.post("/planner/{plan_id}/rollback")

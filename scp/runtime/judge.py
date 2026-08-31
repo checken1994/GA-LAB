@@ -165,11 +165,94 @@ class RealityJudge:
             }
         }
 
-    async def judge_async(self, question: str, ai_answer: str = "", context: str = "", **kwargs) -> dict[str, Any]:
-        return self.judge(question, ai_answer, context=context, **kwargs)
+    async def judge_async(self, question: str, ai_answer: str = "", cycle_count: int = 0, context: str = "", **kwargs) -> dict[str, Any]:
+        """Asynchronous judge interface."""
+        from scp.core.postcondition_schema import PostconditionSchema
+        from scp.runtime.judge_llm import _llm_judge_async
+
+        if ai_answer:
+            postcondition = PostconditionSchema.for_text_answer(ai_answer, evidence_required=False).to_dict()
+        else:
+            postcondition = PostconditionSchema.no_conditions().to_dict()
+
+        obs = {"evidence_ref": ai_answer, "text": ai_answer}
+        result = self.verifier.verify(postcondition, obs)
+        is_structurally_pass = (result.verdict == "VERIFIED")
+
+        is_pass = False
+        escalated = False
+        failures = list(result.failures)
+
+        tier1 = tier1_check(question, ai_answer, context)
+        slm_responses_list = []
+        if not tier1.passed:
+            failures.extend(tier1.failures)
+        elif is_structurally_pass and ai_answer:
+            try:
+                from scp.data_sources.domain_classifier import classify_top1
+                domain = classify_top1(question)
+                expert = self.domain_experts.get(domain)
+                if expert:
+                    resp = expert.predict(question)
+                    if getattr(resp, "answer", None):
+                        context += f"\n[SYSTEM EXPERT DATA] For {domain}: {resp.answer}"
+                        slm_responses_list.append(resp.__dict__)
+            except Exception as e:
+                import logging
+                logging.getLogger("scp.judge").debug(f"Expert injection failed: {e}")
+
+            import os as _os
+            if _os.environ.get("SCP_MULTI_LLM_CROSSCHECK", "1") == "1":
+                try:
+                    from scp.runtime.multi_llm_crosscheck import cross_verify
+                    cross = await cross_verify(question, ai_answer, context)
+                    semantic = cross["final"]
+                    if cross["consensus"] == "disagree":
+                        failures.append("multi_llm_disagreement")
+                except Exception as _cc_err:
+                    semantic = await _llm_judge_async(question, ai_answer, context)
+            else:
+                semantic = await _llm_judge_async(question, ai_answer, context)
+                
+            if semantic is None:
+                escalated = True
+            elif semantic == "PASS" or semantic is True:
+                is_pass = True
+            else:
+                failures.append("semantic_judge_fail")
+
+        self.judged_count += 1
+        if not is_pass and not escalated:
+            self.fail_count += 1
+
+        if escalated:
+            return {
+                "verdict": "UNKNOWN",
+                "confidence": 0.0,
+                "reasoning": "Semantic judge unavailable or model disagreement — escalated to human",
+                "cycle_count": cycle_count,
+                "failures": failures + ["semantic_judge_unavailable"],
+                "final_answer": ai_answer,
+                "slm_responses": slm_responses_list,
+                "evidence": {"governance_decision": "ESCALATE"},
+            }
+
+        return {
+            "verdict": "PASS" if is_pass else "FAIL",
+            "confidence": 0.85 if is_pass else 0.0,
+            "deterministic_confidence": 1.0 if is_structurally_pass else 0.0,
+            "semantic_confidence": 0.85 if is_pass else 0.0,
+            "cross_model_agreement": not escalated,
+            "reasoning": "Delegated to IndependentVerifier and LLM Semantic Judge",
+            "cycle_count": cycle_count,
+            "failures": failures,
+            "final_answer": ai_answer,
+            "slm_responses": slm_responses_list,
+            "evidence": {"governance_decision": "UPHOLD" if is_pass else "KILL"}
+        }
 
     async def judge_with_react_fallback(self, *args, **kwargs) -> dict[str, Any]:
-        return self.judge(*args, **kwargs)
+        return await self.judge_async(*args, **kwargs)
 
     def get_stats(self) -> dict:
         return {"total_judged": self.judged_count, "total_failed": self.fail_count}

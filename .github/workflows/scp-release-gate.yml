@@ -8,7 +8,10 @@ permissions:
 
 jobs:
   gate:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     env:
       SCP_JWT_SECRET: "dummy_secret_for_ci"
       SCP_PRODUCTION_MODE: '0'
@@ -32,27 +35,27 @@ jobs:
         with:
           node-version: '20'
       - shell: pwsh
-        run: py -3 -m pip install -r scp\requirements-dev.txt
+        run: python -m pip install -r scp/requirements-dev.txt
       - shell: pwsh
-        run: py -3 -m py_compile scp\runtime\judge.py scp\api_server.py scp\__main__.py scp\security\auth.py scp\security\production_guard.py scp\security\secret_loader.py scp\autofix\llm_fix.py scp\autofix\runner_phases\ast_scan.py scp\autofix\restricted_exec.py scp\runtime\safe_math.py scp\history\migration.py tools\summarize_bandit_report.py tools\verify_snapshot_manifest.py tools\check_bandit_policy.py
+        run: python -m py_compile scp/runtime/judge.py scp/api_server.py scp/__main__.py scp/security/auth.py scp/security/production_guard.py scp/security/secret_loader.py scp/autofix/llm_fix.py scp/autofix/runner_phases/ast_scan.py scp/autofix/restricted_exec.py scp/runtime/safe_math.py scp/history/migration.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py
       - shell: pwsh
-        run: py -3 tools\verify_snapshot_manifest.py reports\manifests_202608\ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+        run: python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
       - shell: pwsh
-        run: py -3 -m ruff check scp\autofix\llm_fix.py scp\autofix\property_validator.py scp\autofix\realtime_verifier.py scp\autofix\runner_phases\reality_test.py scp\autofix\restricted_exec.py scp\core\knowledge_io.py scp\core\policy_materializer.py scp\history\migration.py scp\runtime\judge_parts\judgecore_mixin.py scp\runtime\safe_math.py scp\security\cisa_kev.py tests\test_glm_security_remediation.py tools\summarize_bandit_report.py tools\verify_snapshot_manifest.py tools\check_bandit_policy.py --select E9,F
+        run: python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/reality_test.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/safe_math.py scp/security/cisa_kev.py tests/test_glm_security_remediation.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py --select E9,F
       - shell: pwsh
-        run: py -3 -m pytest -q
+        run: python -m pytest -q
       - shell: pwsh
         run: |
-          py -3 -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
+          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
           $banditExit = $LASTEXITCODE
-          py -3 tools\summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
-          py -3 tools\check_bandit_policy.py bandit-prod-summary.json --max-medium 9
+          python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
+          python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
           if ($banditExit -gt 1) { exit $banditExit }
       - shell: pwsh
-        run: py run_reality_tests_portable.py
+        run: python run_reality_tests_portable.py
       - name: bounded full-system runtime smoke (loopback 8000)
         shell: pwsh
-        run: py -3 tools\run_bounded_system_smoke.py --output-dir reports\bounded_system_smoke_ci
+        run: python tools/run_bounded_system_smoke.py --output-dir reports/bounded_system_smoke_ci
       - name: upload bounded runtime evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

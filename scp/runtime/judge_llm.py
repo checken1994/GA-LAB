@@ -72,3 +72,31 @@ def _llm_judge(question: str, ai_answer: str, context: str = "") -> bool | None:
     except Exception as e:
         print(f"LLM Judge error: {e}")
         return None
+
+async def _llm_judge_async(question: str, ai_answer: str, context: str = "") -> bool | None:
+    from scp.llm_gateway import get_gateway
+    try:
+        prompt = f"Question: {question}\nContext: {context}\nAI Answer: {ai_answer}\nEvaluate if the AI Answer correctly answers the Question based ONLY on the Context (if provided) or general knowledge. Output only PASS or FAIL."
+        gateway = get_gateway()
+        first_content, _primary = await gateway.chat(
+            prompt, system_prompt=_JUDGE_SYSTEM, task="judge"
+        )
+        first = _parse_verdict(first_content)
+        if first == "PASS":
+            return True
+        elif first not in {"PASS", "FAIL"}:
+            logger.warning("LLM judge ambiguous/empty (provider=%s) — escalate", _primary)
+            return None
+        
+        second_content, _second = await gateway.chat(
+            prompt, system_prompt=_JUDGE_SYSTEM, task="autofix"
+        )
+        second = _parse_verdict(second_content)
+        if second == "PASS":
+            logger.warning("Judge cascade disagreement (%s=FAIL vs %s=PASS) — escalate", _primary, _second)
+            return None
+        
+        return False
+    except Exception as e:
+        logger.error("LLM judge cascade failed: %s", e)
+        return None

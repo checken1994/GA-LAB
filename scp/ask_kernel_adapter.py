@@ -237,7 +237,7 @@ class AskKernelAdapter:
                     )
             raise
 
-    def verify_response(self, req: Any, response: Any, task: dict[str, Any]) -> dict[str, Any]:
+    async def verify_response(self, req: Any, response: Any, task: dict[str, Any]) -> dict[str, Any]:
         data = _dump(response)
         contexts = [str(value) for value in (getattr(req, "contexts", None) or []) if str(value).strip()]
         retrieved_context = str(getattr(req, "retrieved_context", "") or "").strip()
@@ -275,7 +275,7 @@ class AskKernelAdapter:
         try:
             from scp.runtime.judge import RealityJudge
             judge = RealityJudge()
-            judge_res = judge.judge(
+            judge_res = await judge.judge_async(
                 question=str(getattr(req, "question", "")), 
                 ai_answer=answer, 
                 context=" ".join(contexts)
@@ -342,10 +342,10 @@ class AskKernelAdapter:
                 return data
         return data
 
-    def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
+    async def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
         task_id, lease_id = task["task_id"], task["lease_id"]
         self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
-        verification = self.verify_response(req, response, task)
+        verification = await self.verify_response(req, response, task)
         if verification["verdict"] == "VERIFIED":
             final_task = self.kernel.commit_verification_result(task_id, lease_id, verification)
         else:
@@ -456,7 +456,7 @@ class AskKernelAdapter:
             return self._kernel_blocked_response(req, exc)
         try:
             response = await handler(req, request)
-            result = self.finalize(task, response, req)
+            result = await self.finalize(task, response, req)
             return result["safe_response"]
         except Exception:
             self.fail(task, "ask_rag_exception")

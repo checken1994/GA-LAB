@@ -1,3 +1,4 @@
+from scp.core.capability_token import verify_token
 """SCP Hands v3.6.1 bounded planner and plan runner.
 
 The planner is deterministic and explicit. It accepts only registered Hands
@@ -397,7 +398,7 @@ class HandsPlanner:
             return actual == expected, f"{condition_type} {condition.get('path')}={actual!r}, expected={expected!r}"
         return False, f"unsupported condition type: {condition_type}"
 
-    async def run_plan(self, plan_id: str, capability_level: int = 0, approved: bool = False, dry_run: bool = False, stop_on_failure: bool = True, agent_id: str = "unknown") -> dict[str, Any]:
+    async def run_plan(self, plan_id: str, capability_level: int = 0, approved: bool = False, dry_run: bool = False, stop_on_failure: bool = True, capability_token: str = "") -> dict[str, Any]:
         with self._journal_lock:
             if plan_id in self._active_runs:
                 return {"success": False, "planId": plan_id, "error": "Plan run already active", "safeToRetry": False}
@@ -421,7 +422,7 @@ class HandsPlanner:
         token = self._run_tokens.get(plan_id)
         return bool(token and self._lease_is_valid(plan_id, token))
 
-    async def _run_plan_locked(self, plan_id: str, capability_level: int = 0, approved: bool = False, dry_run: bool = False, stop_on_failure: bool = True, agent_id: str = "unknown") -> dict[str, Any]:
+    async def _run_plan_locked(self, plan_id: str, capability_level: int = 0, approved: bool = False, dry_run: bool = False, stop_on_failure: bool = True, capability_token: str = "") -> dict[str, Any]:
         plan = self._get(plan_id)
         if not plan:
             return {"success": False, "error": "Plan not found", "planId": plan_id}
@@ -453,7 +454,7 @@ class HandsPlanner:
                 had_failure = True
                 continue
             definition = self.executor.registry.require(step["action"])
-            requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0))) if agent_id == "SCP" else min(int(capability_level), int(step.get("capabilityLevel", 0)))
+            requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0))) if verify_token(capability_token).get("valid", False) else min(int(capability_level), int(step.get("capabilityLevel", 0)))
             request_approved = bool(approved or step.get("approved", False))
             if requested_capability < definition.capability_level or (definition.requires_approval and not request_approved):
                 step["state"] = "WAITING_APPROVAL"
@@ -546,10 +547,10 @@ class HandsPlanner:
         self._save(plan, "PLAN_COMPLETED")
         return {"success": True, "plan": self._public_plan(plan), "result": last_result}
 
-    async def _run_dag_step(self, plan: dict[str, Any], step: dict[str, Any], capability_level: int, approved: bool, dry_run: bool, agent_id: str = "unknown") -> dict[str, Any]:
+    async def _run_dag_step(self, plan: dict[str, Any], step: dict[str, Any], capability_level: int, approved: bool, dry_run: bool, capability_token: str = "") -> dict[str, Any]:
         """Execute one ready DAG node with the same evidence/approval contract."""
         definition = self.executor.registry.require(step["action"])
-        requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0))) if agent_id == "SCP" else min(int(capability_level), int(step.get("capabilityLevel", 0)))
+        requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0))) if verify_token(capability_token).get("valid", False) else min(int(capability_level), int(step.get("capabilityLevel", 0)))
         request_approved = bool(approved or step.get("approved", False))
         if requested_capability < definition.capability_level or (definition.requires_approval and not request_approved):
             step["state"] = "WAITING_APPROVAL"
@@ -622,7 +623,7 @@ class HandsPlanner:
             return {"success": False, "stepId": step["stepId"], "result": last_result, "error": step["error"]}
         return {"success": False, "stepId": step["stepId"], "error": "Retry budget exhausted"}
 
-    async def run_dag(self, plan_id: str, capability_level: int = 0, approved: bool = False, dry_run: bool = False, max_parallel: int = 2, stop_on_failure: bool = True, agent_id: str = "unknown") -> dict[str, Any]:
+    async def run_dag(self, plan_id: str, capability_level: int = 0, approved: bool = False, dry_run: bool = False, max_parallel: int = 2, stop_on_failure: bool = True, capability_token: str = "") -> dict[str, Any]:
         with self._journal_lock:
             if plan_id in self._active_runs:
                 return {"success": False, "planId": plan_id, "error": "Plan run already active", "safeToRetry": False}
@@ -642,7 +643,7 @@ class HandsPlanner:
                 self._run_tokens.pop(plan_id, None)
                 self._release_lease(plan_id, lease_token)
 
-    async def _run_dag_locked(self, plan_id: str, capability_level: int = 0, approved: bool = False, dry_run: bool = False, max_parallel: int = 2, stop_on_failure: bool = True, agent_id: str = "unknown") -> dict[str, Any]:
+    async def _run_dag_locked(self, plan_id: str, capability_level: int = 0, approved: bool = False, dry_run: bool = False, max_parallel: int = 2, stop_on_failure: bool = True, capability_token: str = "") -> dict[str, Any]:
         """Run topologically ready steps concurrently with bounded parallelism."""
         plan = self._get(plan_id)
         if not plan:
@@ -684,7 +685,7 @@ class HandsPlanner:
                         pending.remove(step_id)
                         continue
                     definition = self.executor.registry.require(step["action"])
-                    requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0))) if agent_id == "SCP" else min(int(capability_level), int(step.get("capabilityLevel", 0)))
+                    requested_capability = max(int(capability_level), int(step.get("capabilityLevel", 0))) if verify_token(capability_token).get("valid", False) else min(int(capability_level), int(step.get("capabilityLevel", 0)))
                     request_approved = bool(approved or step.get("approved", False))
                     if requested_capability < definition.capability_level or (definition.requires_approval and not request_approved):
                         step["state"] = "WAITING_APPROVAL"

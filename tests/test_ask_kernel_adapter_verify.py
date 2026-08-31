@@ -29,31 +29,33 @@ def judge_gate(monkeypatch):
     (đã từng FAIL chỉ vì model cold-start quá 15s). Patch tại
     scp.runtime.judge (nơi judge.py giữ tham chiếu đã import).
     """
-    import scp.runtime.judge as judge_mod
+    import scp.runtime.judge_llm as judge_mod
 
     state = {"pass": True, "calls": 0}
 
-    def _fake_judge(question: str, ai_answer: str, context: str = "") -> bool:
+    async def _fake_judge(question: str, ai_answer: str, context: str = "") -> bool:
         state["calls"] += 1
         return state["pass"]
 
-    monkeypatch.setattr(judge_mod, "_llm_judge", _fake_judge)
+    monkeypatch.setattr(judge_mod, "_llm_judge_async", _fake_judge)
     return state
 
 
-def test_rag_ask_with_passing_judge_is_verified(judge_gate):
+@pytest.mark.asyncio
+async def test_rag_ask_with_passing_judge_is_verified(judge_gate):
     adapter = AskKernelAdapter(db_path=":memory:", trace_path="/tmp")
     req = DummyReq()
     task = {"task_id": "test_123"}
 
-    result = adapter.verify_response(req, dict(PASSING_RESPONSE), task)
+    result = await adapter.verify_response(req, dict(PASSING_RESPONSE), task)
     assert result["verdict"] == "VERIFIED"
     assert 0.0 <= result["grounded_ratio"] <= 1.0
     assert result["checked"]["rag_evidence_bound"] is True
     assert judge_gate["calls"] == 1
 
 
-def test_chat_ask_without_contexts_uses_judge_semantics(judge_gate):
+@pytest.mark.asyncio
+async def test_chat_ask_without_contexts_uses_judge_semantics(judge_gate):
     """No request evidence = general-knowledge chat ask: the judge + governance
     pipeline is the verifier; grounding is not applicable (contract 2026-08-29)."""
     adapter = AskKernelAdapter(db_path=":memory:", trace_path="/tmp")
@@ -61,18 +63,19 @@ def test_chat_ask_without_contexts_uses_judge_semantics(judge_gate):
     req.contexts = []
     task = {"task_id": "test_123"}
 
-    result = adapter.verify_response(req, dict(PASSING_RESPONSE), task)
+    result = await adapter.verify_response(req, dict(PASSING_RESPONSE), task)
     assert result["verdict"] == "VERIFIED"
     assert result["grounded_ratio"] == 0.0
     assert "rag_evidence_bound" not in result["checked"]
 
 
-def test_failing_judge_contradicts_any_ask(judge_gate):
+@pytest.mark.asyncio
+async def test_failing_judge_contradicts_any_ask(judge_gate):
     adapter = AskKernelAdapter(db_path=":memory:", trace_path="/tmp")
     req = DummyReq()
     task = {"task_id": "test_123"}
 
     judge_gate["pass"] = False
-    result = adapter.verify_response(req, dict(PASSING_RESPONSE), task)
+    result = await adapter.verify_response(req, dict(PASSING_RESPONSE), task)
     assert result["verdict"] == "CONTRADICTED"
     assert "judge_pass" in result["failures"]

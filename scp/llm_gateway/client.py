@@ -272,7 +272,7 @@ class OpenRouterProvider:
                 and not any(sig in err for sig in ("429", "402", "circuit_open"))
             )
             if attempt < 2 and transient:
-                time.sleep(min(0.25 * (2 ** attempt) + random.uniform(0, 0.15), 2.0))
+                await asyncio.sleep(min(0.25 * (2 ** attempt) + random.uniform(0, 0.15), 2.0))
                 continue
             break
         # Breaker chỉ ghi MỘT lần theo kết quả cuối — 3 retry nhanh trong 1s
@@ -311,16 +311,91 @@ class OpenRouterProvider:
         except Exception as e:
             return None, str(e)
 
-    async def chat(self, question: str, context: str = "", system_prompt: str = "") -> tuple[str | None, str]:
-        """Chat with LLM. Returns (answer, provider_name).
-
-        Fallback chain:
-          1. PAID model (OPENROUTER_MODEL) with key rotation
-          2. FREE task-specific fallback (e.g. nemotron-ultra for autofix)
-          3. openrouter/free (auto-router, picks any available free model)
-        """
+    async def chat(self, question: str, context: str = "", system_prompt: str = "", prioritize_free: bool = False) -> tuple[str | None, str]:
         if not self.enabled:
             return None, "none"
+            
+        primary_model = self.model
+        fallback_model = self.free_fallback
+        if prioritize_free:
+            primary_model, fallback_model = fallback_model, primary_model
+
+        if not self._breaker.is_open():
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": f"{context}\n\n{question}".strip()})
+
+            for _attempt in range(min(3, self._key_count())):
+                key = self._next_key()
+                answer, err = await self._call_model(primary_model, messages, key)
+                if answer:
+                    self._breaker.record_success()
+                    return answer, f"{self.PROVIDER_NAME}:{primary_model}"
+                if err and "quota" not in err.lower() and "rate-limit" not in err.lower() and "429" not in err and "402" not in err:
+                    logger.debug(f"OpenRouter PAID ({primary_model}) failed: {err}")
+                    break
+                logger.debug(f"OpenRouter PAID ({primary_model}) key failed: {err}, trying next key")
+
+            self._breaker.record_failure()
+
+            if fallback_model != primary_model:
+                key = self._next_key()
+                answer, err = await self._call_model(fallback_model, messages, key)
+                if answer:
+                    return answer, f"{self.PROVIDER_NAME}:{fallback_model}"
+                logger.debug(f"{self.PROVIDER_NAME} FREE fallback ({fallback_model}) failed: {err}")
+
+            if self.PROVIDER_NAME == "openrouter" and fallback_model != "openrouter/free" and primary_model != "openrouter/free":
+                key = self._next_key()
+                answer, err = await self._call_model("openrouter/free", messages, key)
+                if answer:
+                    logger.info("OpenRouter auto-router (openrouter/free) succeeded")
+                    return answer, f"{self.PROVIDER_NAME}:openrouter/free"
+                logger.debug(f"OpenRouter auto-router failed: {err}")
+        else:
+            logger.warning(f"[{self.PROVIDER_NAME}] Circuit Breaker is OPEN. Bypassing provider to prevent rate-limit ban.")
+
+        return None, "none"
+            
+        primary_model = self.model
+        fallback_model = self.free_fallback
+        if prioritize_free:
+            primary_model, fallback_model = fallback_model, primary_model
+
+        if not self._breaker.is_open():
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": f"{context}\n\n{question}".strip()})
+
+            key = self._next_key()
+            answer, err = await self._call_model(primary_model, messages, key)
+            if answer:
+                self._breaker.record_success()
+                return answer, f"{self.PROVIDER_NAME}:{primary_model}"
+            else:
+                self._breaker.record_failure()
+                logger.debug(f"{self.PROVIDER_NAME} PAID ({primary_model}) key failed: {err}, trying next key")
+
+            if fallback_model != primary_model:
+                key = self._next_key()
+                answer, err = await self._call_model(fallback_model, messages, key)
+                if answer:
+                    return answer, f"{self.PROVIDER_NAME}:{fallback_model}"
+                logger.debug(f"{self.PROVIDER_NAME} FREE fallback ({fallback_model}) failed: {err}")
+
+            if self.PROVIDER_NAME == "openrouter" and fallback_model != "openrouter/free" and primary_model != "openrouter/free":
+                key = self._next_key()
+                answer, err = await self._call_model("openrouter/free", messages, key)
+                if answer:
+                    logger.info("OpenRouter auto-router (openrouter/free) succeeded")
+                    return answer, f"{self.PROVIDER_NAME}:openrouter/free"
+                logger.debug(f"OpenRouter auto-router failed: {err}")
+        else:
+            logger.warning(f"[{self.PROVIDER_NAME}] Circuit Breaker is OPEN. Bypassing provider to prevent rate-limit ban.")
+
+        return None, "none"
 
         messages = []
         if system_prompt:
@@ -512,10 +587,8 @@ class LLMGateway:
                 EnvCompatProvider("groq", task, "GROQ_API_KEY", "GROQ_BASE_URL", "GROQ_MODEL", default_model="llama3-8b-8192", default_base_url="https://api.groq.com/openai/v1")
             )
 
-    def _provider_chain(self, task: str, text: str = "") -> list:
-        """Chuỗi failover theo task. [#40 Budget Engine] Khi SCP_BUDGET_ROUTING=1,
-        PAID model của provider nào cũng bị ĐỔI THỨ TỰ tier theo độ khó: task
-        EASY thử FREE model trước — tiết kiệm ngân sách mà không đổi provider."""
+    def _provider_chain(self, task: str) -> list:
+        """Chuỗi failover theo task."""
         openrouter = {
             "autofix":       getattr(self, "openrouter_autofix"),
             "why":           getattr(self, "openrouter_why"),
@@ -524,15 +597,8 @@ class LLMGateway:
             "judge":         getattr(self, "openrouter_judge"),
             "chat":          getattr(self, "openrouter_chat"),
         }.get(task, self.openrouter_default)
-        from scp.core.budget_engine import order_tiers
 
-        chain = [openrouter, *self._extra_providers.get(task, [])]
-        if os.environ.get("SCP_BUDGET_ROUTING", "0") == "1":
-            tiers = order_tiers(text, task)
-            for provider in chain:
-                if tiers[0] == "free" and hasattr(provider, "free_fallback"):
-                    provider.model, provider.free_fallback = provider.free_fallback, provider.model
-        return chain
+        return [openrouter, *self._extra_providers.get(task, [])]
 
     async def chat(
         self,
@@ -548,7 +614,14 @@ class LLMGateway:
         provider kế tiếp, caller không thấy lỗi, không đốt time-out.
         """
         self._stats["total_calls"] += 1
-        chain = self._provider_chain(task, text=question)
+        prioritize_free = False
+        if os.environ.get("SCP_BUDGET_ROUTING", "0") == "1":
+            from scp.core.budget_engine import order_tiers
+            tiers = order_tiers(question + context, task)
+            if tiers[0] == "free":
+                prioritize_free = True
+
+        chain = self._provider_chain(task)
         # [KHÔNG ƯU TIÊN MODEL] Pool brand-neutral: provider khỏe xoay vòng theo
         # lượt gọi (chia tải đều, không đặt clip nào lên trên vĩnh viễn);
         # provider breaker OPEN bị đẩy xuống cuối (chỉ dùng khi hết người khỏe).
