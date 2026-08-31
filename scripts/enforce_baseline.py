@@ -2,7 +2,7 @@
 """Enforce the SCP baseline.
 
 The assembled-system acceptance suite is authoritative for behavioral release
-invariants.  Component tests run afterwards as diagnostics and remain blockers,
+invariants. Component tests run afterwards as diagnostics and remain blockers,
 but their PASS alone is never reported as proof that SCP is reliable.
 """
 from __future__ import annotations
@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+ACCEPTANCE_DIR = ROOT / "reports" / "scp_acceptance_baseline"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("baseline_enforcer")
 
@@ -27,12 +28,13 @@ def run(command: list[str], label: str) -> None:
 
 
 def main() -> int:
+    ACCEPTANCE_DIR.mkdir(parents=True, exist_ok=True)
     run(
         [
             sys.executable,
             "scripts/run_scp_acceptance.py",
             "--output-dir",
-            "reports/scp_acceptance_baseline",
+            str(ACCEPTANCE_DIR),
         ],
         "SCP system acceptance",
     )
