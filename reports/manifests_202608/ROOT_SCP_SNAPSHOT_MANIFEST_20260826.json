@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-31T11:26:18.701095+00:00",
-  "captured_commit": "0cf0e4e7c385f4c9cf713c808eded0effb4f2705",
-  "captured_parent": "eb037010fa7eabc939953e29575c6ab94ff1cd81",
-  "captured_tree": "a161e2f52b3955b360102de570e4e0413a6cc1ff",
+  "generated_at_utc": "2026-08-31T11:34:51.860187+00:00",
+  "captured_commit": "20baa8786f0ae99fabd8901ddd7bb49e71ddb1b5",
+  "captured_parent": "4e0210f9ef9749fd43f8d83a527ad778e2a89456",
+  "captured_tree": "0afa0bb2aa7d13e440b493cbb85a9379937f3859",
   "tracked_count": 1412,
-  "inventory_sha256": "11b2c0ac841b098277584083e251ea30a47c010964c1bc74e20bd2710c26ada2",
+  "inventory_sha256": "dc3fa89813e9ca7c1e3fc3216a47f516f81f50f71bd0b33a6be23ce17fdc925e",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -5128,7 +5128,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4b5531c2c5073b69993414e239401efe19ae1446",
+      "blob": "4d6ff21da422c6a2a8e1ac8ad30a06335259a9bc",
       "path": "scp/llm_gateway/client.py"
     },
     {
@@ -7942,7 +7942,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a03cd30e68f290ef97608363360c50c3834dbc25",
+      "blob": "18ffb1af88b13927d2abecc24c2cfc62a2e3446f",
       "path": "tests/test_llm_gateway_fallback_contract.py"
     },
     {
@@ -8002,7 +8002,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bba4c10d096bb63e944cc1fc4e07a9b0925bc0a1",
+      "blob": "01f2820606b8d9f700616bc0102b068ac167a084",
       "path": "tests/test_provider_timeout_recovery.py"
     },
     {
