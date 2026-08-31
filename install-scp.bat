@@ -120,8 +120,8 @@ if not exist ".env" (
         copy "scp\.env.example" ".env" >nul
         echo.
         echo [NOTE] Da tao .env tu template.
-        echo    Mo .env bang Notepad, dien OPENROUTER_API_KEY
-        echo    Lay key tai https://openrouter.ai/keys
+        echo    Mo .env bang Notepad, dien OPENAI_API_KEY hoac OPENROUTER_API_KEY
+        echo    Lay key tai nha cung cap tuong ung.
     )
 )
 

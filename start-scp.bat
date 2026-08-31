@@ -15,7 +15,7 @@ REM --- Check .env ---
 if not exist ".env" (
     echo [FAIL] KHONG TIM THAY .env
     echo    Chay install-scp.bat truoc, hoac copy .env.example thanh .env
-    echo    Dien OPENROUTER_API_KEY trong .env
+    echo    Dien OPENAI_API_KEY hoac OPENROUTER_API_KEY trong .env
     echo.
     pause
     exit /b 1
