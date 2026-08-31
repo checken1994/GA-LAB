@@ -271,15 +271,16 @@ except ImportError as e:
     _CHAT_AVAILABLE = False
 
 # [Task 7-A] V98 + V100 admin routes extracted to modules │Ă¢â€Â¬Ă¢â‚¬Â imported LAZILY below
+# [Task 7-A] V98 + V100 admin routes extracted to modules │Ă¢â€šÂ¬Ă¢â‚¬Â  imported LAZILY below
 # (after SessionAnalyzeRequest/SimulationRequest are defined) to avoid circular import.
 _V98_V100_ROUTERS_AVAILABLE = False
 v98_admin_router = None
 v100_admin_router = None
 
-# V104 FIX: Real Learning Engine │Ă¢â€Â¬Ă¢â‚¬Â hÄ‚Â¡Ă‚Â»Ă‚Âc tÄ‚Â¡Ă‚Â»Ă‚Â« Ollama + Local + News
+# V104 FIX: Real Learning Engine — học từ API + Local + News
 from scp.core.real_learning_engine import RealLearningEngine
 
-# V104.2 NEW: Fast Learning Engine │Ă¢â€Â¬Ă¢â‚¬Â parallel + skip-known + compounding
+# V104.2 NEW: Fast Learning Engine │Ă¢â€šÂ¬Ă¢â‚¬Â  parallel + skip-known + compounding
 try:
     from scp.core.fast_learning_engine import (  # noqa: F401 (availability check)
         FastLearningEngine,
@@ -1156,6 +1157,7 @@ async def _ask_impl(req: AskRequest, request: Request):
             _img_bytes = await asyncio.to_thread(_safe_fetch_url, req.image_url)
         except ValueError:
             # SSRF/LFI policy violation │Ă¢â€Â¬Ă¢â‚¬Â reject with 400 (do NOT echo URL).
+            # SSRF/LFI policy violation │Ă¢â€šÂ¬Ă¢â‚¬Â  reject with 400 (do NOT echo URL).
             logger.warning("[V104.45 #CP] /ask image_url rejected by _safe_fetch_url policy")
             raise HTTPException(status_code=400, detail="Invalid or disallowed image_url") from None
         except Exception as e:
@@ -1191,19 +1193,13 @@ async def _ask_impl(req: AskRequest, request: Request):
     if _multimodal_block:
         return AskResponse(
             verdict="FAIL",
-            final_answer="[SCP: Answer withheld │Ă¢â€Â¬Ă¢â‚¬Â multimodal jailbreak detected]",
+            final_answer="[SCP: Answer withheld │Ă¢â€šÂ¬Ă¢â‚¬Â  multimodal jailbreak detected]",
             confidence=0.0,
             domain="security",
             elapsed_ms=0,
             session_id=v98_context["session_id"],
         )
 
-    # [CHATBOT-FIX] NÄ‚Â¡Ă‚ÂºĂ‚Â¿u user khĂ„â€Ă‚Â´ng cung cÄ‚Â¡Ă‚ÂºĂ‚Â¥p ai_answer → gÄ‚Â¡Ă‚Â»Ă‚Âi Ollama sinh cĂ„â€Ă‚Â¢u trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi
-    # TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: SCP thiÄ‚Â¡Ă‚ÂºĂ‚Â¿t kÄ‚Â¡Ă‚ÂºĂ‚Â¿ -Ă¢â‚¬ËœÄ‚Â¡Ă‚Â»Ă†â€™ verify AI answer, nh- Ă‚Â°ng chat UI chỉ gÄ‚Â¡Ă‚Â»Ă‚Â­i question (khĂ„â€Ă‚Â´ng ai_answer)
-    # → SLM khĂ„â€Ă‚Â´ng cĂ„â€Ă‚Â³ gĂ„â€Ă‚Â¬ verify → UNKNOWN/KILL
-    # Fix: GÄ‚Â¡Ă‚Â»Ă‚Âi Ollama local (llama3.2) sinh cĂ„â€Ă‚Â¢u trÄ‚Â¡Ă‚ÂºĂ‚Â£ lÄ‚Â¡Ă‚Â»Ă‚Âi nh- Ă‚Â° chatbot, rÄ‚Â¡Ă‚Â»Ă¢â‚¬Å“i SCP verify
-    # [ROOT-FIX 44-A] task="chat" → routes to llama3.2 (fastest │Ă¢â€Â¬Ă¢â‚¬Â 3B model, low latency
-    # for chat UI responsiveness).
     # [SCP-DNA-FIX 4-a-016] TÄ‚Â¡Ă‚ÂºĂ‚Â I SAO: previously `if req is not None: _ai_answer = req.ai_answer
     # else: _ai_answer = None`. FastAPI's `req: AskRequest` parameter is ALWAYS a valid
     # AskRequest │Ă¢â€Â¬Ă¢â‚¬Â Pydantic 422s on invalid body before the handler runs. So `req is None`

@@ -13,8 +13,8 @@ không được hưởng.
 
 [ARCH-1 FIX] Tách thành 1 gateway duy nhất:
   - Async-first (httpx) + sync wrapper (cho background threads)
-  - Provider adapters: Ollama, OpenRouter, Groq
-  - ProviderRouter: ordered fallback (Ollama → OpenRouter → Groq)
+  - Provider adapters: OpenRouter (primary), EnvCompatProvider (fallback via OPENAI_API_KEY / SCP_LLM_FALLBACK_PROVIDERS)
+  - ProviderRouter: ordered failover (OpenRouter → env-declared providers)
   - Singleton get_gateway() shared by inference + learning
 """
 from scp.llm_gateway.client import LLMGateway, chat_sync, get_gateway

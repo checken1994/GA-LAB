@@ -3,12 +3,11 @@ SCP LLM Gateway — Unified LLM client (API-only).
 
 Single source of truth for ALL LLM calls in SCP (inference + learning).
 
-TẠI SAO không còn OllamaProvider (2026-08-29):
-  Ollama local đã bị gỡ khỏi deployment. Toàn bộ tầng Ollama (provider,
-  TASK_MODEL_MAP, provider_mode "ollama_only"/"auto", check_startup probe
-  11434) là dead code trên đường sống → bị xóa thay vì khóa bằng config
-  (Clean Workspace: code không dùng phải xóa; test phải test reality mới).
-  Gateway giờ chỉ gọi OpenRouter API trực tiếp.
+Provider Strategy (2026-08-31):
+  Gateway chỉ gọi OpenRouter API trực tiếp (primary).
+  Fallback: OpenAI-compatible provider qua env (OPENAI_API_KEY/OPENAI_BASE_URL)
+  hoặc bất kỳ provider nào khai báo qua SCP_LLM_FALLBACK_PROVIDERS.
+  Không còn hardcode bất kỳ provider cụ thể nào (Ollama, Groq đã bị gỡ).
 
 Design:
   - Async-first (httpx.AsyncClient) for inference path (/ask)
@@ -373,11 +372,11 @@ class OpenRouterProvider:
 
 
 # ============================================================
-# [FAILOVER — user request] Provider dự phòng ngoài OpenRouter.
+# [FAILOVER] Provider dự phòng ngoài OpenRouter.
 # Khi 1 API bị rate-limit/quota/sập, gateway tự chuyển sang provider kế
-# tiếp trong chuỗi. Groq là fallback tích hợp (GROQ_* env); các provider
-# OpenAI-compatible khác khai báo qua SCP_LLM_FALLBACK_PROVIDERS mà không
-# cần sửa code:  "name:KEY_ENV:BASEURL_ENV:MODEL_ENV,name2:..."
+# tiếp trong chuỗi. Các provider OpenAI-compatible khác khai báo qua
+# SCP_LLM_FALLBACK_PROVIDERS mà không cần sửa code:
+# "name:KEY_ENV:BASEURL_ENV:MODEL_ENV,name2:..."
 # ============================================================
 _PLACEHOLDER_KEYS = {"", "changeme", "your-key", "your_api_key", "placeholder", "xxx", "sk-xxx", "none"}
 
@@ -511,11 +510,7 @@ class LLMGateway:
                     EnvCompatProvider(name, task, key_env, base_env, model_env)
                 )
 
-        # [FAILOVER FIX] Actually inject Groq fallback as promised in the docs
-        for task in tasks:
-            self._extra_providers.setdefault(task, []).append(
-                EnvCompatProvider("groq", task, "GROQ_API_KEY", "GROQ_BASE_URL", "GROQ_MODEL", default_model="llama3-8b-8192", default_base_url="https://api.groq.com/openai/v1")
-            )
+
 
     def _provider_chain(self, task: str) -> list:
         """Chuỗi failover theo task."""
@@ -556,7 +551,7 @@ class LLMGateway:
     ) -> tuple[str | None, str]:
         """Chat with LLM — đa provider failover.
 
-        Thứ tự: OpenRouter (primary) → provider env-declared → Groq.
+        Thứ tự: OpenRouter (primary) → provider env-declared (OPENAI_API_KEY) → SCP_LLM_FALLBACK_PROVIDERS.
         Provider bị rate-limit (429/402) hoặc breaker OPEN → chuyển NGAY sang
         provider kế tiếp, caller không thấy lỗi, không đốt time-out.
         """
