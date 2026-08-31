@@ -221,7 +221,7 @@ class AttackPredictor:
     # TẠI SAO: WHY gate (v9.0) hỏi "có nên predict không?" (action layer — necessity +
     # falsification). _verify_prediction hỏi "prediction này có đáng tin không?"
     # (verify layer). WHY + verify = cùng độ sâu (2 layer mỗi cái).
-    # Non-blocking: verify error → fail-open (return True, don't block prediction).
+    # Blocking: verify error → fail-closed (return True, don't block prediction).
     # Nếu verify fail (low confidence / invalid type / no historical support)
     # → caller returns None (don't act on unverified prediction).
     def _verify_prediction(
@@ -299,12 +299,12 @@ class AttackPredictor:
                         f"insufficient history ({len(_past_same_type)} past, need ≥3 for cross-check)"
                     )
             except Exception as _hist_err:
-                logger.debug(f" historical cross-check failed (fail-open): {_hist_err}")
-                return True, f"verified OK (conf={_conf:.2f}, type={_tt}) — history check error (fail-open)"
+                logger.debug(f" historical cross-check failed (FAIL-CLOSED): {_hist_err}")
+                return False, f"history check error (FAIL-CLOSED): {_hist_err}"
 
         except Exception as _verify_err:
-            logger.debug(f" _verify_prediction error (fail-open): {_verify_err}")
-            return True, f"verify error (fail-open): {_verify_err}"
+            logger.debug(f" _verify_prediction error (FAIL-CLOSED): {_verify_err}")
+            return False, f"verify error (FAIL-CLOSED): {_verify_err}"
 
     #  Audit log helper for V9.1 self-verify layer.
     def _audit_v91(self, event: str, payload: dict) -> None:
@@ -411,7 +411,7 @@ class AttackPredictor:
         # action_desc matches a relaxation/loosening pattern, or the forecast
         # would otherwise be a self-falsifying claim), the prediction is NOT
         # delivered as-is — we return a "rejected" CyberThreatForecast sentinel.
-        # Non-blocking on WHY error (default allow) so predictor never breaks
+        # Blocking on WHY error (fail-closed) so predictor never breaks
         # because WHY itself crashed. Constitution HARD LOCK preserved in gate().
         # NOTE: `threat_type`/`probability`/`confidence` not in scope as those
         # exact names — use the local best_type / probability / confidence vars.
@@ -456,14 +456,23 @@ class AttackPredictor:
                     why_explanation=f"WHY rejected: {_why.falsification_reason}",
                     evidence_sources=["why_gate:rejected"],
                 )
-        except Exception as _why_err:
-            logger.debug(f"[V9.0-WHY-GATE] WHY Gate error (non-blocking, default allow): {_why_err}")
+                except Exception as _why_err:
+            logger.debug(f"[V9.0-WHY-GATE] WHY Gate error (FAIL-CLOSED): {_why_err}")
+            return CyberThreatForecast(
+                threat_type="rejected",
+                probability=0.0,
+                timeframe_min=0,
+                confidence=0.0,
+                recommended_actions=[],
+                why_explanation=f"WHY Gate error (FAIL-CLOSED): {_why_err}",
+                evidence_sources=["why_gate:error"],
+            )
 
         #  PredictionVerification layer — self-verify SAU khi predict.
         # TẠI SAO: WHY gate (v9.0) hỏi "có nên predict không?" (action layer).
         # _verify_prediction hỏi "prediction này có đáng tin không?" (verify layer).
         # WHY + verify = cùng độ sâu (2 layer) như WHY (necessity + falsification).
-        # Non-blocking: verify error → fail-open (don't block prediction).
+        # Blocking: verify error → fail-closed (don't block prediction).
         # Nếu verify fail (low conf / invalid type / no historical support)
         # → return "rejected" sentinel (don't act on unverified prediction — spec V9.1).
         #
@@ -496,8 +505,17 @@ class AttackPredictor:
                 "threat_type": best_type, "confidence": confidence,
                 "probability": probability, "reason": _verify_reason,
             })
-        except Exception as _verify_call_err:
-            logger.debug(f" _verify_prediction call error (fail-open): {_verify_call_err}")
+                except Exception as _verify_call_err:
+            logger.debug(f" _verify_prediction call error (FAIL-CLOSED): {_verify_call_err}")
+            return CyberThreatForecast(
+                threat_type="rejected",
+                probability=0.0,
+                timeframe_min=0,
+                confidence=0.0,
+                recommended_actions=[],
+                why_explanation=f"verify call error (FAIL-CLOSED): {_verify_call_err}",
+                evidence_sources=["verify:error"],
+            )
 
         logger.info(f"[Predictor] Forecast: {best_type} prob={probability:.2f} conf={confidence:.2f}")
         return forecast

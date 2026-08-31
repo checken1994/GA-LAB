@@ -280,11 +280,21 @@ def db_batch_flush() -> int:
 _read_lock = threading.Lock()  #  Light lock for reads — WAL allows concurrent reads
 
 def db_query_all(sql: str, params=(), db_path: Optional[str] = None) -> list[dict]:
-    conn = _get_path_conn(db_path) if db_path else get_db()
+    if db_path:
+        with _db_lock:
+            conn = _get_path_conn(db_path)
+    else:
+        with _read_lock:
+            conn = get_db()
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 def db_query_one(sql: str, params=(), db_path: Optional[str] = None) -> Optional[dict]:
-    conn = _get_path_conn(db_path) if db_path else get_db()
+    if db_path:
+        with _db_lock:
+            conn = _get_path_conn(db_path)
+    else:
+        with _read_lock:
+            conn = get_db()
     r = conn.execute(sql, params).fetchone()
     return dict(r) if r else None
 

@@ -51,12 +51,16 @@ def patrol_cycle():
             
     if anomalies:
         for anomaly in anomalies:
-            # Trích xuất IP của Hacker từ log mạng
-            match = re.search(r'(\d+\.\d+\.\d+\.\d+):', anomaly)
-            if match:
-                hacker_ip = match.group(1)
-                log_event("THREAT_DETECTED", f"Phát hiện kết nối dị thường: {anomaly}")
-                block_malicious_ip(hacker_ip)
+            # Trích xuất IP của Hacker (Remote IP) từ log mạng (Foreign Address là cột thứ 3)
+            parts = anomaly.split()
+            if len(parts) >= 3:
+                foreign_address = parts[2]
+                if ":" in foreign_address:
+                    hacker_ip = foreign_address.rsplit(":", 1)[0]
+                    # Loại bỏ ngoặc vuông nếu là IPv6 mapped (mặc dù regex IPv4 không có)
+                    hacker_ip = hacker_ip.strip("[]")
+                    log_event("THREAT_DETECTED", f"Phát hiện kết nối dị thường: {anomaly}")
+                    block_malicious_ip(hacker_ip)
     else:
         log_event("SYSTEM_SAFE", "Mạng ổn định, tuần tra không phát hiện đe dọa.")
 
