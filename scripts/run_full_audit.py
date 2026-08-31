@@ -136,7 +136,7 @@ def step_boot_and_probe(env_file: str) -> dict:
 
         # 4. Correct key → JWT
         admin_key = ""
-        for line in (ROOT / ".env").read_text(encoding="utf-8").splitlines():
+        for line in Path(env_file).read_text(encoding="utf-8").splitlines():
             if line.startswith("SCP_ADMIN_KEY="):
                 admin_key = line.split("=", 1)[1].strip()
                 break
@@ -189,8 +189,7 @@ def step_pytest() -> dict:
 
 
 def step_reality() -> dict:
-    result = subprocess.run(
-        [sys.executable, "run_reality_tests_portable.py"],
+    result = subprocess.run([sys.executable, "scripts/run_reality_tests_portable.py"],
         capture_output=True, text=True, timeout=600, cwd=str(ROOT),
     )
     last_line = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
@@ -296,3 +295,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

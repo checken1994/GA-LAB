@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 import requests
+import jwt
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = "http://127.0.0.1:8000"
@@ -27,8 +28,18 @@ def port_open(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
-def _request(method: str, path: str, payload: dict | None = None) -> dict:
-    response = requests.request(method, f"{BASE}{path}", json=payload, timeout=30)
+SMOKE_JWT_SECRET = "bounded-smoke-jwt-secret-32-bytes-long"
+SMOKE_PC_TOKEN = "bounded-smoke-pc-controller-token"
+SMOKE_TOKEN = jwt.encode({"sub": "smoke-tester", "exp": time.time() + 3600}, SMOKE_JWT_SECRET, algorithm="HS256")
+
+def _request(method: str, path: str, payload: dict | None = None, headers: dict | None = None) -> dict:
+    req_headers = {
+        "Authorization": f"Bearer {SMOKE_TOKEN}",
+        "x-scp-pc-token": SMOKE_PC_TOKEN,
+    }
+    if headers:
+        req_headers.update(headers)
+    response = requests.request(method, f"{BASE}{path}", json=payload, headers=req_headers, timeout=30)
     item: dict[str, object] = {"http_status": response.status_code}
     try:
         item["body"] = response.json()
@@ -61,7 +72,9 @@ def run(output_dir: Path) -> dict:
             "SCP_KERNEL_TRACE_PATH": str(output_dir / "kernel_trace.jsonl"),
             "SCP_REQUEST_RUN_LEDGER_PATH": str(output_dir / "request_runs.jsonl"),
             "SCP_HANDS_LOCAL_ONLY": "1",
-            "SCP_ENV_FILE": str(output_dir / "empty.env"),
+                        "SCP_ENV_FILE": str(output_dir / "empty.env"),
+                        "SCP_JWT_SECRET": SMOKE_JWT_SECRET,
+            "SCP_PC_CONTROLLER_TOKEN": SMOKE_PC_TOKEN,
         }
     )
     (output_dir / "empty.env").write_text("", encoding="utf-8")
@@ -189,3 +202,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+
