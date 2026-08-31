@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-path = Path(r"C:\Users\check\Downloads\scp\scp\api_server.py")
+path = Path(str(Path(__file__).resolve().parent / "scp" / "api_server.py"))
 lines = path.read_text(encoding="utf-8").splitlines()
 source_idx = next(i for i, line in enumerate(lines) if '"source": r.get("evidence"' in line)
 if any('"evidence": r.get("evidence"' in line for line in lines[source_idx:source_idx + 8]):

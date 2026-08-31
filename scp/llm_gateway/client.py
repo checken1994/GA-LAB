@@ -358,88 +358,6 @@ class OpenRouterProvider:
             logger.warning(f"[{self.PROVIDER_NAME}] Circuit Breaker is OPEN. Bypassing provider to prevent rate-limit ban.")
 
         return None, "none"
-            
-        primary_model = self.model
-        fallback_model = self.free_fallback
-        if prioritize_free:
-            primary_model, fallback_model = fallback_model, primary_model
-
-        if not self._breaker.is_open():
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": f"{context}\n\n{question}".strip()})
-
-            key = self._next_key()
-            answer, err = await self._call_model(primary_model, messages, key)
-            if answer:
-                self._breaker.record_success()
-                return answer, f"{self.PROVIDER_NAME}:{primary_model}"
-            else:
-                self._breaker.record_failure()
-                logger.debug(f"{self.PROVIDER_NAME} PAID ({primary_model}) key failed: {err}, trying next key")
-
-            if fallback_model != primary_model:
-                key = self._next_key()
-                answer, err = await self._call_model(fallback_model, messages, key)
-                if answer:
-                    return answer, f"{self.PROVIDER_NAME}:{fallback_model}"
-                logger.debug(f"{self.PROVIDER_NAME} FREE fallback ({fallback_model}) failed: {err}")
-
-            if self.PROVIDER_NAME == "openrouter" and fallback_model != "openrouter/free" and primary_model != "openrouter/free":
-                key = self._next_key()
-                answer, err = await self._call_model("openrouter/free", messages, key)
-                if answer:
-                    logger.info("OpenRouter auto-router (openrouter/free) succeeded")
-                    return answer, f"{self.PROVIDER_NAME}:openrouter/free"
-                logger.debug(f"OpenRouter auto-router failed: {err}")
-        else:
-            logger.warning(f"[{self.PROVIDER_NAME}] Circuit Breaker is OPEN. Bypassing provider to prevent rate-limit ban.")
-
-        return None, "none"
-
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        if context:
-            messages.append({"role": "user", "content": context})
-        messages.append({"role": "user", "content": question})
-
-        # Layer 1: PAID model (try up to 3 keys = 1 round)
-        for _attempt in range(min(3, self._key_count())):
-            key = self._next_key()
-            answer, err = await self._call_model(self.model, messages, key)
-            if answer:
-                return answer, f"{self.PROVIDER_NAME}:{self.model}"
-            if err and "quota" not in err.lower() and "rate-limit" not in err.lower() and "429" not in err and "402" not in err:
-                # Non-quota error (network, 500, etc.) — don't retry with same model
-                logger.debug(f"OpenRouter PAID ({self.model}) failed: {err}")
-                break
-            logger.debug(f"OpenRouter PAID ({self.model}) key failed: {err}, trying next key")
-
-        # Layer 2: FREE task-specific fallback
-        if self.free_fallback != self.model:  # avoid retrying same model
-            key = self._next_key()
-            answer, err = await self._call_model(self.free_fallback, messages, key)
-            if answer:
-                logger.info(f"OpenRouter PAID failed, FREE fallback succeeded: {self.free_fallback}")
-                return answer, f"{self.PROVIDER_NAME}:{self.free_fallback}"
-            logger.debug(f"OpenRouter FREE fallback ({self.free_fallback}) failed: {err}")
-
-        # Layer 3: openrouter/free (auto-router, picks any available free model)
-        # [FAILOVER] model này chỉ tồn tại trên OpenRouter — provider khác bỏ qua.
-        if self.PROVIDER_NAME == "openrouter" and self.free_fallback != "openrouter/free":
-            key = self._next_key()
-            answer, err = await self._call_model("openrouter/free", messages, key)
-            if answer:
-                logger.info("OpenRouter auto-router (openrouter/free) succeeded")
-                return answer, f"{self.PROVIDER_NAME}:openrouter/free"
-            logger.debug(f"OpenRouter auto-router failed: {err}")
-
-        # No answer was produced by any configured model. Do not return the
-        # primary model label here: callers use the provider field as an
-        # evidence signal, so a failed chain must be explicit.
-        return None, "none"
 
     def stats(self) -> dict:
         self._init_keys()
@@ -571,6 +489,17 @@ class LLMGateway:
     def _parse_extra_providers(self) -> None:
         spec = os.environ.get("SCP_LLM_FALLBACK_PROVIDERS", "")
         tasks = ("autofix", "why", "learning", "fast_learning", "judge", "chat", "default")
+        
+        # [NEW] 1. Generic OpenAI API (highest priority if configured)
+        for task in tasks:
+            self._extra_providers.setdefault(task, []).append(
+                EnvCompatProvider(
+                    "openai_compat", task, 
+                    "OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL", 
+                    default_base_url="https://api.openai.com/v1"
+                )
+            )
+
         for entry in (e.strip() for e in spec.split(",") if e.strip()):
             parts = [p.strip() for p in entry.split(":")]
             if len(parts) != 4:
@@ -599,7 +528,24 @@ class LLMGateway:
             "chat":          getattr(self, "openrouter_chat"),
         }.get(task, self.openrouter_default)
 
-        return [openrouter, *self._extra_providers.get(task, [])]
+        extra = self._extra_providers.get(task, [])
+        openai_compat = extra[0] if extra and extra[0].PROVIDER_NAME == "openai_compat" else None
+        
+        chain = []
+        # Priority 1: Custom OpenAI API (if enabled by env vars)
+        if openai_compat and openai_compat.enabled:
+            chain.append(openai_compat)
+            
+        # Priority 2: OpenRouter (if enabled)
+        if openrouter.enabled:
+            chain.append(openrouter)
+            
+        # Priority 3: Other fallback providers
+        if extra:
+            start_idx = 1 if openai_compat else 0
+            chain.extend(extra[start_idx:])
+            
+        return chain
 
     async def chat(
         self,

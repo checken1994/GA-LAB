@@ -11,7 +11,7 @@ questions, attacks = generate_random_questions(
     num_attacks=0,
     seed=42,
 )
-path = Path(r"C:\Users\check\Downloads\scp\benchmark\questions_1000.jsonl")
+path = Path(str(Path(__file__).resolve().parent.parent / "benchmark" / "questions_1000.jsonl"))
 path.parent.mkdir(parents=True, exist_ok=True)
 path.write_text(
     "\n".join(json.dumps(item, ensure_ascii=False) for item in questions) + "\n",

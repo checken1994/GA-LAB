@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
+ROOT = Path(str(Path(__file__).resolve().parent.parent))
 BASE = ROOT / ".private-secrets" / "release-audit" / "scp-247"
 LATEST = BASE / "hourly-latest.json"
 JOURNAL = BASE / "hourly-monitor.jsonl"

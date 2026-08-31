@@ -1,6 +1,6 @@
 from pathlib import Path
 
-p = Path(r"C:\Users\check\Downloads\scp\scp\runtime\judge_parts\judgecore_mixin.py")
+p = Path(str(Path(__file__).resolve().parent.parent / "scp" / "runtime" / "judge_parts" / "judgecore_mixin.py"))
 s = p.read_text(encoding="utf-8-sig")
 old = (
     "                        _filtered_slm_responses, _evidence_filter_report = filter_slm_responses(\n"

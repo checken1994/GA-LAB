@@ -24,35 +24,44 @@ Thay vì để AI trực tiếp gọi hàm (Function Calling) một cách vô t�
 
 Không phóng đại, không ảo tưởng, đây là tình trạng hiện tại của hệ thống được ghi nhận bởi log thực thi:
 
-* **Tính Khả Dụng (Availability):** Kiến trúc Kernel + SQLite WAL cho thấy khả năng phục hồi an toàn sau các đợt Crash (đã có Test E2E Chaos Recovery).
-* **Test Coverage (Bao phủ mã):** 
-  - **Sự thật:** Test viết tay hiện tại mới chỉ bao phủ **~16%** trên tổng số hơn 50.000 dòng code. Hàng loạt module liên quan đến Sandbox, Threat Simulator đang mù.
-  - **Giải pháp:** Đang kích hoạt chạy ngầm **Test Factory Daemon** (scripts/scp_test_factory.py). Tiến trình này dùng watchdog lắng nghe sự thay đổi code, tự động gọi Autofix LLM của SCP để viết thêm/sửa test ngay khi có file thay đổi, với mục tiêu cày lên 100% tự động.
-* **Release:** Vẫn đang ở mức Integration Test. **Chưa qua Soak Test dài ngày trên Windows**, chưa chứng minh được Ranh giới Sandbox an toàn tuyệt đối với mã độc.
+* **Tính Khả Dụng (Availability) & Kiến Trúc:** `TaskKernel` đã được tách rời (Decoupled) khỏi cơ sở dữ liệu vật lý thông qua Dependency Injection (`KernelStorage`), hỗ trợ thay thế linh hoạt (ví dụ: in-memory, Postgres, SQLite).
+* **Soak Test (Độ Bền):** **Đã PASS.** Kiểm thử chịu tải tự động (629 task liên tục, 22 batch) đạt 100% Ledger Consistency (tính nhất quán của sổ cái trạng thái) mà không rò rỉ hay deadlock.
+* **Môi Trường LLM Độc Lập (Environment-Agnostic):** LLM Gateway không còn khóa cứng vào OpenRouter. Hệ thống tự động ưu tiên nhận diện và giao tiếp thông qua các chuẩn API tương thích OpenAI (`OPENAI_API_KEY`, `OPENAI_BASE_URL`) nếu được cung cấp ở môi trường triển khai mới.
+* **Test Coverage & Release Gate:** Hệ thống tích hợp **Mutation Testing** (chạy dry-run qua CI) và **Test Factory Daemon** tự động sinh test để kiểm soát chất lượng mã nguồn khi có thay đổi. Hiện tại vẫn đang củng cố độ bao phủ (coverage) và cần hoàn thiện ranh giới Sandbox trên Windows.
 
 ## Quick Start
 
-`ash
+```bash
 pip install -r requirements.txt
 
 # Yêu cầu biến môi trường (.env)
 #   SCP_JWT_SECRET=<random hex 64>
 #   SCP_ADMIN_KEY=<random urlsafe 24>
-#   OPENROUTER_API_KEY=<your key>
+
+# Cấu hình API cho LLM (chọn 1 trong 2):
+# Dùng Custom OpenAI-Compatible API (ưu tiên):
+#   OPENAI_API_KEY=<your key>
+#   OPENAI_BASE_URL=<your base url>
+#   OPENAI_MODEL=<your model>
+# Hoặc dùng OpenRouter:
+#   OPENROUTER_API_KEY=<your openrouter key>
+#   OPENROUTER_MODEL=<your model>
 
 python -m scp 8000
-`
+```
 
 ## Cấu trúc Hệ Thống
 
 | Module lõi | Mô tả thực tế |
 |---|---|
-| scp/task_kernel.py | Trái tim của hệ thống. Ghi log State Machine vào SQLite, cấp Lease (Khóa tác vụ), và rà soát Crash khi boot. |
-| scp/hands/planner.py | Quản lý DAG Plan. Ép buộc phân quyền Capability cho AI ngoài, mở luồng cho SCP. |
-| scp/llm_gateway/ | Quản lý kết nối ra các LLM API ngoài, chống rate-limit. |
-| scp/learning/ | Promotion Gate và Quarantine. Lọc dữ liệu đầu vào. |
-| scp/security/ | OS Sandbox và các cổng chặn (Chưa hoàn thiện 100% trên Windows Job Object). |
-| scripts/scp_test_factory.py | Trình sinh test tự động dựa vào Autofix. |
+| `scp/task_kernel.py` | Trái tim của hệ thống. Quản lý State Machine, cấp Lease (Khóa tác vụ), và Dependency Injection (DI) qua `KernelStorage`. |
+| `scp/kernel_storage.py` | Abstraction layer cho lưu trữ trạng thái TaskKernel (SQLite, v.v.). |
+| `scp/hands/planner.py` | Quản lý DAG Plan. Ép buộc phân quyền Capability cho AI ngoài, mở luồng tự nâng quyền cho định danh SCP. |
+| `scp/llm_gateway/` | Gateway gọi API linh hoạt, không khóa nhà cung cấp (vendor lock-in), tự động failover và ưu tiên Env API. |
+| `scp/security/` | Quản lý Sandbox và phân quyền hệ thống. |
+| `scripts/run_mutation_ci.py` | Trình đánh giá Release Gate đảm bảo Mutation Score. |
+| `scripts/scp_test_factory.py` | Trình sinh test tự động dựa vào Autofix. |
 
 ## Giấy phép
 MIT License.
+

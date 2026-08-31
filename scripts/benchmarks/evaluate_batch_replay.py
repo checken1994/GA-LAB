@@ -7,7 +7,7 @@ from pathlib import Path
 
 from benchmark.run_benchmark_v2 import check_factual_correctness, fold_text
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
+ROOT = Path(str(Path(__file__).resolve().parent.parent))
 JOB = ROOT / "data" / "benchmark_batches" / "bc9dca05dfb5425081c35fb5e6fc9b0e"
 questions = {}
 for line in (JOB / "questions.jsonl").read_text(encoding="utf-8").splitlines():

@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-path = Path(r"C:\Users\check\Downloads\scp\data\kb_evolve.sqlite")
+path = Path(str(Path(__file__).resolve().parent.parent / "data" / "kb_evolve.sqlite"))
 con = sqlite3.connect(path)
 try:
     for (name,) in con.execute("select name from sqlite_master where type='table' order by name"):

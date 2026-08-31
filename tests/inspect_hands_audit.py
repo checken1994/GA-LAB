@@ -4,7 +4,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-AUDIT = Path(r"C:\Users\check\Downloads\scp\data\hands\audit.jsonl")
+AUDIT = Path(str(Path(__file__).resolve().parent / "data" / "hands" / "audit.jsonl"))
 
 valid = []
 invalid = []

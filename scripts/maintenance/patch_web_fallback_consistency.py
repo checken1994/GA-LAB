@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
+ROOT = Path(str(Path(__file__).resolve().parent.parent))
 
 
 def replace_once(path: Path, old: str, new: str, label: str) -> None:

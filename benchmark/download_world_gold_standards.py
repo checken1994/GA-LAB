@@ -1,10 +1,11 @@
+from pathlib import Path
 import json
 import urllib.request
 import os
 
 def download_benchmark(name, url, out_name):
     print(f"Downloading {name} - World Gold Standard...")
-    out_path = os.path.join(r"c:\Users\check\Downloads\scp\benchmark", out_name)
+    out_path = os.path.join(str(Path(__file__).resolve().parent / "benchmark"), out_name)
     try:
         urllib.request.urlretrieve(url, out_path)
         print(f"Success! {name} saved to: {out_path}")

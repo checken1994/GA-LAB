@@ -1,6 +1,6 @@
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
+ROOT = Path(str(Path(__file__).resolve().parent.parent))
 api = ROOT / "scp" / "api_server.py"
 s = api.read_text(encoding="utf-8-sig")
 marker = "# POST /ask — Main endpoint\n"

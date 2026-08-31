@@ -1,3 +1,4 @@
+from pathlib import Path
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -21,8 +22,8 @@ from datetime import datetime, timezone
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-GOLD_PATH = r'c:\Users\check\Downloads\scp\benchmark\gold_anchor_50_v1.jsonl'
-OUTPUT_PATH = r'c:\Users\check\Downloads\scp\benchmark\ragas_results_v1.json'
+GOLD_PATH = str(Path(__file__).resolve().parent / "benchmark" / "gold_anchor_50_v1.jsonl")
+OUTPUT_PATH = str(Path(__file__).resolve().parent / "benchmark" / "ragas_results_v1.json")
 TIMESTAMP = datetime.now(timezone.utc).isoformat()
 
 def sha256_file(path):

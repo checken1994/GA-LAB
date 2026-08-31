@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\check\Downloads\scp")
+ROOT = Path(str(Path(__file__).resolve().parent.parent))
 BASE = ROOT / ".private-seCRETS" / "release-audit" / "scp-247"
 # Correct the case-sensitive Windows path without displaying it.
 BASE = ROOT / ".private-secrets" / "release-audit" / "scp-247"

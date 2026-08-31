@@ -4,7 +4,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-LEDGER = Path(r"C:\Users\check\Downloads\scp\data\hands\processes.jsonl")
+LEDGER = Path(str(Path(__file__).resolve().parent / "data" / "hands" / "processes.jsonl"))
 records = []
 invalid = []
 if LEDGER.exists():

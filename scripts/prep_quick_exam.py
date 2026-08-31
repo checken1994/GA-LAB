@@ -1,7 +1,8 @@
+from pathlib import Path
 import json
 
-in_file = r"c:\Users\check\Downloads\scp\benchmark\gold_anchor_1000_VERIFIED.jsonl"
-out_gold = r"c:\Users\check\Downloads\scp\benchmark\gold_anchor_5_QUICK.jsonl"
+in_file = str(Path(__file__).resolve().parent / "benchmark" / "gold_anchor_1000_VERIFIED.jsonl")
+out_gold = str(Path(__file__).resolve().parent / "benchmark" / "gold_anchor_5_QUICK.jsonl")
 
 print("Đang trích xuất 5 câu hỏi...")
 count = 0

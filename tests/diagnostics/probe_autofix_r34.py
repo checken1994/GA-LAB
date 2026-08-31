@@ -9,7 +9,7 @@ from scp.autofix.classifier import BugReport, BugTier
 from scp.autofix.engine import AutoFixEngine
 from scp.autofix.llm_fix import process_bug_with_llm
 
-source = Path(r"C:\Users\check\Downloads\scp\scp\autofix\type_flow_verifier.py")
+source = Path(str(Path(__file__).resolve().parent.parent / "scp" / "autofix" / "type_flow_verifier.py"))
 tmp = Path(tempfile.mkdtemp(prefix="scp-r34-autofix-"))
 target = tmp / source.name
 shutil.copy2(source, target)

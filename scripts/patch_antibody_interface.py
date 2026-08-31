@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-path = Path(r"C:\Users\check\Downloads\scp\scp\runtime\judge_parts\judge_phases.py")
+path = Path(str(Path(__file__).resolve().parent / "scp" / "runtime" / "judge_parts" / "judge_phases.py"))
 text = path.read_text(encoding="utf-8")
 old = '            results = judge.antibody_system.check_all(ctx.question, str(answer))\n'
 new = '''            # DomainAntibodySystem exposes check(), not the removed check_all().

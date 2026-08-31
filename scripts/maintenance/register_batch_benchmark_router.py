@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-path = Path(r"C:\Users\check\Downloads\scp\scp\api_server.py")
+path = Path(str(Path(__file__).resolve().parent.parent / "scp" / "api_server.py"))
 text = path.read_text(encoding="utf-8")
 needle = "from scp.api.routes.hands_routes import router as hands_router\n app.include_router(hands_router)"
 if needle in text:

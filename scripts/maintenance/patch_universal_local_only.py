@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-path = Path(r"C:\Users\check\Downloads\scp\scp\runtime\slm_impls\misc_slm.py")
+path = Path(str(Path(__file__).resolve().parent.parent / "scp" / "runtime" / "slm_impls" / "misc_slm.py"))
 text = path.read_text(encoding="utf-8")
 if "SCP_LOCAL_ONLY" in text:
     print("local-only branch already present")

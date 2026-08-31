@@ -1,10 +1,11 @@
+from pathlib import Path
 import json
 from scp.autofix.llm_fix import _generate_bare_except_fix
 
 
 class Bug:
     bug_type = "BareExceptPass"
-    file = r"C:\Users\check\Downloads\scp\scp\autofix\type_flow_verifier.py"
+    file = str(Path(__file__).resolve().parent.parent / "scp" / "autofix" / "type_flow_verifier.py")
     line = 717
 
 

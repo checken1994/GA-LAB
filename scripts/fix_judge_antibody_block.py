@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-path = Path(r"C:\Users\check\Downloads\scp\scp\runtime\judge_parts\judge_phases.py")
+path = Path(str(Path(__file__).resolve().parent / "scp" / "runtime" / "judge_parts" / "judge_phases.py"))
 lines = path.read_text(encoding="utf-8").splitlines()
 anchor = next(i for i, line in enumerate(lines) if 'if hasattr(judge, "antibody_system")' in line)
 start = next(i for i in range(anchor, len(lines)) if lines[i].strip() == "if answer:")

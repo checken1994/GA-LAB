@@ -1,3 +1,4 @@
+from pathlib import Path
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -8,9 +9,9 @@ from datetime import datetime, timezone
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-GOLD_PATH = r'c:\Users\check\Downloads\scp\benchmark\gold_anchor_50_v1.jsonl'
-JSONL_PATH = r'c:\Users\check\Downloads\scp\SCP_PHASE3_DELIVERABLES_20260818\phase3_candidate_enrichment_full_v2_sanitized.jsonl'
-OUTPUT_REPORT = r'c:\Users\check\Downloads\scp\benchmark\gold_anchor_50_v1_report.json'
+GOLD_PATH = str(Path(__file__).resolve().parent / "benchmark" / "gold_anchor_50_v1.jsonl")
+JSONL_PATH = str(Path(__file__).resolve().parent / "SCP_PHASE3_DELIVERABLES_20260818" / "phase3_candidate_enrichment_full_v2_sanitized.jsonl")
+OUTPUT_REPORT = str(Path(__file__).resolve().parent / "benchmark" / "gold_anchor_50_v1_report.json")
 REVIEWER_ID = 'SCP-AUTO-EXTRACTOR-v2'
 EXTRACTION_TS = datetime.now(timezone.utc).isoformat()
 
