@@ -93,8 +93,12 @@ jobs:
       - name: static lint gate
         shell: pwsh
         run: python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/post_fix_verify.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/llm_gateway/free_catalog.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/multi_llm_crosscheck.py scp/runtime/safe_math.py scp/security/cisa_kev.py scp/ask_kernel_adapter.py tests/test_enforce_baseline.py tests/test_multi_llm_crosscheck_concurrency.py tests/test_ask_kernel_storage_integrity.py tests/external_audit/test_cascade.py tests/reality-tests/reality_4-d-024.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py scripts/mutation_engine.py scripts/scp_soak_test.py scripts/run_scp_acceptance.py scripts/run_scp_acceptance_ci.py --select E9,F
+
+      # Late release gates use continue-on-error so one known blocker cannot hide
+      # evidence from the remaining gates. The final verdict below remains fail-closed.
       - name: production security scan
         id: bandit
+        continue-on-error: true
         shell: pwsh
         run: |
           python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
@@ -102,7 +106,9 @@ jobs:
           python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
           Get-Content bandit-prod-summary.json
           python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
+          $policyExit = $LASTEXITCODE
           if ($banditExit -gt 1) { exit $banditExit }
+          if ($policyExit -ne 0) { exit $policyExit }
       - name: upload production security evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -114,6 +120,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - name: bounded full-system runtime smoke
+        id: runtime_smoke
+        continue-on-error: true
         shell: pwsh
         run: python tools/run_bounded_system_smoke.py --output-dir reports/bounded_system_smoke_ci
       - name: upload bounded runtime evidence
@@ -125,14 +133,20 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: dashboard dependencies
+        id: dashboard_deps
+        continue-on-error: true
         shell: pwsh
         working-directory: dashboard
         run: npm ci --ignore-scripts
       - name: dashboard audit
+        id: dashboard_audit
+        continue-on-error: true
         shell: pwsh
         working-directory: dashboard
         run: npm audit --omit=dev --audit-level=high
       - name: dashboard build
+        id: dashboard_build
+        continue-on-error: true
         shell: pwsh
         working-directory: dashboard
         run: npm run build
@@ -140,5 +154,24 @@ jobs:
       # Metadata evidence is checked last so stale manifests cannot hide runtime
       # evidence from the same commit. It remains a release blocker.
       - name: snapshot manifest gate
+        id: manifest
+        continue-on-error: true
         shell: pwsh
         run: python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+
+      - name: final release verdict
+        if: always()
+        shell: pwsh
+        run: |
+          $failures = @()
+          if ("${{ steps.bandit.outcome }}" -ne "success") { $failures += "production security scan" }
+          if ("${{ steps.runtime_smoke.outcome }}" -ne "success") { $failures += "bounded runtime smoke" }
+          if ("${{ steps.dashboard_deps.outcome }}" -ne "success") { $failures += "dashboard dependencies" }
+          if ("${{ steps.dashboard_audit.outcome }}" -ne "success") { $failures += "dashboard audit" }
+          if ("${{ steps.dashboard_build.outcome }}" -ne "success") { $failures += "dashboard build" }
+          if ("${{ steps.manifest.outcome }}" -ne "success") { $failures += "snapshot manifest" }
+          if ($failures.Count -gt 0) {
+            Write-Host "RELEASE BLOCKED: $($failures -join ', ')"
+            exit 1
+          }
+          Write-Host "RELEASE GATES PASS"
