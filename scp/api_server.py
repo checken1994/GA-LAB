@@ -1,9 +1,3 @@
-from .api_server_parts._scp_service_identity import _scp_service_identity
-from .api_server_parts.lifespan import lifespan
-from .api_server_parts._ask_impl import _ask_impl
-from .api_server_parts._async_fact_check import _async_fact_check
-from .api_server_parts.health_detailed import health_detailed
-
 """
 SCP V99 │Ă¢â€\x9aÂ¬Ă¢â‚¬Â\x9d API Server
 Copyright (c) 2026 Minh. MIT License.
@@ -26,6 +20,12 @@ Endpoints:
   GET  /                             │Ă¢â€\x9aÂ¬Ă¢â‚¬Â\x9d Root info
 """
 from __future__ import annotations
+
+from .api_server_parts._scp_service_identity import _scp_service_identity
+from .api_server_parts.lifespan import lifespan
+from .api_server_parts._ask_impl import _ask_impl
+from .api_server_parts._async_fact_check import _async_fact_check
+from .api_server_parts.health_detailed import health_detailed
 from scp.security.env_loader import load_selected_env
 load_selected_env()
 from fastapi import Depends
