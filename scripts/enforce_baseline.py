@@ -1,31 +1,47 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""P0: Enforce Baseline.
-Ensures tests pass, and checks if reality evidence (e.g., test reports) aligns with commit.
+"""Enforce the SCP baseline.
+
+The assembled-system acceptance suite is authoritative for behavioral release
+invariants. Component tests run afterwards as diagnostics and remain blockers,
+but their PASS alone is never reported as proof that SCP is reliable.
 """
+from __future__ import annotations
+
+import logging
 import subprocess
 import sys
-import logging
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+ACCEPTANCE_DIR = ROOT / "reports" / "scp_acceptance_baseline"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("baseline_enforcer")
 
-def main():
-    logger.info("Running P0 Baseline Check...")
-    
-    # 1. Check pytest passes
-    logger.info("Running pytest...")
-    result = subprocess.run(["pytest", "-q", "tests/", "scp/tests/"], capture_output=True, text=True)
+
+def run(command: list[str], label: str) -> None:
+    logger.info("Running %s...", label)
+    result = subprocess.run(command, cwd=ROOT, text=True)
     if result.returncode != 0:
-        logger.error("Pytest failed! Baseline broken.")
-        logger.error(result.stdout)
-        sys.exit(1)
-    logger.info("Pytest passed.")
-    
-    # 2. Add other evidence checks (README timestamps, coverage snapshots) here
-    # For now, if tests pass, baseline is accepted.
-    logger.info("Baseline reliable.")
-    sys.exit(0)
+        logger.error("%s failed; baseline is NOT accepted.", label)
+        raise SystemExit(result.returncode)
+    logger.info("%s passed.", label)
+
+
+def main() -> int:
+    ACCEPTANCE_DIR.mkdir(parents=True, exist_ok=True)
+    run(
+        [
+            sys.executable,
+            "scripts/run_scp_acceptance_ci.py",
+            "--output-dir",
+            str(ACCEPTANCE_DIR),
+        ],
+        "SCP system acceptance",
+    )
+    run([sys.executable, "-m", "pytest", "-q"], "component diagnostics")
+    logger.info("Baseline accepted: system invariants and component diagnostics both passed.")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

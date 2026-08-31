@@ -2,16 +2,29 @@ name: SCP CI Gate
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   p0-baseline:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install -r scp/requirements.txt
-      - name: Enforce Baseline (P0)
+        run: python -m pip install -r scp/requirements-dev.txt
+      - name: Enforce SCP baseline
         run: python scripts/enforce_baseline.py
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scp-baseline-acceptance-${{ github.run_id }}
+          path: reports/scp_acceptance_baseline/
+          if-no-files-found: error
+          retention-days: 14
