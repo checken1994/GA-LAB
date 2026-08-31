@@ -95,24 +95,7 @@ class RealityJudge:
         #    [MẢNH 5+43] Cross-vendor verification: 2 provider khác nhau đánh giá
         #    độc lập → giảm xác suất ảo giác đồng thuận (DNA #5).
         slm_responses_list = []
-        # 2.5. TIER-1.5: Dynamic API Expert Injection
-        try:
-            from scp.data_sources.domain_classifier import classify_top1
-            domain = classify_top1(question)
-            expert = self.domain_experts.get(domain)
-            if expert:
-                # call the expert's predict
-                resp = expert.predict(question)
-                if getattr(resp, 'answer', None):
-                    context += f"
-
-[SYSTEM EXPERT DATA] For {domain}: {resp.answer}"
-                    # convert SLMResponse to dict so DotDict doesn't choke or api_server can process it
-                    slm_responses_list.append(resp.__dict__)
-        except Exception as e:
-            import logging
-            logging.getLogger("scp.judge").debug(f"Expert injection failed: {e}")
-        elif is_structurally_pass and ai_answer:
+        if is_structurally_pass and ai_answer:
             import os as _os
             if _os.environ.get("SCP_MULTI_LLM_CROSSCHECK", "1") == "1":
                 try:
@@ -133,6 +116,21 @@ class RealityJudge:
             else:
                 failures.append("semantic_judge_fail")
 
+# 2.5. TIER-1.5: Dynamic API Expert Injection
+        try:
+            from scp.data_sources.domain_classifier import classify_top1
+            domain = classify_top1(question)
+            expert = self.domain_experts.get(domain)
+            if expert:
+                # call the expert's predict
+                resp = expert.predict(question)
+                if getattr(resp, 'answer', None):
+                    context += f"\n[SYSTEM EXPERT DATA] For {domain}: {resp.answer}"
+                    # convert SLMResponse to dict so DotDict doesn't choke or api_server can process it
+                    slm_responses_list.append(resp.__dict__)
+        except Exception as e:
+            import logging
+            logging.getLogger("scp.judge").debug(f"Expert injection failed: {e}")
         self.judged_count += 1
         if not is_pass and not escalated:
             self.fail_count += 1
