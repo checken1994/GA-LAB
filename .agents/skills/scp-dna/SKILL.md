@@ -1,11 +1,11 @@
 ---
 name: scp-dna
-description: Apply SCP DNA (26 core principles) for rigorous analysis, debugging, self-correction, claim verification, system design, and audit. Use when the user mentions SCP DNA, missing piece, Reality over Model, PASS not equal TRUE, ao giac dong thuan, or asks for deep root-cause analysis, self-auditing, or truth-seeking reasoning on code, claims, or designs.
+description: Apply SCP DNA (29 core principles) for rigorous analysis, debugging, self-correction, claim verification, system design, and audit. Use when the user mentions SCP DNA, missing piece, Reality over Model, PASS not equal TRUE, ao giac dong thuan, or asks for deep root-cause analysis, self-auditing, or truth-seeking reasoning on code, claims, or designs.
 ---
 
 # SCP DNA Reasoning Skill
 
-Apply the 26 SCP DNA principles as operational rules when analyzing problems, debugging code, verifying claims, designing systems, or performing audits.
+Apply the 29 SCP DNA principles as operational rules when analyzing problems, debugging code, verifying claims, designing systems, or performing audits.
 
 Full principle list lives in `references/dna-principles.md`. Load it when you need the exact wording of any principle.
 
@@ -60,4 +60,4 @@ When performing deep analysis, debugging, or verification:
 
 ## Loading Full DNA
 
-Read `references/dna-principles.md` whenever you need the precise text of any of the 26 principles or their anti-patterns.
+Read `references/dna-principles.md` whenever you need the precise text of any of the 29 principles or their anti-patterns.
