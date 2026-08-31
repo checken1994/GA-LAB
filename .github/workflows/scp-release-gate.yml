@@ -9,6 +9,7 @@ permissions:
 jobs:
   gate:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -38,6 +39,32 @@ jobs:
         run: python -m pip install -r scp/requirements-dev.txt
       - shell: pwsh
         run: python -m py_compile scp/runtime/judge.py scp/api_server.py scp/__main__.py scp/security/auth.py scp/security/production_guard.py scp/security/secret_loader.py scp/autofix/llm_fix.py scp/autofix/runner_phases/ast_scan.py scp/autofix/restricted_exec.py scp/runtime/safe_math.py scp/history/migration.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py
+
+      # Run production security immediately after compilation. Metadata/test
+      # failures must not hide the security evidence for this exact commit.
+      - name: production security scan
+        id: bandit
+        shell: pwsh
+        run: |
+          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
+          $banditExit = $LASTEXITCODE
+          python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
+          Get-Content bandit-prod-summary.json
+          python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
+          $policyExit = $LASTEXITCODE
+          if ($banditExit -gt 1) { exit $banditExit }
+          if ($policyExit -ne 0) { exit $policyExit }
+      - name: upload production security evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scp-bandit-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            bandit-prod.json
+            bandit-prod-summary.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - shell: pwsh
         run: python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
       - shell: pwsh
@@ -57,13 +84,6 @@ jobs:
           path: reports/mutation/mutation_report.json
           if-no-files-found: error
           retention-days: 14
-      - shell: pwsh
-        run: |
-          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
-          $banditExit = $LASTEXITCODE
-          python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
-          python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
-          if ($banditExit -gt 1) { exit $banditExit }
       - shell: pwsh
         run: python run_reality_tests_portable.py
       - name: bounded full-system runtime smoke (loopback 8000)
