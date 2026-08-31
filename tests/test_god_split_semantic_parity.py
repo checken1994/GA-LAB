@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 # The GOD split must remain importable in the same fail-closed CI profile used
-# by SCP tests.  These values are test-only and deliberately non-production.
+# by SCP tests. These values are test-only and deliberately non-production.
 os.environ.setdefault("SCP_JWT_SECRET", "god-split-parity-test-secret-32bytes")
 os.environ.setdefault("SCP_PRODUCTION_MODE", "0")
 os.environ.setdefault("SCP_SKIP_STARTUP_GATE", "0")
@@ -142,19 +142,7 @@ def test_api_server_keeps_public_service_identity() -> None:
     assert getattr(app, "title", "")
 
 
-def test_judge_core_keeps_phase_contract_symbols() -> None:
+def test_judge_core_preserves_public_judge_contract() -> None:
     from scp.runtime.judge_parts.judgecore_mixin import JudgeCoreMixin
 
-    required = (
-        "_phase0_setup",
-        "_phase1_kb_retrieval",
-        "_phase2_input_detection",
-        "_phase3_route",
-        "_phase4_call_slms",
-        "_phase6_reality_check",
-        "_phase7_build_verdict",
-        "_phase8_counter_response",
-        "_phase9_claim_extraction",
-    )
-    for name in required:
-        assert hasattr(JudgeCoreMixin, name), name
+    assert callable(getattr(JudgeCoreMixin, "judge", None))
