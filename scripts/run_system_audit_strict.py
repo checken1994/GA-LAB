@@ -306,8 +306,27 @@ def _run_one_bounded(output_dir: Path) -> dict:
     port_free = not port_open(8000)
 
     response_checks = evidence.get("checks", {}) or {}
+    deny_mode = str(evidence.get("egress_mode", os.environ.get("SCP_EGRESS_MODE", ""))).lower() == "deny"
+    if deny_mode:
+        ask_checks = {
+            "ask_http_200": response_checks.get("ask_http_200") is True,
+            "ask_fail_closed": response_checks.get("ask_fail_closed") is True,
+            "ask_answer_withheld": response_checks.get("ask_answer_withheld") is True,
+            "ask_governance_escalated": response_checks.get("ask_governance_escalated") is True,
+            "ask_run_status_rejected": response_checks.get("ask_run_status_rejected") is True,
+            "ledger_ok": response_checks.get("ask_ledger_status_ok") is True,
+        }
+    else:
+        ask_checks = {
+            "ask_verdict_pass": response_checks.get("ask_verdict_pass") is True,
+            "ask_run_status_success": response_checks.get("ask_run_status_success") is True,
+            "ledger_ok": response_checks.get("ask_ledger_status_ok") is True,
+        }
+
     checks = {
+        "runner_no_error": error is None,
         "evidence_written": bool(evidence),
+        "bounded_evidence_pass": evidence.get("pass") is True,
         "health_200": response_checks.get("health_200") is True,
         "hands_status_200": response_checks.get("hands_status_200") is True,
         "hands_plan_allowed": response_checks.get("hands_plan_allowed") is True,
@@ -315,10 +334,8 @@ def _run_one_bounded(output_dir: Path) -> dict:
             response_checks.get("hands_execute_success") is True
             and response_checks.get("hands_execute_dry_run") is True
         ),
-        "positive_ask_pass": response_checks.get("ask_verdict_pass") is True,
-        "positive_ask_run_success": response_checks.get("ask_run_status_success") is True,
-        "ledger_ok": response_checks.get("ask_ledger_status_ok") is True,
-        "no_external_egress_when_denied": not outbound_lines,
+        **ask_checks,
+        "no_external_egress_when_denied": (not outbound_lines) if deny_mode else True,
         "port_cleanup": port_free,
     }
     return {
@@ -388,7 +405,7 @@ def main() -> int:
 
     all_pass = all(step.get("status") == "PASS" for step in steps)
     report = {
-        "schema_version": "scp-strict-system-audit-v4",
+        "schema_version": "scp-strict-system-audit-v5",
         "commit": commit,
         "started_at": started,
         "completed_at": time.time(),
