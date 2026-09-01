@@ -7,7 +7,7 @@ description: Kiểm tra release candidate của SCP bằng commit snapshot, serv
 
 ## Mục tiêu
 
-Ngăn việc gọi một bản build là “ổn định” chỉ vì nhiều unit test PASS. Release phải có bằng chứng runtime, security, recovery và tái hiện được.
+Ngăn việc gọi một bản build là “ổn định” chỉ vì nhiều unit test PASS. Release phải có bằng chứng runtime, security, recovery và tái hiện được. Theo SCP DNA #22 và #26, PASS luôn bị giới hạn bởi scope/evidence và Reality giữ quyền cuối cùng.
 
 ## Quy trình gate
 
