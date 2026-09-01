@@ -29,5 +29,5 @@ jobs:
       - name: Enforce Baseline (P0)
         run: python scripts/enforce_baseline.py
 
-      # This workflow is a fast baseline only. It must never emit RC_DONE or
-      # CUSTOMER_HANDOFF_PASS; scp-rc-promotion.yml is the sole release authority.
+      # This workflow is a fast baseline only. It must never emit release or
+      # customer-handoff verdicts; scp-rc-promotion.yml is the sole authority.
