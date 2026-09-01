@@ -107,6 +107,10 @@ def step_contract_tests() -> dict:
     )
 
 
+def step_skill_dna_contract() -> dict:
+    return _run_pytest(["tests/test_scp_skill_dna_contract.py"], 120)
+
+
 def step_full_pytest() -> dict:
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "--tb=no"],
@@ -392,6 +396,7 @@ def main() -> int:
     steps: list[dict] = []
     try:
         steps.append(_run_step("import_manifest", base.step_import_check))
+        steps.append(_run_step("skill_scp_dna_contract", step_skill_dna_contract))
         steps.append(_run_step("boot_and_probe_strict", lambda: step_boot_strict(str(env_file))))
         steps.append(_run_step("god_provider_contracts", step_contract_tests))
         steps.append(_run_step("full_pytest", step_full_pytest))
@@ -405,7 +410,7 @@ def main() -> int:
 
     all_pass = all(step.get("status") == "PASS" for step in steps)
     report = {
-        "schema_version": "scp-strict-system-audit-v5",
+        "schema_version": "scp-strict-system-audit-v6",
         "commit": commit,
         "started_at": started,
         "completed_at": time.time(),
@@ -415,7 +420,7 @@ def main() -> int:
         "overall_verdict": "PASS_WITHIN_SCOPE" if all_pass else "BLOCKED",
         "scope": (
             "Isolated local system audit: boot/readiness, auth brute-force and valid token, "
-            "fail-closed ask semantics, prompt-injection kill/withhold, GOD/provider contracts, "
+            "fail-closed ask semantics, prompt-injection kill/withhold, mandatory SCP Skill + DNA contract, GOD/provider contracts, "
             "full pytest, Reality suite, fitness suite, hermetic boot, durable-kernel idempotent "
             "replay/crash recovery/external tamper detection/parallel journal consistency, and "
             "two sequential bounded API→router→ledger/kernel→RAG governance→Hands dry-run smoke "
