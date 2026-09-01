@@ -37,8 +37,14 @@ def ensure_review_guide(pending_dir: str | Path) -> Path:
 
     target = directory / "README.md"
     temp = directory / ".README.md.tmp"
-    temp.write_text("\n".join(lines), encoding="utf-8")
-    with temp.open("rb") as handle:
+    payload = "\n".join(lines)
+    # Keep the descriptor writable through fsync. On Windows os.fsync() maps
+    # to CRT _commit(), which can reject a descriptor reopened read-only.
+    # Flushing + fsyncing the same handle that performed the write preserves
+    # the durability guarantee before the atomic replace on every supported OS.
+    with temp.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(payload)
+        handle.flush()
         os.fsync(handle.fileno())
     os.replace(temp, target)
     return target
