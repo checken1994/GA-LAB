@@ -53,22 +53,36 @@ def test_benchmark_helpers_keep_normalization_dependencies() -> None:
 
 def test_db_manager_parts_share_runtime_state(tmp_path: Path) -> None:
     from scp.core.db_manager import db_query_one
+    from scp.core.db_manager_parts._get_path_conn import _path_conns
 
-    row = db_query_one("SELECT 1 AS x", db_path=str(tmp_path / "parity.db"))
-    assert row == {"x": 1}
+    db_path = str(tmp_path / "parity.db")
+    try:
+        row = db_query_one("SELECT 1 AS x", db_path=db_path)
+        assert row == {"x": 1}
+    finally:
+        conn = _path_conns.pop(db_path, None)
+        if conn:
+            conn.close()
 
 
 def test_fast_learning_engine_keeps_constants_and_schema(tmp_path: Path) -> None:
     from scp.core.fast_learning_engine import FastLearningEngine, get_country_domain_matrix
+    from scp.core.db_manager_parts._get_path_conn import _path_conns
 
-    engine = FastLearningEngine(
-        scp_db_path=str(tmp_path / "learning.db"),
-        data_dir=str(tmp_path / "data"),
-    )
-    assert engine is not None
-    matrix = get_country_domain_matrix()
-    assert "Việt Nam" in matrix
-    assert "geography" in matrix["Việt Nam"]
+    db_path = str(tmp_path / "learning.db")
+    try:
+        engine = FastLearningEngine(
+            scp_db_path=db_path,
+            data_dir=str(tmp_path / "data"),
+        )
+        assert engine is not None
+        matrix = get_country_domain_matrix()
+        assert "Việt Nam" in matrix
+        assert "geography" in matrix["Việt Nam"]
+    finally:
+        conn = _path_conns.pop(db_path, None)
+        if conn:
+            conn.close()
 
 
 def test_antibody_split_preserves_behavior() -> None:

@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-01T01:02:50.812153+00:00",
-  "captured_commit": "40adbd9f7795e504c66d36ce7bf36fc12a618136",
-  "captured_parent": "c28b92886a012ba6818b076197306b140c60cdcd",
-  "captured_tree": "1893b7f286ebfdacc4a8dfab7acfad768246c215",
+  "generated_at_utc": "2026-09-01T01:15:12.292237+00:00",
+  "captured_commit": "2a9b1559284bce1a643cecf45ba009bc6e2e3a98",
+  "captured_parent": "9956f8f1ddd05d56e928dcae676927a547831d5f",
+  "captured_tree": "acf4b14044db8a7b1fc29d38550703360dad5a2a",
   "tracked_count": 1492,
-  "inventory_sha256": "cebc503b752471603be10c240d58bc61bb992bb2b165860fe5e5c2f1f592ee9f",
+  "inventory_sha256": "1f2f7c8aaf90427b1c928b55c751f0be56f7bcd5e070456d0103faf6751cd61d",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
-      "blob": "c8c0035448fd4e9118560cbff4e31ce3c340a829",
-      "bytes": 4305,
-      "sha256": "79c766c47608829ae30644e1d7f07eb01bae7fcc97a5387e7e45922b94e9fa22"
+      "blob": "ed0ec7cc0f6afd457f2119a9da189882d57176ea",
+      "bytes": 4314,
+      "sha256": "ff5264bcb7ddffa8442bdba913b1196cd94d086199a81629a8f85aeb7d8ff426"
     },
     "scp/api_server.py": {
       "blob": "d6352b248570773c934062a9aa6e49508bea053f",
@@ -220,7 +220,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c8c0035448fd4e9118560cbff4e31ce3c340a829",
+      "blob": "ed0ec7cc0f6afd457f2119a9da189882d57176ea",
       "path": ".github/workflows/scp-release-gate.yml"
     },
     {
@@ -4648,7 +4648,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "19cd6d2d9a46824d44417a165a867739ec3841b2",
+      "blob": "e1a56648ab10b419b4b4a309b772f2e98bf0ab25",
       "path": "scp/core/pending_fix_review.py"
     },
     {
@@ -8158,7 +8158,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5d53e872e3c9ba5097ba930c7518b39a74b9e467",
+      "blob": "70b65c508493521ad1ac486b201583689d76aa6e",
       "path": "tests/reality-tests/reality_4-e-002.py"
     },
     {
@@ -8314,7 +8314,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6a6201db2c535b6c4627b2e5557db0f5738140c4",
+      "blob": "edfacd254339e6a28621fea5369d3cd563977d52",
       "path": "tests/test_god_split_semantic_parity.py"
     },
     {
