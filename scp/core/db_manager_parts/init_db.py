@@ -1,0 +1,39 @@
+# Auto-extracted from db_manager.py
+import gzip
+import json
+import logging
+import os
+import sqlite3
+import threading
+import time
+from datetime import datetime
+from typing import Optional
+
+def init_db():
+    """Initialize all V14 tables + V62 all module tables."""
+    db_exec("CREATE TABLE IF NOT EXISTS memory (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, question TEXT, ai_answer TEXT, frame TEXT, verdict TEXT, reason TEXT, status TEXT DEFAULT 'active', recovered_at TEXT)")
+    db_exec("CREATE TABLE IF NOT EXISTS meta_goals (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        type TEXT DEFAULT 'goal',\n        description TEXT,\n        status TEXT DEFAULT 'active',\n        priority REAL DEFAULT 5,\n        progress REAL DEFAULT 0,\n        notes TEXT,\n        created_at TEXT,\n        updated_at TEXT,\n        parent_id INTEGER\n    )")
+    db_exec("CREATE TABLE IF NOT EXISTS health_states (domain TEXT PRIMARY KEY, state TEXT DEFAULT 'UNKNOWN')")
+    try:
+        db_exec('ALTER TABLE health_states ADD COLUMN last_updated TEXT')
+    except Exception as e:
+        logger.debug(f'[V104.37] core/db_manager.py: e={e}')
+    db_exec('CREATE TABLE IF NOT EXISTS health_counters (domain TEXT PRIMARY KEY, pass INTEGER DEFAULT 0, block INTEGER DEFAULT 0, inapplicable INTEGER DEFAULT 0, total INTEGER DEFAULT 0)')
+    db_exec("CREATE TABLE IF NOT EXISTS recovery_issues (id TEXT PRIMARY KEY, timestamp TEXT, domain TEXT, question TEXT, ai_answer TEXT, error_type TEXT, cause TEXT, fix_action TEXT, status TEXT DEFAULT 'OPEN')")
+    db_exec("CREATE TABLE IF NOT EXISTS knowledge_memory (id TEXT PRIMARY KEY, timestamp TEXT, question TEXT, ai_answer TEXT, domain TEXT, error_type TEXT, cause TEXT, fix_action TEXT, fix_artifact TEXT, evidence TEXT, confidence REAL, status TEXT DEFAULT 'active', retest_result TEXT DEFAULT '', retest_count INTEGER DEFAULT 0)")
+    db_exec("CREATE TABLE IF NOT EXISTS error_history (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL, question TEXT NOT NULL, ai_answer TEXT, frame TEXT, v13_verdict TEXT, final_verdict TEXT, verdict_detail TEXT, error_type TEXT, source TEXT, real_value TEXT, ai_value TEXT, reason TEXT, learned_from TEXT DEFAULT '', sha256 TEXT, importance_score REAL DEFAULT 50.0, last_accessed TEXT, is_foundational INTEGER DEFAULT 0, is_superseded INTEGER DEFAULT 0)")
+    db_exec('CREATE INDEX IF NOT EXISTS idx_error_frame ON error_history(frame)')
+    db_exec('CREATE INDEX IF NOT EXISTS idx_error_verdict ON error_history(final_verdict)')
+    db_exec('CREATE INDEX IF NOT EXISTS idx_error_source ON error_history(source)')
+    db_exec('CREATE INDEX IF NOT EXISTS idx_error_importance ON error_history(importance_score)')
+    try:
+        db_exec("ALTER TABLE error_history ADD COLUMN domain TEXT DEFAULT ''")
+    except Exception as e:
+        logger.debug(f'[V104.37] core/db_manager.py: e={e}')
+    try:
+        db_exec('CREATE INDEX IF NOT EXISTS idx_error_domain ON error_history(domain)')
+    except Exception as e:
+        logger.debug(f'[V104.37] core/db_manager.py: e={e}')
+    db_exec('\n        CREATE TABLE IF NOT EXISTS knowledge_versions (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            timestamp TEXT NOT NULL,\n            entity TEXT NOT NULL,\n            attribute TEXT NOT NULL,\n            old_value TEXT,\n            new_value TEXT,\n            change_type TEXT,\n            source TEXT,\n            reason TEXT\n        )\n    ')
+    db_exec('CREATE INDEX IF NOT EXISTS idx_kv_entity ON knowledge_versions(entity, attribute)')
+    _init_all_module_tables()

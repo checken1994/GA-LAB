@@ -11,8 +11,8 @@ Scope:
   management APIs. (PyRIT/garak need /v1/* open for testing; /ask is the main
   Q&A endpoint.)
 
-This test is INDEPENDENT from SCP's own scanners — it parses api_server.py
-source directly with regex, so SCP's autofix cannot silently disable it.
+This test is INDEPENDENT from SCP's own scanners — it parses source directly
+with regex, so SCP's autofix cannot silently disable it.
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ from scp.core.safe_process import safe_run
 
 SCP_ROOT = Path(__file__).resolve().parent.parent.parent
 API_SERVER = SCP_ROOT / "api_server.py"
+API_LIFESPAN = SCP_ROOT / "api_server_parts" / "lifespan.py"
 ROUTES_DIR = SCP_ROOT / "api" / "routes"
 CANONICAL_AUTH = SCP_ROOT / "security" / "auth.py"
 
@@ -61,21 +62,14 @@ def _route_has_auth(src: str, decorator_line: int) -> bool:
     Looks at the decorator line itself AND the next 8 lines (function signature).
     """
     lines = src.splitlines()
-    # Decorator line itself (dependencies=[Depends(verify_admin)])
     chunk = lines[decorator_line - 1]
-    # Function signature + following lines
     for j in range(decorator_line, min(decorator_line + 8, len(lines))):
         chunk += "\n" + lines[j]
     return "Depends(verify_admin)" in chunk
 
 
 def test_admin_routes_have_auth():
-    """RC-2 BFLA check: every /v9*, /v10*, /v105* admin route must have verify_admin.
-
-    V105 had 25 BFLA routes (admin management endpoints with no auth).
-    RC-2 added `dependencies=[Depends(verify_admin)]` to all of them.
-    This test catches any new admin route added without auth.
-    """
+    """RC-2 BFLA check: every /v9*, /v10*, /v105* admin route must have verify_admin."""
     missing_auth = []
     sources = [API_SERVER] + sorted(ROUTES_DIR.glob("*.py"))
     for source_path in sources:
@@ -83,10 +77,8 @@ def test_admin_routes_have_auth():
             continue
         src = source_path.read_text(encoding="utf-8")
         for lineno, method, path in _extract_routes(src):
-            # Skip public routes
             if path in PUBLIC_ROUTES:
                 continue
-            # Only check versioned admin prefixes (/v9*, /v10*, /v105*)
             if not re.match(r'^/v(9|10)\d+', path) and not path.startswith("/v105/"):
                 continue
             if not _route_has_auth(src, lineno):
@@ -99,30 +91,15 @@ def test_admin_routes_have_auth():
 
 
 def test_verify_admin_no_dev_mode_bypass():
-    """RC-2: verify_admin function must NOT contain the SCP_DEV_MODE bypass.
-
-    Catches any future reintroduction of the V104.22 #3 hole:
-        if os.environ.get("SCP_DEV_MODE", "0") == "1": return True
-    """
+    """RC-2: verify_admin function must NOT contain the SCP_DEV_MODE bypass."""
     assert CANONICAL_AUTH.exists(), "canonical security/auth.py is missing"
     src = CANONICAL_AUTH.read_text(encoding="utf-8")
-
-    # Extract verify_admin function body — non-greedy match to the NEXT
-    # top-level def/class (so we don't accidentally swallow later functions
-    # that might legitimately contain `return True`).
     m = re.search(
         r'^def verify_admin\([^)]*\)[^:]*:(?:.|\n)*?^(?:def |class |\Z)',
         src, re.MULTILINE,
     )
     assert m, "verify_admin function not found in canonical security/auth.py"  # noqa: S101
-    # m.group(0) includes the trailing "def " of the next function — strip it.
     body = re.sub(r'\n(?:def |class ).*$', '', m.group(0), flags=re.MULTILINE)
-
-    # The bypass pattern: SCP_DEV_MODE check immediately followed by
-    # `return True` (within a few lines). Use a tighter regex than
-    # "both strings present anywhere" — comments mentioning SCP_DEV_MODE
-    # are OK as long as they're not paired with `return True` as the
-    # immediate consequence.
     bypass_pattern = re.compile(
         r'SCP_DEV_MODE[^"\n]*"1"[^:\n]*:[^\n]*\n\s*return\s+True',
         re.MULTILINE,
@@ -133,14 +110,8 @@ def test_verify_admin_no_dev_mode_bypass():
 
 
 def test_no_hardcoded_token_in_source():
-    """RC-2 CODE-AUDIT-001: no production token hardcoded in source.
-
-    Independent of test_cascade.test_no_hardcoded_token_via_grep — this one
-    uses Python re instead of grep, so it works on systems without grep.
-    """
+    """RC-2 CODE-AUDIT-001: no production token hardcoded in source."""
     token = os.environ.get("SCP_AUTH_TOKEN_SECRET", "")
-    # [G5-FIX] If token is empty, every file "contains" it (empty string is substring of any string).
-    # Skip the check when token not configured — can't verify what we don't know.
     if not token:
         pytest.skip("SCP_AUTH_TOKEN_SECRET not set — cannot verify no-hardcoded-token")
     offenders = []
@@ -148,7 +119,6 @@ def test_no_hardcoded_token_in_source():
         path_str = str(py_file)
         if "__pycache__" in path_str:
             continue
-        # [G5-FIX] Skip ALL test files — they may contain test tokens (not production secrets)
         if "tests/" in path_str or "/test_" in path_str or path_str.startswith("test_"):
             continue
         try:
@@ -157,7 +127,6 @@ def test_no_hardcoded_token_in_source():
             continue
         if token in src:
             offenders.append(path_str)
-    # Also check .md docs in benchmark/
     benchmark_dir = SCP_ROOT / "benchmark"
     if benchmark_dir.exists():
         for md_file in benchmark_dir.rglob("*.md"):
@@ -174,16 +143,7 @@ def test_no_hardcoded_token_in_source():
 
 
 def test_bandit_no_new_high_severity_via_bandit():
-    """RC-10 external audit: bandit HIGH-severity count must not increase.
-
-    Baseline after RC-2 fix: 15 HIGH (all B324 hashlib MD5 — pre-existing,
-    content fingerprinting not password hashing). If a fix adds a new HIGH
-    severity issue (e.g. exec(eval(...)), hardcoded password, SQL injection),
-    this test catches it.
-
-    NOTE: this test does NOT fail on the 15 pre-existing B324 issues. It
-    fails only if NEW HIGH-severity issues appear beyond the known baseline.
-    """
+    """RC-10 external audit: bandit HIGH-severity count must not increase."""
     result = safe_run(
         ["bandit", "-r", str(SCP_ROOT), "-f", "json", "-q"],
     )
@@ -198,13 +158,10 @@ def test_bandit_no_new_high_severity_via_bandit():
         issue for issue in data.get("results", [])
         if issue.get("issue_severity") == "HIGH"
     ]
-    # Baseline: 15 HIGH (all B324 hashlib MD5). Allow slack for environment
-    # variance but fail if a NEW CWE category appears.
     new_categories = set()
     for issue in high_issues:
-        if issue.get("test_id") != "B324":  # B324 = MD5, pre-existing baseline
+        if issue.get("test_id") != "B324":
             new_categories.add((issue.get("test_id"), issue.get("filename")))
-    # Filter out issues in tests/external_audit itself (these test files)
     new_categories = {
         (tid, fn) for (tid, fn) in new_categories
         if "/tests/external_audit/" not in fn
@@ -213,7 +170,6 @@ def test_bandit_no_new_high_severity_via_bandit():
         "RC-10 regression: new HIGH-severity bandit issues appeared:\n  "
         + "\n  ".join(f"{tid} in {fn}" for tid, fn in new_categories)
     )
-
 
 
 def test_pc_read_only_allowlist_rejects_command_chains():
@@ -370,13 +326,10 @@ def test_detail_routes_share_producer_data_path_constants():
 
 def test_active_lifespan_does_not_autostart_ungated_external_producers():
     """Direct-request producers stay opt-in until a shared egress gate exists."""
-    src = API_SERVER.read_text(encoding="utf-8")
-    lifespan_start = src.index("async def lifespan")
-    app_marker = src.index("# FastAPI app", lifespan_start)
-    lifespan_src = src[lifespan_start:app_marker]
+    lifespan_src = API_LIFESPAN.read_text(encoding="utf-8")
+    assert "async def lifespan" in lifespan_src  # noqa: S101
     for start_call in ("start_audit_fetcher", "start_scanner", "start_detector"):
         assert start_call not in lifespan_src  # noqa: S101
-
 
 
 def test_stream_route_contract_is_live_and_offloads_sync_judge():

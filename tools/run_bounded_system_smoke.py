@@ -2,7 +2,9 @@
 
 This deliberately binds only to 127.0.0.1:8000, denies external egress, uses
 isolated temporary state, and checks both startup behavior and post-stop port
-cleanup. It is a bounded proof, not a production or distributed benchmark.
+cleanup. In deny-egress mode semantic verification is expected to fail closed
+when independent providers are unavailable. It is a bounded proof, not a
+production or distributed benchmark.
 """
 from __future__ import annotations
 
@@ -16,6 +18,7 @@ import time
 from pathlib import Path
 
 import requests
+import jwt
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = "http://127.0.0.1:8000"
@@ -27,8 +30,18 @@ def port_open(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
-def _request(method: str, path: str, payload: dict | None = None) -> dict:
-    response = requests.request(method, f"{BASE}{path}", json=payload, timeout=30)
+SMOKE_JWT_SECRET = "bounded-smoke-jwt-secret-32-bytes-long"
+SMOKE_PC_TOKEN = "bounded-smoke-pc-controller-token"
+SMOKE_TOKEN = jwt.encode({"sub": "smoke-tester", "exp": time.time() + 3600}, SMOKE_JWT_SECRET, algorithm="HS256")
+
+def _request(method: str, path: str, payload: dict | None = None, headers: dict | None = None) -> dict:
+    req_headers = {
+        "Authorization": f"Bearer {SMOKE_TOKEN}",
+        "x-scp-pc-token": SMOKE_PC_TOKEN,
+    }
+    if headers:
+        req_headers.update(headers)
+    response = requests.request(method, f"{BASE}{path}", json=payload, headers=req_headers, timeout=30)
     item: dict[str, object] = {"http_status": response.status_code}
     try:
         item["body"] = response.json()
@@ -62,6 +75,8 @@ def run(output_dir: Path) -> dict:
             "SCP_REQUEST_RUN_LEDGER_PATH": str(output_dir / "request_runs.jsonl"),
             "SCP_HANDS_LOCAL_ONLY": "1",
             "SCP_ENV_FILE": str(output_dir / "empty.env"),
+            "SCP_JWT_SECRET": SMOKE_JWT_SECRET,
+            "SCP_PC_CONTROLLER_TOKEN": SMOKE_PC_TOKEN,
         }
     )
     (output_dir / "empty.env").write_text("", encoding="utf-8")
@@ -130,6 +145,8 @@ def run(output_dir: Path) -> dict:
         for name, method, path, payload in checks_to_run:
             responses[name] = _request(method, path, payload)
 
+        ask_body = responses["ask_rag"].get("body", {})
+        ask_answer = str(ask_body.get("final_answer", ""))
         checks = {
             "health_200": responses["health"]["http_status"] == 200,
             "hands_status_200": responses["hands_status"]["http_status"] == 200,
@@ -140,12 +157,14 @@ def run(output_dir: Path) -> dict:
             "hands_execute_success": responses["hands_execute_dry_run"].get("body", {}).get("success") is True,
             "hands_execute_dry_run": responses["hands_execute_dry_run"].get("body", {}).get("dryRun") is True,
             "ask_http_200": responses["ask_rag"]["http_status"] == 200,
-            "ask_verdict_pass": responses["ask_rag"].get("body", {}).get("verdict") == "PASS",
-            "ask_run_status_success": responses["ask_rag"].get("body", {}).get("run_status") == "SUCCESS",
-            "ask_ledger_status_ok": responses["ask_rag"].get("body", {}).get("ledger_status") == "OK",
+            "ask_fail_closed": ask_body.get("verdict") != "PASS",
+            "ask_answer_withheld": "withheld" in ask_answer.lower(),
+            "ask_governance_escalated": ask_body.get("governance_decision") == "ESCALATE",
+            "ask_run_status_rejected": ask_body.get("run_status") == "REJECTED",
+            "ask_ledger_status_ok": ask_body.get("ledger_status") == "OK",
         }
         report = {
-            "schema_version": "scp-bounded-system-smoke-v2",
+            "schema_version": "scp-bounded-system-smoke-v3",
             "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
             "host": "127.0.0.1",
             "port": 8000,
@@ -154,7 +173,7 @@ def run(output_dir: Path) -> dict:
             "responses": responses,
             "checks": checks,
             "pass": all(checks.values()),
-            "scope": "Bounded local smoke: API→router→ledger/kernel→RAG governance→Hands read-only dry-run. No external write, provider fallback, distributed deployment, or factual 1000-row benchmark.",
+            "scope": "Bounded deny-egress local smoke: API→router→ledger/kernel→RAG governance→Hands read-only dry-run. Semantic verification must fail closed when independent providers are unavailable. No external write, provider availability claim, distributed deployment, or factual benchmark claim.",
         }
         (output_dir / "evidence.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         if not report["pass"]:
