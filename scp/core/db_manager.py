@@ -106,6 +106,9 @@ _migrate_verdict_cache_schema = _p_migrate_vc._migrate_verdict_cache_schema
 _migrate_knowledge_schema = _p_migrate_knowledge._migrate_knowledge_schema
 _migrate_reverify_schema = _p_migrate_reverify._migrate_reverify_schema
 
+for _public_callable in (get_db, db_exec, db_batch_flush, init_db):
+    _public_callable.__module__ = __name__
+
 # Sibling functions are part of the historical module-global namespace used by
 # extracted implementations, so re-wire once all bindings exist.
 _wire_parts()
