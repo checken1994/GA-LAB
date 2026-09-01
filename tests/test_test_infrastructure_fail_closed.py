@@ -55,10 +55,13 @@ def test_mutation_pytest_collection_error_is_not_counted_as_kill(monkeypatch, tm
             [], 2, stdout=b"", stderr=b"collection error"
         ),
     )
-    with pytest.raises(RuntimeError, match="infrastructure/collection"):
+    with pytest.raises(RuntimeError) as exc_info:
         mutation_engine.run_mutation_tests(
             str(target), "tests/test_tier1_judge.py"
         )
+    message = str(exc_info.value)
+    assert "pytest code 2" in message
+    assert "collection error" in message
     assert target.read_text(encoding="utf-8") == "x = 1\n"
 
 
