@@ -30,6 +30,7 @@ REQUIRED_RELEASE_GATES = {
     "dashboard_build_audit",
     "manifest_provenance",
 }
+REQUIRED_HANDOFF_GATES = {"main_lineage_authority"}
 
 
 def _read(path: Path) -> str:
@@ -63,7 +64,34 @@ def _load_bindings() -> dict:
     assert payload.get("schema_version") == "scp-release-gate-skill-dna-v1"
     assert isinstance(payload.get("policy"), dict)
     assert isinstance(payload.get("gates"), dict)
+    assert isinstance(payload.get("handoff_gates"), dict)
     return payload
+
+
+def _assert_binding(gate: str, binding: dict, mandatory_dna: set[int]) -> None:
+    skills = binding.get("skills")
+    dna = binding.get("dna")
+    assert isinstance(skills, list) and len(skills) >= 2, (
+        f"{gate}: bind SCP DNA plus at least one domain-specific Skill"
+    )
+    assert skills[0] == "scp-dna", f"{gate}: scp-dna must be the first governing Skill"
+    assert len(skills) == len(set(skills)), f"{gate}: duplicate Skill binding"
+    for skill_name in skills:
+        skill_path = SKILLS_ROOT / skill_name / "SKILL.md"
+        text = _read(skill_path)
+        data = _frontmatter(text)
+        assert data is not None, f"{gate}: Skill {skill_name} has malformed frontmatter"
+        assert data.get("name") == skill_name, f"{gate}: invalid Skill {skill_name}"
+        assert data.get("description"), f"{gate}: Skill {skill_name} lacks description"
+
+    assert isinstance(dna, list) and dna, f"{gate}: missing DNA invariants"
+    assert dna == sorted(set(dna)), f"{gate}: DNA list must be sorted and unique"
+    assert all(isinstance(n, int) and 1 <= n <= 29 for n in dna), (
+        f"{gate}: DNA references must be in #1..#29"
+    )
+    assert mandatory_dna.issubset(dna), (
+        f"{gate}: every mandatory gate must include DNA #22 PASS≠TRUE and #26 Reality authority"
+    )
 
 
 def test_every_scp_skill_has_valid_closed_manifest() -> None:
@@ -130,40 +158,24 @@ def test_every_mandatory_release_gate_has_domain_skill_and_scp_dna_binding() -> 
     payload = _load_bindings()
     policy = payload["policy"]
     gates = payload["gates"]
+    handoff_gates = payload["handoff_gates"]
 
     assert set(gates) == REQUIRED_RELEASE_GATES, (
         "Skill/DNA binding manifest must cover exactly the mandatory RC gates; "
         f"missing={sorted(REQUIRED_RELEASE_GATES - set(gates))}, "
         f"extra={sorted(set(gates) - REQUIRED_RELEASE_GATES)}"
     )
+    assert set(handoff_gates) == REQUIRED_HANDOFF_GATES, (
+        "Skill/DNA binding manifest must cover exactly the mandatory post-merge authority gates; "
+        f"missing={sorted(REQUIRED_HANDOFF_GATES - set(handoff_gates))}, "
+        f"extra={sorted(set(handoff_gates) - REQUIRED_HANDOFF_GATES)}"
+    )
     assert policy.get("mandatory_skill") == "scp-dna"
     mandatory_dna = set(policy.get("mandatory_dna_invariants", []))
     assert mandatory_dna == {22, 26}, "PASS≠TRUE and Reality authority must be universal"
 
-    for gate, binding in gates.items():
-        skills = binding.get("skills")
-        dna = binding.get("dna")
-        assert isinstance(skills, list) and len(skills) >= 2, (
-            f"{gate}: bind SCP DNA plus at least one domain-specific Skill"
-        )
-        assert skills[0] == "scp-dna", f"{gate}: scp-dna must be the first governing Skill"
-        assert len(skills) == len(set(skills)), f"{gate}: duplicate Skill binding"
-        for skill_name in skills:
-            skill_path = SKILLS_ROOT / skill_name / "SKILL.md"
-            text = _read(skill_path)
-            data = _frontmatter(text)
-            assert data is not None, f"{gate}: Skill {skill_name} has malformed frontmatter"
-            assert data.get("name") == skill_name, f"{gate}: invalid Skill {skill_name}"
-            assert data.get("description"), f"{gate}: Skill {skill_name} lacks description"
-
-        assert isinstance(dna, list) and dna, f"{gate}: missing DNA invariants"
-        assert dna == sorted(set(dna)), f"{gate}: DNA list must be sorted and unique"
-        assert all(isinstance(n, int) and 1 <= n <= 29 for n in dna), (
-            f"{gate}: DNA references must be in #1..#29"
-        )
-        assert mandatory_dna.issubset(dna), (
-            f"{gate}: every mandatory gate must include DNA #22 PASS≠TRUE and #26 Reality authority"
-        )
+    for gate, binding in {**gates, **handoff_gates}.items():
+        _assert_binding(gate, binding, mandatory_dna)
 
 
 def test_rc_verdict_cannot_claim_pass_for_an_unbound_gate() -> None:
@@ -175,6 +187,8 @@ def test_rc_verdict_cannot_claim_pass_for_an_unbound_gate() -> None:
         assert rc.count(marker) >= 2, (
             f"{gate}: both frozen RC and fresh main handoff verdicts must record this gate"
         )
+    for gate in payload["handoff_gates"]:
+        assert f"'{gate}': 'PASS'" in rc, f"{gate}: handoff verdict must record authority PASS"
 
 
 def test_main_merge_requires_explicit_human_approval_and_exact_frozen_sha() -> None:
