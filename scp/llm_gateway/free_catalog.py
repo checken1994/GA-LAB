@@ -13,8 +13,8 @@ on the hot path. Design rules:
      (P0: no heuristic task inference from model names).
   5. Background daemon refreshes the allowlist every 6h WITHOUT touching
      the task map (keeps the free list fresh off the hot path).
-  6. The shared SCP LLM egress policy is authoritative: deny/offline/disabled
-     and allowlist restrictions are checked before any network client exists.
+  6. The canonical SCP LLM egress policy is authoritative: deny/offline/
+     disabled and allowlist restrictions are checked before any network client.
 """
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ import threading
 import time
 
 import httpx
+
+from scp.llm_gateway.egress_policy import llm_egress_allowed
 
 logger = logging.getLogger("scp.llm_gateway.free_catalog")
 
@@ -42,11 +44,7 @@ def _fetch_free_models(timeout: float = FREE_CATALOG_TIMEOUT_SEC) -> list | None
     Returns [] when the catalog was fetched but no free models found,
     None when the fetch is forbidden or failed (caller keeps hardcoded data).
     """
-    # Import lazily to avoid a module-import cycle: client imports this module
-    # only from runtime methods after client.py has initialized.
-    from scp.llm_gateway.client import _llm_egress_allowed
-
-    if not _llm_egress_allowed(OPENROUTER_CATALOG_URL):
+    if not llm_egress_allowed(OPENROUTER_CATALOG_URL):
         logger.info("[free_catalog] external refresh skipped by SCP LLM egress policy")
         return None
 
