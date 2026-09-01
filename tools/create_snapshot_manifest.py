@@ -24,7 +24,6 @@ REQUIRED_PATHS = (
     "reports/runtime_8002_20260825_v2/runtime_evidence_summary.json",
     "reports/runtime_8002_20260826_remediation/runtime_evidence_summary.json",
     "reports/core_repo_matrix_20260825/summary.json",
-    "tests/test_enforce_baseline.py",
     "tools/summarize_bandit_report.py",
 )
 

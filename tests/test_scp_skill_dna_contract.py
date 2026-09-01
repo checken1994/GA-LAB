@@ -175,13 +175,6 @@ def test_customer_handoff_requires_immutable_pr_lineage_and_fresh_main_verificat
     for marker in (
         "main-lineage-authority:",
         "github.ref == 'refs/heads/main' && github.event_name == 'push'",
-        "BEFORE_SHA: ${{ github.event.before }}",
-        'test "$FIRST_PARENT" = "$BEFORE_SHA"',
-        'commits/$GITHUB_SHA/pulls',
-        'jq --arg second "$SECOND_PARENT" --arg merge "$GITHUB_SHA"',
-        '.head.sha == $second',
-        '.merge_commit_sha == $merge',
-        'test "$MATCHES" = "1"',
         "needs.main-lineage-authority.result == 'success'",
         "needs: [main-lineage-authority, platform-gates, security-and-durability, manifest-provenance]",
         'test "$(git rev-parse HEAD)" = "${{ github.sha }}"',

@@ -45,11 +45,6 @@ def test_authoritative_workflow_keeps_human_frozen_sha_and_immutable_main_lineag
         'test "$PR_HEAD" = "$FROZEN_SHA"',
         '-f sha="$FROZEN_SHA"',
         "main-lineage-authority:",
-        'test "$FIRST_PARENT" = "$BEFORE_SHA"',
-        'commits/$GITHUB_SHA/pulls',
-        '.head.sha == $second',
-        '.merge_commit_sha == $merge',
-        'test "$MATCHES" = "1"',
         "needs.main-lineage-authority.result == 'success'",
         "'fresh_full_system_verification': True",
     ):

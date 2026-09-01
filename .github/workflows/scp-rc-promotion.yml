@@ -445,14 +445,16 @@ jobs:
           gh --version
           jq --version
 
-        - name: Verify main lineage integrity
-          env:
-            GH_TOKEN: ${{ github.token }}
-          shell: bash
-          run: |
-            set -euo pipefail
-            test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-            echo "Lineage integrity check passed for direct push model."
+      - name: Verify main lineage integrity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "Lineage integrity check passed for direct push model."
+
 
   customer-handoff-verdict:
     name: customer-handoff-verdict
