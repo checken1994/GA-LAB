@@ -35,6 +35,11 @@ def _candidate_providers(gateway: Any) -> list[Any]:
     return enabled
 
 
+def _missing_opinion() -> dict[str, Any]:
+    """Explicit unresolved opinion; never expose a shape that implies success."""
+    return {"family": "", "provider": "none", "verdict": None}
+
+
 async def cross_verify(
     question: str,
     ai_answer: str,
@@ -53,7 +58,7 @@ async def cross_verify(
     external network access; production callers continue to use get_gateway().
     ``verdict_tier1`` is retained for backward compatibility.
     """
-    del verdict_tier1  # retained public argument; independence is unconditional
+    del verdict_tier1
 
     from scp.runtime.judge_llm import _parse_verdict
 
@@ -81,7 +86,7 @@ async def cross_verify(
         if not family or family in seen_families:
             continue
         # Mark before the request: a second instance of the same family is not
-        # an independent opinion, even if the first instance errors.
+        # an independent opinion, even when the first instance errors.
         seen_families.add(family)
 
         try:
@@ -108,8 +113,8 @@ async def cross_verify(
             if len(valid) == 2:
                 break
 
-    primary = valid[0] if valid else {}
-    secondary = valid[1] if len(valid) > 1 else {}
+    primary = valid[0] if valid else _missing_opinion()
+    secondary = valid[1] if len(valid) > 1 else _missing_opinion()
 
     if len(valid) < 2:
         consensus = "missing_distinct_providers"
@@ -123,10 +128,10 @@ async def cross_verify(
 
     logger.info(
         "[MULTI-LLM] primary(%s)=%s secondary(%s)=%s consensus=%s final=%s",
-        primary.get("provider", "none"),
-        primary.get("verdict"),
-        secondary.get("provider", "none"),
-        secondary.get("verdict"),
+        primary["provider"],
+        primary["verdict"],
+        secondary["provider"],
+        secondary["verdict"],
         consensus,
         final,
     )
