@@ -112,7 +112,7 @@ def step_provider_failover_timeout_contract() -> dict:
             "tests/test_provider_failover.py",
             "tests/test_provider_timeout_recovery.py",
             "tests/test_llm_egress_policy.py",
-            
+            "tests/test_multi_llm_crosscheck.py",
             "tests/test_multi_llm_crosscheck_concurrency.py",
             "tests/external_audit/test_cascade.py",
         ],
