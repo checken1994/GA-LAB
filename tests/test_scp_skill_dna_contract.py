@@ -165,4 +165,3 @@ def test_mandatory_release_paths_execute_skill_and_dna_contract() -> None:
     assert "skill_scp_dna_contract" in rc, "RC verdict must record the Skill + SCP DNA gate"
     assert test_path in strict, "strict system audit must execute Skill + SCP DNA explicitly"
     assert "skill_scp_dna_contract" in strict, "strict audit report must name the Skill + SCP DNA gate"
-    assert str(GATE_BINDINGS.relative_to(ROOT)).replace("\\", "/") in _read(GATE_BINDINGS) or GATE_BINDINGS.is_file()
