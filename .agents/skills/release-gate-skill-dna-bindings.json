@@ -3,7 +3,7 @@
   "policy": {
     "mandatory_skill": "scp-dna",
     "mandatory_dna_invariants": [22, 26],
-    "rule": "Every mandatory release gate must be bound to SCP DNA plus at least one domain skill. Missing or invalid binding is a release blocker."
+    "rule": "Every mandatory RC or post-merge handoff gate must be bound to SCP DNA plus at least one domain skill. Missing or invalid binding is a release blocker."
   },
   "gates": {
     "compile_import": {
@@ -61,6 +61,12 @@
     "manifest_provenance": {
       "skills": ["scp-dna", "scp-release-evidence-gate"],
       "dna": [8, 19, 22, 26, 28]
+    }
+  },
+  "handoff_gates": {
+    "main_lineage_authority": {
+      "skills": ["scp-dna", "scp-release-evidence-gate", "scp-reality-verifier"],
+      "dna": [2, 4, 8, 19, 22, 26]
     }
   }
 }
