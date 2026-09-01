@@ -2,14 +2,16 @@
 """CI adapter for the strict system audit without weakening runtime egress.
 
 The strict audit intentionally runs its assembled runtime with
-SCP_EGRESS_MODE=deny. Some unit-level provider failover tests inject a fake
-HTTP client and must exercise logic behind the egress guard; inheriting deny
+SCP_EGRESS_MODE=deny.  Some unit-level provider failover tests inject a fake
+HTTP client and must exercise logic *behind* the egress guard; inheriting deny
 would stop those tests at the guard and never test failover.
 
-Only pytest subprocesses lose SCP_EGRESS_MODE. The parent strict-audit process
-remains deny-egress for boot/reality/bounded runtime checks. The full suite
-contains dedicated LLM egress-policy tests that explicitly assert deny and
-allowlist behavior.
+This adapter changes only the environment of pytest subprocesses: it removes
+SCP_EGRESS_MODE there.  The parent strict-audit process remains deny-egress,
+so boot/reality/bounded runtime checks keep the fail-closed network policy.
+The full pytest suite includes the dedicated LLM egress-policy tests, which
+set deny/allowlist explicitly and assert that denied external transports are
+never touched.
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ from scripts import run_system_audit_strict as strict
 def _hermetic_pytest_env() -> dict[str, str]:
     env = os.environ.copy()
     env.pop("SCP_EGRESS_MODE", None)
+    # Never inherit live provider credentials into the hermetic unit suite.
     for key in (
         "OPENROUTER_API_KEY",
         "OPENROUTER_API_KEY_2",
