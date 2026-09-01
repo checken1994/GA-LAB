@@ -172,7 +172,7 @@ def test_api_server_keeps_detailed_health_contract() -> None:
 
 
 def test_split_facades_keep_public_module_identity() -> None:
-    """Facade exports must still look like the stable production modules."""
+    """Facade classes must retain the import identity they had before splitting."""
     from scp.autofix.engine import AutoFixEngine
     from scp.core.fast_learning_engine import FastLearningEngine
     from scp.knowledge.antibody_system import DomainAntibodySystem
@@ -187,6 +187,33 @@ def test_split_facades_keep_public_module_identity() -> None:
         (TaskKernel, "scp.task_kernel"),
     ):
         assert exported_type.__module__ == expected_module
+
+
+def test_split_facades_keep_public_callable_identity() -> None:
+    """Extracted public functions must not expose implementation-only part modules."""
+    from scp.autofix.llm_fix import generate_fix_for_bug, process_bug_with_llm
+    from scp.autofix.scanners.cross_func_taint_scanner import scan_file, scan_scp
+    from scp.benchmark.run_benchmark_v2 import check_factual_correctness, evaluate_questions_v2
+    from scp.core.db_manager import db_exec, get_db, init_db
+    from scp.core.fast_learning_engine import start_fast_learning_thread
+    from scp.data_sources.domain_registry import search_domains_by_keyword
+    from scp.meta.why_engine import init_why_db
+
+    for exported_callable, expected_module in (
+        (generate_fix_for_bug, "scp.autofix.llm_fix"),
+        (process_bug_with_llm, "scp.autofix.llm_fix"),
+        (scan_file, "scp.autofix.scanners.cross_func_taint_scanner"),
+        (scan_scp, "scp.autofix.scanners.cross_func_taint_scanner"),
+        (check_factual_correctness, "scp.benchmark.run_benchmark_v2"),
+        (evaluate_questions_v2, "scp.benchmark.run_benchmark_v2"),
+        (get_db, "scp.core.db_manager"),
+        (db_exec, "scp.core.db_manager"),
+        (init_db, "scp.core.db_manager"),
+        (start_fast_learning_thread, "scp.core.fast_learning_engine"),
+        (search_domains_by_keyword, "scp.data_sources.domain_registry"),
+        (init_why_db, "scp.meta.why_engine"),
+    ):
+        assert exported_callable.__module__ == expected_module
 
 
 def test_judge_core_preserves_public_judge_contract() -> None:
