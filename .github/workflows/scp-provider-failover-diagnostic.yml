@@ -22,10 +22,10 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r scp/requirements-dev.txt
-      - name: Reproduce provider failover with state trace
+      - name: Trace provider chat control flow
         run: |
           python - <<'PY'
-          import asyncio, itertools, os
+          import asyncio, inspect, itertools, os
           import httpx
           from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
@@ -42,6 +42,7 @@ jobs:
               def __init__(self, script): self.script=list(script); self.calls=0
               async def post(self, url, json=None, headers=None):
                   self.calls += 1
+                  print('TRACE post', url)
                   if not self.script:
                       raise RuntimeError(f'fake script exhausted at {url}')
                   item=self.script.pop(0)
@@ -56,33 +57,37 @@ jobs:
           OpenRouterProvider._key_cycle=itertools.cycle(['test-key'])
 
           gateway=LLMGateway()
-          chain=gateway._provider_chain('chat')
           deepseek=next(p for p in gateway._extra_providers['chat'] if p.PROVIDER_NAME=='deepseek')
-          print('CHAIN', [(p.PROVIDER_NAME, p.enabled, p.model, p.base_url, p._breaker.is_open(), p._key_count()) for p in chain])
-          print('METHODS', type(gateway.openrouter_chat).chat, type(deepseek).chat, type(deepseek)._key_count, type(deepseek)._next_key)
+          print('CHAT_SOURCE_START')
+          print(inspect.getsource(type(deepseek).chat))
+          print('CHAT_SOURCE_END')
 
-          async def probe():
-              deepseek._client=FakeClient([FakeResponse(200,'direct once')])
-              once=await deepseek._call_model_once(deepseek.model, [{'role':'user','content':'q'}], deepseek._next_key())
-              print('DIRECT_ONCE', once, 'calls=', deepseek._client.calls)
+          orig_key_count=deepseek._key_count
+          orig_next_key=deepseek._next_key
+          orig_call_model=deepseek._call_model
+          orig_is_open=deepseek._breaker.is_open
 
-              deepseek._client=FakeClient([FakeResponse(200,'direct chat')])
-              direct_chat=await deepseek.chat('q')
-              print('DIRECT_CHAT', direct_chat, 'calls=', deepseek._client.calls, 'key_count=', deepseek._key_count(), 'breaker=', deepseek._breaker.is_open())
+          def traced_key_count():
+              v=orig_key_count(); print('TRACE key_count ->', v); return v
+          def traced_next_key():
+              v=orig_next_key(); print('TRACE next_key ->', bool(v)); return v
+          def traced_is_open():
+              v=orig_is_open(); print('TRACE is_open ->', v); return v
+          async def traced_call_model(model, messages, api_key):
+              print('TRACE call_model enter', model, bool(api_key))
+              out=await orig_call_model(model, messages, api_key)
+              print('TRACE call_model exit', out)
+              return out
 
-              gateway.openrouter_chat._client=FakeClient([FakeResponse(429)])
-              deepseek._breaker.record_success()
-              deepseek._client=FakeClient([FakeResponse(200,'deepseek answers')])
-              result=await gateway.chat('q', task='chat')
-              print('RESULT', result)
-              print('CALLS', {'openrouter': gateway.openrouter_chat._client.calls, 'deepseek': deepseek._client.calls})
-              print('BREAKERS', {'openrouter': gateway.openrouter_chat._breaker.is_open(), 'deepseek': deepseek._breaker.is_open()})
-              print('STATS', gateway._stats)
-              return result
+          deepseek._key_count=traced_key_count
+          deepseek._next_key=traced_next_key
+          deepseek._breaker.is_open=traced_is_open
+          deepseek._call_model=traced_call_model
+          deepseek._client=FakeClient([FakeResponse(200,'direct chat')])
 
-          answer,label=asyncio.run(probe())
-          if answer != 'deepseek answers' or not label.startswith('deepseek:'):
-              raise SystemExit('provider failover reproduction failed')
+          result=asyncio.run(deepseek.chat('q'))
+          print('DIRECT_CHAT_RESULT', result)
+          print('DIRECT_CHAT_CALLS', deepseek._client.calls)
+          if result[0] != 'direct chat':
+              raise SystemExit('direct provider chat failed')
           PY
-      - name: Original test with debug logs
-        run: python -m pytest -vv tests/test_provider_failover.py::test_env_extra_provider_sits_in_chain --log-cli-level=DEBUG --tb=long
