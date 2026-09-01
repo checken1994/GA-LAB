@@ -33,20 +33,12 @@ Full split of judge() into 10 phase modules = 21-day refactor, DEFERRED
 (worklog Task G4-C). This file documents reality instead of pretending.
 """
 
-import asyncio
 import logging
 import os
-import time
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from scp.core.db_manager import (
-    db_exec,
-)
-from scp.core.evidence_filter import filter_slm_responses
 from scp.meta.severity import Severity
-from scp.runtime.judge_parts.types import JudgeVerdict, _AllowedByWatchlist
 
 # [Task 19-C] TYPE_CHECKING import — RealityJudge is the parent class that
 # mixes in JudgeCoreMixin. Referencing it directly (self._extract_value)
@@ -54,8 +46,6 @@ from scp.runtime.judge_parts.types import JudgeVerdict, _AllowedByWatchlist
 # available to static analyzers (ruff/mypy) without runtime cost.
 if TYPE_CHECKING:
     pass
-
-from scp.meta.scp_meta import SCPMeta as _SCPMeta  # [Gà §10] — wired into judge()
 
 logger = logging.getLogger("scp.judge")
 

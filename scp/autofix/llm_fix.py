@@ -1,17 +1,12 @@
 """LLM-powered AutoFix public API with explicit split-module wiring."""
 from __future__ import annotations
 
-import json
 import logging
-import os
 import re
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from pathlib import Path
-
-from scp.security.provider_keys import ProviderCredentialError, load_openrouter_keys
 
 logger = logging.getLogger("scp.autofix.llm_fix")
 _MAX_LLM_FIXES_PER_HOUR = 100

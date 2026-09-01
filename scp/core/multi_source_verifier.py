@@ -47,6 +47,8 @@ import os
 import re
 import sys
 import urllib.parse
+
+import httpx
 from typing import Any
 
 logger = logging.getLogger("scp.multi_source_verifier")
@@ -122,14 +124,15 @@ def _fetch_openmeteo(lat: float, lon: float) -> dict | None:
 def _fetch_wttr_in(city: str) -> dict | None:
     """wttr.in — different source cho adversary."""
     try:
-        import urllib.request
         url = f"https://wttr.in/{urllib.parse.quote(city)}?format=%t"
         parsed_url = urllib.parse.urlparse(url)
-        if parsed_url.scheme not in ("http", "https"):
-            raise ValueError(f"Unsupported URL scheme: {parsed_url.scheme!r}")
-        req = urllib.request.Request(url, headers={"User-Agent": "curl/7.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 — scheme validated above; nosec B310 — URL validated by SCP
-            text = resp.read().decode("utf-8", errors="ignore").strip()
+        if parsed_url.scheme != "https" or parsed_url.hostname != "wttr.in":
+            raise ValueError("Unexpected wttr.in endpoint")
+        response = httpx.get(
+            url, headers={"User-Agent": "curl/7.0"}, timeout=10.0, follow_redirects=True
+        )
+        response.raise_for_status()
+        text = response.text.strip()
         m = re.search(r'(-?\d+\.?\d*)', text)
         if m:
             return {"value": float(m.group(1)), "source": "wttr.in"}
@@ -289,19 +292,18 @@ def _fetch_wikidata(compound: str) -> dict | None:
             "format": "json",
             "limit": "1",
         }
-        import urllib.parse
-        import urllib.request
         from urllib.parse import urlencode
         full_url = f"{search_url}?{urlencode(params)}"
         _parsed_wd = urllib.parse.urlparse(full_url)
-        if _parsed_wd.scheme not in ("http", "https"):
-            raise ValueError(f"Unsupported URL scheme: {_parsed_wd.scheme!r}")
-        req = urllib.request.Request(full_url, headers={  # noqa: S310 — scheme validated above
+        if _parsed_wd.scheme != "https" or _parsed_wd.hostname != "www.wikidata.org":
+            raise ValueError("Unexpected Wikidata search endpoint")
+        headers = {
             "User-Agent": "SCPBot/1.0 (research bot)",
             "Accept": "application/json",
-        })
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 — scheme validated above; nosec B310 — URL validated by SCP
-            data = json.loads(resp.read().decode("utf-8"))
+        }
+        response = httpx.get(full_url, headers=headers, timeout=10.0, follow_redirects=True)
+        response.raise_for_status()
+        data = response.json()
 
         if not data.get("search"):
             return None
@@ -311,14 +313,11 @@ def _fetch_wikidata(compound: str) -> dict | None:
         # Step 2: Get entity data, find P2067 (mass)
         entity_url = f"https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
         parsed_entity = urllib.parse.urlparse(entity_url)
-        if parsed_entity.scheme not in ("http", "https"):
-            raise ValueError(f"Unsupported URL scheme: {parsed_entity.scheme!r}")
-        req = urllib.request.Request(entity_url, headers={
-            "User-Agent": "SCPBot/1.0 (research bot)",
-            "Accept": "application/json",
-        })
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 — scheme validated above; nosec B310 — URL validated by SCP
-            entity_data = json.loads(resp.read().decode("utf-8"))
+        if parsed_entity.scheme != "https" or parsed_entity.hostname != "www.wikidata.org":
+            raise ValueError("Unexpected Wikidata entity endpoint")
+        response = httpx.get(entity_url, headers=headers, timeout=10.0, follow_redirects=True)
+        response.raise_for_status()
+        entity_data = response.json()
 
         entities = entity_data.get("entities", {})
         if qid not in entities:
@@ -422,19 +421,19 @@ def fetch_chemistry_multi(compound: str) -> dict[str, Any]:
 def fetch_wikipedia_summary(entity: str) -> dict | None:
     """Fetch Wikipedia summary — adversary cho History/Biology/Geography."""
     try:
-        import urllib.parse
-        import urllib.request
         clean = entity.strip().replace(" ", "_")
         url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(clean)}"
         _parsed_wiki = urllib.parse.urlparse(url)
-        if _parsed_wiki.scheme not in ("http", "https"):
-            raise ValueError(f"Unsupported URL scheme: {_parsed_wiki.scheme!r}")
-        req = urllib.request.Request(url, headers={  # noqa: S310 — scheme validated above
-            "User-Agent": "SCPBot/1.0 (research bot)",
-            "Accept": "application/json",
-        })
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 — scheme validated above; nosec B310 — URL validated by SCP
-            data = json.loads(resp.read().decode("utf-8"))
+        if _parsed_wiki.scheme != "https" or _parsed_wiki.hostname != "en.wikipedia.org":
+            raise ValueError("Unexpected Wikipedia endpoint")
+        response = httpx.get(
+            url,
+            headers={"User-Agent": "SCPBot/1.0 (research bot)", "Accept": "application/json"},
+            timeout=10.0,
+            follow_redirects=True,
+        )
+        response.raise_for_status()
+        data = response.json()
         if data and data.get("type") != "not_found":
             return {
                 "value": data.get("extract", "")[:500],
