@@ -15,6 +15,23 @@ that a system is complete, secure, or production-ready without matching evidence
 For simple factual questions, do not add unnecessary ceremony, but still respect
 scope, evidence, secrecy, and human authority.
 
+## Mandatory SCP test-skill contract
+
+Every mandatory test, audit, release, or customer-handoff gate must be bound to
+`scp-dna` **and** at least one specialized SCP skill appropriate to that gate.
+The machine-readable source of truth is `tests/scp_required_test_skills.json` and
+`tools/verify_scp_test_skill_contract.py` must fail closed if the profile, a
+required skill, the 29-principle DNA reference, or an exact gate binding is
+missing or inconsistent.
+
+The skill contract is evidence, not decoration: release runs must record the
+exact Git SHA plus hashes of the referenced `SKILL.md` files. A green result may
+never be manufactured by deleting/skipping/xfailing tests, loosening assertions,
+lowering coverage/security/mutation/acceptance thresholds, ignoring exit codes,
+or converting fail-closed behavior into fail-open behavior. When reality breaks
+a test, repair the product, configuration, or a genuinely broken harness at the
+point of failure; a harness fix must preserve or increase strictness.
+
 ## Select the relevant SCP skill before acting
 
 Read the matching `SKILL.md` in `.agents/skills/<skill>/` before performing the

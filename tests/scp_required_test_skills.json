@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "policy": "Every mandatory SCP test/release gate is evidence-driven by scp-dna plus at least one specialized SCP skill. Test failures must be repaired in product code, configuration, or a genuinely broken harness; tests, assertions, security thresholds, mutation thresholds, acceptance criteria, and fail-closed behavior must not be weakened to obtain a green result.",
+  "mandatory_gates": [
+    {
+      "id": "compile_import",
+      "required_skills": ["scp-dna", "scp-reality-verifier"]
+    },
+    {
+      "id": "unit_integration",
+      "required_skills": ["scp-dna", "scp-reality-verifier"]
+    },
+    {
+      "id": "semantic_parity",
+      "required_skills": ["scp-dna", "scp-reality-verifier"]
+    },
+    {
+      "id": "acceptance",
+      "required_skills": ["scp-dna", "scp-release-evidence-gate", "scp-reality-verifier"]
+    },
+    {
+      "id": "fail_closed",
+      "required_skills": ["scp-dna", "scp-release-evidence-gate", "scp-capability-security-review"]
+    },
+    {
+      "id": "bandit_security",
+      "required_skills": ["scp-dna", "scp-capability-security-review", "scp-release-evidence-gate"]
+    },
+    {
+      "id": "mutation",
+      "required_skills": ["scp-dna", "scp-reality-verifier", "scp-release-evidence-gate"]
+    },
+    {
+      "id": "provider_failover_timeout",
+      "required_skills": ["scp-dna", "scp-gateway-resilience", "scp-reality-verifier"]
+    },
+    {
+      "id": "taskkernel_durability_recovery",
+      "required_skills": ["scp-dna", "scp-task-kernel-review", "scp-reality-verifier"]
+    },
+    {
+      "id": "reality_tests",
+      "required_skills": ["scp-dna", "scp-reality-verifier"]
+    },
+    {
+      "id": "bounded_runtime_smoke",
+      "required_skills": ["scp-dna", "scp-runtime-audit", "scp-reality-verifier"]
+    },
+    {
+      "id": "dashboard_build_audit",
+      "required_skills": ["scp-dna", "scp-runtime-audit", "scp-release-evidence-gate"]
+    },
+    {
+      "id": "manifest_provenance",
+      "required_skills": ["scp-dna", "scp-release-evidence-gate", "scp-reality-verifier"]
+    },
+    {
+      "id": "final_release_verdict",
+      "required_skills": ["scp-dna", "scp-release-evidence-gate", "scp-reality-verifier"]
+    }
+  ],
+  "failure_policy": {
+    "fix_reality_where_it_fails": true,
+    "harness_fix_must_preserve_or_increase_strictness": true,
+    "forbidden_shortcuts": [
+      "delete_test",
+      "skip_test",
+      "xfail_test",
+      "loosen_assertion",
+      "lower_threshold",
+      "lower_coverage",
+      "lower_security_policy",
+      "lower_mutation_score",
+      "drop_acceptance_gate",
+      "ignore_exit_code",
+      "fail_open_instead_of_fail_closed"
+    ]
+  }
+}
