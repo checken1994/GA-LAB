@@ -480,7 +480,7 @@ jobs:
       - name: Emit fresh customer handoff verdict for main SHA
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
           python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
           mkdir -p reports/release
           python - <<'PY'
