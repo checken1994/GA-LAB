@@ -93,6 +93,11 @@ def _wire_parts() -> None:
 _wire_parts()
 FastLearningEngine = _p_engine.FastLearningEngine
 start_fast_learning_thread = _p_thread.start_fast_learning_thread
+# Preserve the historical facade identity.  Before the split these public
+# objects were defined in this module; callers that introspect or pickle them
+# must not observe an implementation-only ``*_parts`` module after refactoring.
+FastLearningEngine.__module__ = __name__
+start_fast_learning_thread.__module__ = __name__
 _wire_parts()
 
 
