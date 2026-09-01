@@ -57,8 +57,6 @@ def run(output_dir: Path) -> dict:
             path.unlink()
     if port_open(8000):
         raise RuntimeError("refused: port 8000 already in use")
-    if port_open(8000):
-        raise RuntimeError("refused: port 8000 already in use")
 
     env = os.environ.copy()
     env.update(
@@ -191,10 +189,9 @@ def run(output_dir: Path) -> dict:
     cleanup = {
         "process_returncode": process.returncode,
         "port_8000_free": not port_open(8000),
-        "port_8000_free": not port_open(8000),
     }
     (output_dir / "cleanup.json").write_text(json.dumps(cleanup, indent=2) + "\n", encoding="utf-8")
-    if not cleanup["port_8000_free"] or not cleanup["port_8000_free"]:
+    if not cleanup["port_8000_free"]:
         raise RuntimeError(f"port cleanup failed: {cleanup}")
     return {"evidence": str(output_dir / "evidence.json"), "cleanup": cleanup}
 
