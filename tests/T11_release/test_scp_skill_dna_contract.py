@@ -192,20 +192,20 @@ def test_customer_handoff_requires_immutable_pr_lineage_and_fresh_main_verificat
 def test_mandatory_release_paths_execute_skill_and_dna_contract() -> None:
     rc = _read(RC_WORKFLOW)
     strict = _read(STRICT_AUDIT)
-    for test_path in ("tests/test_scp_skill_dna_contract.py", "tests/test_scp_test_skill_contract.py"):
+    for test_path in ("tests/T11_release/test_scp_skill_dna_contract.py", "tests/T11_release/test_scp_test_skill_contract.py"):
         assert test_path in rc, f"RC workflow must execute {test_path} explicitly"
     assert "tools/verify_scp_test_skill_contract.py" in rc
     assert "skill_scp_dna_contract" in rc
-    assert "tests/test_scp_skill_dna_contract.py" in strict
+    assert "tests/T11_release/test_scp_skill_dna_contract.py" in strict
     assert "skill_scp_dna_contract" in strict
     assert "semantic_parity_contract" in strict
     assert "provider_failover_timeout" in strict
     for provider_test in (
-        "tests/test_provider_failover.py",
-        "tests/test_provider_timeout_recovery.py",
-        "tests/test_llm_egress_policy.py",
-        "tests/test_multi_llm_crosscheck.py",
-        "tests/test_multi_llm_crosscheck_concurrency.py",
+        "tests/T05_gateway/test_provider_failover.py",
+        "tests/T05_gateway/test_provider_timeout_recovery.py",
+        "tests/T05_gateway/test_llm_egress_policy.py",
+        "tests/T05_gateway/test_multi_llm_crosscheck.py",
+        "tests/T05_gateway/test_multi_llm_crosscheck_concurrency.py",
         "tests/external_audit/test_cascade.py",
     ):
         assert provider_test in strict, f"strict provider gate lost {provider_test}"

@@ -103,17 +103,17 @@ def _run_pytest(paths: list[str], timeout: int) -> dict:
 
 
 def step_semantic_parity_contract() -> dict:
-    return _run_pytest(["tests/test_god_split_semantic_parity.py"], 180)
+    return _run_pytest(["tests/T02_contract/test_god_split_semantic_parity.py"], 180)
 
 
 def step_provider_failover_timeout_contract() -> dict:
     return _run_pytest(
         [
-            "tests/test_provider_failover.py",
-            "tests/test_provider_timeout_recovery.py",
-            "tests/test_llm_egress_policy.py",
-            "tests/test_multi_llm_crosscheck.py",
-            "tests/test_multi_llm_crosscheck_concurrency.py",
+            "tests/T05_gateway/test_provider_failover.py",
+            "tests/T05_gateway/test_provider_timeout_recovery.py",
+            "tests/T05_gateway/test_llm_egress_policy.py",
+            "tests/T05_gateway/test_multi_llm_crosscheck.py",
+            "tests/T05_gateway/test_multi_llm_crosscheck_concurrency.py",
             "tests/external_audit/test_cascade.py",
         ],
         300,
@@ -121,7 +121,7 @@ def step_provider_failover_timeout_contract() -> dict:
 
 
 def step_skill_dna_contract() -> dict:
-    return _run_pytest(["tests/test_scp_skill_dna_contract.py"], 120)
+    return _run_pytest(["tests/T11_release/test_scp_skill_dna_contract.py"], 120)
 
 
 def step_full_pytest() -> dict:

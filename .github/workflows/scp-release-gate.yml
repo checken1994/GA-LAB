@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract_pre_rc.json
-          python -m pytest -q tests/test_scp_skill_dna_contract.py tests/test_scp_test_skill_contract.py --tb=short
+          python -m pytest -q tests/T11_release/test_scp_skill_dna_contract.py tests/T11_release/test_scp_test_skill_contract.py --tb=short
 
       - name: Compile selected executable surfaces
         shell: bash
@@ -98,8 +98,8 @@ jobs:
           scp/runtime/safe_math.py
           scp/security/cisa_kev.py
           tests/test_enforce_baseline.py
-          tests/test_scp_skill_dna_contract.py
-          tests/test_scp_test_skill_contract.py
+          tests/T11_release/test_scp_skill_dna_contract.py
+          tests/T11_release/test_scp_test_skill_contract.py
           tools/summarize_bandit_report.py
           tools/verify_snapshot_manifest.py
           tools/check_bandit_policy.py
