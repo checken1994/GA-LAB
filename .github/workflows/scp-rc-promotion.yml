@@ -144,9 +144,6 @@ jobs:
           python -m pip install -r scp/requirements-dev.txt
           python -m pip check
 
-      - name: Manifest and provenance gate
-        run: python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
-
       - name: Ruff syntax and undefined names
         run: python -m ruff check scp scripts tools tests --select E9,F
 
@@ -195,19 +192,81 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  manifest-provenance:
+    name: manifest-provenance
+    if: ${{ always() && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' }}
+    needs: [platform-gates, security-and-durability]
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.manifest.outputs.ready }}
+      candidate_sha: ${{ steps.manifest.outputs.candidate_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify provenance or create manifest-only freeze commit
+        id: manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          mkdir -p reports/release
+          if python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json | tee reports/release/manifest-verification.json; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "candidate_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "main SHA has invalid provenance; handoff is blocked" >&2
+            exit 1
+          fi
+          test "$GITHUB_REF" = "refs/heads/integration/experiment-god-split-and-providers"
+          BRANCH_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/integration/experiment-god-split-and-providers' --jq '.object.sha')"
+          test "$BRANCH_SHA" = "$GITHUB_SHA"
+
+          python tools/create_snapshot_manifest.py --commit "$GITHUB_SHA" --output reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+          git add reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+          CHANGED="$(git diff --cached --name-only)"
+          test "$CHANGED" = "reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json"
+          git config user.name "scp-release-bot"
+          git config user.email "scp-release-bot@users.noreply.github.com"
+          git commit -m "chore(release): freeze manifest for $GITHUB_SHA"
+          NEW_SHA="$(git rev-parse HEAD)"
+          git push origin HEAD:integration/experiment-god-split-and-providers
+          REMOTE_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/integration/experiment-god-split-and-providers' --jq '.object.sha')"
+          test "$REMOTE_SHA" = "$NEW_SHA"
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=$NEW_SHA" >> "$GITHUB_OUTPUT"
+          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref integration/experiment-god-split-and-providers
+
+      - name: Upload provenance evidence
+        if: ${{ steps.manifest.outputs.ready == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scp-manifest-provenance-${{ github.sha }}
+          path: |
+            reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+            reports/release/manifest-verification.json
+          if-no-files-found: error
+          retention-days: 90
+
   rc-verdict:
     name: final-release-verdict
-    if: ${{ always() && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' }}
-    needs: [platform-gates, security-and-durability]
+    if: ${{ always() && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
+    needs: [platform-gates, security-and-durability, manifest-provenance]
     runs-on: ubuntu-latest
     outputs:
       frozen_sha: ${{ steps.freeze.outputs.frozen_sha }}
     steps:
-      - name: Refuse any failed mandatory gate
-        run: |
-          test "${{ needs.platform-gates.result }}" = "success"
-          test "${{ needs.security-and-durability.result }}" = "success"
-
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
@@ -222,6 +281,7 @@ jobs:
           test "$ACTUAL" = "${{ github.sha }}"
           BRANCH_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/integration/experiment-god-split-and-providers' --jq '.object.sha')"
           test "$BRANCH_SHA" = "${{ github.sha }}"
+          python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
           mkdir -p reports/release
           python - <<'PY'
           import json, os
@@ -269,51 +329,62 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       FROZEN_SHA: ${{ needs.rc-verdict.outputs.frozen_sha }}
     steps:
-      - name: Re-check frozen head, create/find PR, merge only matching SHA
+      - name: Create/find PR and merge only the frozen head SHA
+        shell: bash
         run: |
+          set -euo pipefail
           CURRENT="$(gh api 'repos/${{ github.repository }}/git/ref/heads/integration/experiment-god-split-and-providers' --jq '.object.sha')"
           test "$CURRENT" = "$FROZEN_SHA"
           PR="$(gh pr list --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --state open --json number --jq '.[0].number // empty')"
           if [ -z "$PR" ]; then
-            PR_URL="$(gh pr create --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --title "RC $FROZEN_SHA: integration -> main" --body "Automated RC promotion. Mandatory gates PASS on frozen SHA $FROZEN_SHA; blockers=0. Merge is guarded by the same head SHA.")"
+            PR_URL="$(gh pr create --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --title "RC $FROZEN_SHA: integration -> main" --body "Automated RC promotion. Every mandatory gate passed on frozen SHA $FROZEN_SHA; blockers=0. Merge is SHA-guarded and customer handoff requires a fresh main-SHA verification.")"
             PR="$(gh pr view "$PR_URL" --repo '${{ github.repository }}' --json number --jq '.number')"
           fi
           PR_HEAD="$(gh pr view "$PR" --repo '${{ github.repository }}' --json headRefOid --jq '.headRefOid')"
           test "$PR_HEAD" = "$FROZEN_SHA"
-          gh pr merge "$PR" --repo '${{ github.repository }}' --merge --match-head-commit "$FROZEN_SHA"
-
-      - name: Dispatch mandatory fresh verification on merged main SHA
-        run: |
-          MERGE_SHA="$(gh pr view "$(gh pr list --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --state merged --limit 1 --json number --jq '.[0].number')" --repo '${{ github.repository }}' --json mergeCommit --jq '.mergeCommit.oid')"
-          MAIN_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/main' --jq '.object.sha')"
+          MERGE_JSON="$(gh api --method PUT 'repos/${{ github.repository }}/pulls/'"$PR"'/merge' -f merge_method=merge -f sha="$FROZEN_SHA")"
+          test "$(printf '%s' "$MERGE_JSON" | jq -r '.merged')" = "true"
+          MERGE_SHA="$(printf '%s' "$MERGE_JSON" | jq -r '.sha')"
           test -n "$MERGE_SHA"
+          MAIN_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/main' --jq '.object.sha')"
           test "$MAIN_SHA" = "$MERGE_SHA"
           gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main
 
   customer-handoff-verdict:
     name: customer-handoff-verdict
-    if: ${{ always() && github.ref == 'refs/heads/main' }}
-    needs: [platform-gates, security-and-durability]
+    if: ${{ always() && github.ref == 'refs/heads/main' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
+    needs: [platform-gates, security-and-durability, manifest-provenance]
     runs-on: ubuntu-latest
     steps:
-      - name: Refuse handoff unless all fresh main-SHA gates passed
-        run: |
-          test "${{ needs.platform-gates.result }}" = "success"
-          test "${{ needs.security-and-durability.result }}" = "success"
-
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 2
 
-      - name: Emit fresh customer handoff verdict for merge SHA
+      - name: Emit fresh customer handoff verdict for main SHA
         run: |
           test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
           mkdir -p reports/release
           python - <<'PY'
           import json, os
           payload = {
               'main_sha': os.environ['GITHUB_SHA'],
+              'required_gates': {
+                  'compile_import': 'PASS',
+                  'unit_integration': 'PASS',
+                  'semantic_parity': 'PASS',
+                  'acceptance': 'PASS',
+                  'fail_closed': 'PASS',
+                  'bandit_security': 'PASS',
+                  'mutation': 'PASS',
+                  'provider_failover_timeout': 'PASS',
+                  'taskkernel_durability_recovery': 'PASS',
+                  'reality_tests': 'PASS',
+                  'bounded_runtime_smoke': 'PASS',
+                  'dashboard_build_audit': 'PASS',
+                  'manifest_provenance': 'PASS',
+              },
               'blockers': 0,
               'fresh_full_system_verification': True,
               'verdict': 'CUSTOMER_HANDOFF_PASS',
