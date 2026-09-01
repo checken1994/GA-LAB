@@ -116,6 +116,9 @@ def test_deny_egress_blocks_env_provider_before_injected_transport(monkeypatch):
 
 
 def test_all_providers_down_fails_closed(monkeypatch):
+    # Exercise provider outage, not global egress-deny; network remains a fake client.
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "openrouter.ai")
     from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
     gateway = LLMGateway()
