@@ -1,27 +1,20 @@
 """
 SCP LLM Gateway — Unified LLM access layer.
 
-TÁI SAO tách riêng: trước đây có 3 bản implement LLM call:
-  1. runtime/llm_client.py (async httpx, retry, fallback) — inference path
-  2. core/fast_learning_engine.py::_ask_llm_sync (sync urllib, no retry) — learning
-  3. core/real_learning_engine.py::_ask_llm (sync urllib, no retry) — learning
+The package installs both outbound policy boundaries on the concrete provider
+method before callers receive LLMGateway/get_gateway:
+  1. egress policy (destination/network authority)
+  2. zero-cost policy (fresh $0 proof + data-class authority)
 
-3 bản diverge trên 7 chiều: sync/async, endpoint, retry, prompt template,
-token limit, stats, singleton. Learning path không có retry/fallback →
-1 network glitch = mất câu hỏi. Inference path có retry nhưng learning
-không được hưởng.
-
-[ARCH-1 FIX] Tách thành 1 gateway duy nhất:
-  - Async-first (httpx) + sync wrapper (cho background threads)
-  - Provider adapters: OpenRouter (primary), EnvCompatProvider (fallback via OPENAI_API_KEY / SCP_LLM_FALLBACK_PROVIDERS)
-  - ProviderRouter: ordered failover (OpenRouter → env-declared providers)
-  - Singleton get_gateway() shared by inference + learning
-  - One fail-closed outbound policy at the provider transport boundary
+Routing is not trusted to enforce either invariant; a buggy/fallback router is
+still checked immediately before the provider network driver.
 """
 from scp.llm_gateway import client as _client
 from scp.llm_gateway.egress_policy import install_egress_guard
+from scp.llm_gateway.zero_cost_runtime import install_openai_compatible_provider_pep
 
 install_egress_guard(_client.OpenRouterProvider)
+install_openai_compatible_provider_pep(_client.OpenRouterProvider)
 
 LLMGateway = _client.LLMGateway
 get_gateway = _client.get_gateway
