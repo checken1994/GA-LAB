@@ -21,7 +21,8 @@ import os
 import re
 import time
 import urllib.parse
-import urllib.request
+
+import httpx
 from pathlib import Path
 from typing import Any
 
@@ -47,13 +48,15 @@ _CURATED_BUCKET = TokenBucket(capacity=30, refill_seconds=1.0)
 def scrape_arxiv(query: str, per_source: int = 3) -> list[dict[str, Any]]:
     """arXiv API — free, không key, papers nghiên cứu."""
     url = (
-        "http://export.arxiv.org/api/query?search_query=all:"
+        "https://export.arxiv.org/api/query?search_query=all:"
         + urllib.parse.quote(query)
         + f"&max_results={per_source}&sortBy=relevance"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": "SCP-Curation/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        text = resp.read(500_000).decode("utf-8", errors="replace")
+    response = httpx.get(
+        url, headers={"User-Agent": "SCP-Curation/1.0"}, timeout=15.0, follow_redirects=True
+    )
+    response.raise_for_status()
+    text = response.content[:500_000].decode("utf-8", errors="replace")
     # Parse Atom XML minimally
     entries = re.findall(r"<entry>(.*?)</entry>", text, re.DOTALL)
     out = []
@@ -74,15 +77,16 @@ def scrape_arxiv(query: str, per_source: int = 3) -> list[dict[str, Any]]:
 
 def scrape_hackernews(query: str, per_source: int = 3) -> list[dict[str, Any]]:
     """Hacker News Algolia API — free, không key, community-curated."""
-    import urllib.request
     url = (
         "https://hn.algolia.com/api/v1/search?query="
         + urllib.parse.quote(query)
         + f"&tags=story&hitsPerPage={per_source}"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": "SCP-Curation/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        data = json.loads(resp.read(200_000).decode("utf-8", errors="replace"))
+    response = httpx.get(
+        url, headers={"User-Agent": "SCP-Curation/1.0"}, timeout=15.0, follow_redirects=True
+    )
+    response.raise_for_status()
+    data = json.loads(response.content[:200_000].decode("utf-8", errors="replace"))
     out = []
     for hit in data.get("hits", [])[:per_source]:
         points = int(hit.get("points", 0))
@@ -100,15 +104,16 @@ def scrape_hackernews(query: str, per_source: int = 3) -> list[dict[str, Any]]:
 
 def scrape_stackoverflow(query: str, per_source: int = 3) -> list[dict[str, Any]]:
     """Stack Exchange API — free, không key (300 req/day limit)."""
-    import urllib.request
     url = (
         "https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance"
         + f"&q={urllib.parse.quote(query)}&site=stackoverflow&pagesize={per_source}"
         + "&filter=withbody"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": "SCP-Curation/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        data = json.loads(resp.read(200_000).decode("utf-8", errors="replace"))
+    response = httpx.get(
+        url, headers={"User-Agent": "SCP-Curation/1.0"}, timeout=15.0, follow_redirects=True
+    )
+    response.raise_for_status()
+    data = json.loads(response.content[:200_000].decode("utf-8", errors="replace"))
     out = []
     for item in data.get("items", [])[:per_source]:
         score = int(item.get("score", 0))
