@@ -38,7 +38,9 @@ logger = logging.getLogger("scp.autofix")
 # guaranteed 40 "skipped (rate limit)" → server start blocked. 200 gives
 # headroom for full scan + scheduled audits. Tier 3 (permission) still
 # gates logic bugs; cooldown still prevents re-fix same bug.
-MAX_FIXES_PER_CYCLE = 200         # Max auto-fixes per audit cycle (was 10)
+# Single source of truth lives in engine_parts/autofix_mixin.py (the only
+# code user of this limit); re-exported here for back-compat imports.
+from scp.autofix.engine_parts.autofix_mixin import MAX_FIXES_PER_CYCLE
 MAX_TIER4_PER_HOUR = 20           # Max attack-mode fixes per hour
 COOLDOWN_SAME_BUG_SECONDS = 3600  # Don't re-fix same bug within 1 hour
 CYCLE_RESET_SECONDS = 3600        # Reset _fixes_this_cycle every 1 hour

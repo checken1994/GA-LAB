@@ -1,0 +1,37 @@
+# BƯỚC 0 — BASELINE & EXECUTION RECORD (2026-09-02)
+
+Freeze inventory theo `scp-execution-order-master-plan` (0.1). Snapshot khi bắt đầu phiên: HEAD `a545e69e3186460c4555accdf489460c25d2d8e6` (local), Python 3.12.10, Windows, pytest basetemp `reports/pytest-basetemp`.
+
+## 0.1 Baseline trước khi sửa
+- Collect: pytest collect OK (không error); focused T00/T07/T09/T10/T11 trước sửa: 42 passed / 9 failed (phần lớn HARNESS_BROKEN do module giả + T00 chưa có meta-tests).
+- Defects đã biết trước phiên: 2 module giả trong production (đã xóa), mixin rate-limit `>= 50` (NameError latent + regression 200→50).
+
+## Product defects PHÁT HIỆN + ĐÃ SỬA trong Bước 0 (tại điểm lỗi, minimal patch)
+1. **Generic AutoFix apply path đã là dead code**: `_auto_fix_part3` dùng `filepath` và `agent` chỉ được định nghĩa trong `_auto_fix_part1` → 2 lớp NameError → realtime-verifier fail-closed chặn MỌI generic SEARCH/REPLACE fix ("realtime verifier failed; fix is UNVERIFIED"). Chỉ đường XSS deterministic còn sống. Đã bind `filepath = Path(ctx.bug.file)` + tái tạo `agent` (same pattern part1). **Phát hiện bởi T09 Golden B — đúng mục đích của harness.**
+2. **Commit leg của AutoFix chết 100% (chưa sửa — PRODUCT_BLOCKED)**: `scp/autofix/runner_phases/reality_test.py` KHÔNG tồn tại → Phase B của `run_full_post_fix_verify` luôn ImportError → mọi fix apply xong đều UNVERIFIED → rollback + escalate Tier 3 (fail-closed, an toàn). Cần: (1) implement reality_test, (2) gold-seeding policy cho evidence_replay, (3) semantic_equiv backup ghi lúc apply. Khóa bởi test `test_golden_b_verified_fix_commits_to_durable_state` (RED có chủ ý).
+3. **Rollback mất line-ending (5 điểm)**: restore dùng `write_text(..., encoding="utf-8")` không `newline=""` → LF→CRLF trên Windows, hash sau-rollback lệch (chính class bug engine đã note ở phần backup nhưng bỏ sót phần restore). Đã sửa cả 5 điểm.
+4. **WebSocket auth fallback (chat.py:111)**: `session_id` được dùng làm token dự phòng "dev UI" — session_id do client kiểm soát. Đã bỏ fallback: chỉ nhận `token` query param tường minh (fail-closed). Không có test nào phụ thuộc fallback (verified by grep).
+5. **Benchmark ước lượng đội lốt benchmark thật (v104_routes.py:365)**: `sequential = 50 × 700ms` hằng số, trả về `speedup_factor` như measured. Đã thêm `measurement_kind: "ESTIMATE"` + note cấm dùng làm performance gate (0.12: ESTIMATE ≠ BENCHMARK; benchmark thật là việc còn lại).
+
+## Test harness T00–T11 trạng thái sau Bước 0
+- **T00**: +3 meta-test (zero-collected; bare `scp.*` import phải resolve tới module+symbol thật — try-guarded là pattern BLOCKED hợp lệ; cấm `pytest.main` + cấm git commit/reset không isolation marker). Bắt được 2 violation thật: `tests/T05_gateway/test_provider_fallback.py` zero-collected (đã wire thành pytest test thật) và import kiểu `from pkg import submodule` (sai ngữ nghĩa check đầu tiên — đã sửa logic check).
+- **T07**: recall/precision scanner thật (BareExceptPass) + verifier verdicts thật → PASS; missing-piece discovery → **RED `PRODUCT_BLOCKED`** (chỉ tới `scp.meta.epistemic_boundary` chưa tồn tại; cấm stub).
+- **T09 Golden A**: real path TaskKernelHandsBridge + HandsExecutor + PCController(tmp workspace) + IndependentVerifier artifact_hash (VERIFIED + tampered CONTRADICTED) + idempotency replay → PASS.
+- **T09 Golden B**: compose thật (ast_scan → BugReportValidator [probe thực nghiệm: KEEP BareExceptPass, DROP NullDereference] → SEARCH/REPLACE → full gate stack → IMP-1 post-fix verify). Fail-closed rollback + escalate proven → PASS; cosmetic never promoted → PASS; security-weakening patch bị policy gate KILL → PASS; commit leg → **RED `PRODUCT_BLOCKED`** (reality_test module).
+- **T10**: 2 boundary hard-kill thật (child process + checkpoint WAITING_TOOL → RECOVERING; RUNNING no-checkpoint → HUMAN_REVIEW) + journal hash-chain + idempotency re-claim blocked + stale-lease `start()` raises + `recovery_decision` = RECONCILE/safe_to_retry=False → PASS. 8 boundary còn lại (WHY timeout, scanner/verifier dies, during-patch, ledger/learning persistence) cần production wrapper của Golden A/B expose boundary — không fake.
+- **T11**: isolated temp git repo (identity riêng, main checkout KHÔNG bị đụng) + EvidenceAuthority → **RED `PRODUCT_BLOCKED`**.
+
+## Residue còn lại của Bước 0 (phiên sau)
+- **0.8 auth**: inventory toàn bộ credential fallback (token→password, query→token, env→implicit file, dev fallback); scheduler chọn `SCP_AUTH_TOKEN_SECRET ?? SCP_AUTH_PASSWORD` (claim từ external plan — grep scp/ CHƯA tìm thấy code, chỉ thấy docs — phải verify tại nguồn); `SCP_SCHEDULER_ADMIN_TOKEN` riêng; 7 auth test (no token 401, session_id-only 401, invalid 401, 429, conflicting fail-closed, scheduler wrong token, ws explicit token).
+- **0.9 kernel mutation authority**: inventory 21 mutating SQL trong `taskkernel.py` → map semantic operation → transaction primitive thống nhất → crash injection 4 điểm. (Chưa làm — chỉ inventory.)
+- **0.10 semantic firewall learning path**: chứng minh/bổ sung `fast_learning_engine` qua `inspect_untrusted()` (chưa kiểm tra code trong phiên này).
+- **0.11 JudgeCoreMixin J1–J5**: caller graph bước đầu: production `.judge()` callers = `scp/core/streaming_factcheck.py:218` + stub `scp_v14`; decision procedure J2–J5 chưa chạy.
+- **0.12**: benchmark THẬT (measured, monotonic_ns, p50/p95, same work units) thay cho ESTIMATE.
+- Bước 0 exit gate: chạy khi các mục trên xong.
+
+## Phân loại đỏ hiện tại (đỏ đúng lý do)
+| Test | Lớp |
+|---|---|
+| T07 missing-piece discovery | PRODUCT_BLOCKED (epistemic boundary chưa tồn tại) |
+| T09B verified-fix commits | PRODUCT_BLOCKED (reality_test module + gold evidence policy) |
+| T11 EvidenceAuthority | PRODUCT_BLOCKED (chưa có runtime evidence authority) |

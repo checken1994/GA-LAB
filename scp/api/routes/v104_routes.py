@@ -377,6 +377,12 @@ async def v1042_learn_fast_benchmark():
     sequential_estimated_ms = asked_avg * 700  # 700ms per question sequential
     speedup = (sequential_estimated_ms / avg_ms) if avg_ms > 0 else 0
     return {
+        # [STEP0-FIX 2026-09-02] Truth-in-metrics: the sequential side is a
+        # constant-model estimate (50 q x 700 ms), NOT a measured benchmark.
+        # Labeled so it can never be read as a measured speedup or used as a
+        # performance gate (Bước 0.12: ESTIMATE != BENCHMARK).
+        "measurement_kind": "ESTIMATE",
+        "estimate_note": "sequential side = 50 questions x 700ms constant estimate; not measured - do not use as a performance gate",
         "v104_1_sequential_ms_per_q": 700,
         "v104_2_parallel_avg_cycle_ms": avg_ms,
         "v104_2_questions_per_cycle": asked_avg,

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from pathlib import Path
 
@@ -31,31 +30,31 @@ class FakeNavigator:
         return {'success': True, 'results': [{'title': 'web fallback', 'url': 'https://example.com', 'provider': 'mock-web'}], 'untrustedData': True}
 
 
-async def main() -> None:
+def test_multi_source_orchestrator_falls_over_to_next_provider():
+    """chatgpt UI failure must fail over to claude (browser), then gemini, then web fallback.
+
+    Rewritten 2026-09-02 from a print-script ('PASS=' print + SystemExit inside
+    __main__) that collected zero tests into a real pytest test: a test file
+    with no collected tests is not evidence (historical lesson #8, now enforced
+    by T00_integrity).
+    """
     fake_ai = FakeAI()
-    result = await MultiSourceOrchestrator(fake_ai, FakeNavigator()).run(
-        'SCP provider failover test',
-        providers=['chatgpt', 'claude', 'gemini'],
-        approved=True,
-        use_browser=True,
-        allow_local=False,
+    result = asyncio.run(
+        MultiSourceOrchestrator(fake_ai, FakeNavigator()).run(
+            'SCP provider failover test',
+            providers=['chatgpt', 'claude', 'gemini'],
+            approved=True,
+            use_browser=True,
+            allow_local=False,
+        )
     )
     ai_by_provider = {item['provider']: item['result'] for item in result['aiResults']}
-    checks = {
-        'chatgpt_failed_ui': ai_by_provider.get('chatgpt', {}).get('success') is False,
-        'claude_was_tried': 'claude' in fake_ai.calls,
-        'claude_succeeded': ai_by_provider.get('claude', {}).get('success') is True,
-        'gemini_was_tried': 'gemini' in fake_ai.calls,
-        'web_fallback_succeeded': result.get('webSearch', {}).get('success') is True,
-        'overall_success': result.get('success') is True,
-    }
-    print('calls=' + ','.join(fake_ai.calls))
-    print('successfulAI=' + ','.join(result.get('successfulAIProviders', [])))
-    print('checks=' + json.dumps(checks, ensure_ascii=False))
-    print('PASS=' + str(all(checks.values())))
-    if not all(checks.values()):
-        raise SystemExit(1)
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
+    assert ai_by_provider.get('chatgpt', {}).get('success') is False, "chatgpt UI failure was not recorded"
+    assert fake_ai.calls[0] == 'chatgpt', "chatgpt must be tried first (provider order preserved)"
+    assert 'claude' in fake_ai.calls and 'gemini' in fake_ai.calls, (
+        f"failover did not try the remaining providers: {fake_ai.calls}"
+    )
+    assert ai_by_provider.get('claude', {}).get('success') is True
+    assert ai_by_provider.get('gemini', {}).get('success') is True
+    assert result.get('webSearch', {}).get('success') is True, "web fallback did not succeed"
+    assert result.get('success') is True, f"orchestrator did not succeed after failover: {result}"

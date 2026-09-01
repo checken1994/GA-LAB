@@ -107,8 +107,11 @@ async def scp_chat(websocket: WebSocket):
     try:
         from scp.security.auth_config import load_auth_config
         cfg = load_auth_config()
-        # Fallback to session_id as token if token query param isn't set, for backward compat in dev UI
-        client_token = str(websocket.query_params.get("token") or websocket.query_params.get("session_id", "") or "")
+        # [STEP0-FIX 2026-09-02] session_id is NOT a credential. The old dev-UI
+        # fallback let a client-controlled query param be evaluated against the
+        # real secret; WebSocket auth now requires the explicit token query
+        # param (canonical contract: explicit token only, fail-closed).
+        client_token = str(websocket.query_params.get("token", "") or "")
         if client_token.startswith("Bearer "):
             client_token = client_token[7:]
         

@@ -6,6 +6,13 @@ from scp.autofix.classifier import BugReport
 
 logger = logging.getLogger("scp.autofix")
 
+# Single source of truth for the per-cycle AutoFix rate limit. The mixin is the
+# only code user; engine.py re-exports this name for back-compat. Value 200 per
+# the documented product decision: a 50-cap missed 14+ bugs per startup
+# (scp/autofix/runner_phases/pre_startup.py) and the original never-reset 10
+# bricked the engine after one cycle (engine.py EXEC-1 A3).
+MAX_FIXES_PER_CYCLE = 200
+
 class AutoFixMixin:
 
     def _auto_fix(self, bug: BugReport, report: bool, attack_mode: bool = False) -> dict:
@@ -1026,6 +1033,19 @@ class AutoFixMixin:
             }
 
     def _auto_fix_part3(self, ctx) -> dict | None:
+        # [STEP0-FIX 2026-09-02] `filepath` was only defined in _auto_fix_part1,
+        # so every generic SEARCH/REPLACE fix hit NameError here and the
+        # realtime-verifier gate fail-closed with "realtime verifier failed;
+        # fix is UNVERIFIED" — the generic apply path never reached _apply_fix.
+        # Bind it from the bug context so the gate evaluates the patch instead
+        # of crashing (discovered by T09 Golden B, discovered-by-design).
+        filepath = Path(ctx.bug.file)
+        # [STEP0-FIX 2026-09-02] `agent` suffered the same scoping defect: it
+        # was created only in _auto_fix_part1. Bind the same minimal executor
+        # part1 uses so part3 can actually apply the patch.
+        from scp.core.code_evolution_agent import CodeEvolutionAgent
+        agent = CodeEvolutionAgent.__new__(CodeEvolutionAgent)
+        agent.log_file = self.data_dir / "evolution_log.jsonl"
         # [SCP-DNA-FIX R12-18] Real-Time Verifier — check invariants BEFORE file write.
         # TẠI SAO: post_fix_verify (R12-6) chạy SAU patch apply → nếu break invariant
         # phải rollback (waste). Real-Time Verifier chạy TRƯỚC _apply_fix → nếu
@@ -1182,7 +1202,7 @@ class AutoFixMixin:
                 # Rollback: restore pre-fix content
                 if ctx.pre_fix_content is not None:
                     try:
-                        filepath.write_text(ctx.pre_fix_content, encoding="utf-8")
+                        filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
                         logger.info(f" Rollback OK for {ctx.bug.file}")
                     except Exception as _rb_err:
                         logger.error(f" Rollback FAILED for {ctx.bug.file}: {_rb_err}")
@@ -1254,7 +1274,7 @@ class AutoFixMixin:
                         )
                         if ctx.pre_fix_content is not None:
                             try:
-                                filepath.write_text(ctx.pre_fix_content, encoding="utf-8")
+                                filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
                                 logger.info(f" Rollback OK for {ctx.bug.file}")
                             except Exception as _rb_err:
                                 logger.error(f" Rollback FAILED for {ctx.bug.file}: {_rb_err}")
@@ -1293,7 +1313,7 @@ class AutoFixMixin:
                     type(_pfv_imp).__name__,
                 )
                 if ctx.pre_fix_content is not None:
-                    filepath.write_text(ctx.pre_fix_content, encoding="utf-8")
+                    filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
                 self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
                 return {
                     "action": "skipped",
@@ -1307,7 +1327,7 @@ class AutoFixMixin:
                     type(_pfv_err).__name__,
                 )
                 if ctx.pre_fix_content is not None:
-                    filepath.write_text(ctx.pre_fix_content, encoding="utf-8")
+                    filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
                 self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
                 return {
                     "action": "skipped",
@@ -1321,7 +1341,7 @@ class AutoFixMixin:
                 type(_verify_call_err).__name__,
             )
             if ctx.pre_fix_content is not None:
-                filepath.write_text(ctx.pre_fix_content, encoding="utf-8")
+                filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
             self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
             return {
                 "action": "skipped",
