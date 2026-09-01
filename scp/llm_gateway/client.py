@@ -19,12 +19,14 @@ Design:
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import itertools
 import logging
 import os
 import random
 import threading
 import time
+from urllib.parse import urlparse
 
 import httpx
 
@@ -33,6 +35,55 @@ logger = logging.getLogger("scp.llm_gateway")
 # Sync wrapper hard timeout: OpenRouter client timeout is 60s inside
 # _call_model; the sync wrapper adds headroom for thread-pool scheduling.
 SYNC_CALL_TIMEOUT_SECONDS = 90
+
+
+def _is_loopback_host(host: str) -> bool:
+    """Return True only for explicit loopback hosts/addresses."""
+    normalized = host.strip().rstrip(".").lower()
+    if normalized == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def _llm_egress_allowed(base_url: str) -> bool:
+    """Enforce the SCP LLM egress contract before a network client is used.
+
+    deny/offline/disabled allow loopback fixtures only. allowlist requires an
+    exact host in SCP_LLM_EGRESS_ALLOWLIST and HTTPS for non-loopback traffic.
+    An explicitly unknown mode fails closed; an unset mode preserves legacy
+    developer behavior while production_guard remains authoritative in prod.
+    """
+    try:
+        parsed = urlparse(base_url)
+    except Exception:
+        return False
+    host = (parsed.hostname or "").strip().rstrip(".").lower()
+    if not host:
+        return False
+    if _is_loopback_host(host):
+        return True
+
+    mode = os.environ.get("SCP_EGRESS_MODE", "").strip().lower()
+    if mode in {"deny", "offline", "disabled"}:
+        return False
+    if mode == "allowlist":
+        if parsed.scheme.lower() != "https":
+            return False
+        allowed = {
+            item.strip().rstrip(".").lower()
+            for item in os.environ.get("SCP_LLM_EGRESS_ALLOWLIST", "").split(",")
+            if item.strip()
+        }
+        return host in allowed
+    if mode in {"allow", "enabled", "on"}:
+        return True
+    if not mode:
+        return True
+    return False
+
 
 # ============================================================
 # [OPENROUTER-FREE-FIX] REGISTRY OF ALL 17 FREE MODELS ON OPENROUTER
@@ -264,12 +315,14 @@ class OpenRouterProvider:
             if answer is not None:
                 self._breaker.record_success()  # thành công thật: reset chuỗi lỗi
                 return answer, err
+            if err == "egress_denied":
+                return None, err
             if err and ("429" in err or "402" in err):
                 return None, err  # quota/rate-limit: failover, không retry tại chỗ
             last_error = err
             transient = (
                 err is not None
-                and not any(sig in err for sig in ("429", "402", "circuit_open"))
+                and not any(sig in err for sig in ("429", "402", "circuit_open", "egress_denied"))
             )
             if attempt < 2 and transient:
                 await asyncio.sleep(min(0.25 * (2 ** attempt) + random.uniform(0, 0.15), 2.0))
@@ -282,6 +335,13 @@ class OpenRouterProvider:
         return None, last_error
 
     async def _call_model_once(self, model: str, messages: list[dict], api_key: str) -> tuple[str | None, str | None]:
+        if not _llm_egress_allowed(self.base_url):
+            logger.warning(
+                "[LLM Gateway] outbound blocked by SCP egress policy: provider=%s base_url=%s",
+                self.PROVIDER_NAME,
+                self.base_url,
+            )
+            return None, "egress_denied"
         try:
             # [Fix 4-a-014] Double-checked locking — only the first concurrent
             # caller creates _client; subsequent callers see it set + skip
@@ -326,24 +386,32 @@ class OpenRouterProvider:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": f"{context}\n\n{question}".strip()})
 
+            err: str | None = None
             for _attempt in range(min(3, self._key_count())):
                 key = self._next_key()
                 answer, err = await self._call_model(primary_model, messages, key)
                 if answer:
                     self._breaker.record_success()
                     return answer, f"{self.PROVIDER_NAME}:{primary_model}"
+                if err == "egress_denied":
+                    return None, "none"
                 if err and "quota" not in err.lower() and "rate-limit" not in err.lower() and "429" not in err and "402" not in err:
                     logger.debug(f"OpenRouter PAID ({primary_model}) failed: {err}")
                     break
                 logger.debug(f"OpenRouter PAID ({primary_model}) key failed: {err}, trying next key")
 
-            self._breaker.record_failure()
+            # _call_model already records final transient failures. Quota/rate
+            # failures return before that point, so count those exactly once here.
+            if err and any(sig in err.lower() for sig in ("quota", "rate-limit", "429", "402")):
+                self._breaker.record_failure()
 
             if fallback_model != primary_model:
                 key = self._next_key()
                 answer, err = await self._call_model(fallback_model, messages, key)
                 if answer:
                     return answer, f"{self.PROVIDER_NAME}:{fallback_model}"
+                if err == "egress_denied":
+                    return None, "none"
                 logger.debug(f"{self.PROVIDER_NAME} FREE fallback ({fallback_model}) failed: {err}")
 
             if self.PROVIDER_NAME == "openrouter" and fallback_model != "openrouter/free" and primary_model != "openrouter/free":
