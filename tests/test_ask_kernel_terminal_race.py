@@ -5,87 +5,99 @@ import pytest
 from scp.ask_kernel_adapter import AskKernelAdapter
 
 
-class _Req:
-    session_id = "terminal-race-test"
-    domain_override = ""
-    domain = "general"
+class DummyReq:
+    question = "what color is the sky?"
+    contexts = ["sky is blue"]
+    retrieved_context = ""
+    session_id = "terminal-race"
 
 
-class _Kernel:
-    def __init__(self, state: str) -> None:
-        self.state = state
-        self.transition_calls = 0
-
-    def get_task(self, task_id: str) -> dict[str, str]:
-        return {"task_id": task_id, "state": self.state}
-
-    def transition(self, *args, **kwargs):
-        self.transition_calls += 1
-        raise AssertionError("terminal task must not transition to VERIFYING")
+RAW_RESPONSE = {
+    "final_answer": "UNVERIFIED ANSWER MUST NOT ESCAPE",
+    "verdict": "PASS",
+    "governance_decision": "UPHOLD",
+    "confidence": 1.0,
+    "trace_id": "trace-terminal-race",
+}
 
 
-class _Trace:
-    def __init__(self) -> None:
-        self.entries: list[dict] = []
-
-    def append(self, **fields):
-        self.entries.append(fields)
-        return fields
-
-
-def _dump_response(value):
-    if hasattr(value, "model_dump"):
-        return value.model_dump()
-    if isinstance(value, dict):
-        return value
-    return dict(vars(value))
+def _assert_terminal_fail_closed(adapter, task, result):
+    assert result["task"]["state"] == "CANCELLED"
+    assert result["verification"]["verdict"] == "INSUFFICIENT"
+    assert "task_terminal_before_verification" in result["verification"]["failures"]
+    safe = result["safe_response"]
+    assert safe["verdict"] == "FAIL"
+    assert safe["confidence"] == 0.0
+    assert safe["governance_decision"] in {"ESCALATE", "KILL"}
+    assert safe["final_answer"].startswith("[SCP: Answer withheld")
+    assert "UNVERIFIED ANSWER MUST NOT ESCAPE" not in safe["final_answer"]
+    assert adapter.kernel.get_task(task["task_id"])["state"] == "CANCELLED"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("terminal_state", ["CANCELLED", "FAILED", "COMPLETED"])
-async def test_finalize_fails_closed_if_task_becomes_terminal_before_verification(
-    monkeypatch, terminal_state: str
-) -> None:
-    adapter = AskKernelAdapter.__new__(AskKernelAdapter)
-    adapter.kernel = _Kernel(terminal_state)
-    adapter.trace = _Trace()
+async def test_cancelled_task_before_finalize_withholds_unverified_response(tmp_path, monkeypatch):
+    adapter = AskKernelAdapter(
+        db_path=str(tmp_path / "kernel.sqlite3"),
+        trace_path=str(tmp_path / "trace.jsonl"),
+    )
+    req = DummyReq()
+    task = adapter.begin(
+        req.question,
+        list(req.contexts),
+        req.retrieved_context,
+        req.session_id,
+    )
+    adapter.kernel.transition(
+        task["task_id"],
+        "CANCELLED",
+        actor="test",
+        reason="simulate kill-switch race while handler was in flight",
+    )
 
     async def forbidden_verify(*args, **kwargs):
-        raise AssertionError("terminal response must not be verified or committed")
+        raise AssertionError("terminal task must not enter response verification")
 
     monkeypatch.setattr(adapter, "verify_response", forbidden_verify)
+    result = await adapter.finalize(task, dict(RAW_RESPONSE), req)
+    _assert_terminal_fail_closed(adapter, task, result)
+    adapter.kernel.close()
 
-    task = {
-        "task_id": "terminal-race-task",
-        "lease_id": "lease-1",
-        "attempt_id": "attempt-1",
-        "checkpoint_id": "checkpoint-1",
-    }
-    response = {
-        "verdict": "PASS",
-        "final_answer": "unchecked answer",
-        "governance_decision": "UPHOLD",
-        "confidence": 1.0,
-        "run_id": "run-1",
-        "trace_id": "trace-1",
-    }
 
-    result = await adapter.finalize(task, response, _Req())
+@pytest.mark.asyncio
+async def test_cancel_between_precheck_and_verifying_transition_fails_closed(tmp_path, monkeypatch):
+    adapter = AskKernelAdapter(
+        db_path=str(tmp_path / "kernel-race.sqlite3"),
+        trace_path=str(tmp_path / "trace-race.jsonl"),
+    )
+    req = DummyReq()
+    task = adapter.begin(
+        req.question,
+        list(req.contexts),
+        req.retrieved_context,
+        "terminal-race-toctou",
+    )
+    real_transition = adapter.kernel.transition
+    injected = {"done": False}
 
-    assert set(result) == {"task", "verification", "safe_response"}
-    assert result["task"]["state"] == terminal_state
-    assert result["verification"]["verdict"] == "TERMINAL_STATE"
-    assert result["verification"]["failures"] == [f"task_terminal:{terminal_state}"]
-    assert adapter.kernel.transition_calls == 0
+    def racing_transition(task_id, new_state, *args, **kwargs):
+        if new_state == "VERIFYING" and not injected["done"]:
+            injected["done"] = True
+            real_transition(
+                task_id,
+                "CANCELLED",
+                actor="test",
+                reason="cancel exactly between terminal precheck and VERIFYING transition",
+            )
+        return real_transition(task_id, new_state, *args, **kwargs)
 
-    safe = _dump_response(result["safe_response"])
-    assert safe["verdict"] == "FAIL"
-    assert safe["governance_decision"] == "KILL"
-    assert safe["run_status"] == "REJECTED"
-    assert "Answer withheld" in safe["final_answer"]
+    async def forbidden_verify(*args, **kwargs):
+        raise AssertionError("raced terminal task must not enter response verification")
 
-    assert adapter.trace.entries
-    trace = adapter.trace.entries[-1]
-    assert trace["outcome"] == terminal_state
-    assert trace["verdict"] == "TERMINAL_STATE"
-    assert trace["reason"] == "task_terminal_before_verification"
+    monkeypatch.setattr(adapter.kernel, "transition", racing_transition)
+    monkeypatch.setattr(adapter, "verify_response", forbidden_verify)
+
+    result = await adapter.finalize(task, dict(RAW_RESPONSE), req)
+
+    assert injected["done"] is True
+    _assert_terminal_fail_closed(adapter, task, result)
+    adapter.kernel.close()

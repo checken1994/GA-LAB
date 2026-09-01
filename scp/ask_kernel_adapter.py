@@ -13,10 +13,10 @@ from typing import Any, Awaitable, Callable
 _c3_logger = logging.getLogger("scp.ask_kernel_adapter")
 
 try:
-    from .task_kernel import KernelError, TaskKernel
+    from .task_kernel import InvalidTransition, KernelError, TaskKernel
     from .trace_ledger import TraceLedger
 except ImportError:
-    from task_kernel import KernelError, TaskKernel
+    from task_kernel import InvalidTransition, KernelError, TaskKernel
     from trace_ledger import TraceLedger
 try:
     from scp.api_server_parts.helpers import AskResponse
@@ -344,24 +344,16 @@ class AskKernelAdapter:
 
     async def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
         task_id, lease_id = task["task_id"], task["lease_id"]
-        current_task = self.kernel.get_task(task_id)
-        current_state = str(current_task.get("state") or "")
-        if current_state in _TERMINAL:
+
+        def _terminal_result(current_task: dict[str, Any]) -> dict[str, Any]:
             verification = {
-                "verdict": "TERMINAL_STATE",
-                "verifier_id": "scp-ask-terminal-state-guard-v1",
-                "evidence_ref": f"ask://{task_id}/terminal/{current_state.lower()}",
-                "grounded_ratio": 0.0,
-                "checked": {"task_not_terminal": False},
-                "failures": [f"task_terminal:{current_state}"],
+                "verdict": "INSUFFICIENT",
+                "verifier_id": "scp-ask-kernel-terminal-v1",
+                "evidence_ref": f"ask://{task_id}/terminal/{str(current_task['state']).lower()}",
+                "failures": ["task_terminal_before_verification"],
+                "checked": {"kernel_task_non_terminal": False},
             }
             response_data = _dump(response)
-            safe_response = self._kernel_blocked_response(
-                req,
-                KernelError(
-                    f"task {task_id} entered terminal state {current_state} before response verification"
-                ),
-            )
             with _TRACE_LOCK:
                 self.trace.append(
                     task_id=task_id,
@@ -373,19 +365,29 @@ class AskKernelAdapter:
                     evidence_ref=verification["evidence_ref"],
                     run_id=response_data.get("run_id"),
                     trace_id=response_data.get("trace_id"),
-                    outcome=current_state,
+                    outcome=current_task["state"],
                     verdict=verification["verdict"],
-                    grounded_ratio=0.0,
-                    response_elapsed_ms=response_data.get("elapsed_ms"),
                     reason="task_terminal_before_verification",
+                    response_elapsed_ms=response_data.get("elapsed_ms"),
                 )
             return {
                 "task": current_task,
                 "verification": verification,
-                "safe_response": safe_response,
+                "safe_response": self._safe_response(response, verification),
             }
 
-        self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
+        current_task = self.kernel.get_task(task_id)
+        if current_task["state"] in _TERMINAL:
+            return _terminal_result(current_task)
+
+        try:
+            self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
+        except InvalidTransition:
+            current_task = self.kernel.get_task(task_id)
+            if current_task["state"] in _TERMINAL:
+                return _terminal_result(current_task)
+            raise
+
         verification = await self.verify_response(req, response, task)
         if verification["verdict"] == "VERIFIED":
             final_task = self.kernel.commit_verification_result(task_id, lease_id, verification)
@@ -508,6 +510,5 @@ def json_bytes(value: Any) -> bytes:
     import json
 
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-
 
 

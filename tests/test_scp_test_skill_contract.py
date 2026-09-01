@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from tools.verify_scp_test_skill_contract import (
+    DNA_REFERENCE,
     REQUIRED_DNA_INVARIANTS,
     REQUIRED_GATE_IDS,
-    DNA_REFERENCE,
+    REQUIRED_HANDOFF_GATE_IDS,
     dna_principle_numbers,
     load_profile,
     validate_contract,
@@ -15,21 +16,26 @@ def test_mandatory_test_skill_contract_is_valid():
     assert evidence["status"] == "PASS_WITHIN_SCOPE", evidence["errors"]
     assert evidence["required_gate_count"] == len(REQUIRED_GATE_IDS)
     assert evidence["observed_gate_count"] == len(REQUIRED_GATE_IDS)
+    assert evidence["required_handoff_gate_count"] == len(REQUIRED_HANDOFF_GATE_IDS)
+    assert evidence["observed_handoff_gate_count"] == len(REQUIRED_HANDOFF_GATE_IDS)
     assert evidence["dna_principle_count"] == 29
     assert set(evidence["mandatory_dna_invariants"]) == REQUIRED_DNA_INVARIANTS
 
 
 def test_every_required_gate_binds_dna_and_a_specialized_skill():
     profile = load_profile()
-    gates = profile["gates"]
-    assert set(gates) == REQUIRED_GATE_IDS
-    for gate_id, binding in gates.items():
-        skills = binding["skills"]
-        dna = binding["dna"]
-        assert skills[0] == "scp-dna", gate_id
-        assert set(skills) - {"scp-dna"}, gate_id
-        assert REQUIRED_DNA_INVARIANTS <= set(dna), gate_id
-        assert dna == sorted(set(dna)), gate_id
+    for gate_map, required in (
+        (profile["gates"], REQUIRED_GATE_IDS),
+        (profile["handoff_gates"], REQUIRED_HANDOFF_GATE_IDS),
+    ):
+        assert set(gate_map) == required
+        for gate_id, binding in gate_map.items():
+            skills = binding["skills"]
+            dna = binding["dna"]
+            assert skills[0] == "scp-dna", gate_id
+            assert set(skills) - {"scp-dna"}, gate_id
+            assert REQUIRED_DNA_INVARIANTS <= set(dna), gate_id
+            assert dna == sorted(set(dna)), gate_id
 
 
 def test_scp_dna_reference_is_exactly_29_principles_in_order():

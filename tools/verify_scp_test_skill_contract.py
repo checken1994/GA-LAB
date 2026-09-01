@@ -32,6 +32,7 @@ REQUIRED_GATE_IDS = {
     "dashboard_build_audit",
     "manifest_provenance",
 }
+REQUIRED_HANDOFF_GATE_IDS = {"main_lineage_authority"}
 REQUIRED_DNA_INVARIANTS = {22, 26}
 
 
@@ -78,42 +79,29 @@ def load_profile(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
-    errors: list[str] = []
-    if not path.is_file():
-        raise FileNotFoundError(f"mandatory SCP Skill/DNA profile missing: {path}")
+def _validate_gate_map(
+    gate_map: Any,
+    *,
+    label: str,
+    required_ids: set[str],
+    errors: list[str],
+    referenced_skills: set[str],
+) -> tuple[set[str], list[dict[str, Any]]]:
+    if not isinstance(gate_map, dict) or not gate_map:
+        errors.append(f"{label} must be a non-empty object")
+        gate_map = {}
 
-    profile = load_profile(path)
-    if profile.get("schema_version") != "scp-release-gate-skill-dna-v1":
-        errors.append("schema_version must be scp-release-gate-skill-dna-v1")
+    gate_set = set(gate_map)
+    missing = sorted(required_ids - gate_set)
+    extra = sorted(gate_set - required_ids)
+    if missing:
+        errors.append(f"missing mandatory {label}: {', '.join(missing)}")
+    if extra:
+        errors.append(f"unknown mandatory {label}: {', '.join(extra)}")
 
-    policy = profile.get("policy")
-    if not isinstance(policy, dict):
-        errors.append("policy must be present")
-        policy = {}
-    if policy.get("mandatory_skill") != "scp-dna":
-        errors.append("policy.mandatory_skill must be scp-dna")
-    mandatory_dna = policy.get("mandatory_dna_invariants")
-    if not isinstance(mandatory_dna, list) or set(mandatory_dna) != REQUIRED_DNA_INVARIANTS:
-        errors.append("policy.mandatory_dna_invariants must be exactly [22, 26]")
-
-    gates = profile.get("gates")
-    if not isinstance(gates, dict) or not gates:
-        errors.append("gates must be a non-empty object")
-        gates = {}
-
-    gate_set = set(gates)
-    missing_gates = sorted(REQUIRED_GATE_IDS - gate_set)
-    extra_gates = sorted(gate_set - REQUIRED_GATE_IDS)
-    if missing_gates:
-        errors.append(f"missing mandatory gates: {', '.join(missing_gates)}")
-    if extra_gates:
-        errors.append(f"unknown mandatory gates: {', '.join(extra_gates)}")
-
-    referenced_skills: set[str] = set()
-    normalized_gates: list[dict[str, Any]] = []
-    for gate_id in sorted(gates):
-        binding = gates[gate_id]
+    normalized: list[dict[str, Any]] = []
+    for gate_id in sorted(gate_map):
+        binding = gate_map[gate_id]
         if not isinstance(binding, dict):
             errors.append(f"{gate_id}: binding must be an object")
             continue
@@ -140,7 +128,46 @@ def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
         if not REQUIRED_DNA_INVARIANTS.issubset(set(dna)):
             errors.append(f"{gate_id}: DNA #22 and #26 are mandatory")
 
-        normalized_gates.append({"id": gate_id, "required_skills": list(skills), "dna": list(dna)})
+        normalized.append({"id": gate_id, "required_skills": list(skills), "dna": list(dna)})
+    return gate_set, normalized
+
+
+def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
+    errors: list[str] = []
+    if not path.is_file():
+        raise FileNotFoundError(f"mandatory SCP Skill/DNA profile missing: {path}")
+
+    profile = load_profile(path)
+    if profile.get("schema_version") != "scp-release-gate-skill-dna-v1":
+        errors.append("schema_version must be scp-release-gate-skill-dna-v1")
+
+    policy = profile.get("policy")
+    if not isinstance(policy, dict):
+        errors.append("policy must be present")
+        policy = {}
+    if policy.get("mandatory_skill") != "scp-dna":
+        errors.append("policy.mandatory_skill must be scp-dna")
+    mandatory_dna = policy.get("mandatory_dna_invariants")
+    if not isinstance(mandatory_dna, list) or set(mandatory_dna) != REQUIRED_DNA_INVARIANTS:
+        errors.append("policy.mandatory_dna_invariants must be exactly [22, 26]")
+
+    referenced_skills: set[str] = set()
+    gate_set, normalized_gates = _validate_gate_map(
+        profile.get("gates"),
+        label="gates",
+        required_ids=REQUIRED_GATE_IDS,
+        errors=errors,
+        referenced_skills=referenced_skills,
+    )
+    handoff_gate_set, normalized_handoff_gates = _validate_gate_map(
+        profile.get("handoff_gates"),
+        label="handoff_gates",
+        required_ids=REQUIRED_HANDOFF_GATE_IDS,
+        errors=errors,
+        referenced_skills=referenced_skills,
+    )
+    if gate_set & handoff_gate_set:
+        errors.append("release gate ids and handoff gate ids must be disjoint")
 
     failure_policy = profile.get("failure_policy")
     if not isinstance(failure_policy, dict):
@@ -225,10 +252,13 @@ def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
         "profile_sha256": sha256_file(path),
         "required_gate_count": len(REQUIRED_GATE_IDS),
         "observed_gate_count": len(gate_set),
+        "required_handoff_gate_count": len(REQUIRED_HANDOFF_GATE_IDS),
+        "observed_handoff_gate_count": len(handoff_gate_set),
         "dna_principle_count": len(dna_numbers),
         "mandatory_dna_invariants": sorted(REQUIRED_DNA_INVARIANTS),
         "skills": skill_evidence,
         "gate_bindings": normalized_gates,
+        "handoff_gate_bindings": normalized_handoff_gates,
         "errors": errors,
     }
     return evidence

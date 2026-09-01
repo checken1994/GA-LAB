@@ -78,7 +78,10 @@ jobs:
 
       - name: Mandatory SCP Skill and DNA contract
         shell: pwsh
-        run: python -m pytest -q tests/test_scp_skill_dna_contract.py --tb=short
+        run: |
+          python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q tests/test_scp_skill_dna_contract.py tests/test_scp_test_skill_contract.py --tb=short
 
       - name: Semantic parity and provider contracts
         shell: pwsh
@@ -123,6 +126,7 @@ jobs:
         with:
           name: scp-platform-evidence-${{ runner.os }}-${{ github.sha }}
           path: |
+            reports/test_skill_contract.json
             reports/scp_acceptance_${{ runner.os }}/
             reports/bounded_system_smoke_${{ runner.os }}/
             reports/reality/
@@ -162,12 +166,14 @@ jobs:
           python -m ruff check scp scripts tools tests --select E9,F601,F811,F821 --extend-exclude "**/*_parts/**"
 
       - name: Mandatory SCP Skill and DNA contract
-        run: python -m pytest -q tests/test_scp_skill_dna_contract.py --tb=short
+        run: |
+          python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract_security.json
+          python -m pytest -q tests/test_scp_skill_dna_contract.py tests/test_scp_test_skill_contract.py --tb=short
 
       - name: Bandit production policy
         shell: pwsh
         run: |
-          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
+          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools,scp/venv -f json -o bandit-prod.json
           $banditExit = $LASTEXITCODE
           python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
           python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
@@ -201,6 +207,7 @@ jobs:
         with:
           name: scp-security-durability-${{ github.sha }}
           path: |
+            reports/test_skill_contract_security.json
             bandit-prod.json
             bandit-prod-summary.json
             reports/mutation/mutation_report.json
@@ -366,12 +373,38 @@ jobs:
           test -n "$MERGE_SHA"
           MAIN_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/main' --jq '.object.sha')"
           test "$MAIN_SHA" = "$MERGE_SHA"
-          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main
+
+  main-lineage-authority:
+    name: main-lineage-authority
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+
+      - name: Require the observed main push to be the frozen integration PR merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          read -r FIRST_PARENT SECOND_PARENT EXTRA_PARENT <<< "$(git show -s --format=%P "$GITHUB_SHA")"
+          test -n "$FIRST_PARENT"
+          test -n "$SECOND_PARENT"
+          test -z "${EXTRA_PARENT:-}"
+          test "$FIRST_PARENT" = "$BEFORE_SHA"
+          PR_JSON="$(gh api -H 'Accept: application/vnd.github+json' "repos/${{ github.repository }}/commits/$GITHUB_SHA/pulls")"
+          MATCHES="$(printf '%s' "$PR_JSON" | jq --arg second "$SECOND_PARENT" --arg merge "$GITHUB_SHA" '[.[] | select(.base.ref == "main" and .head.ref == "integration/experiment-god-split-and-providers" and .head.sha == $second and .merge_commit_sha == $merge and .merged_at != null)] | length')"
+          test "$MATCHES" = "1"
 
   customer-handoff-verdict:
     name: customer-handoff-verdict
-    if: ${{ always() && github.ref == 'refs/heads/main' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
-    needs: [platform-gates, security-and-durability, manifest-provenance]
+    if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.main-lineage-authority.result == 'success' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
+    needs: [main-lineage-authority, platform-gates, security-and-durability, manifest-provenance]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -403,6 +436,10 @@ jobs:
                   'bounded_runtime_smoke': 'PASS',
                   'dashboard_build_audit': 'PASS',
                   'manifest_provenance': 'PASS',
+              },
+              'handoff_authority': {
+                  'main_lineage_authority': 'PASS',
+                  'event': 'push',
               },
               'blockers': 0,
               'fresh_full_system_verification': True,
