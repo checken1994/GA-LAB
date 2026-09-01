@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed validation that mandatory SCP test gates are bound to SCP DNA + skills."""
+"""Fail-closed validation that mandatory SCP gates are bound to SCP DNA + skills."""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PROFILE = ROOT / "tests" / "scp_required_test_skills.json"
+DEFAULT_PROFILE = ROOT / ".agents" / "skills" / "release-gate-skill-dna-bindings.json"
 SKILL_ROOT = ROOT / ".agents" / "skills"
 DNA_REFERENCE = SKILL_ROOT / "scp-dna" / "references" / "dna-principles.md"
 AGENT_GUIDANCE = ROOT / "AGENTS.md"
@@ -20,6 +20,7 @@ REQUIRED_GATE_IDS = {
     "compile_import",
     "unit_integration",
     "semantic_parity",
+    "skill_scp_dna_contract",
     "acceptance",
     "fail_closed",
     "bandit_security",
@@ -30,8 +31,8 @@ REQUIRED_GATE_IDS = {
     "bounded_runtime_smoke",
     "dashboard_build_audit",
     "manifest_provenance",
-    "final_release_verdict",
 }
+REQUIRED_DNA_INVARIANTS = {22, 26}
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -48,18 +49,20 @@ def git_head() -> str:
     ).strip()
 
 
-def frontmatter_name(text: str) -> str | None:
-    if not text.startswith("---"):
-        return None
+def frontmatter(text: str) -> dict[str, str] | None:
     lines = text.splitlines()
-    if len(lines) < 3 or lines[0].strip() != "---":
+    if not lines or lines[0].strip() != "---":
         return None
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        if line.startswith("name:"):
-            return line.split(":", 1)[1].strip()
-    return None
+    try:
+        end = next(i for i, line in enumerate(lines[1:], start=1) if line.strip() == "---")
+    except StopIteration:
+        return None
+    data: dict[str, str] = {}
+    for line in lines[1:end]:
+        match = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", line)
+        if match:
+            data[match.group(1)] = match.group(2).strip()
+    return data
 
 
 def dna_principle_numbers(text: str) -> list[int]:
@@ -78,51 +81,66 @@ def load_profile(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
 def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
     errors: list[str] = []
     if not path.is_file():
-        raise FileNotFoundError(f"mandatory SCP test-skill profile missing: {path}")
+        raise FileNotFoundError(f"mandatory SCP Skill/DNA profile missing: {path}")
 
     profile = load_profile(path)
-    if profile.get("schema_version") != 1:
-        errors.append("schema_version must be 1")
+    if profile.get("schema_version") != "scp-release-gate-skill-dna-v1":
+        errors.append("schema_version must be scp-release-gate-skill-dna-v1")
 
-    gates = profile.get("mandatory_gates")
-    if not isinstance(gates, list) or not gates:
-        errors.append("mandatory_gates must be a non-empty list")
-        gates = []
+    policy = profile.get("policy")
+    if not isinstance(policy, dict):
+        errors.append("policy must be present")
+        policy = {}
+    if policy.get("mandatory_skill") != "scp-dna":
+        errors.append("policy.mandatory_skill must be scp-dna")
+    mandatory_dna = policy.get("mandatory_dna_invariants")
+    if not isinstance(mandatory_dna, list) or set(mandatory_dna) != REQUIRED_DNA_INVARIANTS:
+        errors.append("policy.mandatory_dna_invariants must be exactly [22, 26]")
 
-    gate_ids: list[str] = []
-    referenced_skills: set[str] = set()
-    normalized_gates: list[dict[str, Any]] = []
-    for gate in gates:
-        if not isinstance(gate, dict):
-            errors.append("every mandatory gate entry must be an object")
-            continue
-        gate_id = str(gate.get("id", "")).strip()
-        skills = gate.get("required_skills")
-        if not gate_id:
-            errors.append("mandatory gate has an empty id")
-            continue
-        gate_ids.append(gate_id)
-        if not isinstance(skills, list) or not all(isinstance(item, str) and item for item in skills):
-            errors.append(f"{gate_id}: required_skills must be a non-empty string list")
-            continue
-        if len(skills) != len(set(skills)):
-            errors.append(f"{gate_id}: duplicate skill binding")
-        if "scp-dna" not in skills:
-            errors.append(f"{gate_id}: scp-dna is mandatory")
-        if len(set(skills) - {"scp-dna"}) < 1:
-            errors.append(f"{gate_id}: at least one specialized SCP skill is mandatory")
-        referenced_skills.update(skills)
-        normalized_gates.append({"id": gate_id, "required_skills": list(skills)})
+    gates = profile.get("gates")
+    if not isinstance(gates, dict) or not gates:
+        errors.append("gates must be a non-empty object")
+        gates = {}
 
-    if len(gate_ids) != len(set(gate_ids)):
-        errors.append("mandatory gate ids must be unique")
-    gate_set = set(gate_ids)
+    gate_set = set(gates)
     missing_gates = sorted(REQUIRED_GATE_IDS - gate_set)
     extra_gates = sorted(gate_set - REQUIRED_GATE_IDS)
     if missing_gates:
         errors.append(f"missing mandatory gates: {', '.join(missing_gates)}")
     if extra_gates:
         errors.append(f"unknown mandatory gates: {', '.join(extra_gates)}")
+
+    referenced_skills: set[str] = set()
+    normalized_gates: list[dict[str, Any]] = []
+    for gate_id in sorted(gates):
+        binding = gates[gate_id]
+        if not isinstance(binding, dict):
+            errors.append(f"{gate_id}: binding must be an object")
+            continue
+        skills = binding.get("skills")
+        dna = binding.get("dna")
+        if not isinstance(skills, list) or not all(isinstance(item, str) and item for item in skills):
+            errors.append(f"{gate_id}: skills must be a non-empty string list")
+            continue
+        if len(skills) != len(set(skills)):
+            errors.append(f"{gate_id}: duplicate skill binding")
+        if not skills or skills[0] != "scp-dna":
+            errors.append(f"{gate_id}: scp-dna must be the first governing skill")
+        if len(set(skills) - {"scp-dna"}) < 1:
+            errors.append(f"{gate_id}: at least one specialized SCP skill is mandatory")
+        referenced_skills.update(skills)
+
+        if not isinstance(dna, list) or not dna:
+            errors.append(f"{gate_id}: dna must be a non-empty integer list")
+            dna = []
+        elif dna != sorted(set(dna)):
+            errors.append(f"{gate_id}: dna references must be sorted and unique")
+        if not all(isinstance(number, int) and 1 <= number <= 29 for number in dna):
+            errors.append(f"{gate_id}: dna references must be within #1..#29")
+        if not REQUIRED_DNA_INVARIANTS.issubset(set(dna)):
+            errors.append(f"{gate_id}: DNA #22 and #26 are mandatory")
+
+        normalized_gates.append({"id": gate_id, "required_skills": list(skills), "dna": list(dna)})
 
     failure_policy = profile.get("failure_policy")
     if not isinstance(failure_policy, dict):
@@ -139,6 +157,7 @@ def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
         "xfail_test",
         "loosen_assertion",
         "lower_threshold",
+        "lower_coverage",
         "lower_security_policy",
         "lower_mutation_score",
         "drop_acceptance_gate",
@@ -155,9 +174,15 @@ def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
             errors.append(f"required skill missing: {skill_path.relative_to(ROOT)}")
             continue
         text = skill_path.read_text(encoding="utf-8")
-        declared = frontmatter_name(text)
+        manifest = frontmatter(text)
+        declared = manifest.get("name") if manifest else None
+        description = manifest.get("description") if manifest else None
+        if manifest is None:
+            errors.append(f"skill frontmatter must be closed: {skill_path.relative_to(ROOT)}")
         if declared != skill:
             errors.append(f"skill frontmatter mismatch: expected {skill}, got {declared!r}")
+        if not description:
+            errors.append(f"skill description missing: {skill_path.relative_to(ROOT)}")
         skill_evidence[skill] = {
             "path": str(skill_path.relative_to(ROOT)).replace("\\", "/"),
             "sha256": sha256_file(skill_path),
@@ -177,12 +202,13 @@ def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
                 f"observed={dna_numbers}"
             )
 
+    canonical_profile = str(DEFAULT_PROFILE.relative_to(ROOT)).replace("\\", "/")
     if not AGENT_GUIDANCE.is_file():
         errors.append("AGENTS.md guidance is missing")
     else:
         guidance = AGENT_GUIDANCE.read_text(encoding="utf-8")
-        if "tests/scp_required_test_skills.json" not in guidance:
-            errors.append("AGENTS.md must point to the mandatory SCP test-skill profile")
+        if canonical_profile not in guidance:
+            errors.append("AGENTS.md must point to the canonical SCP Skill/DNA binding profile")
         if "scp-dna" not in guidance:
             errors.append("AGENTS.md must require scp-dna")
 
@@ -200,6 +226,7 @@ def validate_contract(path: Path = DEFAULT_PROFILE) -> dict[str, Any]:
         "required_gate_count": len(REQUIRED_GATE_IDS),
         "observed_gate_count": len(gate_set),
         "dna_principle_count": len(dna_numbers),
+        "mandatory_dna_invariants": sorted(REQUIRED_DNA_INVARIANTS),
         "skills": skill_evidence,
         "gate_bindings": normalized_gates,
         "errors": errors,

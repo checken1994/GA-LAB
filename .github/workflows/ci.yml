@@ -19,6 +19,8 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r scp/requirements-dev.txt
       - name: Enforce SCP DNA and required-skill contract
-        run: python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract.json
+        run: |
+          python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract.json
+          python -m pytest -q tests/test_scp_skill_dna_contract.py tests/test_scp_test_skill_contract.py --tb=short
       - name: Enforce Baseline (P0)
         run: python scripts/enforce_baseline.py

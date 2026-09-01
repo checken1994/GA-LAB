@@ -19,10 +19,11 @@ scope, evidence, secrecy, and human authority.
 
 Every mandatory test, audit, release, or customer-handoff gate must be bound to
 `scp-dna` **and** at least one specialized SCP skill appropriate to that gate.
-The machine-readable source of truth is `tests/scp_required_test_skills.json` and
-`tools/verify_scp_test_skill_contract.py` must fail closed if the profile, a
-required skill, the 29-principle DNA reference, or an exact gate binding is
-missing or inconsistent.
+The single machine-readable source of truth is
+`.agents/skills/release-gate-skill-dna-bindings.json`; the same binding also
+records the mandatory DNA invariants for each gate. `tools/verify_scp_test_skill_contract.py`
+must fail closed if the profile, a required skill, the 29-principle DNA reference,
+an exact gate binding, or the mandatory failure policy is missing or inconsistent.
 
 The skill contract is evidence, not decoration: release runs must record the
 exact Git SHA plus hashes of the referenced `SKILL.md` files. A green result may
