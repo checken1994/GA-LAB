@@ -10,7 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: read
+  actions: write
 
 concurrency:
   group: scp-release-${{ github.ref }}
@@ -229,8 +229,19 @@ jobs:
           payload = {
               'sha': sha,
               'required_gates': {
-                  'platform_gates': 'PASS',
-                  'security_mutation_durability': 'PASS',
+                  'compile_import': 'PASS',
+                  'unit_integration': 'PASS',
+                  'semantic_parity': 'PASS',
+                  'acceptance': 'PASS',
+                  'fail_closed': 'PASS',
+                  'bandit_security': 'PASS',
+                  'mutation': 'PASS',
+                  'provider_failover_timeout': 'PASS',
+                  'taskkernel_durability_recovery': 'PASS',
+                  'reality_tests': 'PASS',
+                  'bounded_runtime_smoke': 'PASS',
+                  'dashboard_build_audit': 'PASS',
+                  'manifest_provenance': 'PASS',
               },
               'blockers': 0,
               'verdict': 'RC_DONE',
@@ -264,11 +275,20 @@ jobs:
           test "$CURRENT" = "$FROZEN_SHA"
           PR="$(gh pr list --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --state open --json number --jq '.[0].number // empty')"
           if [ -z "$PR" ]; then
-            PR="$(gh pr create --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --title "RC $FROZEN_SHA: integration -> main" --body "Automated RC promotion. Mandatory gates PASS on frozen SHA $FROZEN_SHA; blockers=0. Merge is guarded by the same head SHA." --json number --jq '.number')"
+            PR_URL="$(gh pr create --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --title "RC $FROZEN_SHA: integration -> main" --body "Automated RC promotion. Mandatory gates PASS on frozen SHA $FROZEN_SHA; blockers=0. Merge is guarded by the same head SHA.")"
+            PR="$(gh pr view "$PR_URL" --repo '${{ github.repository }}' --json number --jq '.number')"
           fi
           PR_HEAD="$(gh pr view "$PR" --repo '${{ github.repository }}' --json headRefOid --jq '.headRefOid')"
           test "$PR_HEAD" = "$FROZEN_SHA"
           gh pr merge "$PR" --repo '${{ github.repository }}' --merge --match-head-commit "$FROZEN_SHA"
+
+      - name: Dispatch mandatory fresh verification on merged main SHA
+        run: |
+          MERGE_SHA="$(gh pr view "$(gh pr list --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --state merged --limit 1 --json number --jq '.[0].number')" --repo '${{ github.repository }}' --json mergeCommit --jq '.mergeCommit.oid')"
+          MAIN_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/main' --jq '.object.sha')"
+          test -n "$MERGE_SHA"
+          test "$MAIN_SHA" = "$MERGE_SHA"
+          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main
 
   customer-handoff-verdict:
     name: customer-handoff-verdict
