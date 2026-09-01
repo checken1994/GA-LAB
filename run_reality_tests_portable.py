@@ -29,6 +29,21 @@ def _timeout_seconds() -> int:
     return value
 
 
+def _child_env() -> dict[str, str]:
+    """Run the same UTF-8 reality contract on Linux and Windows.
+
+    Windows hosted runners otherwise inherit a legacy cp1252 console/default file
+    encoding. Several reality tests intentionally inspect UTF-8 repository files
+    and print Unicode evidence; letting the host code page decide their semantics
+    turns successful assertions into encoding crashes. UTF-8 mode changes only
+    text transport/decoding, not any test assertion or threshold.
+    """
+    env = os.environ.copy()
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
+
+
 def main() -> int:
     if not REALITY_DIR.is_dir():
         print(f"FAIL: reality-test directory is missing: {REALITY_DIR}", file=sys.stderr)
@@ -40,6 +55,7 @@ def main() -> int:
         return 1
 
     timeout = _timeout_seconds()
+    child_env = _child_env()
     passed: list[str] = []
     failed: list[tuple[str, str]] = []
 
@@ -50,7 +66,7 @@ def main() -> int:
             result = subprocess.run(
                 [sys.executable, str(script)],
                 cwd=ROOT,
-                env=os.environ.copy(),
+                env=child_env,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
