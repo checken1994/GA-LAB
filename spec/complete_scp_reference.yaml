@@ -1,0 +1,91 @@
+reference:
+  id: complete-scp
+  version: "1.0.0"
+  schema_version: 1
+
+# WHAT Complete SCP must mean - never HOW the current code implements it.
+# Implementation bindings (module paths, class names) live in
+# spec/implementation_bindings.yaml, NOT here. This file must stay free of
+# class/method/module requirements (enforced by T00).
+
+principles:
+  reality_over_model: true
+  pass_not_equal_true: true
+  fail_closed_unknown: true
+  external_data_untrusted: true
+  independent_lineage_required: true
+  reversible_change_required: true
+
+verdicts:
+  - VERIFIED
+  - CONTRADICTED
+  - INSUFFICIENT
+  - UNKNOWN
+
+evidence_levels:
+  A: static
+  B: integration
+  C: end_to_end
+  D: recovery
+
+capabilities:
+  execution.task_kernel:
+    required: true
+    minimum_maturity: D
+
+  execution.capability_security:
+    required: true
+    minimum_maturity: D
+
+  epistemic.ontology:
+    required: true
+    minimum_maturity: C
+
+  epistemic.evidence:
+    required: true
+    minimum_maturity: C
+
+  epistemic.lineage:
+    required: true
+    default_independence: UNKNOWN_INDEPENDENCE
+    minimum_maturity: C
+
+  epistemic.calibration:
+    required: true
+    minimum_maturity: B
+
+  self_improvement.golden_a:
+    required: true
+    minimum_maturity: C
+
+  self_improvement.golden_b:
+    required: true
+    minimum_maturity: D
+
+  self.capability_map:
+    required: true
+    minimum_maturity: C
+
+  governance.drift_guard:
+    required: true
+    minimum_maturity: C
+
+  governance.privacy_retention:
+    required: true
+    minimum_maturity: C
+
+  intelligence.zero_cost:
+    required: true
+    max_cost_usd: 0
+    unknown_price_policy: DENY
+    paid_fallback: false
+    minimum_maturity: C
+
+  risk.local_containment:
+    required: true
+    minimum_maturity: C
+
+  risk.external_alert:
+    required: true
+    human_authority: true
+    minimum_maturity: C
