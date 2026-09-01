@@ -177,6 +177,35 @@ def test_rc_verdict_cannot_claim_pass_for_an_unbound_gate() -> None:
         )
 
 
+def test_main_merge_requires_explicit_human_approval_and_exact_frozen_sha() -> None:
+    rc = _read(RC_WORKFLOW)
+
+    required_markers = (
+        "approve_main_merge:",
+        "github.event_name == 'workflow_dispatch'",
+        "inputs.approve_main_merge == true",
+        'test "$CURRENT" = "$FROZEN_SHA"',
+        'test "$PR_HEAD" = "$FROZEN_SHA"',
+        '-f sha="$FROZEN_SHA"',
+    )
+    for marker in required_markers:
+        assert marker in rc, f"main promotion lost required human/frozen-SHA guard: {marker}"
+
+
+def test_customer_handoff_requires_fresh_full_system_verification_on_main_sha() -> None:
+    rc = _read(RC_WORKFLOW)
+
+    required_markers = (
+        "gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main",
+        "github.ref == 'refs/heads/main'",
+        'test "$(git rev-parse HEAD)" = "${{ github.sha }}"',
+        "'fresh_full_system_verification': True",
+        "'verdict': 'CUSTOMER_HANDOFF_PASS'",
+    )
+    for marker in required_markers:
+        assert marker in rc, f"customer handoff lost fresh-main verification invariant: {marker}"
+
+
 def test_mandatory_release_paths_execute_skill_and_dna_contract() -> None:
     rc = _read(RC_WORKFLOW)
     strict = _read(STRICT_AUDIT)
@@ -186,3 +215,14 @@ def test_mandatory_release_paths_execute_skill_and_dna_contract() -> None:
     assert "skill_scp_dna_contract" in rc, "RC verdict must record the Skill + SCP DNA gate"
     assert test_path in strict, "strict system audit must execute Skill + SCP DNA explicitly"
     assert "skill_scp_dna_contract" in strict, "strict audit report must name the Skill + SCP DNA gate"
+    assert "semantic_parity_contract" in strict, "strict audit must name semantic parity explicitly"
+    assert "provider_failover_timeout" in strict, "strict audit must name provider failover/timeout explicitly"
+    for provider_test in (
+        "tests/test_provider_failover.py",
+        "tests/test_provider_timeout_recovery.py",
+        "tests/test_llm_egress_policy.py",
+        "tests/test_multi_llm_crosscheck.py",
+        "tests/test_multi_llm_crosscheck_concurrency.py",
+        "tests/external_audit/test_cascade.py",
+    ):
+        assert provider_test in strict, f"strict provider gate lost {provider_test}"

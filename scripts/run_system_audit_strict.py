@@ -100,9 +100,20 @@ def _run_pytest(paths: list[str], timeout: int) -> dict:
     }
 
 
-def step_contract_tests() -> dict:
+def step_semantic_parity_contract() -> dict:
+    return _run_pytest(["tests/test_god_split_semantic_parity.py"], 180)
+
+
+def step_provider_failover_timeout_contract() -> dict:
     return _run_pytest(
-        ["tests/test_god_split_semantic_parity.py", "tests/test_provider_failover.py"],
+        [
+            "tests/test_provider_failover.py",
+            "tests/test_provider_timeout_recovery.py",
+            "tests/test_llm_egress_policy.py",
+            "tests/test_multi_llm_crosscheck.py",
+            "tests/test_multi_llm_crosscheck_concurrency.py",
+            "tests/external_audit/test_cascade.py",
+        ],
         300,
     )
 
@@ -398,7 +409,8 @@ def main() -> int:
         steps.append(_run_step("import_manifest", base.step_import_check))
         steps.append(_run_step("skill_scp_dna_contract", step_skill_dna_contract))
         steps.append(_run_step("boot_and_probe_strict", lambda: step_boot_strict(str(env_file))))
-        steps.append(_run_step("god_provider_contracts", step_contract_tests))
+        steps.append(_run_step("semantic_parity_contract", step_semantic_parity_contract))
+        steps.append(_run_step("provider_failover_timeout", step_provider_failover_timeout_contract))
         steps.append(_run_step("full_pytest", step_full_pytest))
         steps.append(_run_step("reality_suite", step_reality_suite))
         steps.append(_run_step("fitness_golden_suite", step_fitness))
@@ -410,7 +422,7 @@ def main() -> int:
 
     all_pass = all(step.get("status") == "PASS" for step in steps)
     report = {
-        "schema_version": "scp-strict-system-audit-v6",
+        "schema_version": "scp-strict-system-audit-v7",
         "commit": commit,
         "started_at": started,
         "completed_at": time.time(),
@@ -420,11 +432,11 @@ def main() -> int:
         "overall_verdict": "PASS_WITHIN_SCOPE" if all_pass else "BLOCKED",
         "scope": (
             "Isolated local system audit: boot/readiness, auth brute-force and valid token, "
-            "fail-closed ask semantics, prompt-injection kill/withhold, mandatory SCP Skill + DNA contract, GOD/provider contracts, "
-            "full pytest, Reality suite, fitness suite, hermetic boot, durable-kernel idempotent "
-            "replay/crash recovery/external tamper detection/parallel journal consistency, and "
-            "two sequential bounded API→router→ledger/kernel→RAG governance→Hands dry-run smoke "
-            "cycles with independent port-cleanup and deny-egress observation. No claim about "
+            "fail-closed ask semantics, prompt-injection kill/withhold, mandatory SCP Skill + DNA contract, "
+            "semantic parity, provider failover/timeout/egress contracts, full pytest, Reality suite, fitness suite, "
+            "hermetic boot, durable-kernel idempotent replay/crash recovery/external tamper detection/parallel "
+            "journal consistency, and two sequential bounded API→router→ledger/kernel→RAG governance→Hands "
+            "dry-run smoke cycles with independent port-cleanup and deny-egress observation. No claim about "
             "distributed production deployment or live third-party-provider correctness."
         ),
     }
