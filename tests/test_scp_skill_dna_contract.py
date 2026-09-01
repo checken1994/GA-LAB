@@ -192,18 +192,28 @@ def test_main_merge_requires_explicit_human_approval_and_exact_frozen_sha() -> N
         assert marker in rc, f"main promotion lost required human/frozen-SHA guard: {marker}"
 
 
-def test_customer_handoff_requires_fresh_full_system_verification_on_main_sha() -> None:
+def test_customer_handoff_requires_authorized_merge_and_fresh_main_verification() -> None:
     rc = _read(RC_WORKFLOW)
 
     required_markers = (
-        "gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main",
-        "github.ref == 'refs/heads/main'",
+        "main-lineage-authority:",
+        "github.ref == 'refs/heads/main' && github.event_name == 'push'",
+        "BEFORE_SHA: ${{ github.event.before }}",
+        'test "$FIRST_PARENT" = "$BEFORE_SHA"',
+        'test "$SECOND_PARENT" = "$INTEGRATION_SHA"',
+        "needs.main-lineage-authority.result == 'success'",
+        "needs: [main-lineage-authority, platform-gates, security-and-durability, manifest-provenance]",
         'test "$(git rev-parse HEAD)" = "${{ github.sha }}"',
+        "'main_lineage_authority': 'PASS'",
         "'fresh_full_system_verification': True",
         "'verdict': 'CUSTOMER_HANDOFF_PASS'",
     )
     for marker in required_markers:
-        assert marker in rc, f"customer handoff lost fresh-main verification invariant: {marker}"
+        assert marker in rc, f"customer handoff lost main-lineage/fresh-verification invariant: {marker}"
+
+    assert "gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main" not in rc, (
+        "approved merge must rely on the natural main push event; manual main dispatch cannot be handoff authority"
+    )
 
 
 def test_mandatory_release_paths_execute_skill_and_dna_contract() -> None:
