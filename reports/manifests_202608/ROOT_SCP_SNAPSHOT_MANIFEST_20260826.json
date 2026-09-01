@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-01T12:35:04.728884+00:00",
-  "captured_commit": "96b01c2b6e9ed152799c4506396b23234b32c15f",
-  "captured_parent": "e15c5f3644c45326138d868c86a4a9de027f9c12",
-  "captured_tree": "7e5b9cce9d91cf1def061b30876981f1502dbfb5",
-  "tracked_count": 1460,
-  "inventory_sha256": "6f6132be90fe0097332d4ca8d4a908c0c9575dd1ed1476ef13e4dd793b681cf4",
+  "generated_at_utc": "2026-09-01T12:44:47.471614+00:00",
+  "captured_commit": "7698652a6af470d0fca81a75aa125a2dfe999d2b",
+  "captured_parent": "96749e5bf9b4912ca3a51d4de548cd6034232d2f",
+  "captured_tree": "dcbba36c89d49f8632331e3eab68383ccd53ada9",
+  "tracked_count": 1479,
+  "inventory_sha256": "129a38c45f772033e10cd89392e3a1be022080fed42be4a709d9e64cad32393c",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -2831,6 +2831,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "9946bea30c9d2379827fcd454b65601e0fcfc1fb",
+      "path": "reports/pytest_collect.txt"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "30e5d248962facbc48a4f13e5061a03d1d5919be",
       "path": "reports/release_evidence_gate.html"
     },
@@ -3031,6 +3037,96 @@
       "type": "blob",
       "blob": "d2f0f6ff0eb6b6bfe2bda5ba839ce5a46346dae5",
       "path": "reports/smoke_tests_202608/recovery_benchmark_evidence.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c672187a6fb7c37064dfb266dfb138df2c2ff279",
+      "path": "reports/system_audit_strict/bounded_smoke_first/cleanup.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "reports/system_audit_strict/bounded_smoke_first/empty.env"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "aaf774a9870a5b04add99f6e0d48a8f233aee3ff",
+      "path": "reports/system_audit_strict/bounded_smoke_first/evidence.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a7d2f1a1da060f332bf6701bddf8cb601d489a56",
+      "path": "reports/system_audit_strict/bounded_smoke_first/kernel.sqlite3-shm"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c1611cce7a06b292f3622c8043274893cff0a977",
+      "path": "reports/system_audit_strict/bounded_smoke_first/kernel.sqlite3-wal"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "726786dccaa270b1aa7a44bf51796ba17d4f7fb6",
+      "path": "reports/system_audit_strict/bounded_smoke_first/kernel_trace.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "95610c9a27c0f0c0e27b10841e567c4df524e6df",
+      "path": "reports/system_audit_strict/bounded_smoke_first/request_runs.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c672187a6fb7c37064dfb266dfb138df2c2ff279",
+      "path": "reports/system_audit_strict/bounded_smoke_restart/cleanup.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "reports/system_audit_strict/bounded_smoke_restart/empty.env"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "92f31fb6f35cc36abd6b7dadc6cf414fe0cb1a9c",
+      "path": "reports/system_audit_strict/bounded_smoke_restart/evidence.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4e655dc8f6af504a2d2aa410c8b55dd8db5f260f",
+      "path": "reports/system_audit_strict/bounded_smoke_restart/kernel.sqlite3-shm"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "50ab5eecd9b5fdf35498bf6caa94cb98f4dd8c71",
+      "path": "reports/system_audit_strict/bounded_smoke_restart/kernel.sqlite3-wal"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c5742b133ff2e8fa877be5040b6ea47726297e3a",
+      "path": "reports/system_audit_strict/bounded_smoke_restart/kernel_trace.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f00366edfa652b6c87f3d97898dbbfe3e46e2df9",
+      "path": "reports/system_audit_strict/bounded_smoke_restart/request_runs.jsonl"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f47dd2f96ac16f868ece8d332cef661a11743dfb",
+      "path": "reports/system_audit_strict/report.json"
     },
     {
       "mode": "100644",
@@ -7625,43 +7721,43 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "dbb80a56620e5dfa0ed103055374e030cece73b9",
+      "blob": "3edee7c33a4ec5124333989396177b35d25119eb",
       "path": "tests/T00_integrity/test_meta_audit.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "94953b8d3659e35e322b8ab647f4b9b7071106a1",
+      "blob": "0eb39855113e5658d84033680b62e8189bd5e4e4",
       "path": "tests/T00_integrity/test_test_infrastructure_fail_closed.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "65acd53af22af3f08e224445d1635b641e403d77",
+      "blob": "3e3a21a0bb31024e62c33743552d5844be0159d4",
       "path": "tests/T01_boot/test_startup_launcher_contract.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e0b2708f83887e66a8d28d2f1147704c4385b1da",
+      "blob": "81dcb18020e32327c65b77431baf64cb677bbd31",
       "path": "tests/T01_boot/test_supervisor_child_env.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d18f6da6be22eecd42b3d526e158a37a21542010",
+      "blob": "a388218542316d44a0108341d105f813db8c9add",
       "path": "tests/T02_contract/test_api_import_order_contract.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "311108c6efc2ad0e27ff82b0c4e2905dd802ff71",
+      "blob": "0379f29ae3c08edda66652812f1a8425a4bf4e86",
       "path": "tests/T02_contract/test_api_route_profile.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "175ee7b27111d65e7846cdd805bd354706bec30c",
+      "blob": "b56aee1fd9f088e08c0826e7baf1c010de8a1a76",
       "path": "tests/T02_contract/test_dashboard_route_contract.py"
     },
     {
@@ -7681,6 +7777,12 @@
       "type": "blob",
       "blob": "a476913fe80f7509eb30e4d899ea060751f86738",
       "path": "tests/T03_capability/test_capability_token_mutation_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "247ba078f9ad92911fd31005ed68e313bd9a170c",
+      "path": "tests/T03_capability/test_os_sandbox.py"
     },
     {
       "mode": "100644",
@@ -7757,13 +7859,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6038be73f2ae3d0b91ca0ce90ca176a870d4200d",
+      "blob": "5f5b08ec1eeb7f5e3ba0d53d2dbf05403c85bec8",
       "path": "tests/T05_gateway/test_provider_failover.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a32408afa62131df896db1304ab8362bced4d391",
+      "blob": "ed8a56173d255e0f48c9bf47373b01770b0aaae8",
       "path": "tests/T05_gateway/test_provider_fallback.py"
     },
     {
@@ -7781,13 +7883,19 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "9b9a56f90d92a2e129181e8726f661307ef58e92",
+      "path": "tests/T07_learning/test_autofix_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "33ac12fee143ffee8769c89be322a6478374a48e",
       "path": "tests/T07_learning/test_autofix_protected_path.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "35ff5719337145a2ac175e577c4e0ec8bfb98ea7",
+      "blob": "a4a611906c249bb81bed38c41ebb28ad0d439c6a",
       "path": "tests/T07_learning/test_chat_multimodal_contract.py"
     },
     {
@@ -7799,7 +7907,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4ec808dbafce063daa4cfa6a954d0aa0d70e0a24",
+      "blob": "d0d7eaa013d2e5911f0c349afa3e032cbaf210fc",
       "path": "tests/T08_runtime/test_soak_harness.py"
     },
     {
@@ -7811,19 +7919,25 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "2e13f2739ddaf97c703f887b9371e6dc62f91f69",
+      "blob": "e3ccc1a66ecb8b540e3babdec2c7f17b2d6e4148",
+      "path": "tests/T09_golden_task/test_golden_execution_flow.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7c57bc9e73ad415ed24eb583a3c3617acf86158b",
       "path": "tests/T10_recovery/test_kernel_chaos_recovery.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "db5ca808934097031cf65968843a616104847562",
+      "blob": "40fcb4fd4d9b133d4d629efd027f204c7719c365",
       "path": "tests/T11_release/test_release_authority_contract.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "2052107da6b093be58249a180093188f8e472418",
+      "blob": "223b60d2892d6e916c0eacc4b68e0a3f285aa4ac",
       "path": "tests/T11_release/test_scp_skill_dna_contract.py"
     },
     {
