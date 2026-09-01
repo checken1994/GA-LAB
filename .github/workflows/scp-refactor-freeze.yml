@@ -51,13 +51,14 @@ jobs:
       - name: SCP DNA and required-skill contract
         run: python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract.json
 
-      - name: Compile and import
-        run: |
-          python -m compileall -q scp scripts tools tests
-          python -c "import scp; import scp.api_server; import scp.llm_gateway; import scp.task_kernel; print('IMPORT_OK')"
+      - name: Compile committed source
+        run: python -m compileall -q scp scripts tools tests
 
-      - name: Ruff syntax and undefined names
+      - name: Ruff committed-source syntax and undefined names
         run: python -m ruff check scp scripts tools tests --select E9,F
+
+      - name: Required imports must be source-tree pure
+        run: python tools/check_import_source_purity.py
 
       - name: Semantic parity and provider contracts
         run: >-
