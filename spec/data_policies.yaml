@@ -1,0 +1,36 @@
+schema_version: 1
+
+policies:
+  PUBLIC:
+    raw_storage_allowed: true
+    external_provider_allowed: true
+    log_raw_allowed: false
+    export_allowed: true
+    encryption_required: false
+    raw_retention_days: 30
+
+  INTERNAL:
+    raw_storage_allowed: true
+    external_provider_allowed: false
+    log_raw_allowed: false
+    export_allowed: false
+    encryption_required: false
+    raw_retention_days: 30
+
+  SENSITIVE:
+    raw_storage_allowed: false
+    redacted_storage_allowed: true
+    external_provider_allowed: false
+    log_raw_allowed: false
+    export_allowed: false
+    encryption_required: true
+    raw_retention_days: 7
+
+  SECRET:
+    raw_storage_allowed: false
+    redacted_storage_allowed: true
+    external_provider_allowed: false
+    log_raw_allowed: false
+    export_allowed: false
+    encryption_required: true
+    raw_retention_days: 0
