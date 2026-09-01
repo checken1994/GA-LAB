@@ -43,15 +43,18 @@ jobs:
           node-version: '20'
       - shell: pwsh
         run: python -m pip install -r scp/requirements-dev.txt
+      - name: SCP Skill + DNA governance gate
+        shell: pwsh
+        run: python tools/verify_scp_skill_dna_gate.py
       - name: Compile/import gate
         shell: pwsh
-        run: python -m py_compile scp/runtime/judge.py scp/api_server.py scp/__main__.py scp/security/auth.py scp/security/production_guard.py scp/security/secret_loader.py scp/autofix/llm_fix.py scp/autofix/runner_phases/ast_scan.py scp/autofix/restricted_exec.py scp/runtime/safe_math.py scp/history/migration.py scripts/run_system_audit_strict.py scripts/run_system_audit_strict_ci.py scripts/run_scp_acceptance_ci.py scripts/run_scp_acceptance_ci_impl.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py
+        run: python -m py_compile scp/runtime/judge.py scp/api_server.py scp/__main__.py scp/security/auth.py scp/security/production_guard.py scp/security/secret_loader.py scp/autofix/llm_fix.py scp/autofix/runner_phases/ast_scan.py scp/autofix/restricted_exec.py scp/runtime/safe_math.py scp/history/migration.py scripts/run_system_audit_strict.py scripts/run_system_audit_strict_ci.py scripts/run_scp_acceptance_ci.py scripts/run_scp_acceptance_ci_impl.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py tools/verify_scp_skill_dna_gate.py
       - name: Snapshot manifest gate
         shell: pwsh
         run: python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
       - name: Strict syntax/name lint gate
         shell: pwsh
-        run: python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/post_fix_verify.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/safe_math.py scp/security/cisa_kev.py tests/test_enforce_baseline.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py --select E9,F
+        run: python -m ruff check scp/autofix/llm_fix.py scp/autofix/property_validator.py scp/autofix/realtime_verifier.py scp/autofix/runner_phases/post_fix_verify.py scp/autofix/restricted_exec.py scp/core/knowledge_io.py scp/core/policy_materializer.py scp/history/migration.py scp/runtime/judge_parts/judgecore_mixin.py scp/runtime/safe_math.py scp/security/cisa_kev.py tests/test_enforce_baseline.py tests/test_scp_skill_dna_gate.py tools/summarize_bandit_report.py tools/verify_snapshot_manifest.py tools/check_bandit_policy.py tools/verify_scp_skill_dna_gate.py --select E9,F
       - name: Explicit LLM egress fail-closed policy
         shell: pwsh
         run: python -m pytest -q tests/test_llm_egress_policy.py --tb=short
@@ -99,7 +102,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scp-bounded-system-smoke-${{ github.run_id }}
-          path: reports/bounded_system_smoke_ci/
+          path: |
+            reports/bounded_system_smoke_ci/
+            reports/skill_dna/skill-dna-gate.json
           if-no-files-found: warn
           retention-days: 7
       - shell: pwsh
