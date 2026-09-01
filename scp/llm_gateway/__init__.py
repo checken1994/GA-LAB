@@ -1,20 +1,23 @@
 """
 SCP LLM Gateway — Unified LLM access layer.
 
-The package installs both outbound policy boundaries on the concrete provider
-method before callers receive LLMGateway/get_gateway:
-  1. egress policy (destination/network authority)
-  2. zero-cost policy (fresh $0 proof + data-class authority)
+Package-bound enforcement order:
+  1. egress guard — destination/network authority;
+  2. Z2 zero-cost PEP — fresh exact-$0 proof immediately before driver;
+  3. Z3 free-only router — filters candidates before retry/failover.
 
-Routing is not trusted to enforce either invariant; a buggy/fallback router is
-still checked immediately before the provider network driver.
+Z2 remains authoritative even if Z3 or any caller chooses the wrong model.
 """
 from scp.llm_gateway import client as _client
 from scp.llm_gateway.egress_policy import install_egress_guard
-from scp.llm_gateway.zero_cost_runtime import install_openai_compatible_provider_pep
+from scp.llm_gateway.zero_cost_runtime import (
+    install_free_only_provider_router,
+    install_openai_compatible_provider_pep,
+)
 
 install_egress_guard(_client.OpenRouterProvider)
 install_openai_compatible_provider_pep(_client.OpenRouterProvider)
+install_free_only_provider_router(_client.OpenRouterProvider)
 
 LLMGateway = _client.LLMGateway
 get_gateway = _client.get_gateway
