@@ -19,6 +19,11 @@ jobs:
       PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Assert exact audit SHA
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
@@ -27,8 +32,10 @@ jobs:
           bun-version: '1.3.14'
       - name: Install dependencies
         run: python -m pip install -r scp/requirements-dev.txt
+      - name: SCP Skill + DNA governance gate
+        run: python tools/verify_scp_skill_dna_gate.py
       - name: Run strict system audit
-        run: python -m scripts.run_system_audit_strict
+        run: python -m scripts.run_system_audit_strict_ci
       - name: Upload strict system evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -37,5 +44,6 @@ jobs:
           path: |
             reports/system_audit_strict/
             reports/reality/reality-tests-results.json
+            reports/skill_dna/skill-dna-gate.json
           if-no-files-found: warn
           retention-days: 14
