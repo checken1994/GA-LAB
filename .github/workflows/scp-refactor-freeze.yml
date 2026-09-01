@@ -14,6 +14,7 @@ concurrency:
 
 env:
   SCP_JWT_SECRET: "dummy_secret_for_ci"
+  SCP_ADMIN_KEY: "refactor-freeze-admin-key-0123456789"
   SCP_PRODUCTION_MODE: '0'
   SCP_SKIP_STARTUP_GATE: '0'
   SCP_EGRESS_MODE: deny
@@ -23,7 +24,7 @@ env:
 
 jobs:
   freeze:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, scp-release]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -49,7 +50,9 @@ jobs:
           python -m pip check
 
       - name: SCP DNA and required-skill contract
-        run: python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract.json
+        run: |
+          python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract.json
+          python -m pytest -q tests/test_scp_skill_dna_contract.py tests/test_scp_test_skill_contract.py --tb=short
 
       - name: Compile committed source
         run: python -m compileall -q scp scripts tools tests
@@ -70,7 +73,7 @@ jobs:
           tests/test_multi_llm_crosscheck.py
           tests/test_multi_llm_crosscheck_concurrency.py
           tests/external_audit/test_cascade.py
-          tests/test_scp_test_skill_contract.py
+          tests/test_release_authority_contract.py
           --tb=short
 
       - name: Full unit and integration suite
@@ -88,7 +91,7 @@ jobs:
       - name: Bandit production policy
         shell: pwsh
         run: |
-          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
+          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools,scp/venv -f json -o bandit-prod.json
           $banditExit = $LASTEXITCODE
           python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
           python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
@@ -133,7 +136,6 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
           BRANCH_SHA="$(git ls-remote origin refs/heads/refactor/system-refactor-hardening-20260901 | cut -f1)"
           test "$BRANCH_SHA" = "$GITHUB_SHA"
           python tools/create_snapshot_manifest.py --commit "$GITHUB_SHA" --output "$MANIFEST"
@@ -163,6 +165,7 @@ jobs:
                   'compile_import': 'PASS',
                   'unit_integration': 'PASS',
                   'semantic_parity': 'PASS',
+                  'skill_scp_dna_contract': 'PASS',
                   'acceptance': 'PASS',
                   'fail_closed': 'PASS',
                   'bandit_security': 'PASS',

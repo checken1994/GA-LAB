@@ -7,6 +7,14 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      runner_backend:
+        description: 'Execution backend for exact-SHA release authority'
+        required: true
+        default: self-hosted
+        type: choice
+        options:
+          - self-hosted
+          - github-hosted
       approve_main_merge:
         description: 'Explicitly approve merging the frozen integration SHA into main after all gates pass'
         required: false
@@ -38,8 +46,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - os: ubuntu-latest
+            self_hosted_labels: '["self-hosted","linux","x64","scp-release"]'
+          - os: windows-latest
+            self_hosted_labels: '["self-hosted","windows","x64","scp-release"]'
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'github-hosted' && matrix.os || fromJSON(matrix.self_hosted_labels) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -112,7 +124,7 @@ jobs:
         shell: pwsh
         run: python tools/run_bounded_system_smoke.py --output-dir "reports/bounded_system_smoke_${{ runner.os }}"
 
-      - name: Dashboard install and security audit
+      - name: Dashboard install, security audit, and build
         shell: pwsh
         working-directory: dashboard
         run: |
@@ -135,7 +147,7 @@ jobs:
 
   security-and-durability:
     name: security-mutation-durability
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","scp-release"]') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -220,7 +232,7 @@ jobs:
     name: manifest-provenance
     if: ${{ always() && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' }}
     needs: [platform-gates, security-and-durability]
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","scp-release"]') }}
     outputs:
       ready: ${{ steps.manifest.outputs.ready }}
       candidate_sha: ${{ steps.manifest.outputs.candidate_sha }}
@@ -229,7 +241,6 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 2
-
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
@@ -248,7 +259,6 @@ jobs:
             echo "candidate_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             echo "main SHA has invalid provenance; handoff is blocked" >&2
             exit 1
@@ -256,7 +266,6 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/integration/experiment-god-split-and-providers"
           BRANCH_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/integration/experiment-god-split-and-providers' --jq '.object.sha')"
           test "$BRANCH_SHA" = "$GITHUB_SHA"
-
           python tools/create_snapshot_manifest.py --commit "$GITHUB_SHA" --output reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
           git add reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
           CHANGED="$(git diff --cached --name-only)"
@@ -270,7 +279,7 @@ jobs:
           test "$REMOTE_SHA" = "$NEW_SHA"
           echo "ready=false" >> "$GITHUB_OUTPUT"
           echo "candidate_sha=$NEW_SHA" >> "$GITHUB_OUTPUT"
-          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref integration/experiment-god-split-and-providers
+          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref integration/experiment-god-split-and-providers -f runner_backend=self-hosted
 
       - name: Upload provenance evidence
         if: ${{ steps.manifest.outputs.ready == 'true' }}
@@ -287,7 +296,7 @@ jobs:
     name: final-release-verdict
     if: ${{ always() && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
     needs: [platform-gates, security-and-durability, manifest-provenance]
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","scp-release"]') }}
     outputs:
       frozen_sha: ${{ steps.freeze.outputs.frozen_sha }}
     steps:
@@ -295,7 +304,6 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 2
-
       - name: Freeze exact candidate SHA and require blocker zero
         id: freeze
         env:
@@ -309,9 +317,8 @@ jobs:
           mkdir -p reports/release
           python - <<'PY'
           import json, os
-          sha = os.environ['GITHUB_SHA']
           payload = {
-              'sha': sha,
+              'sha': os.environ['GITHUB_SHA'],
               'required_gates': {
                   'compile_import': 'PASS',
                   'unit_integration': 'PASS',
@@ -336,7 +343,6 @@ jobs:
               f.write('\n')
           PY
           echo "frozen_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-
       - name: Upload frozen RC verdict
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -349,7 +355,7 @@ jobs:
     name: guarded-integration-to-main
     needs: [rc-verdict]
     if: ${{ needs.rc-verdict.result == 'success' && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' && github.event_name == 'workflow_dispatch' && inputs.approve_main_merge == true }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner_backend == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","scp-release"]') }}
     env:
       GH_TOKEN: ${{ github.token }}
       FROZEN_SHA: ${{ needs.rc-verdict.outputs.frozen_sha }}
@@ -362,7 +368,7 @@ jobs:
           test "$CURRENT" = "$FROZEN_SHA"
           PR="$(gh pr list --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --state open --json number --jq '.[0].number // empty')"
           if [ -z "$PR" ]; then
-            PR_URL="$(gh pr create --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --title "RC $FROZEN_SHA: integration -> main" --body "RC promotion after explicit human merge approval. Every mandatory gate passed on frozen SHA $FROZEN_SHA; blockers=0. Customer handoff still requires a fresh main-SHA verification after merge.")"
+            PR_URL="$(gh pr create --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --title "RC $FROZEN_SHA: integration -> main" --body "RC promotion after explicit human merge approval. Every mandatory gate passed on frozen SHA $FROZEN_SHA; blockers=0. Customer handoff still requires fresh main-SHA verification after merge.")"
             PR="$(gh pr view "$PR_URL" --repo '${{ github.repository }}' --json number --jq '.number')"
           fi
           PR_HEAD="$(gh pr view "$PR" --repo '${{ github.repository }}' --json headRefOid --jq '.headRefOid')"
@@ -377,13 +383,12 @@ jobs:
   main-lineage-authority:
     name: main-lineage-authority
     if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, scp-release]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 2
-
       - name: Require the observed main push to be the frozen integration PR merge
         env:
           GH_TOKEN: ${{ github.token }}
@@ -405,13 +410,12 @@ jobs:
     name: customer-handoff-verdict
     if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.main-lineage-authority.result == 'success' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
     needs: [main-lineage-authority, platform-gates, security-and-durability, manifest-provenance]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, scp-release]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 2
-
       - name: Emit fresh customer handoff verdict for main SHA
         run: |
           test "$(git rev-parse HEAD)" = "${{ github.sha }}"
@@ -437,10 +441,7 @@ jobs:
                   'dashboard_build_audit': 'PASS',
                   'manifest_provenance': 'PASS',
               },
-              'handoff_authority': {
-                  'main_lineage_authority': 'PASS',
-                  'event': 'push',
-              },
+              'handoff_authority': {'main_lineage_authority': 'PASS', 'event': 'push'},
               'blockers': 0,
               'fresh_full_system_verification': True,
               'verdict': 'CUSTOMER_HANDOFF_PASS',
@@ -449,7 +450,6 @@ jobs:
               json.dump(payload, f, indent=2, sort_keys=True)
               f.write('\n')
           PY
-
       - name: Upload customer handoff evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

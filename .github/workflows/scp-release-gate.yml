@@ -1,9 +1,8 @@
 name: SCP Pre-RC Verification (Non-Authoritative)
 
-# This workflow is broad developer/PR verification only.
-# Release authority belongs exclusively to scp-rc-promotion.yml, which requires
-# same-SHA mandatory gates, frozen-SHA promotion, explicit human approval, and
-# fresh post-merge customer-handoff verification on main.
+# Broad developer/PR verification only. Release authority belongs exclusively
+# to scp-rc-promotion.yml. Issue #23 requires exact-SHA external/self-hosted
+# execution while GitHub-hosted runners do not provide execution evidence.
 on:
   push:
   pull_request:
@@ -26,12 +25,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - os: ubuntu-latest
+            self_hosted_labels: '["self-hosted","linux","x64","scp-release"]'
+          - os: windows-latest
+            self_hosted_labels: '["self-hosted","windows","x64","scp-release"]'
+    runs-on: ${{ fromJSON(matrix.self_hosted_labels) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          # Test the source SHA rather than GitHub's synthetic PR merge SHA.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -49,6 +51,13 @@ jobs:
         run: |
           python -m pip install -r scp/requirements-dev.txt
           python -m pip check
+
+      - name: Mandatory SCP Skill and DNA contract
+        shell: pwsh
+        run: |
+          python tools/verify_scp_test_skill_contract.py --output reports/test_skill_contract_pre_rc.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q tests/test_scp_skill_dna_contract.py tests/test_scp_test_skill_contract.py --tb=short
 
       - name: Compile selected executable surfaces
         shell: pwsh
@@ -68,10 +77,7 @@ jobs:
           tools/summarize_bandit_report.py
           tools/verify_snapshot_manifest.py
           tools/check_bandit_policy.py
-
-      - name: Mandatory SCP Skill and DNA contract
-        shell: pwsh
-        run: python -m pytest -q tests/test_scp_skill_dna_contract.py --tb=short
+          tools/verify_scp_test_skill_contract.py
 
       - name: Focused Ruff correctness
         shell: pwsh
@@ -89,9 +95,12 @@ jobs:
           scp/runtime/safe_math.py
           scp/security/cisa_kev.py
           tests/test_enforce_baseline.py
+          tests/test_scp_skill_dna_contract.py
+          tests/test_scp_test_skill_contract.py
           tools/summarize_bandit_report.py
           tools/verify_snapshot_manifest.py
           tools/check_bandit_policy.py
+          tools/verify_scp_test_skill_contract.py
           --select E9,F
 
       - name: Full unit and integration suite
@@ -104,19 +113,10 @@ jobs:
         shell: pwsh
         run: python scripts/run_mutation_ci.py --max-mutants 5 --min-score 0.40 --report reports/mutation/mutation_report.json
 
-      - name: Upload mutation evidence
-        if: ${{ always() && matrix.os == 'ubuntu-latest' && (steps.mutation.outcome == 'success' || steps.mutation.outcome == 'failure') }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: scp-pre-rc-mutation-${{ github.run_id }}
-          path: reports/mutation/mutation_report.json
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Bandit production policy
         shell: pwsh
         run: |
-          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
+          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools,scp/venv -f json -o bandit-prod.json
           $banditExit = $LASTEXITCODE
           python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
           python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
@@ -130,27 +130,27 @@ jobs:
         shell: pwsh
         run: python tools/run_bounded_system_smoke.py --output-dir reports/bounded_system_smoke_pre_rc
 
-      - name: Upload bounded runtime evidence
+      - name: Dashboard install, production audit, and build
+        shell: pwsh
+        working-directory: dashboard
+        run: |
+          npm ci --ignore-scripts
+          npm audit --omit=dev --audit-level=high
+          npm run build
+
+      - name: Upload pre-RC evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: scp-pre-rc-bounded-smoke-${{ github.run_id }}
-          path: reports/bounded_system_smoke_pre_rc/
+          name: scp-pre-rc-${{ runner.os }}-${{ github.sha }}
+          path: |
+            reports/test_skill_contract_pre_rc.json
+            reports/mutation/mutation_report.json
+            bandit-prod.json
+            bandit-prod-summary.json
+            reports/reality/
+            reports/bounded_system_smoke_pre_rc/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 14
 
-      - name: Dashboard install
-        shell: pwsh
-        working-directory: dashboard
-        run: npm ci --ignore-scripts
-      - name: Dashboard security audit
-        shell: pwsh
-        working-directory: dashboard
-        run: npm audit --omit=dev --audit-level=high
-      - name: Dashboard build
-        shell: pwsh
-        working-directory: dashboard
-        run: npm run build
-
-      # Intentionally no snapshot freeze/verdict/promotion/handoff logic here.
-      # Those are authoritative only in scp-rc-promotion.yml.
+      # No manifest freeze, RC_DONE, merge, or handoff authority here.
