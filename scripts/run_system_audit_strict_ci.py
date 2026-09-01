@@ -2,16 +2,17 @@
 """CI adapter for the strict system audit without weakening runtime egress.
 
 The strict audit intentionally runs its assembled runtime with
-SCP_EGRESS_MODE=deny.  Some unit-level provider failover tests inject a fake
+SCP_EGRESS_MODE=deny. Some unit-level provider failover tests inject a fake
 HTTP client and must exercise logic *behind* the egress guard; inheriting deny
 would stop those tests at the guard and never test failover.
 
-This adapter changes only the environment of pytest subprocesses: it removes
-SCP_EGRESS_MODE there.  The parent strict-audit process remains deny-egress,
-so boot/reality/bounded runtime checks keep the fail-closed network policy.
-The full pytest suite includes the dedicated LLM egress-policy tests, which
-set deny/allowlist explicitly and assert that denied external transports are
-never touched.
+This adapter changes only the environment of pytest subprocesses: it pins
+SCP_EGRESS_MODE and provider credential variables to empty strings. Pinning
+rather than deleting prevents dotenv/config loading from restoring deny mode
+or live credentials inside the hermetic test subprocess. The parent strict
+audit remains deny-egress, so boot/reality/bounded runtime checks keep the
+fail-closed network policy. Dedicated egress-policy tests set deny/allowlist
+explicitly and assert that denied external transports are never touched.
 """
 from __future__ import annotations
 
@@ -24,8 +25,10 @@ from scripts import run_system_audit_strict as strict
 
 def _hermetic_pytest_env() -> dict[str, str]:
     env = os.environ.copy()
-    env.pop("SCP_EGRESS_MODE", None)
-    # Never inherit live provider credentials into the hermetic unit suite.
+    # Empty-but-present blocks dotenv/config loaders from restoring deny mode
+    # while still making llm_egress_allowed() use its historical test behavior.
+    env["SCP_EGRESS_MODE"] = ""
+    # Empty-but-present also prevents dotenv from loading real provider keys.
     for key in (
         "OPENROUTER_API_KEY",
         "OPENROUTER_API_KEY_2",
@@ -35,7 +38,7 @@ def _hermetic_pytest_env() -> dict[str, str]:
         "GEMINI_API_KEY",
         "GLM_API_KEY",
     ):
-        env.pop(key, None)
+        env[key] = ""
     return env
 
 
