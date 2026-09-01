@@ -57,15 +57,30 @@ jobs:
 
           gateway=LLMGateway()
           chain=gateway._provider_chain('chat')
-          print('CHAIN', [(p.PROVIDER_NAME, p.enabled, p.model, p.base_url, p._breaker.is_open()) for p in chain])
-          gateway.openrouter_chat._client=FakeClient([FakeResponse(429)])
           deepseek=next(p for p in gateway._extra_providers['chat'] if p.PROVIDER_NAME=='deepseek')
-          deepseek._client=FakeClient([FakeResponse(200,'deepseek answers')])
-          answer,label=asyncio.run(gateway.chat('q', task='chat'))
-          print('RESULT', repr(answer), repr(label))
-          print('CALLS', {'openrouter': gateway.openrouter_chat._client.calls, 'deepseek': deepseek._client.calls})
-          print('BREAKERS', {'openrouter': gateway.openrouter_chat._breaker.is_open(), 'deepseek': deepseek._breaker.is_open()})
-          print('STATS', gateway._stats)
+          print('CHAIN', [(p.PROVIDER_NAME, p.enabled, p.model, p.base_url, p._breaker.is_open(), p._key_count()) for p in chain])
+          print('METHODS', type(gateway.openrouter_chat).chat, type(deepseek).chat, type(deepseek)._key_count, type(deepseek)._next_key)
+
+          async def probe():
+              deepseek._client=FakeClient([FakeResponse(200,'direct once')])
+              once=await deepseek._call_model_once(deepseek.model, [{'role':'user','content':'q'}], deepseek._next_key())
+              print('DIRECT_ONCE', once, 'calls=', deepseek._client.calls)
+
+              deepseek._client=FakeClient([FakeResponse(200,'direct chat')])
+              direct_chat=await deepseek.chat('q')
+              print('DIRECT_CHAT', direct_chat, 'calls=', deepseek._client.calls, 'key_count=', deepseek._key_count(), 'breaker=', deepseek._breaker.is_open())
+
+              gateway.openrouter_chat._client=FakeClient([FakeResponse(429)])
+              deepseek._breaker.record_success()
+              deepseek._client=FakeClient([FakeResponse(200,'deepseek answers')])
+              result=await gateway.chat('q', task='chat')
+              print('RESULT', result)
+              print('CALLS', {'openrouter': gateway.openrouter_chat._client.calls, 'deepseek': deepseek._client.calls})
+              print('BREAKERS', {'openrouter': gateway.openrouter_chat._breaker.is_open(), 'deepseek': deepseek._breaker.is_open()})
+              print('STATS', gateway._stats)
+              return result
+
+          answer,label=asyncio.run(probe())
           if answer != 'deepseek answers' or not label.startswith('deepseek:'):
               raise SystemExit('provider failover reproduction failed')
           PY
