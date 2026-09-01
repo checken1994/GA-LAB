@@ -49,8 +49,12 @@ def test_maturity_ladder_orders_and_rejects_unknown():
 def test_data_class_severity_composes_conservatively():
     assert max_severity(DataClass.PUBLIC, DataClass.SENSITIVE) is DataClass.SENSITIVE
     assert max_severity("internal", "secret", "public") is DataClass.SECRET
-    # Missing classification must degrade to the conservative side, never PUBLIC.
-    assert max_severity(DataClass.PUBLIC, None, DataClass.INTERNAL) is DataClass.INTERNAL
+    # [P0-12a] Missing/unknown classification is a SENSITIVE floor - an
+    # unclassified input must never lower the composed class.
+    assert max_severity(DataClass.PUBLIC, None) is DataClass.SENSITIVE
+    assert max_severity(DataClass.PUBLIC, None, DataClass.INTERNAL) is DataClass.SENSITIVE
+    assert max_severity(DataClass.SECRET, None) is DataClass.SECRET
+    assert max_severity() is DataClass.PUBLIC
 
 
 def test_ids_random_occurrence_and_deterministic_content():

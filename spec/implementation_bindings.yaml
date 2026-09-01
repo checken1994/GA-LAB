@@ -1,0 +1,51 @@
+schema_version: 1
+reference_id: complete-scp
+reference_version: "1.0.0"
+
+# Implementation bindings (26-P0.4b): map semantic capabilities from
+# spec/complete_scp_reference.yaml to PRODUCTION implementation modules.
+# The reference itself never imports these names (enforced by T00) - changing
+# an implementation must not change the definition of Complete SCP.
+# A module listed here that does not exist yet marks a capability with a
+# PLANNED binding; integrity tests check existence for bindings marked
+# `required_now: true`.
+bindings:
+  epistemic.ontology:
+    implementations:
+      - scp.knowledge.ontology
+    required_now: true
+
+  epistemic.evidence:
+    implementations:
+      - scp.epistemic.evidence_store
+    required_now: true
+
+  epistemic.lineage:
+    implementations:
+      - scp.epistemic.lineage
+    required_now: false   # P0-07
+
+  epistemic.calibration:
+    implementations:
+      - scp.calibration.ledger
+    required_now: false   # P0-08/09
+
+  self.capability_map:
+    implementations:
+      - scp.self_model.capability_map
+    required_now: false   # P0-10
+
+  governance.drift_guard:
+    implementations:
+      - scp.governance.drift_guard
+    required_now: false   # P0-11
+
+  governance.privacy_retention:
+    implementations:
+      - scp.governance.privacy
+    required_now: false   # P0-12
+
+  intelligence.zero_cost:
+    implementations:
+      - scp.llm_gateway.zero_cost_guard
+    required_now: false   # P0-13

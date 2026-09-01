@@ -27,12 +27,22 @@ def parse_data_class(value: object) -> DataClass:
 
 
 def max_severity(*classes: object) -> DataClass:
-    """The most restrictive class among the inputs (unknown/missing = SENSITIVE-conservative)."""
+    """The most restrictive class among the inputs.
+
+    [P0-12a FIX 2026-09-02] Missing/unknown classification (None) is treated as
+    a SENSITIVE floor, not skipped: an unclassified input must never LOWER the
+    composed class (PUBLIC + None -> SENSITIVE). Only explicit sanitization with
+    declassification evidence may reduce a class.
+    """
     worst = DataClass.PUBLIC
+    saw_unknown = False
     for value in classes:
         if value is None:
+            saw_unknown = True
             continue
         candidate = parse_data_class(value)
         if _SEVERITY[candidate] > _SEVERITY[worst]:
             worst = candidate
+    if saw_unknown and _SEVERITY[worst] < _SEVERITY[DataClass.SENSITIVE]:
+        worst = DataClass.SENSITIVE
     return worst
