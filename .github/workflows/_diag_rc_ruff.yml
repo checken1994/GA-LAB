@@ -8,7 +8,7 @@ on:
       - .github/workflows/_diag_rc_ruff.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   diagnose:
@@ -21,25 +21,31 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
-      - name: Inspect checkout before install
-        shell: bash
-        run: |
-          set -euxo pipefail
-          git status --short
-          git ls-files | grep -E 'tests/test_(api_task_crud|control_plane|learning_and_plan|skills|v23_hardening)\.py' || true
-          for f in tests/test_api_task_crud.py tests/test_control_plane.py tests/test_learning_and_plan.py tests/test_skills.py tests/test_v23_hardening.py; do
-            echo "=== BEFORE $f"
-            if [ -f "$f" ]; then nl -ba "$f" | sed -n '1,180p'; else echo MISSING; fi
-          done
       - name: Install dependencies
         run: python -m pip install -r scp/requirements-dev.txt
-      - name: Inspect after install and run Ruff
+      - name: Persist diagnostic evidence
         shell: bash
         run: |
-          set -uxo pipefail
-          git status --short
-          for f in tests/test_api_task_crud.py tests/test_control_plane.py tests/test_learning_and_plan.py tests/test_skills.py tests/test_v23_hardening.py; do
-            echo "=== AFTER $f"
-            if [ -f "$f" ]; then nl -ba "$f" | sed -n '1,180p'; else echo MISSING; fi
-          done
-          python -m ruff check scp scripts tools tests --select E9,F
+          set -uo pipefail
+          mkdir -p reports/diagnostics
+          report=reports/diagnostics/ruff.txt
+          {
+            echo "HEAD=$(git rev-parse HEAD)"
+            echo "=== TRACKED SUSPECTS ==="
+            git ls-files | grep -E 'tests/test_(api_task_crud|control_plane|learning_and_plan|skills|v23_hardening)\.py' || true
+            echo "=== STATUS ==="
+            git status --short
+            for f in tests/test_api_task_crud.py tests/test_control_plane.py tests/test_learning_and_plan.py tests/test_skills.py tests/test_v23_hardening.py; do
+              echo "=== $f ==="
+              if [ -f "$f" ]; then nl -ba "$f" | sed -n '1,220p'; else echo MISSING; fi
+            done
+            echo "=== RUFF ==="
+            python -m ruff check scp scripts tools tests --select E9,F
+          } > "$report" 2>&1
+          rc=$?
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add "$report"
+          git commit -m "chore(rc): capture Ruff diagnostic" || true
+          git push origin HEAD:integration/experiment-god-split-and-providers
+          exit "$rc"
