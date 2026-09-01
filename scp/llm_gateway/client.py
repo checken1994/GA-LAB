@@ -282,6 +282,11 @@ class OpenRouterProvider:
         return None, last_error
 
     async def _call_model_once(self, model: str, messages: list[dict], api_key: str) -> tuple[str | None, str | None]:
+        # [SCP DNA Fail-Closed] Enforce egress gate before any external call.
+        # SCP_EGRESS_MODE=deny means zero outbound LLM calls are permitted.
+        import os as _os
+        if _os.environ.get("SCP_EGRESS_MODE", "").strip().lower() == "deny":
+            return None, "egress_denied (SCP_EGRESS_MODE=deny)"
         try:
             # [Fix 4-a-014] Double-checked locking — only the first concurrent
             # caller creates _client; subsequent callers see it set + skip

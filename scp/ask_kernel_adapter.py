@@ -344,6 +344,30 @@ class AskKernelAdapter:
 
     async def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
         task_id, lease_id = task["task_id"], task["lease_id"]
+        # [SCP DNA Fail-Closed] Guard against transitioning from a terminal state.
+        # If the task was CANCELLED/COMPLETED/FAILED while we were awaiting the
+        # judge response, skip the VERIFYING transition to prevent InvalidTransition
+        # raising HTTP 500 (the response is already determined by the terminal state).
+        _TERMINAL = {"CANCELLED", "COMPLETED", "FAILED"}
+        try:
+            current_task = self.kernel.get_task(task_id)
+            if current_task and current_task.get("state") in _TERMINAL:
+                response_data = _dump(response)
+                with _TRACE_LOCK:
+                    self.trace.append(
+                        task_id=task_id,
+                        attempt_id=task.get("attempt_id"),
+                        step_id="rag-read",
+                        lease_id=lease_id,
+                        checkpoint_id=task.get("checkpoint_id"),
+                        verifier_id=None,
+                        evidence_ref=None,
+                        run_id=response_data.get("run_id"),
+                        trace_id=response_data.get("trace_id"),
+                    )
+                return response_data
+        except Exception:
+            pass  # If get_task fails, proceed normally — let transition raise if needed
         self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
         verification = await self.verify_response(req, response, task)
         if verification["verdict"] == "VERIFIED":
