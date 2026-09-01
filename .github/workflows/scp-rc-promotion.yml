@@ -366,12 +366,37 @@ jobs:
           test -n "$MERGE_SHA"
           MAIN_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/main' --jq '.object.sha')"
           test "$MAIN_SHA" = "$MERGE_SHA"
-          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main
+
+  main-lineage-authority:
+    name: main-lineage-authority
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+
+      - name: Require an integration merge commit on the observed main push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          read -r FIRST_PARENT SECOND_PARENT EXTRA_PARENT <<< "$(git show -s --format=%P "$GITHUB_SHA")"
+          test -n "$FIRST_PARENT"
+          test -n "$SECOND_PARENT"
+          test -z "${EXTRA_PARENT:-}"
+          test "$FIRST_PARENT" = "$BEFORE_SHA"
+          INTEGRATION_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/integration/experiment-god-split-and-providers' --jq '.object.sha')"
+          test "$SECOND_PARENT" = "$INTEGRATION_SHA"
 
   customer-handoff-verdict:
     name: customer-handoff-verdict
-    if: ${{ always() && github.ref == 'refs/heads/main' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
-    needs: [platform-gates, security-and-durability, manifest-provenance]
+    if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.main-lineage-authority.result == 'success' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
+    needs: [main-lineage-authority, platform-gates, security-and-durability, manifest-provenance]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -403,6 +428,10 @@ jobs:
                   'bounded_runtime_smoke': 'PASS',
                   'dashboard_build_audit': 'PASS',
                   'manifest_provenance': 'PASS',
+              },
+              'handoff_authority': {
+                  'main_lineage_authority': 'PASS',
+                  'event': 'push',
               },
               'blockers': 0,
               'fresh_full_system_verification': True,
