@@ -1,7 +1,7 @@
 """Launcher contract tests — updated for API-only era (no Ollama, port 8000)."""
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER = (ROOT / "start-scp.bat").read_text(encoding="utf-8")
 
 

@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-01T12:27:38.236424+00:00",
-  "captured_commit": "e15c5f3644c45326138d868c86a4a9de027f9c12",
-  "captured_parent": "94b8039f1c598143630e920d89ff5f7253d5b68b",
-  "captured_tree": "4b30c830ffac85aeac63cb478694ca619f8b43f0",
-  "tracked_count": 1458,
-  "inventory_sha256": "f54339fc70711e3a0ec0538d132d67934d69371fee0e6877431dd63f0c914297",
+  "generated_at_utc": "2026-09-01T12:35:04.728884+00:00",
+  "captured_commit": "96b01c2b6e9ed152799c4506396b23234b32c15f",
+  "captured_parent": "e15c5f3644c45326138d868c86a4a9de027f9c12",
+  "captured_tree": "7e5b9cce9d91cf1def061b30876981f1502dbfb5",
+  "tracked_count": 1460,
+  "inventory_sha256": "6f6132be90fe0097332d4ca8d4a908c0c9575dd1ed1476ef13e4dd793b681cf4",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
-      "blob": "b168eab9586b3f60a96bfd7343d28ab2a0add04b",
-      "bytes": 5779,
-      "sha256": "aa846c9f5d74d4795d05ee27c9f71aaf08f484f6f6725db893b09ad45f59f878"
+      "blob": "12045ecf166eb182d32b8a93cae1f39653eb6dc3",
+      "bytes": 5827,
+      "sha256": "fa5087cb6c3edd5f9bb879fceef68590d5647f4cc032c9c3fc6e20b3c40df5ae"
     },
     "scp/api_server.py": {
       "blob": "d6352b248570773c934062a9aa6e49508bea053f",
@@ -221,7 +221,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "dc8f68db968c6fad8c4d276cb1e2ca06cdaddde0",
+      "blob": "e9a3045596ab19f480529b4f56832c17181e6739",
+      "path": ".github/workflows/scp-meta-test-audit.yml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b6929541dc98f72c48d45e9d7b88808f58515087",
       "path": ".github/workflows/scp-rc-promotion.yml"
     },
     {
@@ -233,7 +239,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b168eab9586b3f60a96bfd7343d28ab2a0add04b",
+      "blob": "12045ecf166eb182d32b8a93cae1f39653eb6dc3",
       "path": ".github/workflows/scp-release-gate.yml"
     },
     {
@@ -7535,7 +7541,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8f371029e06100574e2fde9afef9ac1275652754",
+      "blob": "942495a6d7299cfef0643d4ac678621afc1bd243",
       "path": "scripts/run_system_audit_strict.py"
     },
     {
@@ -7615,6 +7621,216 @@
       "type": "blob",
       "blob": "9790198edf6e199d52476046feef05a94e668b5c",
       "path": "tests/README.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dbb80a56620e5dfa0ed103055374e030cece73b9",
+      "path": "tests/T00_integrity/test_meta_audit.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "94953b8d3659e35e322b8ab647f4b9b7071106a1",
+      "path": "tests/T00_integrity/test_test_infrastructure_fail_closed.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "65acd53af22af3f08e224445d1635b641e403d77",
+      "path": "tests/T01_boot/test_startup_launcher_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e0b2708f83887e66a8d28d2f1147704c4385b1da",
+      "path": "tests/T01_boot/test_supervisor_child_env.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d18f6da6be22eecd42b3d526e158a37a21542010",
+      "path": "tests/T02_contract/test_api_import_order_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "311108c6efc2ad0e27ff82b0c4e2905dd802ff71",
+      "path": "tests/T02_contract/test_api_route_profile.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "175ee7b27111d65e7846cdd805bd354706bec30c",
+      "path": "tests/T02_contract/test_dashboard_route_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6bb41b3b3218412679c5ce35037c979ef7341200",
+      "path": "tests/T02_contract/test_god_split_semantic_parity.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0c0e2d3c028e069e7f77b75a5f06a6a034d50b12",
+      "path": "tests/T03_capability/test_auth_request_injection.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a476913fe80f7509eb30e4d899ea060751f86738",
+      "path": "tests/T03_capability/test_capability_token_mutation_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e98b0d28604099059ef29b9850ef138e85c06cf3",
+      "path": "tests/T03_capability/test_xff_guard_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "19d01cae9d198cf19319b2426af611525eb90d18",
+      "path": "tests/T04_kernel/test_ask_kernel_adapter_verify.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f9fc915108c6c3c04d8a5287ed14008269a4b564",
+      "path": "tests/T04_kernel/test_ask_kernel_terminal_race.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9908efa4168d80f91374c80ddb17016dc1351aa1",
+      "path": "tests/T04_kernel/test_kernel_storage.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b13c9d4aa0a4a80c77832a36390f4784d86dae27",
+      "path": "tests/T04_kernel/test_task_kernel_mutation_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5f5bba97399e55832a92db6c7a5d42ee556acecc",
+      "path": "tests/T05_gateway/test_429_fallback_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c9d4678caf56ee4adfdb9dbd27718b21f1c21fcb",
+      "path": "tests/T05_gateway/test_circuit_breaker_mutation_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "182b88617898f2658bb9319668dc4599951d4b7c",
+      "path": "tests/T05_gateway/test_fallback_watcher_single_source.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9074a425cb273864d1736cb7ee95e7f34aa17244",
+      "path": "tests/T05_gateway/test_llm_egress_policy.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "18ffb1af88b13927d2abecc24c2cfc62a2e3446f",
+      "path": "tests/T05_gateway/test_llm_gateway_fallback_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "113796c4a5f68e8bb675ec4a9c57bd7169ecddf7",
+      "path": "tests/T05_gateway/test_multi_llm_crosscheck.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1dd873e051ca5f0fa86125ebba8aa4da34b3947c",
+      "path": "tests/T05_gateway/test_multi_llm_crosscheck_concurrency.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6038be73f2ae3d0b91ca0ce90ca176a870d4200d",
+      "path": "tests/T05_gateway/test_provider_failover.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a32408afa62131df896db1304ab8362bced4d391",
+      "path": "tests/T05_gateway/test_provider_fallback.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "01f2820606b8d9f700616bc0102b068ac167a084",
+      "path": "tests/T05_gateway/test_provider_timeout_recovery.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d453be54ddf1c8a452fe65033aea1112925be13f",
+      "path": "tests/T06_verifier/test_gemini_indictment_hardening.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "33ac12fee143ffee8769c89be322a6478374a48e",
+      "path": "tests/T07_learning/test_autofix_protected_path.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "35ff5719337145a2ac175e577c4e0ec8bfb98ea7",
+      "path": "tests/T07_learning/test_chat_multimodal_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "af49089deb63b122a9f1ff2bb77e780b125ad9aa",
+      "path": "tests/T08_runtime/test_mutation_engine.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4ec808dbafce063daa4cfa6a954d0aa0d70e0a24",
+      "path": "tests/T08_runtime/test_soak_harness.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "866ca81ec57e18cd2a5a43db425fb08550cf0235",
+      "path": "tests/T09_golden_task/test_e2e_scp_complete.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2e13f2739ddaf97c703f887b9371e6dc62f91f69",
+      "path": "tests/T10_recovery/test_kernel_chaos_recovery.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "db5ca808934097031cf65968843a616104847562",
+      "path": "tests/T11_release/test_release_authority_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2052107da6b093be58249a180093188f8e472418",
+      "path": "tests/T11_release/test_scp_skill_dna_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7102ea6dd4a855fb64c72459eb24d9dd058b5b49",
+      "path": "tests/T11_release/test_scp_test_skill_contract.py"
     },
     {
       "mode": "100644",
@@ -8155,210 +8371,6 @@
       "type": "blob",
       "blob": "a1a995efba3b6f5c82db5ce76eddab30ea1988ba",
       "path": "tests/run-reality-tests.sh"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "866ca81ec57e18cd2a5a43db425fb08550cf0235",
-      "path": "tests/scp_complete/test_e2e_scp_complete.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "5f5bba97399e55832a92db6c7a5d42ee556acecc",
-      "path": "tests/test_429_fallback_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "d18f6da6be22eecd42b3d526e158a37a21542010",
-      "path": "tests/test_api_import_order_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "311108c6efc2ad0e27ff82b0c4e2905dd802ff71",
-      "path": "tests/test_api_route_profile.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "19d01cae9d198cf19319b2426af611525eb90d18",
-      "path": "tests/test_ask_kernel_adapter_verify.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "f9fc915108c6c3c04d8a5287ed14008269a4b564",
-      "path": "tests/test_ask_kernel_terminal_race.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "0c0e2d3c028e069e7f77b75a5f06a6a034d50b12",
-      "path": "tests/test_auth_request_injection.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "33ac12fee143ffee8769c89be322a6478374a48e",
-      "path": "tests/test_autofix_protected_path.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "a476913fe80f7509eb30e4d899ea060751f86738",
-      "path": "tests/test_capability_token_mutation_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "35ff5719337145a2ac175e577c4e0ec8bfb98ea7",
-      "path": "tests/test_chat_multimodal_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "c9d4678caf56ee4adfdb9dbd27718b21f1c21fcb",
-      "path": "tests/test_circuit_breaker_mutation_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "175ee7b27111d65e7846cdd805bd354706bec30c",
-      "path": "tests/test_dashboard_route_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "182b88617898f2658bb9319668dc4599951d4b7c",
-      "path": "tests/test_fallback_watcher_single_source.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "d453be54ddf1c8a452fe65033aea1112925be13f",
-      "path": "tests/test_gemini_indictment_hardening.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "6bb41b3b3218412679c5ce35037c979ef7341200",
-      "path": "tests/test_god_split_semantic_parity.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "2e13f2739ddaf97c703f887b9371e6dc62f91f69",
-      "path": "tests/test_kernel_chaos_recovery.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9908efa4168d80f91374c80ddb17016dc1351aa1",
-      "path": "tests/test_kernel_storage.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "9074a425cb273864d1736cb7ee95e7f34aa17244",
-      "path": "tests/test_llm_egress_policy.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "18ffb1af88b13927d2abecc24c2cfc62a2e3446f",
-      "path": "tests/test_llm_gateway_fallback_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "113796c4a5f68e8bb675ec4a9c57bd7169ecddf7",
-      "path": "tests/test_multi_llm_crosscheck.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "1dd873e051ca5f0fa86125ebba8aa4da34b3947c",
-      "path": "tests/test_multi_llm_crosscheck_concurrency.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "af49089deb63b122a9f1ff2bb77e780b125ad9aa",
-      "path": "tests/test_mutation_engine.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "6038be73f2ae3d0b91ca0ce90ca176a870d4200d",
-      "path": "tests/test_provider_failover.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "a32408afa62131df896db1304ab8362bced4d391",
-      "path": "tests/test_provider_fallback.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "01f2820606b8d9f700616bc0102b068ac167a084",
-      "path": "tests/test_provider_timeout_recovery.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "db5ca808934097031cf65968843a616104847562",
-      "path": "tests/test_release_authority_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "e6af5bfdb4cba26a7a2f715fb060d8e89c7e5d7e",
-      "path": "tests/test_scp_skill_dna_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "7102ea6dd4a855fb64c72459eb24d9dd058b5b49",
-      "path": "tests/test_scp_test_skill_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "4ec808dbafce063daa4cfa6a954d0aa0d70e0a24",
-      "path": "tests/test_soak_harness.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "65acd53af22af3f08e224445d1635b641e403d77",
-      "path": "tests/test_startup_launcher_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "e0b2708f83887e66a8d28d2f1147704c4385b1da",
-      "path": "tests/test_supervisor_child_env.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "b13c9d4aa0a4a80c77832a36390f4784d86dae27",
-      "path": "tests/test_task_kernel_mutation_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "94953b8d3659e35e322b8ab647f4b9b7071106a1",
-      "path": "tests/test_test_infrastructure_fail_closed.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "e98b0d28604099059ef29b9850ef138e85c06cf3",
-      "path": "tests/test_xff_guard_contract.py"
     },
     {
       "mode": "100644",

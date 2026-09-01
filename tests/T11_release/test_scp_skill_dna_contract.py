@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SKILLS_ROOT = ROOT / ".agents" / "skills"
 DNA_SKILL = SKILLS_ROOT / "scp-dna" / "SKILL.md"
 DNA_PRINCIPLES = SKILLS_ROOT / "scp-dna" / "references" / "dna-principles.md"

@@ -10,7 +10,7 @@ import pytest
 
 from scp.api.route_profile import resolve_api_profile, route_group_enabled
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_profile_defaults_and_invalid_value_fail_closed() -> None:

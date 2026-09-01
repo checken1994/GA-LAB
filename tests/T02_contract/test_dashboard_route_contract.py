@@ -2,7 +2,7 @@ from pathlib import Path
 import re
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 ROUTES = ROOT / "dashboard" / "src" / "app" / "api"
 ROUTE_LISTING = ROUTES / "scp" / "routes" / "route.ts"
 

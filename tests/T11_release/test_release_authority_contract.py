@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 RC = WORKFLOWS / "scp-rc-promotion.yml"
 PRE_RC = WORKFLOWS / "scp-release-gate.yml"

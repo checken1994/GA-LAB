@@ -32,7 +32,7 @@ time.sleep(120)  # parent sẽ kill -9 tại đây
 
 
 def test_hard_kill_then_boot_recovery_replays_journal(tmp_path):
-    root = str(Path(__file__).resolve().parents[1])
+    root = str(Path(__file__).resolve().parents[2])
     db = str(tmp_path / "chaos.sqlite3")
     proc = subprocess.Popen(
         [sys.executable, "-X", "utf8", "-c", CHILD_SCRIPT.format(root=root, db=db)],
