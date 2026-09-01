@@ -105,6 +105,25 @@ evaluate_attacks_v2 = _p_eval_attacks.evaluate_attacks_v2
 compute_all_metrics_v2 = _p_all_metrics.compute_all_metrics_v2
 main = _p_main.main
 
+# These were all defined by this public module before the split. Retain that
+# stable identity even though their code objects now live in focused parts.
+for _public_callable in (
+    check_factual_correctness,
+    extract_claims_from_answer,
+    classify_claim,
+    compute_claim_hallucination,
+    compute_evidence_metrics,
+    compute_abstention_metrics,
+    compute_correction_metrics,
+    classify_attack_result,
+    compute_security_metrics,
+    evaluate_questions_v2,
+    evaluate_attacks_v2,
+    compute_all_metrics_v2,
+    main,
+):
+    _public_callable.__module__ = __name__
+
 _public_namespace = dict(globals())
 for _part in _PART_MODULES:
     _part.__dict__.update(_public_namespace)

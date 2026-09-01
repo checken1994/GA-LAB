@@ -37,8 +37,12 @@ def ensure_review_guide(pending_dir: str | Path) -> Path:
 
     target = directory / "README.md"
     temp = directory / ".README.md.tmp"
-    temp.write_text("\n".join(lines), encoding="utf-8")
-    with temp.open("rb") as handle:
+    # Durability must be cross-platform. On Windows, fsync() on a read-only
+    # descriptor can fail with EBADF; flush and fsync the writable descriptor
+    # before the atomic replace instead.
+    with temp.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write("\n".join(lines))
+        handle.flush()
         os.fsync(handle.fileno())
     os.replace(temp, target)
     return target

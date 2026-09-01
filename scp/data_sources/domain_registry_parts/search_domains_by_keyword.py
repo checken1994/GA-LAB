@@ -31,3 +31,8 @@ def search_domains_by_keyword(query: str) -> list[str]:
         if score > 0:
             scores[domain_id] = score
     return sorted(scores.keys(), key=lambda d: -scores[d])
+
+
+# This function was historically defined by the public registry module. Keep
+# that stable import identity even though its implementation now lives here.
+search_domains_by_keyword.__module__ = "scp.data_sources.domain_registry"

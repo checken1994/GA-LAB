@@ -13,6 +13,7 @@ import os
 import sqlite3
 import threading
 import time
+import types
 from datetime import datetime
 from typing import Optional
 
@@ -88,23 +89,35 @@ _PARTS = (
     _p_migrate_reverify,
 )
 
+
 def _wire_parts() -> None:
     shared = dict(globals())
     for part in _PARTS:
         part.__dict__.update(shared)
 
+
+def _rebind_part_function(fn):
+    """Execute extracted DB code against this module's one authoritative state."""
+    rebound = types.FunctionType(fn.__code__, globals(), fn.__name__, fn.__defaults__, fn.__closure__)
+    rebound.__kwdefaults__ = fn.__kwdefaults__
+    rebound.__annotations__ = dict(getattr(fn, "__annotations__", {}))
+    rebound.__doc__ = fn.__doc__
+    rebound.__module__ = __name__
+    return rebound
+
+
 _wire_parts()
 
-_get_path_conn = _p_get_path_conn._get_path_conn
-get_db = _p_get_db.get_db
-_preflight_integrity_check = _p_preflight._preflight_integrity_check
-db_exec = _p_db_exec.db_exec
-db_batch_flush = _p_batch_flush.db_batch_flush
-init_db = _p_init_db.init_db
-_init_all_module_tables = _p_init_tables._init_all_module_tables
-_migrate_verdict_cache_schema = _p_migrate_vc._migrate_verdict_cache_schema
-_migrate_knowledge_schema = _p_migrate_knowledge._migrate_knowledge_schema
-_migrate_reverify_schema = _p_migrate_reverify._migrate_reverify_schema
+_get_path_conn = _rebind_part_function(_p_get_path_conn._get_path_conn)
+get_db = _rebind_part_function(_p_get_db.get_db)
+_preflight_integrity_check = _rebind_part_function(_p_preflight._preflight_integrity_check)
+db_exec = _rebind_part_function(_p_db_exec.db_exec)
+db_batch_flush = _rebind_part_function(_p_batch_flush.db_batch_flush)
+init_db = _rebind_part_function(_p_init_db.init_db)
+_init_all_module_tables = _rebind_part_function(_p_init_tables._init_all_module_tables)
+_migrate_verdict_cache_schema = _rebind_part_function(_p_migrate_vc._migrate_verdict_cache_schema)
+_migrate_knowledge_schema = _rebind_part_function(_p_migrate_knowledge._migrate_knowledge_schema)
+_migrate_reverify_schema = _rebind_part_function(_p_migrate_reverify._migrate_reverify_schema)
 
 # Sibling functions are part of the historical module-global namespace used by
 # extracted implementations, so re-wire once all bindings exist.

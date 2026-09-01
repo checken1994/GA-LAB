@@ -126,6 +126,12 @@ _extract_search_replace_block = _p_extract._extract_search_replace_block
 generate_fix_for_bug = _p_generate.generate_fix_for_bug
 process_bug_with_llm = _p_process.process_bug_with_llm
 _generate_deterministic_fix = _p_deterministic._generate_deterministic_fix
+
+# Keep the pre-split public import identity.  The implementation file is an
+# internal detail and must not leak into introspection or pickle references.
+for _public_callable in (generate_fix_for_bug, process_bug_with_llm):
+    _public_callable.__module__ = __name__
+
 _wire_parts()
 
 

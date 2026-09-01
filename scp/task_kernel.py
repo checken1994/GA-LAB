@@ -146,6 +146,10 @@ def as_json(value: Any) -> str:
 from .task_kernel_parts import taskkernel as _taskkernel_part
 _taskkernel_part.__dict__.update(globals())
 TaskKernel = _taskkernel_part.TaskKernel
+# The implementation may live in a part module, but the public class lived at
+# ``scp.task_kernel.TaskKernel`` before the split. Preserve that identity for
+# introspection and pickle/import compatibility.
+TaskKernel.__module__ = __name__
 
 __all__ = [
     "TaskKernel", "Lease", "RecoveryDecision", "KernelError",

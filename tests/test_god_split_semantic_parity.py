@@ -58,6 +58,25 @@ def test_db_manager_parts_share_runtime_state(tmp_path: Path) -> None:
     assert row == {"x": 1}
 
 
+def test_db_manager_extracted_functions_bind_to_authoritative_globals() -> None:
+    """DB split functions must mutate one facade-owned process state."""
+    import scp.core.db_manager as db_manager
+
+    for fn in (
+        db_manager._get_path_conn,
+        db_manager.get_db,
+        db_manager._preflight_integrity_check,
+        db_manager.db_exec,
+        db_manager.db_batch_flush,
+        db_manager.init_db,
+        db_manager._init_all_module_tables,
+        db_manager._migrate_verdict_cache_schema,
+        db_manager._migrate_knowledge_schema,
+        db_manager._migrate_reverify_schema,
+    ):
+        assert fn.__globals__ is db_manager.__dict__
+
+
 def test_fast_learning_engine_keeps_constants_and_schema(tmp_path: Path) -> None:
     from scp.core.fast_learning_engine import FastLearningEngine, get_country_domain_matrix
 
@@ -69,6 +88,13 @@ def test_fast_learning_engine_keeps_constants_and_schema(tmp_path: Path) -> None
     matrix = get_country_domain_matrix()
     assert "Việt Nam" in matrix
     assert "geography" in matrix["Việt Nam"]
+
+
+def test_fast_learning_thread_guard_is_facade_owned() -> None:
+    """The idempotent thread singleton must not fork into a part-module scalar."""
+    import scp.core.fast_learning_engine as fast_learning
+
+    assert fast_learning.start_fast_learning_thread.__globals__ is fast_learning.__dict__
 
 
 def test_antibody_split_preserves_behavior() -> None:
@@ -117,6 +143,15 @@ def test_cross_func_scanner_extracted_function_keeps_callgraph_helpers(tmp_path:
     assert isinstance(result, list)
 
 
+def test_cross_func_scanner_cache_is_facade_owned() -> None:
+    """The expensive call-graph cache must be a single composition-root scalar."""
+    import scp.autofix.scanners.cross_func_taint_scanner as scanner
+
+    assert scanner._get_scp_call_graph.__globals__ is scanner.__dict__
+    assert scanner.scan_file.__globals__ is scanner.__dict__
+    assert scanner.scan_scp.__globals__ is scanner.__dict__
+
+
 def test_task_kernel_split_preserves_create_contract(tmp_path: Path) -> None:
     from scp.task_kernel import TaskKernel
 
@@ -140,6 +175,80 @@ def test_api_server_keeps_public_service_identity() -> None:
     from scp.api_server import app
 
     assert getattr(app, "title", "")
+
+
+def test_api_server_extracted_functions_bind_to_authoritative_globals() -> None:
+    """Extracted API functions must execute against the composition root state."""
+    import scp.api_server as api_server
+
+    assert api_server._ask_impl.__globals__ is api_server.__dict__
+    assert api_server._async_fact_check.__globals__ is api_server.__dict__
+
+    lifespan_raw = getattr(api_server.lifespan, "__wrapped__", None)
+    assert callable(lifespan_raw)
+    assert lifespan_raw.__globals__ is api_server.__dict__
+
+
+def test_api_server_keeps_detailed_health_contract() -> None:
+    """The GOD split may not orphan or duplicate the detailed health endpoint."""
+    import scp.api_server as api_server
+
+    matches = [
+        route
+        for route in api_server.app.routes
+        if getattr(route, "path", None) == "/health/detailed"
+    ]
+    assert len(matches) == 1
+
+    route = matches[0]
+    assert "GET" in (getattr(route, "methods", set()) or set())
+    assert getattr(route, "endpoint", None) is api_server.health_detailed
+    assert route.endpoint.__globals__ is api_server.__dict__
+
+
+def test_split_facades_keep_public_module_identity() -> None:
+    """Facade classes must retain the import identity they had before splitting."""
+    from scp.autofix.engine import AutoFixEngine
+    from scp.core.fast_learning_engine import FastLearningEngine
+    from scp.knowledge.antibody_system import DomainAntibodySystem
+    from scp.meta.why_engine import WhyEngine
+    from scp.task_kernel import TaskKernel
+
+    for exported_type, expected_module in (
+        (AutoFixEngine, "scp.autofix.engine"),
+        (FastLearningEngine, "scp.core.fast_learning_engine"),
+        (DomainAntibodySystem, "scp.knowledge.antibody_system"),
+        (WhyEngine, "scp.meta.why_engine"),
+        (TaskKernel, "scp.task_kernel"),
+    ):
+        assert exported_type.__module__ == expected_module
+
+
+def test_split_facades_keep_public_callable_identity() -> None:
+    """Extracted public functions must not expose implementation-only part modules."""
+    from scp.autofix.llm_fix import generate_fix_for_bug, process_bug_with_llm
+    from scp.autofix.scanners.cross_func_taint_scanner import scan_file, scan_scp
+    from scp.benchmark.run_benchmark_v2 import check_factual_correctness, evaluate_questions_v2
+    from scp.core.db_manager import db_exec, get_db, init_db
+    from scp.core.fast_learning_engine import start_fast_learning_thread
+    from scp.data_sources.domain_registry import search_domains_by_keyword
+    from scp.meta.why_engine import init_why_db
+
+    for exported_callable, expected_module in (
+        (generate_fix_for_bug, "scp.autofix.llm_fix"),
+        (process_bug_with_llm, "scp.autofix.llm_fix"),
+        (scan_file, "scp.autofix.scanners.cross_func_taint_scanner"),
+        (scan_scp, "scp.autofix.scanners.cross_func_taint_scanner"),
+        (check_factual_correctness, "scp.benchmark.run_benchmark_v2"),
+        (evaluate_questions_v2, "scp.benchmark.run_benchmark_v2"),
+        (get_db, "scp.core.db_manager"),
+        (db_exec, "scp.core.db_manager"),
+        (init_db, "scp.core.db_manager"),
+        (start_fast_learning_thread, "scp.core.fast_learning_engine"),
+        (search_domains_by_keyword, "scp.data_sources.domain_registry"),
+        (init_why_db, "scp.meta.why_engine"),
+    ):
+        assert exported_callable.__module__ == expected_module
 
 
 def test_judge_core_preserves_public_judge_contract() -> None:

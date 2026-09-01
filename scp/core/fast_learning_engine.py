@@ -10,6 +10,7 @@ import re
 import sqlite3
 import threading
 import time
+import types
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -90,9 +91,23 @@ def _wire_parts() -> None:
         part.__dict__.update(shared)
 
 
+def _rebind_part_function(fn):
+    """Bind extracted thread orchestration to this module's singleton state."""
+    rebound = types.FunctionType(fn.__code__, globals(), fn.__name__, fn.__defaults__, fn.__closure__)
+    rebound.__kwdefaults__ = fn.__kwdefaults__
+    rebound.__annotations__ = dict(getattr(fn, "__annotations__", {}))
+    rebound.__doc__ = fn.__doc__
+    rebound.__module__ = __name__
+    return rebound
+
+
 _wire_parts()
 FastLearningEngine = _p_engine.FastLearningEngine
-start_fast_learning_thread = _p_thread.start_fast_learning_thread
+start_fast_learning_thread = _rebind_part_function(_p_thread.start_fast_learning_thread)
+# Preserve the historical facade identity. Before the split these public
+# objects were defined in this module; callers that introspect or pickle them
+# must not observe an implementation-only ``*_parts`` module after refactoring.
+FastLearningEngine.__module__ = __name__
 _wire_parts()
 
 
