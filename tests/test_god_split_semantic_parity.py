@@ -142,6 +142,35 @@ def test_api_server_keeps_public_service_identity() -> None:
     assert getattr(app, "title", "")
 
 
+def test_api_server_extracted_functions_bind_to_authoritative_globals() -> None:
+    """Extracted API functions must execute against the composition root state."""
+    import scp.api_server as api_server
+
+    assert api_server._ask_impl.__globals__ is api_server.__dict__
+    assert api_server._async_fact_check.__globals__ is api_server.__dict__
+
+    lifespan_raw = getattr(api_server.lifespan, "__wrapped__", None)
+    assert callable(lifespan_raw)
+    assert lifespan_raw.__globals__ is api_server.__dict__
+
+
+def test_api_server_keeps_detailed_health_contract() -> None:
+    """The GOD split may not orphan or duplicate the detailed health endpoint."""
+    import scp.api_server as api_server
+
+    matches = [
+        route
+        for route in api_server.app.routes
+        if getattr(route, "path", None) == "/health/detailed"
+    ]
+    assert len(matches) == 1
+
+    route = matches[0]
+    assert "GET" in (getattr(route, "methods", set()) or set())
+    assert getattr(route, "endpoint", None) is api_server.health_detailed
+    assert route.endpoint.__globals__ is api_server.__dict__
+
+
 def test_judge_core_preserves_public_judge_contract() -> None:
     from scp.runtime.judge_parts.judgecore_mixin import JudgeCoreMixin
 
