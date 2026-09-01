@@ -6,16 +6,717 @@ critical invariants when exercised through real process, HTTP, persistence and
 failure boundaries?
 
 It deliberately does not assert implementation details such as concrete model
-names or private helper calls. Unit/component tests remain diagnostic tools;
+names or private helper calls.  Unit/component tests remain diagnostic tools;
 this runner emits the release-level behavioral evidence.
 """
 from __future__ import annotations
 
-# This file is imported from the hardened acceptance implementation carried by
-# the fail-closed release work. Keeping the implementation in a dedicated
-# module prevents the release workflow from silently falling back to a unit-test
-# count when system acceptance is missing.
-from scripts._scp_acceptance_impl import *  # noqa: F401,F403
+import argparse
+import hashlib
+import json
+import os
+import platform
+import socket
+import sqlite3
+import subprocess
+import sys
+import threading
+import time
+import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, Callable
+
+import requests
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT = ROOT / "reports" / "scp_acceptance_ci"
+
+
+class AcceptanceFailure(AssertionError):
+    pass
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise AcceptanceFailure(message)
+
+
+def port_open(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.25)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
+def wait_port_free(port: int, timeout: float = 15.0) -> bool:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not port_open(port):
+            return True
+        time.sleep(0.1)
+    return not port_open(port)
+
+
+def stable_task_id(idempotency_key: str) -> str:
+    return "ask-" + hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:24]
+
+
+class ProviderController:
+    """Deterministic loopback provider used as an external test double."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.mode = "pass"
+        self.delay_seconds = 0.0
+        self.calls: list[dict[str, Any]] = []
+
+    def configure(self, mode: str, delay_seconds: float = 0.0) -> None:
+        with self._lock:
+            self.mode = mode
+            self.delay_seconds = delay_seconds
+            self.calls.clear()
+
+    def snapshot(self) -> tuple[str, float]:
+        with self._lock:
+            return self.mode, self.delay_seconds
+
+    def record(self, model: str, prompt: str) -> None:
+        with self._lock:
+            self.calls.append({"model": model, "prompt": prompt[:600], "ts": time.time()})
+
+    def call_summary(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return [dict(item) for item in self.calls]
+
+
+class ProviderFixture:
+    def __init__(self, port: int) -> None:
+        self.port = port
+        self.controller = ProviderController()
+        self.server: ThreadingHTTPServer | None = None
+        self.thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        if port_open(self.port):
+            raise RuntimeError(f"provider fixture port {self.port} already in use")
+        controller = self.controller
+
+        class Handler(BaseHTTPRequestHandler):
+            server_version = "SCPAcceptanceProvider/1"
+
+            def log_message(self, _format: str, *_args: object) -> None:
+                return
+
+            def _json(self, status: int, payload: dict[str, Any]) -> None:
+                raw = json.dumps(payload).encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def do_POST(self) -> None:  # noqa: N802 - stdlib handler contract
+                length = int(self.headers.get("Content-Length", "0") or "0")
+                raw = self.rfile.read(length) if length else b"{}"
+                try:
+                    payload = json.loads(raw.decode("utf-8"))
+                except Exception:
+                    payload = {}
+                model = str(payload.get("model", ""))
+                messages = payload.get("messages") or []
+                prompt = "\n".join(str(item.get("content", "")) for item in messages if isinstance(item, dict))
+                controller.record(model, prompt)
+                mode, delay = controller.snapshot()
+                if delay > 0:
+                    time.sleep(delay)
+                if mode == "fail_all":
+                    self._json(503, {"error": {"message": "acceptance provider unavailable"}})
+                    return
+                if mode == "fail_primary" and "primary" in model:
+                    self._json(503, {"error": {"message": "controlled primary failure"}})
+                    return
+                content = "PASS"
+                if mode == "semantic" and "100 degrees Celsius" in prompt and "zero degrees Celsius" in prompt:
+                    content = "FAIL"
+                self._json(
+                    200,
+                    {
+                        "id": "acceptance-completion",
+                        "object": "chat.completion",
+                        "choices": [
+                            {
+                                "index": 0,
+                                "message": {"role": "assistant", "content": content},
+                                "finish_reason": "stop",
+                            }
+                        ],
+                    },
+                )
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", self.port), Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True, name="scp-acceptance-provider")
+        self.thread.start()
+
+    def stop(self) -> None:
+        if self.server is not None:
+            self.server.shutdown()
+            self.server.server_close()
+        if self.thread is not None:
+            self.thread.join(timeout=5)
+        self.server = None
+        self.thread = None
+
+
+class RuntimeHarness:
+    def __init__(self, output_dir: Path, port: int, provider_port: int) -> None:
+        self.output_dir = output_dir
+        self.port = port
+        self.provider_port = provider_port
+        self.base = f"http://127.0.0.1:{port}"
+        self.process: subprocess.Popen[str] | None = None
+        self.generation = 0
+        self.token: str | None = None
+        self.db_path = output_dir / "ask_task_kernel.sqlite3"
+        self.trace_path = output_dir / "ask_task_kernel_trace.jsonl"
+        self.env_path = output_dir / "empty.env"
+        self.env_path.write_text("", encoding="utf-8")
+
+    def environment(self) -> dict[str, str]:
+        env = os.environ.copy()
+        env.update(
+            {
+                "PYTHONPATH": str(ROOT),
+                "SCP_HOST": "127.0.0.1",
+                "SCP_PORT": str(self.port),
+                "PORT": str(self.port),
+                "SCP_MODE": "test",
+                "SCP_EGRESS_MODE": "deny",
+                "SCP_WEB_FALLBACK": "0",
+                "SCP_ASK_KERNEL_ENABLED": "1",
+                "SCP_KERNEL_DB_PATH": str(self.db_path),
+                "SCP_KERNEL_TRACE_PATH": str(self.trace_path),
+                "SCP_DATA_DIR": str(self.output_dir),
+                "SCP_REQUEST_RUN_LEDGER_PATH": str(self.output_dir / "request_runs.jsonl"),
+                "SCP_HANDS_LOCAL_ONLY": "1",
+                "SCP_ENV_FILE": str(self.env_path),
+                "SCP_PC_CONTROLLER_TOKEN": "acceptance-pc-token",
+                "SCP_JWT_SECRET": "acceptance-jwt-secret-not-for-production",
+                "SCP_ADMIN_KEY": "acceptance-admin-key",
+                "OPENROUTER_API_KEY": "acceptance-loopback-key",
+                "OPENROUTER_BASE_URL": f"http://127.0.0.1:{self.provider_port}/v1",
+                "OPENROUTER_MODEL": "acceptance-chat-primary",
+                "OPENROUTER_MODEL_CHAT": "acceptance-chat-fallback",
+                "OPENROUTER_MODEL_JUDGE_PRIMARY": "acceptance-judge-primary",
+                "OPENROUTER_MODEL_JUDGE": "acceptance-judge-fallback",
+                "OPENROUTER_MODEL_AUTOFIX": "acceptance-autofix-fallback",
+                "SCP_LLM_BREAKER_THRESHOLD": "3",
+                "SCP_LLM_BREAKER_COOLDOWN_SEC": "1",
+            }
+        )
+        for key in ("OPENROUTER_API_KEY_2", "OPENROUTER_API_KEY_3", "GROQ_API_KEY"):
+            env.pop(key, None)
+        return env
+
+    def start(self, timeout: float = 90.0) -> None:
+        if self.process is not None:
+            raise RuntimeError("SCP runtime already started")
+        if port_open(self.port):
+            raise RuntimeError(f"SCP acceptance port {self.port} already in use")
+        self.generation += 1
+        log_path = self.output_dir / f"scp-server-{self.generation}.log"
+        log_handle = log_path.open("w", encoding="utf-8")
+        self.process = subprocess.Popen(
+            [sys.executable, "-m", "scp", str(self.port)],
+            cwd=ROOT,
+            env=self.environment(),
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        setattr(self.process, "_acceptance_log_handle", log_handle)
+        deadline = time.time() + timeout
+        last_error = "not reachable"
+        while time.time() < deadline:
+            if self.process.poll() is not None:
+                break
+            try:
+                response = requests.get(f"{self.base}/health", timeout=2)
+                if response.status_code == 200:
+                    self.login()
+                    return
+                last_error = f"health={response.status_code}"
+            except requests.RequestException as exc:
+                last_error = type(exc).__name__
+            time.sleep(0.4)
+        code = self.process.poll()
+        self.stop(force=True)
+        raise RuntimeError(f"SCP failed to become live: process={code}, last={last_error}, log={log_path}")
+
+    def stop(self, force: bool = False) -> None:
+        process = self.process
+        self.process = None
+        self.token = None
+        if process is None:
+            return
+        try:
+            if process.poll() is None:
+                if force:
+                    process.kill()
+                else:
+                    process.terminate()
+                try:
+                    process.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+        finally:
+            log_handle = getattr(process, "_acceptance_log_handle", None)
+            if log_handle is not None:
+                log_handle.close()
+        if not wait_port_free(self.port):
+            raise RuntimeError(f"SCP port {self.port} remained open after stop")
+
+    def login(self) -> None:
+        response = requests.post(
+            f"{self.base}/auth/token",
+            json={"admin_key": "acceptance-admin-key"},
+            timeout=10,
+        )
+        response.raise_for_status()
+        token = response.json().get("access_token")
+        if not token:
+            raise RuntimeError("auth/token returned no access_token")
+        self.token = str(token)
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        payload: dict[str, Any] | None = None,
+        auth: bool = True,
+        pc_token: bool = False,
+        idempotency_key: str | None = None,
+        timeout: float = 45.0,
+    ) -> dict[str, Any]:
+        headers: dict[str, str] = {}
+        if auth:
+            if not self.token:
+                raise RuntimeError("runtime auth token unavailable")
+            headers["Authorization"] = f"Bearer {self.token}"
+        if pc_token:
+            headers["X-SCP-PC-Token"] = "acceptance-pc-token"
+        if idempotency_key:
+            headers["X-SCP-Idempotency-Key"] = idempotency_key
+        response = requests.request(
+            method,
+            f"{self.base}{path}",
+            json=payload,
+            headers=headers,
+            timeout=timeout,
+        )
+        try:
+            body: Any = response.json()
+        except ValueError:
+            body = None
+        return {"status": response.status_code, "body": body, "text": response.text[:1200]}
+
+
+class AcceptanceSuite:
+    def __init__(self, output_dir: Path, port: int, provider_port: int, concurrency: int) -> None:
+        self.output_dir = output_dir
+        self.port = port
+        self.provider_port = provider_port
+        self.concurrency = concurrency
+        self.provider = ProviderFixture(provider_port)
+        self.runtime = RuntimeHarness(output_dir, port, provider_port)
+        self.scenarios: list[dict[str, Any]] = []
+        self.report_path = output_dir / "acceptance.json"
+
+    def _write_report(self, final: bool = False) -> None:
+        passed = sum(1 for scenario in self.scenarios if scenario["passed"])
+        report = {
+            "schema_version": "scp-acceptance-v1",
+            "commit": self._commit(),
+            "platform": platform.platform(),
+            "python": sys.version.split()[0],
+            "runtime_port": self.port,
+            "provider_fixture_port": self.provider_port,
+            "total": len(self.scenarios),
+            "passed": passed,
+            "failed": len(self.scenarios) - passed,
+            "overall_pass": bool(self.scenarios) and passed == len(self.scenarios),
+            "final": final,
+            "scenarios": self.scenarios,
+        }
+        self.report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    @staticmethod
+    def _commit() -> str:
+        try:
+            return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        except Exception:
+            return "unknown"
+
+    def scenario(self, scenario_id: str, title: str, fn: Callable[[], dict[str, Any] | None]) -> None:
+        start = time.perf_counter()
+        record: dict[str, Any] = {"id": scenario_id, "title": title, "critical": True, "passed": False}
+        try:
+            evidence = fn() or {}
+            record["passed"] = True
+            record["evidence"] = evidence
+        except Exception as exc:
+            record["error"] = {
+                "type": type(exc).__name__,
+                "message": str(exc),
+                "traceback": traceback.format_exc(limit=8),
+            }
+        record["duration_ms"] = round((time.perf_counter() - start) * 1000, 1)
+        self.scenarios.append(record)
+        self._write_report(final=False)
+        status = "PASS" if record["passed"] else "FAIL"
+        print(f"[{status}] {scenario_id} {title}", flush=True)
+
+    def _task(self, idempotency_key: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        from scp.task_kernel import TaskKernel
+
+        kernel = TaskKernel(self.runtime.db_path)
+        try:
+            task_id = stable_task_id(idempotency_key)
+            task = kernel.get_task(task_id)
+            journal = kernel.verify_journal(task_id)
+            return task, journal
+        finally:
+            kernel.close()
+
+    def _wait_task(self, idempotency_key: str, states: set[str], timeout: float = 15.0) -> dict[str, Any]:
+        from scp.task_kernel import TaskKernel
+
+        task_id = stable_task_id(idempotency_key)
+        deadline = time.time() + timeout
+        last: dict[str, Any] | None = None
+        while time.time() < deadline:
+            kernel = TaskKernel(self.runtime.db_path)
+            try:
+                try:
+                    last = kernel.get_task(task_id)
+                except Exception:
+                    last = None
+            finally:
+                kernel.close()
+            if last and last.get("state") in states:
+                return last
+            time.sleep(0.05)
+        raise AcceptanceFailure(f"task {task_id} did not enter {sorted(states)}; last={last}")
+
+    @staticmethod
+    def verified_payload(session: str) -> dict[str, Any]:
+        context = "Water freezes at zero degrees Celsius at standard atmospheric pressure."
+        return {
+            "question": "At standard atmospheric pressure, at what temperature does water freeze?",
+            "domain": "general",
+            "rag_enabled": True,
+            "contexts": [context],
+            "retrieved_context": context,
+            "ai_answer": context,
+            "ground_truth": context,
+            "session_id": session,
+        }
+
+    def run(self) -> bool:
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        for path in self.output_dir.iterdir():
+            if path.is_file():
+                path.unlink()
+        self.runtime.env_path.write_text("", encoding="utf-8")
+        self.provider.start()
+        try:
+            self.runtime.start()
+
+            def a01() -> dict[str, Any]:
+                health = self.runtime.request("GET", "/health", auth=False)
+                require(health["status"] == 200, f"health status={health['status']}")
+                body = health["body"] or {}
+                require(body.get("status") == "ok", f"health body={body}")
+                identity = body.get("service_identity") or {}
+                require(identity.get("configured_port") == self.port, f"wrong service identity: {identity}")
+                deadline = time.time() + 60
+                ready: dict[str, Any] | None = None
+                while time.time() < deadline:
+                    ready = self.runtime.request("GET", "/ready", auth=False)
+                    if ready["status"] == 200:
+                        break
+                    time.sleep(0.5)
+                require(ready is not None and ready["status"] == 200, f"readiness never reached 200: {ready}")
+                return {"health": body, "ready": ready["body"]}
+
+            self.scenario("SCP-A01", "boot, liveness and readiness", a01)
+
+            def a02() -> dict[str, Any]:
+                unauthorized_ask = self.runtime.request(
+                    "POST", "/ask", payload=self.verified_payload("a02-no-auth"), auth=False
+                )
+                require(unauthorized_ask["status"] in {401, 403}, f"unauthorized /ask accepted: {unauthorized_ask}")
+                hands_denied = self.runtime.request("GET", "/v3/hands/status", auth=False)
+                require(hands_denied["status"] == 403, f"Hands without capability token was not denied: {hands_denied}")
+                hands_allowed = self.runtime.request("GET", "/v3/hands/status", auth=False, pc_token=True)
+                require(hands_allowed["status"] == 200, f"Hands with controller token failed: {hands_allowed}")
+                return {
+                    "ask_without_auth": unauthorized_ask["status"],
+                    "hands_without_token": hands_denied["status"],
+                    "hands_with_token": hands_allowed["status"],
+                }
+
+            self.scenario("SCP-A02", "authentication and capability boundary fail closed", a02)
+
+            def a03() -> dict[str, Any]:
+                self.provider.controller.configure("pass")
+                key = "scp-a03-verified-rag"
+                response = self.runtime.request(
+                    "POST",
+                    "/ask",
+                    payload=self.verified_payload("a03"),
+                    idempotency_key=key,
+                )
+                require(response["status"] == 200, f"verified ask HTTP failure: {response}")
+                body = response["body"] or {}
+                require(body.get("verdict") == "PASS", f"verified evidence did not PASS: {body}")
+                require(not str(body.get("final_answer", "")).startswith("[SCP:"), f"verified answer was withheld: {body}")
+                task, journal = self._task(key)
+                require(task.get("state") == "COMPLETED", f"verified task not completed: {task}")
+                require(journal.get("hash_chain_valid") is True, f"journal invalid: {journal}")
+                return {"response": body, "task": task, "journal": journal}
+
+            self.scenario("SCP-A03", "verified evidence completes durably", a03)
+
+            def a04() -> dict[str, Any]:
+                self.provider.controller.configure("semantic")
+                key = "scp-a04-contradiction"
+                context = "Water freezes at zero degrees Celsius at standard atmospheric pressure."
+                payload = {
+                    "question": "At standard atmospheric pressure, at what temperature does water freeze?",
+                    "rag_enabled": True,
+                    "contexts": [context],
+                    "retrieved_context": context,
+                    "ai_answer": "Water freezes at 100 degrees Celsius at standard atmospheric pressure.",
+                    "session_id": "a04",
+                }
+                response = self.runtime.request("POST", "/ask", payload=payload, idempotency_key=key)
+                require(response["status"] == 200, f"contradiction ask HTTP failure: {response}")
+                body = response["body"] or {}
+                require(body.get("verdict") != "PASS", f"contradiction escaped as PASS: {body}")
+                require(str(body.get("final_answer", "")).startswith("[SCP:"), f"contradicted answer was exposed: {body}")
+                task, journal = self._task(key)
+                require(task.get("state") != "COMPLETED", f"contradicted task completed: {task}")
+                require(journal.get("hash_chain_valid") is True, f"journal invalid: {journal}")
+                return {"response": body, "task": task}
+
+            self.scenario("SCP-A04", "contradicted evidence cannot complete", a04)
+
+            def a05() -> dict[str, Any]:
+                self.provider.controller.configure("fail_primary")
+                key = "scp-a05-provider-failover"
+                response = self.runtime.request(
+                    "POST", "/ask", payload=self.verified_payload("a05"), idempotency_key=key, timeout=60
+                )
+                body = response["body"] or {}
+                require(response["status"] == 200, f"provider failover HTTP failure: {response}")
+                require(body.get("verdict") == "PASS", f"fallback did not preserve verified behavior: {body}")
+                task, _journal = self._task(key)
+                require(task.get("state") == "COMPLETED", f"failover task not completed: {task}")
+                calls = self.provider.controller.call_summary()
+                require(any("primary" in str(call.get("model")) for call in calls), f"no primary attempt recorded: {calls}")
+                require(any("fallback" in str(call.get("model")) or call.get("model") == "openrouter/free" for call in calls), f"no fallback attempt recorded: {calls}")
+                return {"task": task, "provider_calls": calls}
+
+            self.scenario("SCP-A05", "provider failure preserves behavior through fallback", a05)
+
+            def a06() -> dict[str, Any]:
+                self.provider.controller.configure("fail_all")
+                key = "scp-a06-provider-outage"
+                payload = self.verified_payload("a06")
+                payload["ai_answer"] = ""
+                response = self.runtime.request("POST", "/ask", payload=payload, idempotency_key=key, timeout=90)
+                require(response["status"] == 200, f"provider outage HTTP failure: {response}")
+                body = response["body"] or {}
+                require(body.get("verdict") != "PASS", f"provider outage fabricated PASS: {body}")
+                require(str(body.get("final_answer", "")).startswith("[SCP:"), f"provider outage exposed unverified answer: {body}")
+                task, _journal = self._task(key)
+                require(task.get("state") != "COMPLETED", f"provider outage completed task: {task}")
+                return {"response": body, "task": task, "provider_calls": self.provider.controller.call_summary()}
+
+            self.scenario("SCP-A06", "total provider outage fails closed", a06)
+
+            def a07() -> dict[str, Any]:
+                self.provider.controller.configure("pass")
+                key = "scp-a07-ssrf"
+                payload = self.verified_payload("a07")
+                payload["image_url"] = f"http://127.0.0.1:{self.provider_port}/private"
+                response = self.runtime.request("POST", "/ask", payload=payload, idempotency_key=key)
+                require(response["status"] == 400, f"loopback SSRF was not rejected: {response}")
+                task, journal = self._task(key)
+                require(task.get("state") == "FAILED", f"rejected request left unsafe task state: {task}")
+                require(journal.get("hash_chain_valid") is True, f"journal invalid: {journal}")
+                return {"http_status": response["status"], "task": task}
+
+            self.scenario("SCP-A07", "SSRF rejection is coupled to safe task termination", a07)
+
+            def a08() -> dict[str, Any]:
+                self.provider.controller.configure("pass", delay_seconds=0.4)
+                key = "scp-a08-idempotency"
+                payload = self.verified_payload("a08")
+                barrier = threading.Barrier(2)
+
+                def send() -> dict[str, Any]:
+                    barrier.wait(timeout=5)
+                    return self.runtime.request("POST", "/ask", payload=payload, idempotency_key=key, timeout=90)
+
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    responses = list(pool.map(lambda _i: send(), range(2)))
+                verdicts = [(response["body"] or {}).get("verdict") for response in responses]
+                require(verdicts.count("PASS") == 1, f"idempotent race did not produce exactly one accepted execution: {responses}")
+                require(verdicts.count("FAIL") == 1, f"duplicate was not rejected safely: {responses}")
+                task, journal = self._task(key)
+                require(task.get("state") == "COMPLETED", f"winner task not completed: {task}")
+                require(journal.get("hash_chain_valid") is True, f"journal invalid: {journal}")
+                return {"verdicts": verdicts, "task": task}
+
+            self.scenario("SCP-A08", "concurrent duplicate request executes once", a08)
+
+            def a09() -> dict[str, Any]:
+                self.provider.controller.configure("pass", delay_seconds=3.0)
+                key = "scp-a09-hard-crash"
+                payload = self.verified_payload("a09")
+                outcome: dict[str, Any] = {}
+
+                def request_worker() -> None:
+                    try:
+                        outcome["response"] = self.runtime.request(
+                            "POST", "/ask", payload=payload, idempotency_key=key, timeout=30
+                        )
+                    except Exception as exc:
+                        outcome["transport_error"] = type(exc).__name__
+
+                worker = threading.Thread(target=request_worker, daemon=True)
+                worker.start()
+                before = self._wait_task(key, {"RUNNING", "VERIFYING"}, timeout=12)
+                self.runtime.stop(force=True)
+                worker.join(timeout=10)
+                self.provider.controller.configure("pass")
+                self.runtime.start()
+                recovered = self._wait_task(key, {"HUMAN_REVIEW"}, timeout=15)
+                task, journal = self._task(key)
+                require(task.get("state") == "HUMAN_REVIEW", f"hard-crash task not recovered safely: {task}")
+                require(journal.get("hash_chain_valid") is True, f"recovered journal invalid: {journal}")
+                return {"before_kill": before, "after_restart": recovered, "transport": outcome, "journal": journal}
+
+            self.scenario("SCP-A09", "hard crash and restart cannot silently complete uncertain work", a09)
+
+            def a10() -> dict[str, Any]:
+                from scp.task_kernel import TaskKernel
+
+                db_path = self.output_dir / "tamper.sqlite3"
+                kernel = TaskKernel(db_path)
+                try:
+                    kernel.create_task("acceptance-tamper", "acceptance", "tamper detection", "R0")
+                    kernel.transition("acceptance-tamper", "PLANNING", actor="acceptance", reason="plan")
+                    kernel.conn.execute(
+                        "UPDATE events SET reason='tampered-after-write' WHERE task_id='acceptance-tamper' AND seq=1"
+                    )
+                    report = kernel.recover_on_boot()
+                    task = kernel.get_task("acceptance-tamper")
+                    require(any(item.get("task_id") == "acceptance-tamper" for item in report.get("corrupted", [])), f"tamper not detected: {report}")
+                    require(task.get("state") == "PLANNING", f"corrupted evidence was auto-mutated: {task}")
+                    return {"recovery": report, "task": task}
+                finally:
+                    kernel.close()
+
+            self.scenario("SCP-A10", "tampered journal blocks automatic recovery", a10)
+
+            def a11() -> dict[str, Any]:
+                self.provider.controller.configure("pass")
+                count = max(2, self.concurrency)
+
+                def send(index: int) -> tuple[int, dict[str, Any]]:
+                    key = f"scp-a11-concurrent-{index}"
+                    response = self.runtime.request(
+                        "POST",
+                        "/ask",
+                        payload=self.verified_payload(f"a11-{index}"),
+                        idempotency_key=key,
+                        timeout=90,
+                    )
+                    return index, response
+
+                results: list[tuple[int, dict[str, Any]]] = []
+                with ThreadPoolExecutor(max_workers=count) as pool:
+                    futures = [pool.submit(send, index) for index in range(count)]
+                    for future in as_completed(futures):
+                        results.append(future.result())
+                failures = [
+                    {"index": index, "response": response}
+                    for index, response in results
+                    if response["status"] != 200 or (response["body"] or {}).get("verdict") != "PASS"
+                ]
+                require(not failures, f"concurrent verified asks failed: {failures}")
+                invalid_journals = []
+                for index in range(count):
+                    task, journal = self._task(f"scp-a11-concurrent-{index}")
+                    if task.get("state") != "COMPLETED" or journal.get("hash_chain_valid") is not True:
+                        invalid_journals.append({"index": index, "task": task, "journal": journal})
+                require(not invalid_journals, f"concurrency damaged durable state: {invalid_journals}")
+                return {"requests": count, "all_completed": True}
+
+            self.scenario("SCP-A11", "parallel verified requests preserve durable consistency", a11)
+
+            def a12() -> dict[str, Any]:
+                from scp.task_kernel import TaskKernel
+
+                kernel = TaskKernel(self.runtime.db_path)
+                try:
+                    integrity = kernel.verify_integrity()
+                    require(integrity.get("quick_check") == "ok", f"SQLite quick_check failed: {integrity}")
+                    rows = kernel.conn.execute("SELECT task_id, state FROM tasks ORDER BY created_at").fetchall()
+                    invalid = []
+                    for row in rows:
+                        verification = kernel.verify_journal(row["task_id"])
+                        if verification.get("hash_chain_valid") is not True:
+                            invalid.append({"task_id": row["task_id"], "state": row["state"], "journal": verification})
+                    require(not invalid, f"main acceptance journal contains invalid chains: {invalid}")
+                    require(kernel.in_flight_count() == 0, f"acceptance left in-flight work: {kernel.in_flight_count()}")
+                    return {
+                        "quick_check": integrity.get("quick_check"),
+                        "task_count": len(rows),
+                        "states": [dict(row) for row in rows],
+                    }
+                finally:
+                    kernel.close()
+
+            self.scenario("SCP-A12", "suite leaves no hidden in-flight work and intact evidence", a12)
+        finally:
+            try:
+                self.runtime.stop(force=False)
+            finally:
+                self.provider.stop()
+            self._write_report(final=True)
+
+        return all(scenario["passed"] for scenario in self.scenarios) and len(self.scenarios) == 12
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run SCP system-level acceptance scenarios")
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--port", type=int, default=18080)
+    parser.add_argument("--provider-port", type=int, default=18081)
+    parser.add_argument("--concurrency", type=int, default=6)
+    args = parser.parse_args()
+
+    suite = AcceptanceSuite(args.output_dir.resolve(), args.port, args.provider_port, args.concurrency)
+    passed = suite.run()
+    print(f"SCP ACCEPTANCE: {'PASS' if passed else 'FAIL'} — evidence: {suite.report_path}")
+    return 0 if passed else 1
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
