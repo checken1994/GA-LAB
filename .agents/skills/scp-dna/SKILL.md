@@ -55,7 +55,7 @@ When performing deep analysis, debugging, or verification:
 
 ## When Not to Over-Apply
 
-- Simple factual lookups or straightforward coding tasks that do not involve uncertainty, self-modification, or high-stakes claims do not need the full 26-principle ritual.
+- Simple factual lookups or straightforward coding tasks that do not involve uncertainty, self-modification, or high-stakes claims do not need the full 29-principle ritual.
 - Still keep the spirit: prefer evidence, name uncertainty, and avoid overconfidence.
 
 ## Loading Full DNA
