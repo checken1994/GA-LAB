@@ -1,15 +1,21 @@
-name: SCP CI Gate
+name: SCP CI Baseline (Non-Authoritative)
 
 on: [push, pull_request]
+
+permissions:
+  contents: read
+
+env:
+  SCP_JWT_SECRET: "baseline-ci-jwt-secret-0123456789abcdef0123456789"
+  SCP_ADMIN_KEY: "baseline-ci-admin-key-0123456789"
+  SCP_PRODUCTION_MODE: '0'
+  SCP_SKIP_STARTUP_GATE: '0'
+  SCP_EGRESS_MODE: deny
+  PYTHONUTF8: '1'
 
 jobs:
   p0-baseline:
     runs-on: ubuntu-latest
-    env:
-      SCP_JWT_SECRET: "dummy_secret_for_ci"
-      SCP_PRODUCTION_MODE: '0'
-      SCP_SKIP_STARTUP_GATE: '0'
-      SCP_EGRESS_MODE: deny
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Set up Python
@@ -17,6 +23,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: python -m pip install -r scp/requirements-dev.txt
+        run: |
+          python -m pip install -r scp/requirements-dev.txt
+          python -m pip check
       - name: Enforce Baseline (P0)
         run: python scripts/enforce_baseline.py
+
+      # This workflow is a fast baseline only. It must never emit RC_DONE or
+      # CUSTOMER_HANDOFF_PASS; scp-rc-promotion.yml is the sole release authority.
