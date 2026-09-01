@@ -8,7 +8,7 @@ on:
       - .github/workflows/_diag_rc_ruff.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   diagnose:
@@ -23,10 +23,9 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: python -m pip install -r scp/requirements-dev.txt
-      - name: Persist diagnostic evidence
+      - name: Capture diagnostic evidence
         shell: bash
         run: |
-          set -uo pipefail
           mkdir -p reports/diagnostics
           report=reports/diagnostics/ruff.txt
           {
@@ -40,12 +39,11 @@ jobs:
               if [ -f "$f" ]; then nl -ba "$f" | sed -n '1,220p'; else echo MISSING; fi
             done
             echo "=== RUFF ==="
-            python -m ruff check scp scripts tools tests --select E9,F
+            python -m ruff check scp scripts tools tests --select E9,F || true
           } > "$report" 2>&1
-          rc=$?
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add "$report"
-          git commit -m "chore(rc): capture Ruff diagnostic" || true
-          git push origin HEAD:integration/experiment-god-split-and-providers
-          exit "$rc"
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc-ruff-diagnostic-${{ github.sha }}
+          path: reports/diagnostics/ruff.txt
+          if-no-files-found: error
