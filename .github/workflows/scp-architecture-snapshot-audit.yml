@@ -20,35 +20,7 @@ env:
   PYTHONUTF8: '1'
 
 jobs:
-  skill-dna-governance:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-      - name: Assert exact audit SHA
-        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: '3.12'
-      - name: Install governance test environment
-        run: python -m pip install -r scp/requirements-dev.txt
-      - name: Verify SCP Skill pack + 29-principle DNA contract
-        run: python tools/verify_scp_skill_dna_gate.py
-      - name: Self-test the Skill + DNA verifier
-        run: python -m pytest -q tests/test_scp_skill_dna_gate.py --tb=short
-      - name: Upload Skill + DNA evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: skill-dna-${{ github.sha }}
-          path: reports/skill_dna/skill-dna-gate.json
-          if-no-files-found: error
-          retention-days: 30
-
   core-matrix:
-    needs: skill-dna-governance
     name: core-${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -71,6 +43,9 @@ jobs:
       - name: Install Python test environment
         shell: pwsh
         run: python -m pip install -r scp/requirements-dev.txt
+      - name: SCP Skill + DNA governance gate
+        shell: pwsh
+        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/core-${{ matrix.os }}.json
       - name: Compile and import gate
         shell: pwsh
         run: |
@@ -88,10 +63,11 @@ jobs:
           OPENROUTER_API_KEY_3: ''
           OPENAI_API_KEY: ''
           DEEPSEEK_API_KEY: ''
+          GEMINI_API_KEY: ''
+          GLM_API_KEY: ''
         run: python -m pytest -q --tb=short
 
   semantic-acceptance:
-    needs: skill-dna-governance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -107,6 +83,8 @@ jobs:
         with:
           bun-version: '1.3.14'
       - run: python -m pip install -r scp/requirements-dev.txt
+      - name: SCP Skill + DNA governance gate
+        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/semantic-acceptance.json
       - name: Semantic parity + fail-closed contracts
         run: python -m pytest -q tests/test_god_split_semantic_parity.py tests/test_property_validator_fail_closed.py tests/test_enforce_baseline.py tests/test_scp_skill_dna_gate.py --tb=short
       - name: Provider failover + timeout — hermetic behind egress guard
@@ -117,6 +95,8 @@ jobs:
           OPENROUTER_API_KEY_3: ''
           OPENAI_API_KEY: ''
           DEEPSEEK_API_KEY: ''
+          GEMINI_API_KEY: ''
+          GLM_API_KEY: ''
         run: python -m pytest -q tests/test_provider_failover.py tests/test_provider_timeout_recovery.py --tb=short
       - name: SCP behavioral acceptance — runtime remains deny-egress
         run: python scripts/run_scp_acceptance_ci.py
@@ -125,12 +105,13 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: acceptance-${{ github.sha }}
-          path: reports/system_audit_strict/
+          path: |
+            reports/system_audit_strict/
+            reports/skill_dna/semantic-acceptance.json
           if-no-files-found: warn
           retention-days: 14
 
   security-mutation:
-    needs: skill-dna-governance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -143,7 +124,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r scp/requirements-dev.txt
-      - name: SCP Skill + DNA contract test
+      - name: SCP Skill + DNA governance gate
+        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/security-mutation.json
+      - name: SCP Skill + DNA contract self-tests
         run: python -m pytest -q tests/test_scp_skill_dna_gate.py --tb=short
       - name: Explicit LLM egress fail-closed policy
         run: python -m pytest -q tests/test_llm_egress_policy.py --tb=short
@@ -166,11 +149,11 @@ jobs:
             reports/mutation/audit-mutation.json
             bandit-audit.json
             bandit-audit-summary.json
+            reports/skill_dna/security-mutation.json
           if-no-files-found: warn
           retention-days: 14
 
   reality-runtime:
-    needs: skill-dna-governance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -186,7 +169,9 @@ jobs:
         with:
           bun-version: '1.3.14'
       - run: python -m pip install -r scp/requirements-dev.txt
-      - name: SCP Skill + DNA contract test
+      - name: SCP Skill + DNA governance gate
+        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/reality-runtime.json
+      - name: SCP Skill + DNA contract self-tests
         run: python -m pytest -q tests/test_scp_skill_dna_gate.py --tb=short
       - name: Reality tests — deny-egress
         run: python run_reality_tests_portable.py
@@ -203,20 +188,24 @@ jobs:
             reports/system_audit_strict/
             reports/reality/reality-tests-results.json
             reports/bounded_system_smoke_audit/
+            reports/skill_dna/reality-runtime.json
           if-no-files-found: warn
           retention-days: 14
 
   dashboard:
-    needs: skill-dna-governance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
       - name: Assert exact audit SHA
         run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
-      - name: Re-assert SCP Skill + DNA governance before dashboard gate
-        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/dashboard-skill-dna-gate.json
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: SCP Skill + DNA governance gate
+        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/dashboard.json
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
@@ -231,7 +220,6 @@ jobs:
         run: npm run build
 
   manifest-provenance:
-    needs: skill-dna-governance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -243,8 +231,8 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
-      - name: Re-assert SCP Skill + DNA governance before provenance gate
-        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/manifest-skill-dna-gate.json
+      - name: SCP Skill + DNA governance gate
+        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/manifest-provenance.json
       - name: Verify committed snapshot manifest against Git
         run: python tools/verify_snapshot_manifest.py reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
       - name: Require provenance evidence inside the verified manifest
@@ -261,7 +249,7 @@ jobs:
           PY
 
   snapshot-draft:
-    needs: [skill-dna-governance, core-matrix, semantic-acceptance, security-mutation, reality-runtime, dashboard]
+    needs: [core-matrix, semantic-acceptance, security-mutation, reality-runtime, dashboard]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -273,8 +261,8 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
-      - name: Re-assert SCP Skill + DNA governance before snapshot generation
-        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/snapshot-skill-dna-gate.json
+      - name: SCP Skill + DNA governance gate
+        run: python tools/verify_scp_skill_dna_gate.py --report reports/skill_dna/snapshot-draft.json
       - name: Generate exact snapshot draft for this SHA
         run: |
           mkdir -p generated
@@ -283,13 +271,15 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: snapshot-draft-${{ github.sha }}
-          path: generated/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+          path: |
+            generated/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+            reports/skill_dna/snapshot-draft.json
           if-no-files-found: error
           retention-days: 14
 
   final-verdict:
     if: always()
-    needs: [skill-dna-governance, core-matrix, semantic-acceptance, security-mutation, reality-runtime, dashboard, manifest-provenance, snapshot-draft]
+    needs: [core-matrix, semantic-acceptance, security-mutation, reality-runtime, dashboard, manifest-provenance, snapshot-draft]
     runs-on: ubuntu-latest
     steps:
       - name: Produce same-SHA fail-closed verdict
@@ -307,7 +297,7 @@ jobs:
           blockers=[name for name, result in results.items() if result != 'success']
           verdict='DONE' if not blockers else 'BLOCKED'
           out={
-              'schema_version':'scp-audit-verdict-v1',
+              'schema_version':'scp-audit-verdict-v2',
               'candidate_sha':os.environ['CANDIDATE_SHA'],
               'candidate_ref':os.environ['CANDIDATE_REF'],
               'gate_results':results,
@@ -315,7 +305,7 @@ jobs:
               'blockers':blockers,
               'verdict':verdict,
               'frozen_sha':os.environ['CANDIDATE_SHA'] if verdict == 'DONE' else None,
-              'rule':'DONE only when every mandatory gate, including SCP Skill + DNA governance, passes on this exact SHA and blocker_count=0',
+              'rule':'DONE only when every mandatory suite independently passes SCP Skill + DNA governance and all mandatory gates pass on this exact SHA with blocker_count=0',
           }
           path=Path('reports/release_verdict/audit-verdict.json')
           path.write_text(json.dumps(out, indent=2)+'\n', encoding='utf-8')
