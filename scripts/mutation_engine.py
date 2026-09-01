@@ -1,6 +1,6 @@
 """Bounded, fail-closed mutation testing for SCP.
 
-The engine deliberately runs a small deterministic campaign.  It is not a
+The engine deliberately runs a small deterministic campaign. It is not a
 replacement for a full mutmut/cosmic-ray campaign; it is a CI tripwire that
 proves selected tests fail when selected production semantics are changed.
 """
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import inspect
 import json
 import os
 import subprocess
@@ -205,8 +206,60 @@ def generate_mutants(
     return candidates
 
 
+def _invoke_generate_mutants(
+    target_path: Path,
+    *,
+    max_mutants: int,
+    include_functions: Sequence[str] | None,
+) -> list[MutationCandidate]:
+    """Call the generator without breaking legacy injected test doubles.
+
+    Older callers monkeypatch ``generate_mutants(path)`` and may return simple
+    ``(line, source)`` tuples. Supporting that shape keeps the public test seam
+    stable while the real generator remains bounded and function-selective.
+    """
+    try:
+        parameters = inspect.signature(generate_mutants).parameters
+    except (TypeError, ValueError):
+        parameters = {}
+    accepts_kwargs = any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+    kwargs: dict[str, object] = {}
+    if accepts_kwargs or "max_mutants" in parameters:
+        kwargs["max_mutants"] = max_mutants
+    if accepts_kwargs or "include_functions" in parameters:
+        kwargs["include_functions"] = include_functions
+    raw_candidates = generate_mutants(target_path, **kwargs)
+    if not raw_candidates:
+        raise MutationRunError(f"no supported mutants found in {target_path}")
+
+    normalized: list[MutationCandidate] = []
+    for candidate in raw_candidates:
+        if isinstance(candidate, MutationCandidate):
+            normalized.append(candidate)
+            continue
+        if isinstance(candidate, tuple) and len(candidate) == 2:
+            line, source = candidate
+            normalized.append(
+                MutationCandidate(line=int(line), operator="legacy_injected", source=str(source))
+            )
+            continue
+        raise MutationRunError(f"unsupported mutation candidate shape: {candidate!r}")
+    return normalized
+
+
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
 
 
 def _tail(output: str, limit: int = 1600) -> str:
@@ -275,7 +328,7 @@ def _run_pytest(
         check=False,
     )
     duration = time.perf_counter() - started
-    output = (completed.stdout or "") + (completed.stderr or "")
+    output = _text(completed.stdout) + _text(completed.stderr)
     return completed.returncode, duration, output
 
 
@@ -290,8 +343,8 @@ def run_mutation_campaign(
 ) -> MutationReport:
     """Run a baseline and a bounded mutation campaign.
 
-    Return code 1 from pytest means a mutant was killed by an assertion.  Pytest
-    usage/collection/internal errors (codes 2+) invalidate the campaign.  A
+    Return code 1 from pytest means a mutant was killed by an assertion. Pytest
+    usage/collection/internal errors (codes 2+) invalidate the campaign. A
     timeout after a successful baseline counts as a killed mutant and is
     reported separately.
     """
@@ -306,7 +359,7 @@ def run_mutation_campaign(
     test_paths = [_resolve_inside(root, item, kind="test") for item in tests]
     original_bytes = target_path.read_bytes()
     original_sha = _sha256(original_bytes)
-    candidates = generate_mutants(
+    candidates = _invoke_generate_mutants(
         target_path,
         max_mutants=max_mutants,
         include_functions=include_functions,
@@ -361,7 +414,7 @@ def run_mutation_campaign(
                     status = "killed"
                 else:
                     raise MutationRunError(
-                        f"mutant at line {candidate.line} produced pytest infrastructure "
+                        f"mutant at line {candidate.line} produced pytest infrastructure/collection "
                         f"code {return_code}: {_tail(output)}"
                     )
                 outcomes.append(
@@ -399,17 +452,21 @@ def run_mutation_campaign(
 def run_mutation_tests(file_path_rel: str, test_file_path: str | None = None) -> float:
     """Compatibility wrapper used by the older test factory.
 
-    Unlike the previous implementation, missing tests or engine errors fail
-    closed by returning ``0.0`` instead of manufacturing a perfect score.
+    Invalid targets and broken verification infrastructure raise instead of
+    silently manufacturing a score. This keeps the compatibility entry point
+    fail closed while the successful-path return type remains ``float``.
     """
     if not test_file_path:
-        print("[MutationEngine] explicit test_file_path is required", file=sys.stderr)
-        return 0.0
-    try:
-        report = run_mutation_campaign(file_path_rel, [test_file_path])
-    except MutationRunError as exc:
-        print(f"[MutationEngine] invalid campaign: {exc}", file=sys.stderr)
-        return 0.0
+        raise ValueError("explicit test_file_path is required")
+
+    target = Path(file_path_rel)
+    target_path = target.resolve() if target.is_absolute() else (Path.cwd() / target).resolve()
+    if not target_path.is_file():
+        raise FileNotFoundError(file_path_rel)
+    if target_path.suffix != ".py":
+        raise ValueError(f"target must be Python source: {target_path}")
+
+    report = run_mutation_campaign(file_path_rel, [test_file_path])
     print(
         f"[MutationEngine] {report.target}: {report.score:.1%} "
         f"({report.killed}/{len(report.outcomes)} killed)"
