@@ -37,9 +37,25 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _frontmatter(text: str) -> dict[str, str] | None:
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    try:
+        end = next(i for i, line in enumerate(lines[1:], start=1) if line.strip() == "---")
+    except StopIteration:
+        return None
+    data: dict[str, str] = {}
+    for line in lines[1:end]:
+        match = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", line)
+        if match:
+            data[match.group(1)] = match.group(2).strip()
+    return data
+
+
 def _frontmatter_name(text: str) -> str | None:
-    match = re.search(r"(?m)^name:\s*([^\n]+)\s*$", text)
-    return match.group(1).strip() if match else None
+    data = _frontmatter(text)
+    return data.get("name") if data else None
 
 
 def _load_bindings() -> dict:
@@ -50,17 +66,19 @@ def _load_bindings() -> dict:
     return payload
 
 
-def test_every_scp_skill_has_named_skill_manifest() -> None:
+def test_every_scp_skill_has_valid_closed_manifest() -> None:
     assert SKILLS_ROOT.is_dir(), ".agents/skills must exist"
     skill_dirs = sorted(path for path in SKILLS_ROOT.iterdir() if path.is_dir())
     assert skill_dirs, "SCP skill catalog must not be empty"
     for skill_dir in skill_dirs:
         manifest = skill_dir / "SKILL.md"
         text = _read(manifest)
-        assert text.startswith("---\n"), f"{manifest} must start with YAML frontmatter"
-        assert _frontmatter_name(text) == skill_dir.name, (
+        data = _frontmatter(text)
+        assert data is not None, f"{manifest} must have closed YAML frontmatter"
+        assert data.get("name") == skill_dir.name, (
             f"{manifest} frontmatter name must match directory {skill_dir.name!r}"
         )
+        assert data.get("description"), f"{manifest} must declare a non-empty description"
 
 
 def test_scp_dna_is_exactly_29_principles_with_release_critical_invariants() -> None:
@@ -133,7 +151,10 @@ def test_every_mandatory_release_gate_has_domain_skill_and_scp_dna_binding() -> 
         for skill_name in skills:
             skill_path = SKILLS_ROOT / skill_name / "SKILL.md"
             text = _read(skill_path)
-            assert _frontmatter_name(text) == skill_name, f"{gate}: invalid Skill {skill_name}"
+            data = _frontmatter(text)
+            assert data is not None, f"{gate}: Skill {skill_name} has malformed frontmatter"
+            assert data.get("name") == skill_name, f"{gate}: invalid Skill {skill_name}"
+            assert data.get("description"), f"{gate}: Skill {skill_name} lacks description"
 
         assert isinstance(dna, list) and dna, f"{gate}: missing DNA invariants"
         assert dna == sorted(set(dna)), f"{gate}: DNA list must be sorted and unique"
