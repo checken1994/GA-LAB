@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import itertools
 
+import pytest
+
 
 class _Response:
     status_code = 200
@@ -97,3 +99,40 @@ def test_deny_still_allows_loopback_fixture(monkeypatch):
     assert answer == "ok"
     assert label == "fixture:fixture-model"
     assert fake.calls == 1
+
+
+@pytest.mark.parametrize("mode", ["deny", "offline", "disabled", "unexpected-mode"])
+def test_non_network_modes_fail_closed_for_external_llm(monkeypatch, mode):
+    from scp.llm_gateway.client import _llm_egress_allowed
+
+    monkeypatch.setenv("SCP_EGRESS_MODE", mode)
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "openrouter.ai")
+
+    assert _llm_egress_allowed("https://openrouter.ai/api/v1") is False
+    assert _llm_egress_allowed("http://127.0.0.1:8123/v1") is True
+
+
+def test_allowlist_requires_https_for_external_provider(monkeypatch):
+    from scp.llm_gateway.client import _llm_egress_allowed
+
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "openrouter.ai")
+
+    assert _llm_egress_allowed("http://openrouter.ai/api/v1") is False
+    assert _llm_egress_allowed("https://openrouter.ai/api/v1") is True
+
+
+def test_free_catalog_obeys_allowlist_before_constructing_network_client(monkeypatch):
+    from scp.llm_gateway import free_catalog
+
+    class ForbiddenNetworkClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("catalog constructed network client for an unlisted host")
+
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "api.openai.com")
+    monkeypatch.setattr(free_catalog.httpx, "Client", ForbiddenNetworkClient)
+    monkeypatch.setattr(free_catalog, "_fetched", False)
+    monkeypatch.setattr(free_catalog, "_last_ok", None)
+
+    assert free_catalog.refresh_free_catalog(force=True) is False

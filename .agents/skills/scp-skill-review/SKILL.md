@@ -1,7 +1,7 @@
 ---
 name: scp-skill-review
 description: Review bộ SCP Skills (skill pack) theo chuẩn 6 chiều C1–C6 + 4 mức bằng chứng A–D, tổng hợp từ OpenAI (Practices for Governing Agentic AI Systems, GPT-5 System Card), Anthropic（Agent Skills spec, progressive disclosure, evaluation-driven development), Google DeepMind（AI co-scientist, AlphaEvolve） và LLM-as-judge/Braintrust evals。 Dùng khi cần audit skill pack, thêm/sửa skill, kiểm tra index nhất quán, hoặc định xem skill nào đáng tin làm ground truth trước khi dùng nó để sửa chính SCP
-
+---
 
 # SCP Skill Review — Chuẩn đánh giá bộ kỹ năng
 
@@ -17,7 +17,7 @@ Bộ skill là một "hệ thống định nghĩa thiếu sót" — bản thân 
 |---|---|---|
 | **OpenAI** — *Practices for Governing Agentic AI Systems*（2023）+ *GPT-5 System Card*（2025) | accountability assignment; action ledgers, capability boundaries, default behaviors, legibility, monitoring, controllability/interruptibility, instruction hierarchy | C5（trách nhiệm/quyền hạn）, C3（legibility/tính đọc được）, C4（giám sát/khả hồi |
 | **Anthropic** — *Agent Skills*（SKILL.md spec, progressive disclosure, evaluation-driven development） | discovery-ready description（firing condition）; single-purpose scoping;; <~500 dòng/5k token; ref one-level-deep; test 3+ kịch bản thật;; re-test khi data/đường dẫn đổi | C1, C2, C3, C4 |
-| **Google DeepMind** — *AI co-scientist*（tournament, debate, evolve）+ *AlphaEvolve*（generator ↔ verifier độc lập） | đa tác nhân đối trọng: generate → debate → evolve;; verifier KHÔNG cùng lineage generator;; diversity/số lượng chủng（tiling）kiểm soát khai thác hướng mới | C4（đối trọng）, C5（verifier độc lập）, C6（mở rộng có kiểm soát |
+| **Google DeepMind** — *AI co-scientist*（tournament, debate, evolve）+ *AlphaEvolve*（generator ↔ verifier độc lập） | đa tác nhân đối trọng: generate → debate → evolve;; verifier KHÔNG cùng lineage generator/skill đang review;; diversity/số lượng chủng（tiling）kiểm soát khai thác hướng mới | C4（đối trọng）, C5（verifier độc lập）, C6（mở rộng có kiểm soát |
 | **LLM-as-judge / Braintrust** — agent evals（2024–2026） | golden dataset từ task thật;; trace theo từng bước（step-wise）; code-scorer + LLM-judge;; calibration trước khi dùng judge;; đa trial（non-determinism;; offline + online monitoring | C4（test thật）, C5（calibration; cấm self-report làm judge độc lập）, C6（giám sát liên tục |
 
 > **Ghi chú lineage（DNA #5, #14）：** Bốn nguồn này đến từ 4 tổ chức khác nhau（không cùng lineage）. Bất kỳ sự đồng thuận nào giữa chúng đều mạnh hơn 10 nguồn cùng một lineage. Nhưng mọi khuyến nghị vẫn phải đối chiếu với thực tế repo trước khi áp.

@@ -22,6 +22,14 @@ Ngăn việc gọi một bản build là “ổn định” chỉ vì nhiều un
 9. Kiểm tra rollback artifact, known limitations và hướng phục hồi.
 10. Đánh verdict `PASS`, `CANDIDATE`, `BLOCKED` hoặc `FAIL`. Một gate thiếu evidence là `BLOCKED`, không tự coi là PASS.
 
+## Skill + SCP DNA contract bắt buộc
+
+- Mọi **mandatory release gate** phải có mapping máy-đọc được trong `.agents/skills/release-gate-skill-dna-bindings.json`.
+- Mỗi gate phải bind `scp-dna` **và ít nhất một domain Skill** phù hợp với loại bằng chứng đang kiểm tra.
+- Mỗi gate bắt buộc mang DNA #22 (`PASS ≠ TRUE`) và DNA #26 (`Reality có quyền cuối cùng`); domain gate bổ sung DNA tương ứng với rủi ro của nó.
+- `tests/test_scp_skill_dna_contract.py` là fail-closed authority cho tính đầy đủ/hợp lệ của mapping. Thiếu Skill, sai Skill manifest, DNA ngoài #1..#29, thiếu gate, hoặc gate không có #22/#26 đều là **release blocker**.
+- RC verdict và customer-handoff verdict phải ghi lại `skill_scp_dna_contract=PASS`; không được suy diễn PASS nếu contract này chưa chạy trên chính SHA đang xét.
+
 ## Các gate bắt buộc
 
 | Gate | Evidence bắt buộc | Nếu thiếu |
@@ -58,8 +66,8 @@ Ngăn việc gọi một bản build là “ổn định” chỉ vì nhiều un
 | Test profile | |
 
 ## Gate results
-| Gate | Status | Command/profile | Evidence | Limitation |
-|---|---|---|---|---|
+| Gate | Status | Command/profile | Skill/DNA binding | Evidence | Limitation |
+|---|---|---|---|---|---|
 
 ## Known limitations
 [Phần chưa được chứng minh hoặc chỉ mới static-test]

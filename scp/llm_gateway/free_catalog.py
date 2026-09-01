@@ -13,17 +13,18 @@ on the hot path. Design rules:
      (P0: no heuristic task inference from model names).
   5. Background daemon refreshes the allowlist every 6h WITHOUT touching
      the task map (keeps the free list fresh off the hot path).
-  6. SCP_EGRESS_MODE=deny is authoritative: catalog refresh performs no
-     external network operation in that mode.
+  6. The canonical SCP LLM egress policy is authoritative: deny/offline/
+     disabled and allowlist restrictions are checked before any network client.
 """
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import time
 
 import httpx
+
+from scp.llm_gateway.egress_policy import llm_egress_allowed
 
 logger = logging.getLogger("scp.llm_gateway.free_catalog")
 
@@ -43,8 +44,8 @@ def _fetch_free_models(timeout: float = FREE_CATALOG_TIMEOUT_SEC) -> list | None
     Returns [] when the catalog was fetched but no free models found,
     None when the fetch is forbidden or failed (caller keeps hardcoded data).
     """
-    if os.environ.get("SCP_EGRESS_MODE", "").strip().lower() == "deny":
-        logger.info("[free_catalog] external refresh skipped: SCP_EGRESS_MODE=deny")
+    if not llm_egress_allowed(OPENROUTER_CATALOG_URL):
+        logger.info("[free_catalog] external refresh skipped by SCP LLM egress policy")
         return None
 
     try:
@@ -88,9 +89,9 @@ def _sort_free_models(free_models: list) -> list:
 def refresh_free_catalog(force: bool = False) -> bool:
     """Refresh the free-model allowlist without mutating the task map.
 
-    Fetches at most once per process unless force=True. If egress is denied or
-    the provider cannot be reached, the curated hardcoded allowlist remains in
-    force and False is returned.
+    Fetches at most once per process unless force=True. If egress policy blocks
+    the provider or the provider cannot be reached, the curated hardcoded
+    allowlist remains in force and False is returned.
     """
     global _fetched, _last_ok
     with _lock:
