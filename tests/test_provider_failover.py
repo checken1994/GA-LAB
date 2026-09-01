@@ -72,6 +72,12 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "ds-key-123456")
     monkeypatch.setenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
     monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-chat")
+    # This test exercises failover routing, not the independent deny-egress
+    # contract. Explicitly allow only the two fake-backed provider hosts so the
+    # transport policy permits the hermetic injected clients without opening a
+    # broad network policy.
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "openrouter.ai,api.deepseek.com")
 
     gateway = LLMGateway()
     _keyed(monkeypatch, OpenRouterProvider)
@@ -88,6 +94,25 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
     answer, label = asyncio.run(gateway.chat("q", task="chat"))
     assert answer == "deepseek answers"
     assert label.startswith("deepseek:")
+
+
+def test_deny_egress_blocks_env_provider_before_injected_transport(monkeypatch):
+    """Deny mode remains authoritative even when a fake transport is injected."""
+    from scp.llm_gateway.client import EnvCompatProvider
+
+    monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "ds-key-123456")
+    monkeypatch.setenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+    monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-chat")
+    provider = EnvCompatProvider(
+        "deepseek", "chat", "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL"
+    )
+    transport = FakeClient([FakeResponse(200, "must-not-be-used")])
+    provider._client = transport
+
+    answer, label = asyncio.run(provider.chat("q"))
+    assert answer is None and label == "none"
+    assert transport.calls == 0
 
 
 def test_all_providers_down_fails_closed(monkeypatch):
