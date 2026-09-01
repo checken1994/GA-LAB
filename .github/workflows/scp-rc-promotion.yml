@@ -6,6 +6,12 @@ on:
       - integration/experiment-god-split-and-providers
       - main
   workflow_dispatch:
+    inputs:
+      approve_main_merge:
+        description: 'Explicitly approve merging the frozen integration SHA into main after all gates pass'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -335,13 +341,13 @@ jobs:
   promote-to-main:
     name: guarded-integration-to-main
     needs: [rc-verdict]
-    if: ${{ needs.rc-verdict.result == 'success' && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' }}
+    if: ${{ needs.rc-verdict.result == 'success' && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' && github.event_name == 'workflow_dispatch' && inputs.approve_main_merge == true }}
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
       FROZEN_SHA: ${{ needs.rc-verdict.outputs.frozen_sha }}
     steps:
-      - name: Create/find PR and merge only the frozen head SHA
+      - name: Create/find PR and merge only the frozen head SHA after explicit approval
         shell: bash
         run: |
           set -euo pipefail
@@ -349,7 +355,7 @@ jobs:
           test "$CURRENT" = "$FROZEN_SHA"
           PR="$(gh pr list --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --state open --json number --jq '.[0].number // empty')"
           if [ -z "$PR" ]; then
-            PR_URL="$(gh pr create --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --title "RC $FROZEN_SHA: integration -> main" --body "Automated RC promotion. Every mandatory gate passed on frozen SHA $FROZEN_SHA; blockers=0. Merge is SHA-guarded and customer handoff requires a fresh main-SHA verification.")"
+            PR_URL="$(gh pr create --repo '${{ github.repository }}' --base main --head integration/experiment-god-split-and-providers --title "RC $FROZEN_SHA: integration -> main" --body "RC promotion after explicit human merge approval. Every mandatory gate passed on frozen SHA $FROZEN_SHA; blockers=0. Customer handoff still requires a fresh main-SHA verification after merge.")"
             PR="$(gh pr view "$PR_URL" --repo '${{ github.repository }}' --json number --jq '.number')"
           fi
           PR_HEAD="$(gh pr view "$PR" --repo '${{ github.repository }}' --json headRefOid --jq '.headRefOid')"
