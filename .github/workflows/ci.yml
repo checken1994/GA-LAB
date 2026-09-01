@@ -27,6 +27,8 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: python -m pip install -r scp/requirements-dev.txt
+      - name: SCP Skill + DNA governance gate
+        run: python tools/verify_scp_skill_dna_gate.py
       - name: Enforce Baseline (P0) — hermetic provider layer
         env:
           SCP_EGRESS_MODE: ''
