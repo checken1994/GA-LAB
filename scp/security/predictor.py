@@ -456,7 +456,7 @@ class AttackPredictor:
                     why_explanation=f"WHY rejected: {_why.falsification_reason}",
                     evidence_sources=["why_gate:rejected"],
                 )
-                except Exception as _why_err:
+        except Exception as _why_err:
             logger.debug(f"[V9.0-WHY-GATE] WHY Gate error (FAIL-CLOSED): {_why_err}")
             return CyberThreatForecast(
                 threat_type="rejected",
@@ -505,7 +505,7 @@ class AttackPredictor:
                 "threat_type": best_type, "confidence": confidence,
                 "probability": probability, "reason": _verify_reason,
             })
-                except Exception as _verify_call_err:
+        except Exception as _verify_call_err:
             logger.debug(f" _verify_prediction call error (FAIL-CLOSED): {_verify_call_err}")
             return CyberThreatForecast(
                 threat_type="rejected",
