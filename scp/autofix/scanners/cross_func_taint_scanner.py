@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 import logging
+import types
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -84,6 +85,16 @@ def _wire_parts() -> None:
         part.__dict__.update(shared)
 
 
+def _rebind_part_function(fn):
+    """Bind extracted scanner functions to this module's canonical cache/state."""
+    rebound = types.FunctionType(fn.__code__, globals(), fn.__name__, fn.__defaults__, fn.__closure__)
+    rebound.__kwdefaults__ = fn.__kwdefaults__
+    rebound.__annotations__ = dict(getattr(fn, "__annotations__", {}))
+    rebound.__doc__ = fn.__doc__
+    rebound.__module__ = __name__
+    return rebound
+
+
 _wire_parts()
 FunctionInfo = _p_functioninfo.FunctionInfo
 _classify_sink_xfunc = _p_classify._classify_sink_xfunc
@@ -107,11 +118,9 @@ def _clone_call_graph(base: _CrossFuncScanner) -> _CrossFuncScanner:
 
 
 _wire_parts()
-_get_scp_call_graph = _p_graph._get_scp_call_graph
-scan_file = _p_scan_file.scan_file
-scan_scp = _p_scan_scp.scan_scp
-for _public_callable in (scan_file, scan_scp):
-    _public_callable.__module__ = __name__
+_get_scp_call_graph = _rebind_part_function(_p_graph._get_scp_call_graph)
+scan_file = _rebind_part_function(_p_scan_file.scan_file)
+scan_scp = _rebind_part_function(_p_scan_scp.scan_scp)
 _wire_parts()
 
 __all__ = ["scan_file", "scan_scp"]
