@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-01T12:44:47.471614+00:00",
-  "captured_commit": "7698652a6af470d0fca81a75aa125a2dfe999d2b",
-  "captured_parent": "96749e5bf9b4912ca3a51d4de548cd6034232d2f",
-  "captured_tree": "dcbba36c89d49f8632331e3eab68383ccd53ada9",
-  "tracked_count": 1479,
-  "inventory_sha256": "129a38c45f772033e10cd89392e3a1be022080fed42be4a709d9e64cad32393c",
+  "generated_at_utc": "2026-09-01T13:21:44.529434+00:00",
+  "captured_commit": "24a7791841ff60a659c6a175fc9aa0e5fd4a70c9",
+  "captured_parent": "623b485fc80e521a9f19dbe13208f94b4072d6a0",
+  "captured_tree": "faf86e5ca907cb81b9442dc6cc1116f5e0001e7d",
+  "tracked_count": 1482,
+  "inventory_sha256": "c271d1becc9bc002ecbfbddd8a704db310c97c5fc1b3859ab035701c855c2b86",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
@@ -7883,12 +7883,6 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9b9a56f90d92a2e129181e8726f661307ef58e92",
-      "path": "tests/T07_learning/test_autofix_contract.py"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
       "blob": "33ac12fee143ffee8769c89be322a6478374a48e",
       "path": "tests/T07_learning/test_autofix_protected_path.py"
     },
@@ -7897,6 +7891,12 @@
       "type": "blob",
       "blob": "a4a611906c249bb81bed38c41ebb28ad0d439c6a",
       "path": "tests/T07_learning/test_chat_multimodal_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "08469fc6e7561ca9b5d5d77d3bd46b1b8b09c853",
+      "path": "tests/T07_learning/test_epistemic_missing_piece.py"
     },
     {
       "mode": "100644",
@@ -7919,8 +7919,20 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e3ccc1a66ecb8b540e3babdec2c7f17b2d6e4148",
-      "path": "tests/T09_golden_task/test_golden_execution_flow.py"
+      "blob": "b46a46a247f55a343c095a6e5e87d087a065bd38",
+      "path": "tests/T09_golden_task/test_golden_a_agent_os.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b54575340f0763c7494a9e747f8ed49125ebde6e",
+      "path": "tests/T09_golden_task/test_golden_b_epistemic_loop.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "47afc16aa8723112af4958153786c49a8b679499",
+      "path": "tests/T10_recovery/test_adversarial_chaos_matrix.py"
     },
     {
       "mode": "100644",
@@ -7945,6 +7957,12 @@
       "type": "blob",
       "blob": "7102ea6dd4a855fb64c72459eb24d9dd058b5b49",
       "path": "tests/T11_release/test_scp_test_skill_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "432a1d84b978c05fd4d992ac97595633f4db4210",
+      "path": "tests/T11_release/test_sha_evidence_binding.py"
     },
     {
       "mode": "100644",
