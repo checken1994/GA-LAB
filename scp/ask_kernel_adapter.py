@@ -344,6 +344,38 @@ class AskKernelAdapter:
 
     async def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
         task_id, lease_id = task["task_id"], task["lease_id"]
+        current_task = self.kernel.get_task(task_id)
+        if current_task["state"] in _TERMINAL:
+            verification = {
+                "verdict": "INSUFFICIENT",
+                "verifier_id": "scp-ask-kernel-terminal-v1",
+                "evidence_ref": f"ask://{task_id}/terminal/{str(current_task['state']).lower()}",
+                "failures": ["task_terminal_before_verification"],
+                "checked": {"kernel_task_non_terminal": False},
+            }
+            response_data = _dump(response)
+            with _TRACE_LOCK:
+                self.trace.append(
+                    task_id=task_id,
+                    attempt_id=task.get("attempt_id"),
+                    step_id="rag-read",
+                    lease_id=lease_id,
+                    checkpoint_id=task.get("checkpoint_id"),
+                    verifier_id=verification["verifier_id"],
+                    evidence_ref=verification["evidence_ref"],
+                    run_id=response_data.get("run_id"),
+                    trace_id=response_data.get("trace_id"),
+                    outcome=current_task["state"],
+                    verdict=verification["verdict"],
+                    reason="task_terminal_before_verification",
+                    response_elapsed_ms=response_data.get("elapsed_ms"),
+                )
+            return {
+                "task": current_task,
+                "verification": verification,
+                "safe_response": self._safe_response(response, verification),
+            }
+
         self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
         verification = await self.verify_response(req, response, task)
         if verification["verdict"] == "VERIFIED":
@@ -467,6 +499,5 @@ def json_bytes(value: Any) -> bytes:
     import json
 
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-
 
 
