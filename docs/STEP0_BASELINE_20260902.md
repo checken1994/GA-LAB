@@ -54,3 +54,9 @@ J1: `.judge()` production callers = `scp/core/streaming_factcheck.py:218` (SSE s
 
 ### 0.12 Benchmark — ESTIMATE được tách khỏi MEASURED
 Engine giờ giữ `cycle_times_ms` (window 100) → `stats()` expose `cycle_times_n / p50_cycle_ms / p95_cycle_ms` (MEASURED); route `/v104/learn/fast/benchmark` trả thêm `measured_parallel` (MEASURED) song song với phần ESTIMATE đã nhãn. Benchmark thật hai-workload (sequential vs parallel cùng work units) vẫn là việc còn lại.
+
+## Nợ nhỏ Bước 0 — ĐÃ TRẢ (2026-09-02, phiên 3)
+- **Kernel crash-consistency (T04)**: 2 test thật — crash giữa event-append và projection-update → `rebuild_projection` sửa đúng từ journal (authoritative), kernel dùng được sau sửa; journal bị giả mạo → verify fail + rebuild TỪ CHỐI + `recover_on_boot` báo corrupted (fail-closed, không tự sửa bằng chứng).
+- **Hermetic scheduler benchmark (T08)**: 2-workload MEASURED cùng work units (16×20ms, monotonic_ns, warmup excluded) qua seam `_ask_llm_sync` của engine — parallel phải nhanh ≥2× sequential. Đây là benchmark scheduler/concurrency hermetic mà route ESTIMATE không được giả vờ là. Gotcha ghi lại: engine cache `asyncio.Semaphore` theo loop → warmup + đo phải cùng một `asyncio.run()`.
+- **J2 inventory (0.11)**: `JudgeCoreMixin` + `judge_parts/` nằm tại `scp/runtime/judge_parts/` (ledger cũ ghi path stale); `.judge()` production callers = `streaming_factcheck.py:218` + stub `scp_v14.py`. Decision KEEP canonical giữ nguyên.
+- **Lưu ý kỹ thuật mới**: Python 3.12 `str(Enum)` = "Class.MEMBER" → mọi parse helper contract/ontology phải unwrap `.value` khi input là Enum instance (đã fix toàn bộ).
