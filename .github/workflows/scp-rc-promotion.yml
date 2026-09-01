@@ -7,6 +7,14 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      runner_backend:
+        description: 'Execution backend for the exact-SHA release authority'
+        required: true
+        default: self-hosted
+        type: choice
+        options:
+          - self-hosted
+          - github-hosted
       approve_main_merge:
         description: 'Explicitly approve merging the frozen integration SHA into main after all gates pass'
         required: false
@@ -38,8 +46,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - os: ubuntu-latest
+            self_hosted_labels: '["self-hosted","linux","x64","scp-release"]'
+          - os: windows-latest
+            self_hosted_labels: '["self-hosted","windows","x64","scp-release"]'
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'self-hosted' && fromJSON(matrix.self_hosted_labels) || matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -131,7 +143,7 @@ jobs:
 
   security-and-durability:
     name: security-mutation-durability
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'self-hosted' && fromJSON('["self-hosted","linux","x64","scp-release"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -213,7 +225,7 @@ jobs:
     name: manifest-provenance
     if: ${{ always() && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' }}
     needs: [platform-gates, security-and-durability]
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'self-hosted' && fromJSON('["self-hosted","linux","x64","scp-release"]') || 'ubuntu-latest' }}
     outputs:
       ready: ${{ steps.manifest.outputs.ready }}
       candidate_sha: ${{ steps.manifest.outputs.candidate_sha }}
@@ -263,7 +275,7 @@ jobs:
           test "$REMOTE_SHA" = "$NEW_SHA"
           echo "ready=false" >> "$GITHUB_OUTPUT"
           echo "candidate_sha=$NEW_SHA" >> "$GITHUB_OUTPUT"
-          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref integration/experiment-god-split-and-providers
+          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref integration/experiment-god-split-and-providers -f runner_backend=self-hosted
 
       - name: Upload provenance evidence
         if: ${{ steps.manifest.outputs.ready == 'true' }}
@@ -280,7 +292,7 @@ jobs:
     name: final-release-verdict
     if: ${{ always() && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
     needs: [platform-gates, security-and-durability, manifest-provenance]
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'self-hosted' && fromJSON('["self-hosted","linux","x64","scp-release"]') || 'ubuntu-latest' }}
     outputs:
       frozen_sha: ${{ steps.freeze.outputs.frozen_sha }}
     steps:
@@ -342,7 +354,7 @@ jobs:
     name: guarded-integration-to-main
     needs: [rc-verdict]
     if: ${{ needs.rc-verdict.result == 'success' && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' && github.event_name == 'workflow_dispatch' && inputs.approve_main_merge == true }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner_backend == 'self-hosted' && fromJSON('["self-hosted","linux","x64","scp-release"]') || 'ubuntu-latest' }}
     env:
       GH_TOKEN: ${{ github.token }}
       FROZEN_SHA: ${{ needs.rc-verdict.outputs.frozen_sha }}
