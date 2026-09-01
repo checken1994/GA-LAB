@@ -16,7 +16,7 @@ from mutation_engine import MutationRunError, run_mutation_campaign
 
 
 TARGETS: dict[str, dict[str, list[str]]] = {
-    "scp/task_kernel.py": {
+    "scp/task_kernel_parts/taskkernel.py": {
         "functions": [
             "TaskKernel.create_task",
             "TaskKernel.transition",

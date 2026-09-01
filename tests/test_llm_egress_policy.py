@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import asyncio
+import itertools
+
+
+class _Response:
+    status_code = 200
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return {"choices": [{"message": {"content": "ok"}}]}
+
+
+class _Client:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def post(self, *args, **kwargs):
+        self.calls += 1
+        return _Response()
+
+
+def _configure_openrouter(monkeypatch, provider_cls) -> None:
+    monkeypatch.setattr(provider_cls, "_API_KEYS", ["test-key"], raising=False)
+    monkeypatch.setattr(provider_cls, "_key_cycle", itertools.cycle(["test-key"]), raising=False)
+    monkeypatch.setattr(provider_cls, "_dynamic_models_loaded", True, raising=False)
+
+
+def test_deny_blocks_external_provider_before_network(monkeypatch):
+    from scp.llm_gateway.client import OpenRouterProvider
+
+    _configure_openrouter(monkeypatch, OpenRouterProvider)
+    monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
+    provider = OpenRouterProvider(task="chat")
+    fake = _Client()
+    provider._client = fake
+
+    answer, label = asyncio.run(provider.chat("hello"))
+
+    assert answer is None
+    assert label == "none"
+    assert fake.calls == 0
+
+
+def test_allowlist_rejects_unlisted_provider_before_network(monkeypatch):
+    from scp.llm_gateway.client import OpenRouterProvider
+
+    _configure_openrouter(monkeypatch, OpenRouterProvider)
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "api.openai.com")
+    provider = OpenRouterProvider(task="chat")
+    fake = _Client()
+    provider._client = fake
+
+    answer, label = asyncio.run(provider.chat("hello"))
+
+    assert answer is None
+    assert label == "none"
+    assert fake.calls == 0
+
+
+def test_allowlist_permits_exact_https_provider_host(monkeypatch):
+    from scp.llm_gateway.client import OpenRouterProvider
+
+    _configure_openrouter(monkeypatch, OpenRouterProvider)
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "openrouter.ai")
+    provider = OpenRouterProvider(task="chat")
+    fake = _Client()
+    provider._client = fake
+
+    answer, label = asyncio.run(provider.chat("hello"))
+
+    assert answer == "ok"
+    assert label.startswith("openrouter:")
+    assert fake.calls == 1
+
+
+def test_deny_still_allows_loopback_fixture(monkeypatch):
+    from scp.llm_gateway.client import EnvCompatProvider
+
+    monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
+    monkeypatch.setenv("FIXTURE_KEY", "fixture-key")
+    monkeypatch.setenv("FIXTURE_URL", "http://127.0.0.1:8123/v1")
+    monkeypatch.setenv("FIXTURE_MODEL", "fixture-model")
+    provider = EnvCompatProvider(
+        "fixture", "chat", "FIXTURE_KEY", "FIXTURE_URL", "FIXTURE_MODEL"
+    )
+    fake = _Client()
+    provider._client = fake
+
+    answer, label = asyncio.run(provider.chat("hello"))
+
+    assert answer == "ok"
+    assert label == "fixture:fixture-model"
+    assert fake.calls == 1
