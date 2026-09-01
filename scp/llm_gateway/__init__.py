@@ -16,12 +16,9 @@ không được hưởng.
   - Provider adapters: OpenRouter (primary), EnvCompatProvider (fallback via OPENAI_API_KEY / SCP_LLM_FALLBACK_PROVIDERS)
   - ProviderRouter: ordered failover (OpenRouter → env-declared providers)
   - Singleton get_gateway() shared by inference + learning
-  - One fail-closed outbound policy at the provider transport boundary
+  - One fail-closed outbound policy enforced directly at the provider transport boundary
 """
 from scp.llm_gateway import client as _client
-from scp.llm_gateway.egress_policy import install_egress_guard
-
-install_egress_guard(_client.OpenRouterProvider)
 
 LLMGateway = _client.LLMGateway
 get_gateway = _client.get_gateway
