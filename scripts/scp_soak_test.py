@@ -7,6 +7,7 @@ import json
 import math
 import os
 import platform
+import random
 import re
 import shutil
 import signal
@@ -68,7 +69,7 @@ class WorkResult:
     event_count: int
 
 
-def run_workload(kernel: TaskKernel, run_id: str, sequence: int) -> WorkResult:
+def _run_kernel_workload(kernel: TaskKernel, run_id: str, sequence: int) -> WorkResult:
     """Execute one valid, independently verified TaskKernel lifecycle."""
     task_id = f"soak-{run_id}-{sequence:09d}"
     worker_id = f"soak-worker-{threading.get_ident()}"
@@ -104,6 +105,69 @@ def run_workload(kernel: TaskKernel, run_id: str, sequence: int) -> WorkResult:
         duration_seconds=time.perf_counter() - started,
         event_count=int(journal["event_count"]),
     )
+
+
+def _run_subprocess_workload(tid: int, results: dict[int, dict]) -> None:
+    """Compatibility seam for the older fail-closed soak harness.
+
+    The newer evidence runner executes TaskKernel work in-process for bounded,
+    high-volume campaigns. Older callers still use ``run_workload(tid, results)``
+    and depend on a separate child process so crashes and timeouts are observable.
+    Preserve that stronger isolation contract rather than silently dropping it.
+    """
+    db_path = (ROOT / "soak.sqlite3").as_posix()
+    task_id = f"soak-{tid}"
+    script = (
+        "from scp.task_kernel import TaskKernel; import time; "
+        f"k = TaskKernel('{db_path}'); task_id = '{task_id}'; "
+        "k.create_task(task_id, 'soak-worker', 'bounded soak workload', 'R0'); "
+        "k.transition(task_id, 'PLANNING', actor='soak-worker', reason='soak_lifecycle'); "
+        "k.transition(task_id, 'READY', actor='soak-worker', reason='soak_lifecycle'); "
+        "k.transition(task_id, 'QUEUED', actor='soak-worker', reason='soak_lifecycle'); "
+        "lease = k.claim(task_id, 'soak-worker', ttl_seconds=30); "
+        "k.start(task_id, lease.lease_id); time.sleep(0.1); "
+        "k.transition(task_id, 'VERIFYING', actor='soak-worker', reason='soak_verify'); "
+        "k.commit_verification_result(task_id, lease.lease_id, "
+        "{'verdict':'VERIFIED','verifier_id':'scp-soak-harness-v2','evidence_ref':'soak://'+task_id}); "
+        "k.close()"
+    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            timeout=5,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        stdout = proc.stdout.decode("utf-8", errors="replace") if isinstance(proc.stdout, bytes) else (proc.stdout or "")
+        stderr = proc.stderr.decode("utf-8", errors="replace") if isinstance(proc.stderr, bytes) else (proc.stderr or "")
+        results[tid] = {
+            "returncode": proc.returncode,
+            "stdout": stdout[-1000:],
+            "stderr": stderr[-1000:],
+        }
+    except subprocess.TimeoutExpired as exc:
+        results[tid] = {"timeout": True, "error": repr(exc)}
+    except Exception as exc:
+        results[tid] = {"error": repr(exc)}
+
+
+def run_workload(
+    kernel_or_tid: TaskKernel | int,
+    run_id_or_results: str | dict[int, dict],
+    sequence: int | None = None,
+) -> WorkResult | None:
+    """Run either the current kernel workload or the legacy isolated workload."""
+    if sequence is None:
+        if isinstance(kernel_or_tid, int) and isinstance(run_id_or_results, dict):
+            _run_subprocess_workload(kernel_or_tid, run_id_or_results)
+            return None
+        raise TypeError("legacy run_workload requires (tid: int, results: dict)")
+    if not isinstance(kernel_or_tid, TaskKernel) or not isinstance(run_id_or_results, str):
+        raise TypeError("kernel run_workload requires (TaskKernel, run_id: str, sequence: int)")
+    return _run_kernel_workload(kernel_or_tid, run_id_or_results, sequence)
 
 
 def _percentile(values: list[float], percentile: float) -> float:
@@ -415,6 +479,92 @@ def run(args: argparse.Namespace) -> int:
     if final_status == "INTERRUPTED":
         return 130
     return 1
+
+
+def soak_loop(duration_hours: float = 24) -> bool:
+    """Backward-compatible boolean soak loop with subprocess isolation.
+
+    This remains intentionally fail closed: zero/negative/non-finite duration,
+    child-process failures, journal failures, incomplete terminal state, or an
+    interrupt all return ``False``.
+    """
+    if not math.isfinite(float(duration_hours)) or duration_hours <= 0:
+        return False
+
+    print(f"Starting {duration_hours}h SCP Soak Test...")
+    end_time = time.time() + (duration_hours * 3600)
+    db_path = ROOT / "soak.sqlite3"
+    if db_path.exists():
+        db_path.unlink()
+
+    kernel = TaskKernel(db_path)
+    total_spawned = 0
+    total_failed = 0
+    start_time = time.time()
+
+    try:
+        while time.time() < end_time:
+            batch = random.randint(10, 50)
+            batch_results: dict[int, dict] = {}
+            threads = []
+            batch_ids = []
+
+            for _ in range(batch):
+                total_spawned += 1
+                tid = total_spawned
+                batch_ids.append(tid)
+                thread = threading.Thread(target=run_workload, args=(tid, batch_results))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+
+            process_failures = []
+            journal_failures = []
+            state_failures = []
+            for tid in batch_ids:
+                task_id = f"soak-{tid}"
+                process_result = batch_results.get(tid)
+                if not process_result or process_result.get("returncode") != 0:
+                    process_failures.append((tid, process_result))
+                    continue
+                try:
+                    journal = kernel.verify_journal(task_id)
+                    task = kernel.get_task(task_id)
+                except Exception as exc:
+                    journal_failures.append((tid, f"verify/read error: {exc!r}"))
+                    continue
+                if not journal.get("hash_chain_valid", False):
+                    journal_failures.append((tid, "hash_chain_valid=False"))
+                if task.get("state") != "COMPLETED":
+                    state_failures.append((tid, task.get("state")))
+
+            batch_failed = len(process_failures) + len(journal_failures) + len(state_failures)
+            total_failed += batch_failed
+            elapsed = time.time() - start_time
+            status = "PASS" if batch_failed == 0 else f"FAIL ({batch_failed})"
+            print(
+                f"Elapsed {elapsed/3600:.4f}h | Spawned: {total_spawned} | "
+                f"Batch: {batch} | Ledger/workload check: {status}"
+            )
+            if process_failures:
+                print(f"  process failures: {process_failures[:3]}")
+            if journal_failures:
+                print(f"  journal failures: {journal_failures[:3]}")
+            if state_failures:
+                print(f"  state failures: {state_failures[:3]}")
+            if batch_failed:
+                return False
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Soak test interrupted — not a PASS.")
+        return False
+    finally:
+        kernel.close()
+
+    print(f"Soak complete: spawned={total_spawned}, failures={total_failed}")
+    return total_spawned > 0 and total_failed == 0
 
 
 def main(argv: list[str] | None = None) -> int:
