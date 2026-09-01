@@ -66,6 +66,9 @@ def test_breaker_open_skips_dead_provider_without_network_call(monkeypatch):
 
 
 def test_env_extra_provider_sits_in_chain(monkeypatch):
+    # Hermetic fake transport still has to declare the egress policy it simulates.
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "openrouter.ai,api.deepseek.com")
     from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
     monkeypatch.setenv("SCP_LLM_FALLBACK_PROVIDERS", "deepseek:DEEPSEEK_API_KEY:DEEPSEEK_BASE_URL:DEEPSEEK_MODEL")
@@ -91,6 +94,9 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
 
 
 def test_all_providers_down_fails_closed(monkeypatch):
+    # Exercise provider outage, not global egress-deny; network remains a fake client.
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "openrouter.ai")
     from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
     gateway = LLMGateway()
