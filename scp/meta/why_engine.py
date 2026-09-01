@@ -72,6 +72,11 @@ _impl.VerificationPlan = VerificationPlan
 _impl._get_metawhy_monitor = _get_metawhy_monitor
 WhyEngine = _impl.WhyEngine
 
+# The split is an implementation detail. Preserve the pre-split public module
+# identity for introspection and pickle/import compatibility.
+init_why_db.__module__ = __name__
+WhyEngine.__module__ = __name__
+
 
 def main():
     """CLI delegate."""
