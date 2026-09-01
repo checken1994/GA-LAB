@@ -58,6 +58,25 @@ def test_db_manager_parts_share_runtime_state(tmp_path: Path) -> None:
     assert row == {"x": 1}
 
 
+def test_db_manager_extracted_functions_bind_to_authoritative_globals() -> None:
+    """DB split functions must mutate one facade-owned process state."""
+    import scp.core.db_manager as db_manager
+
+    for fn in (
+        db_manager._get_path_conn,
+        db_manager.get_db,
+        db_manager._preflight_integrity_check,
+        db_manager.db_exec,
+        db_manager.db_batch_flush,
+        db_manager.init_db,
+        db_manager._init_all_module_tables,
+        db_manager._migrate_verdict_cache_schema,
+        db_manager._migrate_knowledge_schema,
+        db_manager._migrate_reverify_schema,
+    ):
+        assert fn.__globals__ is db_manager.__dict__
+
+
 def test_fast_learning_engine_keeps_constants_and_schema(tmp_path: Path) -> None:
     from scp.core.fast_learning_engine import FastLearningEngine, get_country_domain_matrix
 
@@ -69,6 +88,13 @@ def test_fast_learning_engine_keeps_constants_and_schema(tmp_path: Path) -> None
     matrix = get_country_domain_matrix()
     assert "Việt Nam" in matrix
     assert "geography" in matrix["Việt Nam"]
+
+
+def test_fast_learning_thread_guard_is_facade_owned() -> None:
+    """The idempotent thread singleton must not fork into a part-module scalar."""
+    import scp.core.fast_learning_engine as fast_learning
+
+    assert fast_learning.start_fast_learning_thread.__globals__ is fast_learning.__dict__
 
 
 def test_antibody_split_preserves_behavior() -> None:
