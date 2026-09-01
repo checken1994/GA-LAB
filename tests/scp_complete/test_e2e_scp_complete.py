@@ -21,7 +21,7 @@ async def test_complete_scp_architecture_integration(tmp_path, monkeypatch):
     # 2. Chuyển đổi trạng thái nguyên tử (scp-task-kernel-review)
     kernel.transition("scp_eval_1", "PLANNING", actor="planner", reason="Bắt đầu lập kế hoạch")
     state = kernel.get_task("scp_eval_1")
-    assert state["status"] == "PLANNING"
+    assert state["state"] == "PLANNING"
     
     # 3. LLM Gateway & Egress Policy (scp-capability-security-review & scp-gateway-resilience)
     # Trong môi trường test hoàn chỉnh, không mock - sử dụng Fail-Closed Egress.
@@ -43,4 +43,4 @@ async def test_complete_scp_architecture_integration(tmp_path, monkeypatch):
     
     # 5. Backup & Phục hồi (scp-computer-use-recovery)
     backup_path = kernel.backup(tmp_path / "backups")
-    assert backup_path.exists()
+    assert Path(backup_path["backup"]).exists()

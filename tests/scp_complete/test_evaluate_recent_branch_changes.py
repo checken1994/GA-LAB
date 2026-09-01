@@ -24,8 +24,6 @@ async def test_evaluate_branch_against_scp_dna():
     
     # 3. Sử dụng LLM Gateway để đánh giá (nếu có Egress)
     gateway = get_gateway()
-    if not gateway.enabled:
-        pytest.skip("LLM Gateway không khả dụng (chưa có API Key). Bỏ qua đánh giá thực tế.")
         
     prompt = (
         "Bạn là SCP Judge, hãy áp dụng 29 nguyên lý DNA và 13 Kỹ năng SCP. "
