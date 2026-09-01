@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import importlib
-import os
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-# The GOD split must remain importable in the same fail-closed CI profile used
-# by SCP tests. These values are test-only and deliberately non-production.
-os.environ.setdefault("SCP_JWT_SECRET", "god-split-parity-test-secret-32bytes")
-os.environ.setdefault("SCP_PRODUCTION_MODE", "0")
-os.environ.setdefault("SCP_SKIP_STARTUP_GATE", "0")
-os.environ.setdefault("SCP_EGRESS_MODE", "deny")
+@pytest.fixture(autouse=True)
+def _fail_closed_ci_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the parity profile test-scoped so collection cannot pollute other gates."""
+    monkeypatch.setenv("SCP_JWT_SECRET", "god-split-parity-test-secret-32bytes")
+    monkeypatch.setenv("SCP_PRODUCTION_MODE", "0")
+    monkeypatch.setenv("SCP_SKIP_STARTUP_GATE", "0")
+    monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
 
 
 TARGET_MODULES = (

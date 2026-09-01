@@ -158,4 +158,4 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      # No manifest freeze, RC_DONE, merge, or handoff authority here.
+      # No manifest freeze, final RC verdict, merge, or handoff authority here.
