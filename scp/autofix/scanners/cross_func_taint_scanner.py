@@ -110,6 +110,8 @@ _wire_parts()
 _get_scp_call_graph = _p_graph._get_scp_call_graph
 scan_file = _p_scan_file.scan_file
 scan_scp = _p_scan_scp.scan_scp
+for _public_callable in (scan_file, scan_scp):
+    _public_callable.__module__ = __name__
 _wire_parts()
 
 __all__ = ["scan_file", "scan_scp"]
