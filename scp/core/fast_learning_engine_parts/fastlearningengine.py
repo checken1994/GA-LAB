@@ -45,7 +45,7 @@ class FastLearningEngine:
             self._telemetry = SubsystemTelemetry(telemetry_subsystem, self.data_dir)
             self._telemetry.start(mode='background', config={'db_path': str(self.scp_db_path), 'count': 50, 'llm': 'ollama', 'verify': 'wikipedia'})
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self._stats = {'cycles_completed': 0, 'llm_questions_asked': 0, 'ollama_questions_skipped_known': 0, 'llm_answers_verified': 0, 'llm_kb_facts_stored': 0, 'compounding_l2_questions': 0, 'compounding_l3_questions': 0, 'avg_cycle_time_ms': 0, 'fastest_cycle_ms': 999999, 'slowest_cycle_ms': 0, 'by_domain': {}, 'by_country': {}, 'adaptive_interval_current': LEARN_INTERVAL_FAST, 'local_files_scanned': 0, 'local_facts_verified': 0, 'local_kb_facts_stored': 0, 'news_headlines_fetched': 0, 'news_questions_generated': 0, 'news_facts_stored': 0}
+        self._stats = {'cycles_completed': 0, 'llm_questions_asked': 0, 'ollama_questions_skipped_known': 0, 'llm_answers_verified': 0, 'llm_kb_facts_stored': 0, 'compounding_l2_questions': 0, 'compounding_l3_questions': 0, 'avg_cycle_time_ms': 0, 'fastest_cycle_ms': 999999, 'slowest_cycle_ms': 0, 'by_domain': {}, 'by_country': {}, 'adaptive_interval_current': LEARN_INTERVAL_FAST, 'local_files_scanned': 0, 'local_facts_verified': 0, 'local_kb_facts_stored': 0, 'news_headlines_fetched': 0, 'news_questions_generated': 0, 'news_facts_stored': 0, 'news_headlines_quarantined': 0}
         self._init_kb()
         self._ollama_semaphore: asyncio.Semaphore | None = None
         self._wiki_semaphore: asyncio.Semaphore | None = None
@@ -453,6 +453,10 @@ class FastLearningEngine:
                     self._stats['llm_kb_facts_stored'] += 1
                     results['stored'] += 1
         cycle_time_ms = int((time.time() - cycle_start) * 1000)
+        # [STEP0-FIX 2026-09-02] Keep raw cycle times (bounded window) so the
+        # benchmark route can report MEASURED p50/p95 instead of a
+        # constant-model estimate (Bước 0.12: ESTIMATE != BENCHMARK).
+        self._cycle_times_ms = (getattr(self, '_cycle_times_ms', []) + [cycle_time_ms])[-100:]
         self._stats['cycles_completed'] += 1
         self._stats['avg_cycle_time_ms'] = (self._stats['avg_cycle_time_ms'] * (self._stats['cycles_completed'] - 1) + cycle_time_ms) / self._stats['cycles_completed']
         self._stats['fastest_cycle_ms'] = min(self._stats['fastest_cycle_ms'], cycle_time_ms)
@@ -482,7 +486,21 @@ class FastLearningEngine:
         return self._stats.get('adaptive_interval_current', LEARN_INTERVAL_FAST)
 
     def stats(self) -> dict:
-        return self._stats.copy()
+        payload = self._stats.copy()
+        # [STEP0-FIX 2026-09-02] MEASURED distribution of real cycle times
+        # (bounded window of 100) for honest p50/p95 reporting.
+        times = sorted(getattr(self, '_cycle_times_ms', []) or [])
+        payload['cycle_times_n'] = len(times)
+        if times:
+            def _pct(p: float) -> int:
+                idx = min(len(times) - 1, max(0, round(p * (len(times) - 1))))
+                return int(times[idx])
+            payload['p50_cycle_ms'] = _pct(0.50)
+            payload['p95_cycle_ms'] = _pct(0.95)
+        else:
+            payload['p50_cycle_ms'] = None
+            payload['p95_cycle_ms'] = None
+        return payload
 
     async def ollama_learning_cycle(self, count: int=10) -> dict:
         """
@@ -617,11 +635,23 @@ class FastLearningEngine:
 
     async def news_learning_cycle(self) -> dict:
         """[G3-MERGE PORTED] Fetch news headlines → sinh câu hỏi → verify → lưu KB."""
-        results = {'headlines': 0, 'questions': 0, 'stored': 0}
+        results = {'headlines': 0, 'questions': 0, 'stored': 0, 'quarantined': 0}
+        # [STEP0-FIX 2026-09-02] Semantic firewall boundary (Bước 0.10): RSS
+        # headlines are external content and must pass the same deterministic
+        # injection scan as every other ingress (top_systems_learning,
+        # knowledge_curation). Injected headlines are DROPPED - never turned
+        # into questions, LLM checks, or KB facts.
+        from scp.core.top_systems_learning import inspect_untrusted
         for rss_url in NEWS_SOURCES:
             try:
                 headlines = self._fetch_rss_headlines(rss_url)
                 for headline in headlines[:5]:
+                    injected, reason = inspect_untrusted(headline)
+                    if injected:
+                        self._stats['news_headlines_quarantined'] += 1
+                        results['quarantined'] += 1
+                        logger.warning(f"[FIREWALL] RSS headline quarantined ({reason}): {headline[:80]!r}")
+                        continue
                     self._stats['news_headlines_fetched'] += 1
                     results['headlines'] += 1
                     llm_check = await self._ask_llm(f"Sự kiện sau có thật không? Trả lời 'ĐÚNG' hoặc 'SAI': {headline}")

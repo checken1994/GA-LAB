@@ -439,9 +439,14 @@ class TokenRequest(BaseModel):
 @app.post("/auth/token")
 @limiter.limit("5/minute")
 def login_for_access_token(req: TokenRequest, request: Request):
-    expected_key = os.environ.get("SCP_ADMIN_KEY", "admin")
+    # [STEP0-FIX 2026-09-02] Fail-closed: the previous default "admin" let
+    # anyone mint an admin JWT on deployments without SCP_ADMIN_KEY (P0,
+    # verified live 2026-08-29). Unconfigured auth is a 401 authorization
+    # failure, matching the canonical verify_admin contract in
+    # scp/security/auth.py (no dev-mode bypass).
+    expected_key = os.environ.get("SCP_ADMIN_KEY", "")
     import secrets as _secrets
-    if not _secrets.compare_digest(req.admin_key.encode(), expected_key.encode()):
+    if not expected_key or not _secrets.compare_digest(req.admin_key.encode(), expected_key.encode()):
         raise HTTPException(status_code=401, detail="Incorrect admin key")
     from scp.security.jwt_guard import create_access_token
     access_token = create_access_token(data={"sub": "admin"})

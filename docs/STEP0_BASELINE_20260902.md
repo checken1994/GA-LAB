@@ -35,3 +35,22 @@ Freeze inventory theo `scp-execution-order-master-plan` (0.1). Snapshot khi bắ
 | T07 missing-piece discovery | PRODUCT_BLOCKED (epistemic boundary chưa tồn tại) |
 | T09B verified-fix commits | PRODUCT_BLOCKED (reality_test module + gold evidence policy) |
 | T11 EvidenceAuthority | PRODUCT_BLOCKED (chưa có runtime evidence authority) |
+
+## Bổ sung 2026-09-02 (residue 0.8–0.12, cùng phiên)
+
+### 0.8 Auth residue — ĐÃ SỬA + claims đối chứng
+- **P0 còn sống đã bị diệt**: `api_server.py:442` `os.environ.get("SCP_ADMIN_KEY", "admin")` — fallback "admin" vẫn tồn tại (verified live 2026-08-29 nhưng code chưa sửa). Đã fail-closed: unconfigured → 401 (khớp convention của `verify_admin` canonical), sai key → 401.
+- **Claim scheduler của external plan = PHẢN CHỨNG**: không có server code nào chọn `SCP_AUTH_TOKEN_SECRET ?? SCP_AUTH_PASSWORD` — chỉ benchmark scripts (client-side) đọc env để gọi API (hợp lệ). Không sửa gì; claim được ghi là refuted-with-evidence.
+- 5 contract tests mới: `tests/T03_capability/test_auth_fail_closed_contract.py` (unconfigured 401 / wrong 401 / exact accept / ws session_id-only → 1008 / ws explicit token accept). 429 rate-limit để cho runtime profile (timing-based).
+
+### 0.9 Kernel mutation authority — INVENTORY (refactor primitive để sau)
+21+ mutating SQL sites trong `taskkernel.py`, tất cả nằm trong documented kernel methods, pattern event-first-then-projection: create (106), transition (87+142), claim 2 nhánh (173-174, 205-206 + expire-fail 195), start (246), heartbeat (260), release/expire (279, 292), checkpoint (311), record_action_dispatched (344-346), enter_reconciling (385), reconcile_unknown (415-426), idempotency_claim/retry (456, 461), idempotency_complete (483), commit_verification_result (506). Chưa thấy writer NGOÀI các method này (cần verify tiếp 0.9-full). Việc còn lại: transaction primitive thống nhất + crash injection 4 điểm + projection-rebuild equivalence test.
+
+### 0.10 Semantic firewall learning path — ĐÃ WIRE
+`fast_learning_engine_parts/fastlearningengine.py` (canonical learning engine) TRƯỚC ĐÂY không gọi `inspect_untrusted` (verified by grep — firewall chỉ phủ `_ask_impl`, `knowledge_curation`, `top_systems_learning`). Đã wire: RSS headlines (external ingress duy nhất của engine) qua `inspect_untrusted` — injected → DROP + đếm `news_headlines_quarantined`, không thành questions/facts.
+
+### 0.11 JudgeCoreMixin — J1 caller graph + DECISION RECORDED
+J1: `.judge()` production callers = `scp/core/streaming_factcheck.py:218` (SSE stream) + stub `scp_v14.py:26` (ủy quyền RealityJudge). Không có caller nào của JudgeCoreMixin ngoài cụm judge (grep toàn scp/). **Decision: KEEP JudgeCoreMixin canonical** — phased judge (`judge_phases.py`) hiện shadow-only, chưa chứng minh parity; deprecate chỉ sau J2–J5 (semantic inventory → shadow parity trên corpus cố định → adversarial parity → switch). Không xóa trước khi replacement có C-level evidence.
+
+### 0.12 Benchmark — ESTIMATE được tách khỏi MEASURED
+Engine giờ giữ `cycle_times_ms` (window 100) → `stats()` expose `cycle_times_n / p50_cycle_ms / p95_cycle_ms` (MEASURED); route `/v104/learn/fast/benchmark` trả thêm `measured_parallel` (MEASURED) song song với phần ESTIMATE đã nhãn. Benchmark thật hai-workload (sequential vs parallel cùng work units) vẫn là việc còn lại.

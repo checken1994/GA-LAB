@@ -383,6 +383,14 @@ async def v1042_learn_fast_benchmark():
         # performance gate (Bước 0.12: ESTIMATE != BENCHMARK).
         "measurement_kind": "ESTIMATE",
         "estimate_note": "sequential side = 50 questions x 700ms constant estimate; not measured - do not use as a performance gate",
+        # [STEP0-FIX 2026-09-02] MEASURED side from real recorded cycle times
+        # (bounded window of 100) - the honest half of this endpoint.
+        "measured_parallel": {
+            "kind": "MEASURED",
+            "cycles_n": stats.get("cycle_times_n", 0),
+            "p50_cycle_ms": stats.get("p50_cycle_ms"),
+            "p95_cycle_ms": stats.get("p95_cycle_ms"),
+        },
         "v104_1_sequential_ms_per_q": 700,
         "v104_2_parallel_avg_cycle_ms": avg_ms,
         "v104_2_questions_per_cycle": asked_avg,
