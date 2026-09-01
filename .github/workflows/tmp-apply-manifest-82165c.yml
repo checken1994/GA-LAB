@@ -1,0 +1,54 @@
+name: Temp Apply Manifest 82165c
+
+on:
+  push:
+    branches:
+      - audit/tmp-manifest-82165c
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: integration/experiment-god-split-and-providers
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Guard exact candidate and regenerate manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="82165cbbb65fbcb06d7acb1743b4f405ab471a4c"
+          target="reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json"
+          test "$(git rev-parse HEAD)" = "$expected" || { echo "integration HEAD moved"; exit 42; }
+          python tools/create_snapshot_manifest.py --commit HEAD --output "$target"
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          expected='82165cbbb65fbcb06d7acb1743b4f405ab471a4c'
+          d=json.loads(Path('reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json').read_text(encoding='utf-8'))
+          assert d['captured_commit']==expected
+          assert d['captured_tree']=='91e5bd9e8576037859dec7c963439d1ec6c113bc'
+          changed=subprocess.check_output(['git','diff','--name-only'],text=True).splitlines()
+          assert changed==['reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json'], changed
+          print(d['tracked_count'], d['inventory_sha256'])
+          PY
+      - name: Commit manifest-only direct child
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="reports/manifests_202608/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add "$target"
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = "$target"
+          git commit -m "chore: refresh snapshot manifest for mutation-fixed candidate"
+          test "$(git rev-parse HEAD^)" = "82165cbbb65fbcb06d7acb1743b4f405ab471a4c"
+          git push origin HEAD:integration/experiment-god-split-and-providers
