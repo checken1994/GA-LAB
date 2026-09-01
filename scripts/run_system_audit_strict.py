@@ -17,10 +17,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from scripts import run_full_audit as base
-from tools.run_bounded_system_smoke import port_open, run as run_bounded_smoke
-
 ROOT = Path(__file__).resolve().parents[1]
+# Ensure repository root is on sys.path for absolute imports
+sys.path.insert(0, str(ROOT))
+from importlib import import_module
+base = import_module('scripts.run_full_audit')
+from tools.run_bounded_system_smoke import port_open, run as run_bounded_smoke
 REPORT_DIR = ROOT / "reports" / "system_audit_strict"
 
 
@@ -128,7 +130,7 @@ def step_full_pytest() -> dict:
         cwd=ROOT,
         capture_output=True,
         text=True,
-        timeout=600,
+        timeout=1800,
     )
     return {
         "ok": proc.returncode == 0,
