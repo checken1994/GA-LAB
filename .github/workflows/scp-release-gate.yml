@@ -70,7 +70,7 @@ jobs:
           retention-days: 14
       - shell: pwsh
         run: |
-          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools -f json -o bandit-prod.json
+          python -m bandit -r scp -x scp/tests,scp/examples,scp/tools,scp/venv -f json -o bandit-prod.json
           $banditExit = $LASTEXITCODE
           python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
           python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9

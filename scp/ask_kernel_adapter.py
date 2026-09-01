@@ -344,6 +344,47 @@ class AskKernelAdapter:
 
     async def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
         task_id, lease_id = task["task_id"], task["lease_id"]
+        current_task = self.kernel.get_task(task_id)
+        current_state = str(current_task.get("state") or "")
+        if current_state in _TERMINAL:
+            verification = {
+                "verdict": "TERMINAL_STATE",
+                "verifier_id": "scp-ask-terminal-state-guard-v1",
+                "evidence_ref": f"ask://{task_id}/terminal/{current_state.lower()}",
+                "grounded_ratio": 0.0,
+                "checked": {"task_not_terminal": False},
+                "failures": [f"task_terminal:{current_state}"],
+            }
+            response_data = _dump(response)
+            safe_response = self._kernel_blocked_response(
+                req,
+                KernelError(
+                    f"task {task_id} entered terminal state {current_state} before response verification"
+                ),
+            )
+            with _TRACE_LOCK:
+                self.trace.append(
+                    task_id=task_id,
+                    attempt_id=task.get("attempt_id"),
+                    step_id="rag-read",
+                    lease_id=lease_id,
+                    checkpoint_id=task.get("checkpoint_id"),
+                    verifier_id=verification["verifier_id"],
+                    evidence_ref=verification["evidence_ref"],
+                    run_id=response_data.get("run_id"),
+                    trace_id=response_data.get("trace_id"),
+                    outcome=current_state,
+                    verdict=verification["verdict"],
+                    grounded_ratio=0.0,
+                    response_elapsed_ms=response_data.get("elapsed_ms"),
+                    reason="task_terminal_before_verification",
+                )
+            return {
+                "task": current_task,
+                "verification": verification,
+                "safe_response": safe_response,
+            }
+
         self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
         verification = await self.verify_response(req, response, task)
         if verification["verdict"] == "VERIFIED":

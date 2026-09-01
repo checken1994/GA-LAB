@@ -79,7 +79,7 @@ def main() -> int:
                 assert identity.get("configured_port") == PORT, f"FAIL: port contract: {identity}"
                 assert isinstance(identity.get("pid"), int), "FAIL: pid contract"
                 assert str(health.get("version", "")).count(".") >= 1, "FAIL: version contract"
-                print(f"PASS [1/3]: hermetic /health 200 — identity port={identity.get('configured_port')} pid={identity.get('pid')}")
+                print(f"PASS [1/3]: hermetic /health 200 - identity port={identity.get('configured_port')} pid={identity.get('pid')}")
 
                 # 2. Readiness — judge sẵn sàng mà KHÔNG cần Ollama/network.
                 deadline = time.time() + 30
@@ -91,13 +91,13 @@ def main() -> int:
                     time.sleep(1)
                 assert ready_code == 200, "FAIL: /ready không 200 trong 30s — judge init phụ thuộc thứ gì đó ngoài env file"
                 assert ready.get("checks", {}).get("judge") == "ok", f"FAIL: judge not ok: {ready}"
-                print("PASS [2/3]: /ready 200 — judge sẵn sàng trong môi trường trắng")
+                print("PASS [2/3]: /ready 200 - judge ready in hermetic env")
 
                 # 3. API-only: boot log không được có vết gọi LLM cục bộ 11434.
                 boot_text = boot_log.read_text(encoding="utf-8", errors="replace")
                 assert "11434" not in boot_text, "FAIL: boot vẫn chạm 11434 (Ollama ghost)"
-                print("PASS [3/3]: boot log sạch — không chạm Ollama (API-onlyReality)")
-                print("\nOK Reality test 4-e-002 PASSED — hermetic boot trên môi trường trắng")
+                print("PASS [3/3]: boot log sach - khong cham Ollama (API-onlyReality)")
+                print("\nOK Reality test 4-e-002 PASSED - hermetic boot tren moi truong trang")
                 return 0
             finally:
                 try:
