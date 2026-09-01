@@ -1,7 +1,7 @@
 ---
 name: scp-skill-review
 description: Review bộ SCP Skills (skill pack) theo chuẩn 6 chiều C1–C6 + 4 mức bằng chứng A–D, tổng hợp từ OpenAI (Practices for Governing Agentic AI Systems, GPT-5 System Card), Anthropic（Agent Skills spec, progressive disclosure, evaluation-driven development), Google DeepMind（AI co-scientist, AlphaEvolve） và LLM-as-judge/Braintrust evals。 Dùng khi cần audit skill pack, thêm/sửa skill, kiểm tra index nhất quán, hoặc định xem skill nào đáng tin làm ground truth trước khi dùng nó để sửa chính SCP
-
+---
 
 # SCP Skill Review — Chuẩn đánh giá bộ kỹ năng
 
