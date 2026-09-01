@@ -63,7 +63,8 @@ jobs:
           python-version: '3.12'
 
       - name: Prove exact SHA checkout
-        run: python -c "import os,subprocess; actual=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(); expected=os.environ['GITHUB_SHA']; assert actual == expected, f'checkout SHA mismatch: {actual} != {expected}'; print('EXACT_SHA_OK', actual)"
+        run: >-
+          python -c "import os,subprocess; actual=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(); expected=os.environ['GITHUB_SHA']; assert actual == expected, f'checkout SHA mismatch: {actual} != {expected}'; print('EXACT_SHA_OK', actual)"
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
