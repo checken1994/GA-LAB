@@ -1,67 +1,127 @@
-# SCP — Self-Correcting Pipeline (Agent Runtime)
+# SCP — Self-Correcting Pipeline
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Status: API-Only Agent Runtime](https://img.shields.io/badge/status-API--Only%20Agent%20Runtime-green.svg)](#trạng-thái-thực-tế-ground-truth)
 
-> **SCP không phải là một mô hình ngôn ngữ (LLM). SCP là một Hệ điều hành trung gian (Agent OS/Runtime) đứng giữa AI và thế giới thực.**
-> **Tôn chỉ cốt lõi (SCP DNA): Reality > Model. Lỗi thì đóng cửa (Fail-Closed). Bằng chứng thực thi quan trọng hơn suy luận của AI.**
+**SCP** là một hệ thống thử nghiệm dành cho AI Agent, tập trung vào khả năng **thực thi có kiểm soát, tự kiểm tra, tự phát hiện sai và phục hồi an toàn**.
 
-## Cách SCP Thực Sự Hoạt Động
+SCP không phải là một mô hình ngôn ngữ. Hệ thống đứng giữa AI và môi trường thực thi để quản lý task, quyền hành động, trạng thái bền vững, bằng chứng, xác minh độc lập và các vòng tự sửa có giới hạn.
 
-Thay vì để AI trực tiếp gọi hàm (Function Calling) một cách vô tội vạ, SCP ép AI phải tuân thủ một cỗ máy trạng thái (State Machine) khắt khe:
+Nguyên tắc cốt lõi:
 
-1. **State Machine Bất Biến:** Mọi task đi qua luồng CREATED -> PLANNING -> READY -> QUEUED -> LEASED -> RUNNING. Nếu tiến trình chết ngang giữa chừng, SCP tự động đóng băng và đưa vào trạng thái HUMAN_REVIEW (Chờ người kiểm duyệt) khi khởi động lại, tuyệt đối không tự ý đoán mò để chạy tiếp.
-2. **Quản Lý Quyền (Capability Guard):** 
-   - Mọi AI/Agent bên ngoài đều bị khóa cứng bởi capabilityLevel của phiên làm việc (Session). Nếu yêu cầu quyền cao hơn, hệ thống trả về WAITING_APPROVAL.
-   - **Đặc quyền duy nhất:** Trừ duy nhất AI định danh là SCP (gent_id="SCP") được thiết kế kiến trúc cho phép tự nâng quyền (Self-escalation) để giải quyết các luồng hệ thống lõi.
-3. **Cổng Xác Minh (Verification Gates):**
-   - Không có khái niệm "Làm xong". Mọi kết quả phải vượt qua Reality Judge (kiểm tra trạng thái hệ thống, log, post-condition) trước khi được đánh dấu là VERIFIED.
-   - Các tri thức thu thập từ Internet phải đi qua Quarantine (Cách ly) trước khi được nạp vào Kho Tri Thức (Knowledge Warehouse).
-4. **Gateway Độ Trễ Thấp:** 
-   - Đứng giữa SCP và các LLM là một LLM Gateway (OpenRouter, Groq) tích hợp sẵn Circuit Breaker (ngắt mạch khi lỗi), Retry Backoff, và luân chuyển Model. Không chạy Local Inference Engine để bảo vệ tài nguyên lõi.
+> **Reality > Model**  
+> Kết quả chỉ đáng tin khi có bằng chứng kiểm chứng được. Khi trạng thái không chắc chắn, hệ thống ưu tiên dừng hoặc chuyển sang kiểm tra thay vì tự đoán.
 
-## Trạng Thái Thực Tế (Ground Truth)
+## SCP có gì?
 
-Không phóng đại, không ảo tưởng, đây là tình trạng hiện tại của hệ thống được ghi nhận bởi log thực thi:
+- **TaskKernel** — quản lý vòng đời task, state machine, journal, lease, checkpoint và recovery.
+- **Capability & Security** — giới hạn quyền theo hành động và trạng thái hệ thống; hỗ trợ revoke, sandbox và egress policy.
+- **Independent Verification** — kiểm post-condition và evidence thay vì tin rằng agent tự báo “đã xong”.
+- **Hands / Tool Runtime** — thực hiện các hành động có side effect qua lớp kiểm soát và ghi nhận trạng thái.
+- **LLM Gateway** — hỗ trợ nhiều provider, timeout, circuit breaker và fallback có kiểm soát.
+- **AutoFix / Self-Audit** — phát hiện vấn đề, kiểm evidence, đề xuất/sửa trong phạm vi giới hạn, verify và rollback khi cần.
+- **Complete-SCP test architecture** — bộ kiểm thử T00–T11 đang được phát triển để kiểm cả sản phẩm lẫn chính test/verifier/auditor.
 
-* **Tính Khả Dụng (Availability) & Kiến Trúc:** `TaskKernel` đã được tách rời (Decoupled) khỏi cơ sở dữ liệu vật lý thông qua Dependency Injection (`KernelStorage`), hỗ trợ thay thế linh hoạt (ví dụ: in-memory, Postgres, SQLite).
-* **Soak Test (Độ Bền):** **Đã PASS.** Kiểm thử chịu tải tự động (629 task liên tục, 22 batch) đạt 100% Ledger Consistency (tính nhất quán của sổ cái trạng thái) mà không rò rỉ hay deadlock.
-* **Môi Trường LLM Độc Lập (Environment-Agnostic):** LLM Gateway không còn khóa cứng vào OpenRouter. Hệ thống tự động ưu tiên nhận diện và giao tiếp thông qua các chuẩn API tương thích OpenAI (`OPENAI_API_KEY`, `OPENAI_BASE_URL`) nếu được cung cấp ở môi trường triển khai mới.
-* **Test Coverage & Release Gate:** Hệ thống tích hợp **Mutation Testing** (chạy dry-run qua CI) và **Test Factory Daemon** tự động sinh test để kiểm soát chất lượng mã nguồn khi có thay đổi. Hiện tại vẫn đang củng cố độ bao phủ (coverage) và cần hoàn thiện ranh giới Sandbox trên Windows.
+> SCP hiện vẫn đang được phát triển và kiểm định. Không nên coi trạng thái hiện tại là một hệ thống production đã hoàn thiện.
 
-## Quick Start
+## Cách chạy
+
+### Windows — cách đơn giản
+
+Yêu cầu: **Python 3.12+** và **Node.js** đã có trong `PATH`.
+
+```bat
+install-scp.bat
+```
+
+Installer sẽ cài dependency, cài Bun nếu cần, tạo cấu hình `.env` an toàn và kiểm tra boot configuration.
+
+Sau đó cấu hình provider LLM trong `.env` nếu cần rồi chạy:
+
+```bat
+start-scp.bat
+```
+
+### Chạy API thủ công
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r scp/requirements.txt
+```
 
-# Yêu cầu biến môi trường (.env)
-#   SCP_JWT_SECRET=<random hex 64>
-#   SCP_ADMIN_KEY=<random urlsafe 24>
+Tạo file cấu hình từ template:
 
-# Cấu hình API cho LLM (chọn 1 trong 2):
-# Dùng Custom OpenAI-Compatible API (ưu tiên):
-#   OPENAI_API_KEY=<your key>
-#   OPENAI_BASE_URL=<your base url>
-#   OPENAI_MODEL=<your model>
-# Hoặc dùng OpenRouter:
-#   OPENROUTER_API_KEY=<your openrouter key>
-#   OPENROUTER_MODEL=<your model>
+**Windows:**
 
+```bat
+copy .env.example .env
+```
+
+**Linux/macOS:**
+
+```bash
+cp .env.example .env
+```
+
+Cấu hình ít nhất các secret bắt buộc và một LLM provider trong `.env` nếu muốn dùng các chức năng cần LLM.
+
+Khởi động SCP:
+
+```bash
 python -m scp 8000
 ```
 
-## Cấu trúc Hệ Thống
+Mặc định API chạy trên:
 
-| Module lõi | Mô tả thực tế |
-|---|---|
-| `scp/task_kernel.py` | Trái tim của hệ thống. Quản lý State Machine, cấp Lease (Khóa tác vụ), và Dependency Injection (DI) qua `KernelStorage`. |
-| `scp/kernel_storage.py` | Abstraction layer cho lưu trữ trạng thái TaskKernel (SQLite, v.v.). |
-| `scp/hands/planner.py` | Quản lý DAG Plan. Ép buộc phân quyền Capability cho AI ngoài, mở luồng tự nâng quyền cho định danh SCP. |
-| `scp/llm_gateway/` | Gateway gọi API linh hoạt, không khóa nhà cung cấp (vendor lock-in), tự động failover và ưu tiên Env API. |
-| `scp/security/` | Quản lý Sandbox và phân quyền hệ thống. |
-| `scripts/run_mutation_ci.py` | Trình đánh giá Release Gate đảm bảo Mutation Score. |
-| `scripts/scp_test_factory.py` | Trình sinh test tự động dựa vào Autofix. |
+```text
+http://127.0.0.1:8000
+```
 
-## Giấy phép
+Có thể đổi port:
+
+```bash
+python -m scp 8080
+```
+
+hoặc đặt `SCP_PORT` / `SCP_HOST` trong môi trường.
+
+## Cấu hình LLM
+
+SCP hỗ trợ OpenRouter hoặc API tương thích OpenAI. Ví dụ:
+
+```env
+# OpenRouter
+OPENROUTER_API_KEY=...
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=...
+
+# Hoặc OpenAI-compatible API
+OPENAI_API_KEY=...
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=...
+```
+
+Nếu bật external LLM access, hostname của provider phải được cho phép trong `SCP_LLM_EGRESS_ALLOWLIST`.
+
+Xem đầy đủ cấu hình tại [`.env.example`](.env.example).
+
+## Các hệ thống tương tự để tham khảo
+
+SCP là dự án độc lập, không phải fork của các dự án dưới đây. Tuy nhiên, một số hướng thiết kế có thể được so sánh hoặc tham khảo với các hệ thống trong cùng lĩnh vực AI Agent/runtime:
+
+- **[OpenHands](https://github.com/OpenHands/OpenHands)** — nền tảng agent cho software engineering, chú trọng runtime, sandbox và khả năng thực hiện tác vụ phát triển phần mềm.
+- **[AutoGPT](https://github.com/Significant-Gravitas/AutoGPT)** — hệ sinh thái xây dựng, triển khai và vận hành AI agents/workflows tự động.
+- **[LangGraph](https://github.com/langchain-ai/langgraph)** — framework cho agent có trạng thái, durable execution, persistence và human-in-the-loop.
+
+Điểm SCP tập trung mạnh hơn là kết hợp **Reality verification, fail-closed behavior, durable task state, capability boundaries và vòng self-audit/self-correction** thành một hệ thống kiểm soát thống nhất.
+
+## Trạng thái dự án
+
+SCP đang trong giai đoạn **nghiên cứu, phát triển và kiểm định kiến trúc**. Các capability và test được thay đổi thường xuyên; một SHA chỉ đại diện cho trạng thái của repository tại thời điểm kiểm chứng.
+
+## License
+
 MIT License.
 
+---
+
+**Minh Nguyen Van**  
+Email: **checken1994@gmail.com**
