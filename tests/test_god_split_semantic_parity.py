@@ -171,6 +171,24 @@ def test_api_server_keeps_detailed_health_contract() -> None:
     assert route.endpoint.__globals__ is api_server.__dict__
 
 
+def test_split_facades_keep_public_module_identity() -> None:
+    """Facade exports must still look like the stable production modules."""
+    from scp.autofix.engine import AutoFixEngine
+    from scp.core.fast_learning_engine import FastLearningEngine
+    from scp.knowledge.antibody_system import DomainAntibodySystem
+    from scp.meta.why_engine import WhyEngine
+    from scp.task_kernel import TaskKernel
+
+    for exported_type, expected_module in (
+        (AutoFixEngine, "scp.autofix.engine"),
+        (FastLearningEngine, "scp.core.fast_learning_engine"),
+        (DomainAntibodySystem, "scp.knowledge.antibody_system"),
+        (WhyEngine, "scp.meta.why_engine"),
+        (TaskKernel, "scp.task_kernel"),
+    ):
+        assert exported_type.__module__ == expected_module
+
+
 def test_judge_core_preserves_public_judge_contract() -> None:
     from scp.runtime.judge_parts.judgecore_mixin import JudgeCoreMixin
 
