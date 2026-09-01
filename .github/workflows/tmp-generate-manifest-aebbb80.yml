@@ -1,0 +1,32 @@
+name: Temp Generate Manifest aebbb80
+
+on:
+  push:
+    branches:
+      - audit/tmp-manifest-gen-aebbb80
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Generate exact manifest
+        run: |
+          mkdir -p generated
+          python tools/create_snapshot_manifest.py \
+            --commit aebbb80defe70b3ae1a4a867e7522b8af3786151 \
+            --output generated/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+          python tools/verify_snapshot_manifest.py generated/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: manifest-aebbb80
+          path: generated/ROOT_SCP_SNAPSHOT_MANIFEST_20260826.json
+          retention-days: 1
