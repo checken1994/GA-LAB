@@ -13,10 +13,10 @@ from typing import Any, Awaitable, Callable
 _c3_logger = logging.getLogger("scp.ask_kernel_adapter")
 
 try:
-    from .task_kernel import KernelError, TaskKernel
+    from .task_kernel import InvalidTransition, KernelError, TaskKernel
     from .trace_ledger import TraceLedger
 except ImportError:
-    from task_kernel import KernelError, TaskKernel
+    from task_kernel import InvalidTransition, KernelError, TaskKernel
     from trace_ledger import TraceLedger
 try:
     from scp.api_server_parts.helpers import AskResponse
@@ -344,8 +344,8 @@ class AskKernelAdapter:
 
     async def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
         task_id, lease_id = task["task_id"], task["lease_id"]
-        current_task = self.kernel.get_task(task_id)
-        if current_task["state"] in _TERMINAL:
+
+        def _terminal_result(current_task: dict[str, Any]) -> dict[str, Any]:
             verification = {
                 "verdict": "INSUFFICIENT",
                 "verifier_id": "scp-ask-kernel-terminal-v1",
@@ -376,7 +376,18 @@ class AskKernelAdapter:
                 "safe_response": self._safe_response(response, verification),
             }
 
-        self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
+        current_task = self.kernel.get_task(task_id)
+        if current_task["state"] in _TERMINAL:
+            return _terminal_result(current_task)
+
+        try:
+            self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
+        except InvalidTransition:
+            current_task = self.kernel.get_task(task_id)
+            if current_task["state"] in _TERMINAL:
+                return _terminal_result(current_task)
+            raise
+
         verification = await self.verify_response(req, response, task)
         if verification["verdict"] == "VERIFIED":
             final_task = self.kernel.commit_verification_result(task_id, lease_id, verification)
