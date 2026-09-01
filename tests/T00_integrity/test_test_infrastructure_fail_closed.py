@@ -17,7 +17,7 @@ from scripts import scp_soak_test
 def test_mutation_missing_target_is_error():
     with pytest.raises(FileNotFoundError):
         mutation_engine.run_mutation_tests(
-            "scp/does_not_exist.py", "tests/test_test_infrastructure_fail_closed.py"
+            "scp/does_not_exist.py", "tests/T00_integrity/test_test_infrastructure_fail_closed.py"
         )
 
 
@@ -26,7 +26,7 @@ def test_mutation_unsupported_target_is_error(tmp_path):
     target.write_text("hello", encoding="utf-8")
     with pytest.raises(ValueError):
         mutation_engine.run_mutation_tests(
-            str(target), "tests/test_test_infrastructure_fail_closed.py"
+            str(target), "tests/T00_integrity/test_test_infrastructure_fail_closed.py"
         )
 
 
@@ -36,7 +36,7 @@ def test_mutation_zero_mutants_is_error(monkeypatch, tmp_path):
     monkeypatch.setattr(mutation_engine, "generate_mutants", lambda _path: [])
     with pytest.raises(RuntimeError, match="no supported mutants"):
         mutation_engine.run_mutation_tests(
-            str(target), "tests/test_test_infrastructure_fail_closed.py"
+            str(target), "tests/T00_integrity/test_test_infrastructure_fail_closed.py"
         )
 
 
@@ -57,7 +57,7 @@ def test_mutation_pytest_collection_error_is_not_counted_as_kill(monkeypatch, tm
     )
     with pytest.raises(RuntimeError) as exc_info:
         mutation_engine.run_mutation_tests(
-            str(target), "tests/test_test_infrastructure_fail_closed.py"
+            str(target), "tests/T00_integrity/test_test_infrastructure_fail_closed.py"
         )
     message = str(exc_info.value)
     assert "pytest code 2" in message
