@@ -189,7 +189,7 @@ jobs:
         shell: bash
         run: |
           python -m compileall -q scp scripts tools tests
-          python -m ruff check scp scripts tools tests --select E9,F601,F811,F821 --extend-exclude "**/*_parts/**"
+          python -m ruff check scp scripts tools tests --select E9,F601,F811,F821 --extend-exclude "*_parts"
 
       - name: Mandatory SCP Skill and DNA contract
         shell: bash
