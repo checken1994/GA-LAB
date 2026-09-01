@@ -27,8 +27,17 @@ MANDATORY_WORKFLOW_CALLS = {
     ".github/workflows/ci.yml": 1,
     ".github/workflows/scp-release-gate.yml": 1,
     ".github/workflows/scp-system-audit.yml": 1,
-    ".github/workflows/scp-architecture-snapshot-audit.yml": 1,
+    ".github/workflows/scp-architecture-snapshot-audit.yml": 7,
 }
+ARCH_MANDATORY_SUITES = (
+    "core-matrix",
+    "semantic-acceptance",
+    "security-mutation",
+    "reality-runtime",
+    "dashboard",
+    "manifest-provenance",
+    "snapshot-draft",
+)
 INDEX_FILES = (
     ".agents/skills/README.md",
     ".agents/AGENTS.md",
@@ -70,6 +79,14 @@ def dna_principle_numbers(text: str) -> list[int]:
     return [int(n) for n in re.findall(r"(?m)^##\s+(\d+)\.\s+", text)]
 
 
+def _job_block(workflow: str, job: str) -> str | None:
+    match = re.search(
+        rf"(?ms)^  {re.escape(job)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+        workflow,
+    )
+    return match.group(1) if match else None
+
+
 def verify(root: Path) -> dict[str, object]:
     root = root.resolve()
     errors: list[str] = []
@@ -95,12 +112,10 @@ def verify(root: Path) -> dict[str, object]:
             + ", ".join(extra)
         )
 
-    skill_meta: dict[str, dict[str, str]] = {}
     for name in sorted(discovered):
         rel = f".agents/skills/{name}/SKILL.md"
         text = _read(root, rel, errors)
         meta = parse_frontmatter(text)
-        skill_meta[name] = meta
         if meta.get("name") != name:
             errors.append(f"{rel}: frontmatter name must equal directory name")
         description = meta.get("description", "")
@@ -152,8 +167,10 @@ def verify(root: Path) -> dict[str, object]:
             errors.append(f"scp-skill-review missing verdict {verdict}")
 
     workflow_calls: dict[str, int] = {}
+    workflow_text: dict[str, str] = {}
     for relative, minimum in MANDATORY_WORKFLOW_CALLS.items():
         text = _read(root, relative, errors)
+        workflow_text[relative] = text
         count = text.count(GATE_COMMAND)
         workflow_calls[relative] = count
         if count < minimum:
@@ -161,46 +178,46 @@ def verify(root: Path) -> dict[str, object]:
                 f"{relative}: requires >= {minimum} SCP Skill+DNA gate call(s), found {count}"
             )
 
-    arch = _read(root, ".github/workflows/scp-architecture-snapshot-audit.yml", errors)
-    if "skill-dna-governance:" not in arch:
-        errors.append("architecture audit must include mandatory skill-dna-governance job")
-    for job in (
-        "core-matrix",
-        "semantic-acceptance",
-        "security-mutation",
-        "reality-runtime",
-        "dashboard",
-        "manifest-provenance",
-        "snapshot-draft",
-        "final-verdict",
-    ):
-        match = re.search(
-            rf"(?ms)^  {re.escape(job)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
-            arch,
-        )
-        if not match:
-            errors.append(f"architecture audit missing mandatory job: {job}")
+    arch = workflow_text.get(".github/workflows/scp-architecture-snapshot-audit.yml", "")
+    suite_gate_calls: dict[str, int] = {}
+    for job in ARCH_MANDATORY_SUITES:
+        block = _job_block(arch, job)
+        if block is None:
+            errors.append(f"architecture audit missing mandatory suite: {job}")
+            suite_gate_calls[job] = 0
             continue
-        block = match.group(1)
-        needs_lines = "\n".join(
-            line.strip() for line in block.splitlines() if line.strip().startswith("needs:")
-        )
-        if "skill-dna-governance" not in needs_lines:
+        count = block.count(GATE_COMMAND)
+        suite_gate_calls[job] = count
+        if count < 1:
             errors.append(
-                f"architecture job {job} must depend on skill-dna-governance"
+                f"architecture suite {job} must execute SCP Skill+DNA gate on its own exact SHA"
+            )
+
+    final_block = _job_block(arch, "final-verdict")
+    if final_block is None:
+        errors.append("architecture audit missing mandatory job: final-verdict")
+    else:
+        needs_match = re.search(r"(?m)^\s*needs:\s*(.+)$", final_block)
+        needs_line = needs_match.group(1) if needs_match else ""
+        missing_needs = [job for job in ARCH_MANDATORY_SUITES if job not in needs_line]
+        if missing_needs:
+            errors.append(
+                "final-verdict must depend on every Skill+DNA-bound mandatory suite: "
+                + ", ".join(missing_needs)
             )
 
     result: dict[str, object] = {
-        "schema_version": "scp-skill-dna-gate-v1",
+        "schema_version": "scp-skill-dna-gate-v2",
         "status": "PASS_WITHIN_SCOPE" if not errors else "FAIL",
         "skill_count": len(discovered),
         "expected_skill_count": len(EXPECTED_SKILLS),
         "dna_principle_count": len(numbers),
         "workflow_gate_calls": workflow_calls,
+        "architecture_suite_gate_calls": suite_gate_calls,
         "index_missing": index_status,
         "errors": errors,
         "rule": (
-            "Mandatory test/release suites must load the governed SCP Skill pack "
+            "Every mandatory test/release suite must independently load the governed SCP Skill pack "
             "and SCP DNA contract on the exact candidate SHA; uncertainty fails closed."
         ),
     }
