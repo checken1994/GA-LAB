@@ -1,0 +1,24 @@
+schema_version: 1
+
+# Z0 inventory. Every production LLM egress path must be registered here.
+# Z4 may set status=GUARDED only after the ZeroCost PEP is immediately before
+# that path's network driver and a test proves denied requests make zero calls.
+paths:
+  - path: scp/llm_gateway/client.py
+    status: LEGACY_UNGUARDED
+    kind: httpx
+  - path: scp/autofix/llm_fix_parts/_call_openrouter.py
+    status: LEGACY_UNGUARDED
+    kind: requests
+  - path: scp/meta/multi_llm_check.py
+    status: LEGACY_UNGUARDED
+    kind: urllib
+  - path: scp/meta/logical_auditor.py
+    status: LEGACY_UNGUARDED
+    kind: requests
+  - path: scp/core/code_evolution_agent.py
+    status: LEGACY_UNGUARDED
+    kind: external_llm
+  - path: mini-services/llm-bridge/index.ts
+    status: LEGACY_UNGUARDED
+    kind: fetch
