@@ -37,8 +37,9 @@ def ensure_review_guide(pending_dir: str | Path) -> Path:
 
     target = directory / "README.md"
     temp = directory / ".README.md.tmp"
-    temp.write_text("\n".join(lines), encoding="utf-8")
-    with temp.open("rb") as handle:
+    with temp.open("w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines))
+        handle.flush()
         os.fsync(handle.fileno())
     os.replace(temp, target)
     return target
