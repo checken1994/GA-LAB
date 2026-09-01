@@ -51,7 +51,7 @@ jobs:
             self_hosted_labels: '["self-hosted","linux","x64","scp-release"]'
           - os: windows-latest
             self_hosted_labels: '["self-hosted","windows","x64","scp-release"]'
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'self-hosted' && fromJSON(matrix.self_hosted_labels) || matrix.os }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'github-hosted' && matrix.os || fromJSON(matrix.self_hosted_labels) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -143,7 +143,7 @@ jobs:
 
   security-and-durability:
     name: security-mutation-durability
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'self-hosted' && fromJSON('["self-hosted","linux","x64","scp-release"]') || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","scp-release"]') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -225,7 +225,7 @@ jobs:
     name: manifest-provenance
     if: ${{ always() && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' }}
     needs: [platform-gates, security-and-durability]
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'self-hosted' && fromJSON('["self-hosted","linux","x64","scp-release"]') || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","scp-release"]') }}
     outputs:
       ready: ${{ steps.manifest.outputs.ready }}
       candidate_sha: ${{ steps.manifest.outputs.candidate_sha }}
@@ -292,7 +292,7 @@ jobs:
     name: final-release-verdict
     if: ${{ always() && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
     needs: [platform-gates, security-and-durability, manifest-provenance]
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'self-hosted' && fromJSON('["self-hosted","linux","x64","scp-release"]') || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_backend == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","scp-release"]') }}
     outputs:
       frozen_sha: ${{ steps.freeze.outputs.frozen_sha }}
     steps:
@@ -354,7 +354,7 @@ jobs:
     name: guarded-integration-to-main
     needs: [rc-verdict]
     if: ${{ needs.rc-verdict.result == 'success' && github.ref == 'refs/heads/integration/experiment-god-split-and-providers' && github.event_name == 'workflow_dispatch' && inputs.approve_main_merge == true }}
-    runs-on: ${{ inputs.runner_backend == 'self-hosted' && fromJSON('["self-hosted","linux","x64","scp-release"]') || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner_backend == 'github-hosted' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","scp-release"]') }}
     env:
       GH_TOKEN: ${{ github.token }}
       FROZEN_SHA: ${{ needs.rc-verdict.outputs.frozen_sha }}
@@ -382,7 +382,7 @@ jobs:
   main-lineage-authority:
     name: main-lineage-authority
     if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, scp-release]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -409,7 +409,7 @@ jobs:
     name: customer-handoff-verdict
     if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.main-lineage-authority.result == 'success' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
     needs: [main-lineage-authority, platform-gates, security-and-durability, manifest-provenance]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, scp-release]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
