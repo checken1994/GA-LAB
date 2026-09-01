@@ -143,6 +143,15 @@ def test_cross_func_scanner_extracted_function_keeps_callgraph_helpers(tmp_path:
     assert isinstance(result, list)
 
 
+def test_cross_func_scanner_cache_is_facade_owned() -> None:
+    """The expensive call-graph cache must be a single composition-root scalar."""
+    import scp.autofix.scanners.cross_func_taint_scanner as scanner
+
+    assert scanner._get_scp_call_graph.__globals__ is scanner.__dict__
+    assert scanner.scan_file.__globals__ is scanner.__dict__
+    assert scanner.scan_scp.__globals__ is scanner.__dict__
+
+
 def test_task_kernel_split_preserves_create_contract(tmp_path: Path) -> None:
     from scp.task_kernel import TaskKernel
 
