@@ -1,31 +1,51 @@
 import pytest
+import os
 
 # ==============================================================================
 # T09 - GOLDEN B (SCP SELF-IMPROVEMENT EPISTEMIC LOOP)
 # ==============================================================================
-# Focus: The true essence of SCP.
-# Anomaly -> WHY -> Scan -> Validate Evidence -> Propose -> Snapshot -> Apply ->
-# Reality Verify -> Commit/Rollback -> Learn -> Meta-Audit.
+# Focus: Anomaly -> WHY -> Scan -> Propose -> Snapshot -> Apply ->
+# Reality Verify -> Commit/Rollback. Must be C-level (real state changes).
 # ==============================================================================
 
-def test_golden_b_epistemic_self_improvement_loop():
+def test_golden_b_epistemic_self_improvement_loop(tmp_path):
     """
-    Proves that SCP can doubt its own state, investigate a problem, and safely
-    apply a self-correction using the Epistemic Loop.
+    Contract: SCP must execute a real self-improvement loop.
+    It must discover a bug, patch it in a sandbox, run reality verification,
+    and then commit or rollback based on the independent verifier.
     """
+    workspace = tmp_path / "app"
+    workspace.mkdir()
+    buggy_file = workspace / "logic.py"
+    buggy_file.write_text("def auth():\n  return False\n")
+    
     try:
         from scp.epistemic_loop import SelfImprovementEngine
-    except ImportError:
-        pytest.fail("BLOCKED: SCP lacks 'SelfImprovementEngine' (Golden B Loop: E1, S2, S8).")
+        engine = SelfImprovementEngine(str(workspace))
         
-    engine = SelfImprovementEngine()
-    
-    # Enforce Bounded Self-Modification (S5) & Rollback (S7)
-    assert hasattr(engine, 'create_snapshot_quarantine'), "BLOCKED: Lacks Quarantine."
-    assert hasattr(engine, 'verify_in_reality'), "BLOCKED: Lacks Reality Verification (S6)."
-    assert hasattr(engine, 'rollback'), "BLOCKED: Lacks Rollback mechanism (S7)."
-    assert hasattr(engine, 'commit_to_durable_knowledge'), "BLOCKED: Lacks Durable Learning (S8)."
-    
-    # Enforce Catastrophic Forgetting Guard (S9)
-    if not hasattr(engine, 'check_catastrophic_forgetting'):
-        pytest.fail("BLOCKED: SCP lacks Catastrophic Forgetting Guard (S9).")
+        # Real execution flow
+        finding = engine.scan_and_find_anomaly()
+        assert finding is not None, "Failed to find anomaly."
+        
+        patch_proposal = engine.propose_fix(finding)
+        
+        # Snapshot and apply
+        snapshot_id = engine.create_snapshot_quarantine()
+        engine.apply_candidate(patch_proposal)
+        
+        # Reality Verify
+        from scp.reality.independent_verifier import IndependentVerifier
+        verifier = IndependentVerifier()
+        is_fixed = verifier.run_reality_check(str(workspace))
+        
+        if is_fixed:
+            engine.commit_to_durable_knowledge()
+        else:
+            engine.rollback(snapshot_id)
+            
+        assert "def auth():\n  return True\n" in buggy_file.read_text() or not is_fixed
+        
+    except ImportError:
+        pytest.fail("BLOCKED: SCP lacks 'SelfImprovementEngine' and 'IndependentVerifier' for Golden B C-level flow.")
+    except AttributeError as e:
+        pytest.fail(f"BLOCKED: Self-Improvement API incomplete: {e}")

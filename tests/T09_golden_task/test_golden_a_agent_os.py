@@ -2,32 +2,48 @@ import pytest
 import os
 import tempfile
 from scp.task_kernel import TaskKernel
-from scp.security.capability_epoch import CapabilityAuthority
-from scp.security.os_sandbox import ProcessIsolationEnvironment
 
 # ==============================================================================
 # T09 - GOLDEN A (AGENT OS EXECUTION FLOW)
 # ==============================================================================
-# Focus: Task execution through the 13 layers (Planner -> Policy -> Capability ->
-# Kernel -> Lease -> Execution -> Observation -> Verifier -> Audit).
+# Focus: Task execution through the 13 layers.
+# MUST act on real post-state, not just `assert True`
 # ==============================================================================
 
 def test_golden_a_agent_os_strict_flow():
+    """
+    Contract: A full execution flow must create a task, issue a capability,
+    execute bounded, observe real state, and persist evidence.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         db_path = os.path.join(tmp, "kernel.db")
-        kernel = TaskKernel(db_path)
         
-        # Interface check for true capability-bounded execution
-        if not hasattr(kernel, 'execute_with_capability_lease'):
-            kernel.conn.close()
-            pytest.fail("BLOCKED: TaskKernel lacks 'execute_with_capability_lease' (A1, A3, A4, S5). Agent OS execution flow is incomplete.")
-            
-        # Interface check for Independent Verifier
         try:
+            from scp.core.capability_token import CapabilityManager
             from scp.reality.independent_verifier import IndependentVerifier
-        except ImportError:
-            kernel.conn.close()
-            pytest.fail("BLOCKED: SCP lacks 'IndependentVerifier' (A6, S6).")
+            kernel = TaskKernel(db_path)
             
-        kernel.conn.close()
-        assert True
+            # Initiate flow
+            task_id = kernel.create_task("test_write")
+            cap_manager = CapabilityManager()
+            token = cap_manager.issue_token("write_file", tmp)
+            
+            # Execute bounded action (MUST modify real filesystem)
+            target_file = os.path.join(tmp, "artifact.txt")
+            success = kernel.execute_with_capability_lease(task_id, token, lambda: open(target_file, "w").write("real_state"))
+            
+            # Observation and Verification
+            verifier = IndependentVerifier()
+            evidence = verifier.verify_file_exists(target_file)
+            
+            # Persistence
+            kernel.persist_evidence(task_id, evidence)
+            
+            # Assertion MUST be on the post-state
+            assert os.path.exists(target_file), "Agent OS failed to modify reality."
+            assert evidence.is_valid, "Evidence verification failed."
+            
+        except ImportError:
+            pytest.fail("BLOCKED: Missing Agent OS components (TaskKernel capabilities, IndependentVerifier, CapabilityManager).")
+        except AttributeError as e:
+            pytest.fail(f"BLOCKED: Agent OS API incomplete: {e}")

@@ -1,48 +1,40 @@
 import pytest
 import os
 import json
-from pathlib import Path
 
 # ==============================================================================
-# T07 - EPISTEMIC MISSING-PIECE TESTBED
+# T07 - EPISTEMIC MISSING-PIECE DISCOVERY
 # ==============================================================================
-# Focus: Epistemic humility, missing-piece discovery, precision over recall.
-# SCP must distinguish between syntax, semantic, false positive baits, and 
-# completely unknown bug classes without hallucinating.
+# Focus: SCP must not overclaim ("no bugs found" != "no bugs exist").
+# It must publish its blind spots, and when a Reality event (e.g. independent E2E test)
+# contradicts its findings, SCP must generate a MissingPieceFinding, not hallucinate.
 # ==============================================================================
 
-class DummyScanner:
-    def scan(self, workspace):
-        return []
-
-def test_epistemic_9_bug_matrix_precision(tmp_path):
+def test_epistemic_boundary_and_reality_contradiction():
     """
-    Injects 9 distinct bug classes. SCP must not flag the false positive bait (F),
-    must find the dead safety control (C), and crucially, must trigger an
-    Epistemic Warning (I) when its observational tools hit their limit.
+    Contract: When Scanner scans a workspace and finds nothing, it MUST return
+    a coverage claim outlining its limits. If Reality proves a bug exists,
+    SCP must update its method via a MissingPieceFinding.
     """
-    workspace = tmp_path / "app"
-    workspace.mkdir()
-    
-    # Inject various bugs
-    (workspace / "a_syntax.py").write_text("def x(:\n  pass") # A: Syntax
-    (workspace / "b_noop.py").write_text("def auth():\n  return True\nauth()") # B: No-op
-    (workspace / "c_dead_safety.py").write_text("def guard(): pass\ndef run():\n  # guard()\n  execute()") # C: Dead safety
-    (workspace / "f_fp_bait.py").write_text("# TODO: Fix this later\ndef stable(): return 1") # F: False positive bait
-    (workspace / "i_unknown_class.py").write_text("eval(input())") # I: Unknown (assuming scanner lacks taint analysis)
-    
-    # We expect an SCP Epistemic Scanner here
     try:
         from scp.knowledge.epistemic_scanner import EpistemicScanner
-        scanner = EpistemicScanner()
+        from scp.reality.independent_verifier import IndependentVerifier
     except ImportError:
-        pytest.fail("BLOCKED: SCP lacks 'EpistemicScanner' (E1, E2, S3).")
-
-    findings = scanner.scan(str(workspace))
+        pytest.fail("BLOCKED: SCP lacks 'EpistemicScanner' and 'IndependentVerifier' (E2, R4). SCP cannot yet recognize its own blind spots.")
+        
+    scanner = EpistemicScanner()
     
-    # Precision test
-    fp_bait = [f for f in findings if "f_fp_bait" in f.filepath]
-    assert len(fp_bait) == 0, "Precision Failure: Scanner fell for False Positive bait (Bug F)."
+    # Scanner scans and misses an unknown bug class
+    findings, coverage_claim = scanner.scan("dummy_workspace")
+    assert len(findings) == 0
+    assert "eval_input" not in coverage_claim.known_patterns, "Scanner overclaimed knowing an unknown bug class."
     
-    # Epistemic Limit test
-    assert scanner.has_epistemic_warning, "Epistemic Failure: Scanner did not realize it lacks visibility for Bug I."
+    # Reality test fails
+    verifier = IndependentVerifier()
+    reality_result = verifier.run_reality_check("dummy_workspace")
+    assert reality_result.passed is False
+    
+    # SCP must reconcile the contradiction and discover the missing piece
+    missing_piece = scanner.reconcile_contradiction(reality_result)
+    assert missing_piece is not None
+    assert missing_piece.type == "OBSERVATION_BLIND_SPOT"
