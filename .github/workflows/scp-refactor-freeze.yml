@@ -86,13 +86,15 @@ jobs:
         run: python scripts/run_mutation_ci.py --max-mutants 5 --min-score 0.40 --report reports/mutation/mutation_report.json
 
       - name: Bandit production policy
-        shell: pwsh
+        shell: bash
         run: |
+          set +e
           python -m bandit -r scp -x scp/tests,scp/examples,scp/tools,scp/venv -f json -o bandit-prod.json
-          $banditExit = $LASTEXITCODE
+          bandit_exit=$?
+          set -e
           python tools/summarize_bandit_report.py bandit-prod.json --output bandit-prod-summary.json
           python tools/check_bandit_policy.py bandit-prod-summary.json --max-medium 9
-          if ($banditExit -gt 1) { exit $banditExit }
+          if [ "$bandit_exit" -gt 1 ]; then exit "$bandit_exit"; fi
 
       - name: Portable reality suite
         run: python run_reality_tests_portable.py
