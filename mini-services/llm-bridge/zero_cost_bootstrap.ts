@@ -128,5 +128,8 @@ async function zeroCostFetch(input: RequestInfo | URL, init?: RequestInit): Prom
 
 validateConfig();
 (globalThis as any).fetch = zeroCostFetch;
+// [Z4] Mark the PEP as installed BEFORE the legacy server loads: core.ts
+// refuses to start without this flag, so `bun core.ts` cannot bypass the wall.
+(globalThis as any).__SCP_ZERO_COST_PEP__ = true;
 
-await import("./index.ts");
+await import("./core.ts");

@@ -53,6 +53,17 @@ class CodeEvolutionAgent:
         self._fixes_skipped = 0
         self._drift_guard = DriftGuard(SCP_ROOT / "spec" / "protected_invariants.yaml")
 
+    def _get_drift_guard(self):
+        # [P0-REGFIX] _drift_guard is initialized in __init__, but the
+        # engine composes agents via CodeEvolutionAgent.__new__(...) with
+        # minimal attrs (production autofix path) - so the guard must be
+        # lazily bound or every fix attempt crashes with AttributeError.
+        guard = getattr(self, "_drift_guard", None)
+        if guard is None:
+            guard = DriftGuard(SCP_ROOT / "spec" / "protected_invariants.yaml")
+            self._drift_guard = guard
+        return guard
+
     def _reset_daily_if_needed(self) -> None:
         if time.time() - self._last_reset > 86400:
             self._fixes_today = 0
@@ -237,7 +248,7 @@ If no safe fix exists, return CANNOT_FIX."""
             return filepath.as_posix()
 
     def _drift_allows(self, filepath: Path, original: str, patched: str) -> bool:
-        result = self._drift_guard.inspect_change(
+        result = self._get_drift_guard().inspect_change(
             path=self._relative_repo_path(filepath),
             old_text=original,
             new_text=patched,
@@ -267,7 +278,7 @@ If no safe fix exists, return CANNOT_FIX."""
         # Postflight checks the exact bytes that landed on disk, not merely the
         # proposed string. Any protected semantic drift remains blocked.
         landed = filepath.read_text(encoding="utf-8")
-        post = self._drift_guard.inspect_change(
+        post = self._get_drift_guard().inspect_change(
             path=self._relative_repo_path(filepath),
             old_text=original,
             new_text=landed,
