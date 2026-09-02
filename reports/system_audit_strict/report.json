@@ -1,30 +1,30 @@
 {
   "schema_version": "scp-strict-system-audit-v7",
-  "commit": "e15c5f3644c45326138d868c86a4a9de027f9c12",
-  "started_at": 1788265663.7435977,
-  "completed_at": 1788265845.7626126,
-  "elapsed_sec": 182.02,
+  "commit": "4177cee7aa1ec9069a49b3380acc082c465fe75d",
+  "started_at": 1788335383.4614542,
+  "completed_at": 1788335617.1247392,
+  "elapsed_sec": 233.66,
   "egress_mode": "deny",
   "steps": [
     {
       "name": "import_manifest",
       "status": "PASS",
-      "elapsed_sec": 2.55,
+      "elapsed_sec": 1.6,
       "ok": true,
       "output": "[PASS] All external imports match requirements.txt\n"
     },
     {
       "name": "skill_scp_dna_contract",
-      "status": "FAIL",
-      "elapsed_sec": 3.66,
-      "ok": false,
-      "returncode": 1,
-      "output_tail": "LL)\n            ^^^^^^^^^^^^^^^^\ntests\\T11_release\\test_scp_skill_dna_contract.py:37: in _read\n    assert path.is_file(), f\"required SCP artifact missing: {path.relative_to(ROOT)}\"\nE   AssertionError: required SCP artifact missing: .agents\\skills\\scp-dna\\SKILL.md\nE   assert False\nE    +  where False = is_file()\nE    +    where is_file = WindowsPath('C:/Users/check/Downloads/scp/tests/.agents/skills/scp-dna/SKILL.md').is_file\n_______ test_release_evidence_skill_is_fail_closed_and_reality_grounded _______\ntests\\T11_release\\test_scp_skill_dna_contract.py:130: in test_release_evidence_skill_is_fail_closed_and_reality_grounded\n    release = _read(RELEASE_SKILL)\n              ^^^^^^^^^^^^^^^^^^^^\ntests\\T11_release\\test_scp_skill_dna_contract.py:37: in _read\n    assert path.is_file(), f\"required SCP artifact missing: {path.relative_to(ROOT)}\"\nE   AssertionError: required SCP artifact missing: .agents\\skills\\scp-release-evidence-gate\\SKILL.md\nE   assert False\nE    +  where False = is_file()\nE    +    where is_file = WindowsPath('C:/Users/check/Downloads/scp/tests/.agents/skills/scp-release-evidence-gate/SKILL.md').is_file\n___ test_every_mandatory_release_gate_has_domain_skill_and_scp_dna_binding ____\ntests\\T11_release\\test_scp_skill_dna_contract.py:137: in test_every_mandatory_release_gate_has_domain_skill_and_scp_dna_binding\n    payload = _load_bindings()\n              ^^^^^^^^^^^^^^^^\ntests\\T11_release\\test_scp_skill_dna_contract.py:58: in _load_bindings\n    payload = json.loads(_read(GATE_BINDINGS))\n                         ^^^^^^^^^^^^^^^^^^^^\ntests\\T11_release\\test_scp_skill_dna_contract.py:37: in _read\n    assert path.is_file(), f\"required SCP artifact missing: {path.relative_to(ROOT)}\"\nE   AssertionError: required SCP artifact missing: .agents\\skills\\release-gate-skill-dna-bindings.json\nE   assert False\nE    +  where False = is_file()\nE    +    where is_file = WindowsPath('C:/Users/check/Downloads/scp/tests/.agents/skills/release-gate-skill-dna-bindings.json').is_file\n____________ test_rc_verdict_cannot_claim_pass_for_an_unbound_gate ____________\ntests\\T11_release\\test_scp_skill_dna_contract.py:151: in test_rc_verdict_cannot_claim_pass_for_an_unbound_gate\n    rc = _read(RC_WORKFLOW)\n         ^^^^^^^^^^^^^^^^^^\ntests\\T11_release\\test_scp_skill_dna_contract.py:37: in _read\n    assert path.is_file(), f\"required SCP artifact missing: {path.relative_to(ROOT)}\"\nE   AssertionError: required SCP artifact missing: .github\\workflows\\scp-rc-promotion.yml\nE   assert False\nE    +  where False = is_file()\nE    +    where is_file = WindowsPath('C:/Users/check/Downloads/scp/tests/.github/workflows/scp-rc-promotion.yml').is_file\n____ test_main_merge_requires_explicit_human_approval_and_exact_frozen_sha ____\ntests\\T11_release\\test_scp_skill_dna_contract.py:161: in test_main_merge_requires_explicit_human_approval_and_exact_frozen_sha\n    rc = _read(RC_WORKFLOW)\n         ^^^^^^^^^^^^^^^^^^\ntests\\T11_release\\test_scp_skill_dna_contract.py:37: in _read\n    assert path.is_file(), f\"required SCP artifact missing: {path.relative_to(ROOT)}\"\nE   AssertionError: required SCP artifact missing: .github\\workflows\\scp-rc-promotion.yml\nE   assert False\nE    +  where False = is_file()\nE    +    where is_file = WindowsPath('C:/Users/check/Downloads/scp/tests/.github/workflows/scp-rc-promotion.yml').is_file\n_ test_customer_handoff_requires_immutable_pr_lineage_and_fresh_main_verification _\ntests\\T11_release\\test_scp_skill_dna_contract.py:174: in test_customer_handoff_requires_immutable_pr_lineage_and_fresh_main_verification\n    rc = _read(RC_WORKFLOW)\n         ^^^^^^^^^^^^^^^^^^\ntests\\T11_release\\test_scp_skill_dna_contract.py:37: in _read\n    assert path.is_file(), f\"required SCP artifact missing: {path.relative_to(ROOT)}\"\nE   AssertionError: required SCP artifact missing: .github\\workflows\\scp-rc-promotion.yml\nE   assert False\nE    +  where False = is_file()\nE    +    where is_file = WindowsPath('C:/Users/check/Downloads/scp/tests/.github/workflows/scp-rc-promotion.yml').is_file\n_________ test_mandatory_release_paths_execute_skill_and_dna_contract _________\ntests\\T11_release\\test_scp_skill_dna_contract.py:193: in test_mandatory_release_paths_execute_skill_and_dna_contract\n    rc = _read(RC_WORKFLOW)\n         ^^^^^^^^^^^^^^^^^^\ntests\\T11_release\\test_scp_skill_dna_contract.py:37: in _read\n    assert path.is_file(), f\"required SCP artifact missing: {path.relative_to(ROOT)}\"\nE   AssertionError: required SCP artifact missing: .github\\workflows\\scp-rc-promotion.yml\nE   assert False\nE    +  where False = is_file()\nE    +    where is_file = WindowsPath('C:/Users/check/Downloads/scp/tests/.github/workflows/scp-rc-promotion.yml').is_file\n=========================== short test summary info ===========================\nFAILED tests/T11_release/test_scp_skill_dna_contract.py::test_every_scp_skill_has_valid_closed_manifest\nFAILED tests/T11_release/test_scp_skill_dna_contract.py::test_scp_dna_is_exactly_29_principles_with_release_critical_invariants\nFAILED tests/T11_release/test_scp_skill_dna_contract.py::test_release_evidence_skill_is_fail_closed_and_reality_grounded\nFAILED tests/T11_release/test_scp_skill_dna_contract.py::test_every_mandatory_release_gate_has_domain_skill_and_scp_dna_binding\nFAILED tests/T11_release/test_scp_skill_dna_contract.py::test_rc_verdict_cannot_claim_pass_for_an_unbound_gate\nFAILED tests/T11_release/test_scp_skill_dna_contract.py::test_main_merge_requires_explicit_human_approval_and_exact_frozen_sha\nFAILED tests/T11_release/test_scp_skill_dna_contract.py::test_customer_handoff_requires_immutable_pr_lineage_and_fresh_main_verification\nFAILED tests/T11_release/test_scp_skill_dna_contract.py::test_mandatory_release_paths_execute_skill_and_dna_contract\n8 failed in 0.93s\n\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n"
+      "status": "PASS",
+      "elapsed_sec": 2.94,
+      "ok": true,
+      "returncode": 0,
+      "output_tail": "........                                                                 [100%]\n8 passed in 0.40s\n\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n"
     },
     {
       "name": "boot_and_probe_strict",
       "status": "PASS",
-      "elapsed_sec": 69.11,
+      "elapsed_sec": 67.92,
       "ok": true,
       "checks": {
         "health_200": true,
@@ -47,9 +47,9 @@
             "mode": "unknown",
             "host": "127.0.0.1",
             "configured_port": 8055,
-            "pid": 19104,
-            "commit": "e15c5f3644c45326138d868c86a4a9de027f9c12",
-            "config_hash": "sha256:14ee74afdbe6a7ad36f9664639e5803f1ca566daa9830b1aa9da5894eaa2444f",
+            "pid": 19668,
+            "commit": "4177cee7aa1ec9069a49b3380acc082c465fe75d",
+            "config_hash": "sha256:3a55bd98fef0380e0a33f141bff300ce5002bc9fc912c766fb874f10e4d8cd3f",
             "argv": [
               "C:\\Users\\check\\Downloads\\scp\\scp\\__main__.py",
               "8055"
@@ -81,8 +81,8 @@
         "rag_ask": {
           "status_code": 200,
           "verdict": "FAIL",
-          "final_answer": "[SCP: Answer withheld — Kernel gate blocked: KernelError - backpressure: in-flight ask tasks at cap ",
-          "governance": "KILL",
+          "final_answer": "[SCP: Answer withheld — evidence not verified: verdict_pass, judge_pass, governance_uphold]",
+          "governance": "ESCALATE",
           "withheld": true
         },
         "prompt_injection": {
@@ -96,31 +96,31 @@
     {
       "name": "semantic_parity_contract",
       "status": "PASS",
-      "elapsed_sec": 9.1,
+      "elapsed_sec": 10.31,
       "ok": true,
       "returncode": 0,
-      "output_tail": "...............................                                          [100%]\n31 passed in 5.04s\n\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n"
+      "output_tail": "...............................                                          [100%]\n31 passed in 5.69s\n\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n"
     },
     {
       "name": "provider_failover_timeout",
       "status": "PASS",
-      "elapsed_sec": 5.12,
+      "elapsed_sec": 6.59,
       "ok": true,
       "returncode": 0,
-      "output_tail": "..............................                                           [100%]\n30 passed in 2.51s\n\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n"
+      "output_tail": "............................                                             [100%]\n28 passed in 3.69s\n\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n"
     },
     {
       "name": "full_pytest",
-      "status": "FAIL",
-      "elapsed_sec": 4.1,
-      "ok": false,
-      "returncode": 2,
-      "output_tail": "\n=========================== short test summary info ===========================\nERROR tests/T01_boot/test_startup_launcher_contract.py - FileNotFoundError: [...\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 1.64s\n\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n"
+      "status": "PASS",
+      "elapsed_sec": 65.6,
+      "ok": true,
+      "returncode": 0,
+      "output_tail": "........................................................................ [ 26%]\n........................................................................ [ 53%]\n........................................................................ [ 80%]\n.......................ss.............................                   [100%]\n268 passed, 2 skipped in 61.10s (0:01:01)\n\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n"
     },
     {
       "name": "reality_suite",
       "status": "PASS",
-      "elapsed_sec": 67.93,
+      "elapsed_sec": 59.47,
       "ok": true,
       "result": "{\"test_count\": 76, \"pass\": 76, \"fail\": 0, \"timeout\": 0, \"error\": 0}"
     },
@@ -131,19 +131,19 @@
       "ok": true,
       "accuracy": 1.0,
       "false_accept_rate": 0.0,
-      "avg_decision_ms": 0.0085
+      "avg_decision_ms": 0.0069
     },
     {
       "name": "hermetic_boot",
       "status": "PASS",
-      "elapsed_sec": 8.41,
+      "elapsed_sec": 8.51,
       "ok": true,
-      "output": "47 pid=14708\nPASS [2/3]: /ready 200 - judge ready in hermetic env\nPASS [3/3]: boot log sach - khong cham Ollama (API-onlyReality)\n\nOK Reality test 4-e-002 PASSED - hermetic boot tren moi truong trang\n"
+      "output": "47 pid=18072\nPASS [2/3]: /ready 200 - judge ready in hermetic env\nPASS [3/3]: boot log sach - khong cham Ollama (API-onlyReality)\n\nOK Reality test 4-e-002 PASSED - hermetic boot tren moi truong trang\n"
     },
     {
       "name": "kernel_recovery_integrity",
       "status": "PASS",
-      "elapsed_sec": 0.48,
+      "elapsed_sec": 0.77,
       "ok": true,
       "checks": {
         "idempotent_event_replay": true,
@@ -161,7 +161,7 @@
       "event_count_before_replay": 2,
       "event_count_after_replay": 2,
       "lease": {
-        "lease_id": "lease_28ff5fe614b7612a11f28fd1",
+        "lease_id": "lease_8c39f0164bb16827ccc20fa4",
         "fencing_token": 1
       },
       "recovery": {
@@ -214,7 +214,7 @@
     {
       "name": "bounded_smoke_and_restart",
       "status": "PASS",
-      "elapsed_sec": 11.51,
+      "elapsed_sec": 9.9,
       "ok": true,
       "checks": {
         "first_cycle": true,
@@ -251,7 +251,7 @@
         "runner_error": null,
         "evidence": {
           "schema_version": "scp-bounded-system-smoke-v3",
-          "commit": "96b01c2b6e9ed152799c4506396b23234b32c15f",
+          "commit": "4177cee7aa1ec9069a49b3380acc082c465fe75d",
           "host": "127.0.0.1",
           "port": 8000,
           "port_8000_used": false,
@@ -266,8 +266,8 @@
                   "mode": "test",
                   "host": "127.0.0.1",
                   "configured_port": 8000,
-                  "pid": 15752,
-                  "commit": "96b01c2b6e9ed152799c4506396b23234b32c15f",
+                  "pid": 21812,
+                  "commit": "4177cee7aa1ec9069a49b3380acc082c465fe75d",
                   "config_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                   "argv": [
                     "C:\\Users\\check\\Downloads\\scp\\scp\\__main__.py",
@@ -305,87 +305,46 @@
                 "version": "3.5",
                 "hands": "online",
                 "actionCount": 25,
-                "auditEntries": 1406,
-                "checkpoints": 5,
+                "auditEntries": 36,
+                "checkpoints": 14,
                 "managedProcessCount": 0,
                 "killSwitch": false,
                 "capability": {
                   "schema_version": "scp-capability-epoch-v1",
-                  "epoch": 2,
+                  "epoch": 0,
                   "revoked": false,
-                  "reason": "controlled_rights_probe_20260827",
-                  "actor": "operator",
-                  "updated_at": 1787770006.1094527,
+                  "reason": "initial",
+                  "actor": "system",
+                  "updated_at": 1788335610.140654,
                   "state_path": "C:\\Users\\check\\Downloads\\scp\\data\\hands\\capability_state.json"
                 },
                 "policy": "explicit registry + capability epoch + approval + ownership + DOM verifier + audit",
                 "planner": {
                   "version": "3.7",
                   "planner": "online",
-                  "planCount": 20,
+                  "planCount": 0,
                   "journal": {
-                    "valid": false,
+                    "valid": true,
                     "checked": 0,
-                    "legacy": 174,
+                    "legacy": 0,
                     "errors": []
                   },
-                  "activePlan": {
-                    "planId": "abe3b8b881ca4d1c8bd3276b6ea3453a",
-                    "version": "3.7",
-                    "goal": "fault probe",
-                    "state": "WAITING_APPROVAL",
-                    "createdAt": 1786791299.0752025,
-                    "updatedAt": 1786791299.3014898,
-                    "currentStepId": "approval-probe",
-                    "completedStepCount": 0,
-                    "metadata": {
-                      "source": "fault_injection"
-                    },
-                    "steps": [
-                      {
-                        "stepId": "approval-probe",
-                        "action": "pc.write_file",
-                        "params": {
-                          "content": "must-not-write-before-approval",
-                          "path": "data/diagnostics/agent-orchestrator-fault-probe.txt"
-                        },
-                        "capabilityLevel": 3,
-                        "approved": false,
-                        "dryRun": false,
-                        "dependsOn": [],
-                        "precondition": {
-                          "type": "always"
-                        },
-                        "postcondition": {
-                          "type": "always"
-                        },
-                        "retryPolicy": {
-                          "maxAttempts": 1,
-                          "backoffSeconds": 0.0,
-                          "on": "verification_failed"
-                        },
-                        "state": "WAITING_APPROVAL",
-                        "attempts": 0,
-                        "evidence": {},
-                        "error": "Explicit approval or higher capability is required"
-                      }
-                    ]
-                  },
+                  "activePlan": null,
                   "states": {
-                    "COMPLETED": 7,
+                    "COMPLETED": 0,
                     "FAILED": 0,
                     "HUMAN_REVIEW": 0,
-                    "PLANNED": 8,
+                    "PLANNED": 0,
                     "ROLLED_BACK": 0,
                     "RUNNING": 0,
                     "UNKNOWN": 0,
                     "VERIFIED": 0,
-                    "WAITING_APPROVAL": 5
+                    "WAITING_APPROVAL": 0
                   }
                 },
                 "plannerVersion": "3.7",
-                "run_id": "run-d6304961ef4347bf89d37b4c9fade6ca",
-                "trace_id": "trace-dbaf6b383bde4e91a10080ff9c8821b8",
+                "run_id": "run-15405f276a574ac5bda055cab323c694",
+                "trace_id": "trace-dd707e8601874958b7d316f86ed26205",
                 "run_status": "SUCCESS",
                 "ledger_status": "OK"
               }
@@ -679,8 +638,8 @@
                   "/rollback"
                 ],
                 "plannerVersion": "3.7",
-                "run_id": "run-f62c06efc60f46009fc24def33b141c5",
-                "trace_id": "trace-6092aa1fa66a4ea0996bc34ecf1b374b",
+                "run_id": "run-071215dbd63c485fad540e81f72726a7",
+                "trace_id": "trace-53ce00b136d84d77a7dfc7141adf7b0e",
                 "run_status": "SUCCESS",
                 "ledger_status": "OK"
               }
@@ -704,8 +663,8 @@
                 "reason": "allowlisted action",
                 "requestedCapability": 1,
                 "approved": true,
-                "run_id": "run-a6913006321847bf990e3746bf38fb86",
-                "trace_id": "trace-deafb4ad8cb045c3b6c20ba6646f1f45",
+                "run_id": "run-af68c2baf8fe4c7685d7bf4410beb1c7",
+                "trace_id": "trace-6ee49fedebd547748c7911d6e1a2841e",
                 "run_status": "SUCCESS",
                 "ledger_status": "OK"
               }
@@ -727,13 +686,13 @@
                   "verifier": "controller_online",
                   "rollback": "none"
                 },
-                "capabilityEpoch": 2,
+                "capabilityEpoch": 0,
                 "verification": {
                   "passed": true,
                   "rule": "dry-run-only"
                 },
-                "run_id": "run-d70add7bcdb14f0e9ef3917af9cec8aa",
-                "trace_id": "trace-a1b9028665cc47848398820c2f5de6b2",
+                "run_id": "run-3797c7fde06245959b0aafec38dfbf57",
+                "trace_id": "trace-8446de6a09ee46c282686cae67550880",
                 "run_status": "SUCCESS",
                 "ledger_status": "OK"
               }
@@ -753,10 +712,10 @@
                 "v98_counter_executed": null,
                 "v98_canary_token": null,
                 "v98_bypass_recorded": null,
-                "elapsed_ms": 529.7,
+                "elapsed_ms": 228.0,
                 "session_id": "release-gate-bounded-smoke",
-                "run_id": "run-f5be11ffd77043a7aa4c1d674ff9f839",
-                "trace_id": "trace-68117e1342db4b4c89b63df1c569ed39",
+                "run_id": "run-8a04c11467ee44c9ad335581c8f7ab0f",
+                "trace_id": "trace-024a718b879146dc8d29d18a7529ec43",
                 "run_status": "REJECTED",
                 "ledger_status": "OK",
                 "expert_trace": [],
@@ -797,7 +756,7 @@
         },
         "port_free_observed": true,
         "external_http_requests": [],
-        "server_log_tail": "2026-09-01 19:30:35,992 | INFO    | scp.api | [Security] HTTPS redirect disabled (set SCP_FORCE_HTTPS=1 in prod)\n2026-09-01 19:30:35,992 | INFO    | scp.api | [Security] CSRF protection: Bearer token auth\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n2026-09-01 19:30:36,343 | WARNING | scp.core.capability_token | SCP_CAPABILITY_SECRET is missing. Using fallback dev-secret. DO NOT USE IN PRODUCTION.\n2026-09-01 19:30:36,440 | INFO    | scp.autofix | [R7-Full] IMP-6 (rollback token) + IMP-9 (dry-run) injected into AutoFixEngine\n2026-09-01 19:30:36,468 | INFO    | scp.api | [OTel] tracing disabled: SCP_OTEL_ENABLED=0\nINFO:     Started server process [15752]\nINFO:     Waiting for application startup.\n2026-09-01 19:30:36,469 | INFO    | scp.api | ============================================================\n2026-09-01 19:30:36,469 | INFO    | scp.api | SCP 14.0.0 API Server starting...\n2026-09-01 19:30:36,469 | INFO    | scp.api | ============================================================\n2026-09-01 19:30:36,469 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Judge init dispatched to background thread\n2026-09-01 19:30:36,469 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Yielding NOW \\u2502â�\\x9a¬â€�\\x9d port 8000 binds immediately\n2026-09-01 19:30:36,496 | INFO    | scp.api | [AUTO] Deep audit scheduler started before lifespan yield (24h interval)\n2026-09-01 19:30:36,503 | INFO    | scp.api | [AUTO] Attack mode monitor started before lifespan yield (5min interval)\n2026-09-01 19:30:36,791 | INFO    | scp.api | [DOUBT] Cronjob of Doubt started (interval=21600.0s)\nINFO:     Application startup complete.\nINFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)\nINFO:     127.0.0.1:55044 - \"GET /health HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:55045 - \"GET /v3/hands/status HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:55046 - \"GET /v3/hands/actions HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:55047 - \"POST /v3/hands/plan HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:55048 - \"POST /v3/hands/execute HTTP/1.1\" 200 OK\n2026-09-01 19:30:37,272 | INFO    | scp.ask_kernel_adapter | [C3] kernel maintenance ok: quick_check=ok backup=kernel-backup-20260901-193037-265446400-8441b2.sqlite3 (65536 bytes, retained=7)\n2026-09-01 19:30:37,280 | INFO    | scp.api | Initializing RealityJudge (V98)...\n2026-09-01 19:30:37,380 | INFO    | scp.data_sources.fred | [FRED] disabled � set FRED_API_KEY to enable\n2026-09-01 19:30:37,380 | INFO    | scp.data_sources.worldbank | [WorldBank] enabled (no API key required)\n2026-09-01 19:30:37,380 | INFO    | scp.data_sources.fred | [FRED] disabled � set FRED_API_KEY to enable\n2026-09-01 19:30:37,380 | INFO    | scp.data_sources.worldbank | [WorldBank] enabled (no API key required)\n2026-09-01 19:30:37,381 | INFO    | scp.data_sources.eric | [ERIC] enabled without key � rate-limited to 50 req/day. Set ERIC_API_KEY for 5000 req/day.\n2026-09-01 19:30:37,381 | INFO    | scp.data_sources.eric | [ERIC] enabled without key � rate-limited to 50 req/day. Set ERIC_API_KEY for 5000 req/day.\n2026-09-01 19:30:37,390 | INFO    | scp.data_sources.gutenberg | [Gutenberg] enabled (no API key required)\n2026-09-01 19:30:37,390 | INFO    | scp.data_sources.gutenberg | [Gutenberg] enabled (no API key required)\n2026-09-01 19:30:37,403 | INFO    | scp.api | RealityJudge ready: 27 SLMs, V98 modules=True\n2026-09-01 19:30:37,758 | INFO    | scp.api | V104.36 PredictiveOrchestrator wired to production judge (SelfLearner will retrain judge.v13.classifier)\n2026-09-01 19:30:37,760 | INFO    | scp.api | V103 AttackCrawler started (10 min interval)\n2026-09-01 19:30:37,760 | INFO    | scp.security.cross_language_learner | CrossLanguage: transferred 48 patterns to 8 languages\n2026-09-01 19:30:37,761 | INFO    | scp.api | V104 CrossLanguage: 48 patterns across 8 langs (6 EN patterns ready)\n2026-09-01 19:30:37,761 | INFO    | scp.api | V104.2 FastLearningEngine started (CANONICAL � post G3-MERGE) (10 concurrent Ollama + 5 concurrent Wiki + adaptive 1-30 min). RealLearningEngine merged in; V104.1 sequential API still available via /v104/learn/{ollama,local,news,all} endpoints.\n2026-09-01 19:30:37,763 | INFO    | scp.security.attack_crawler | AttackCrawler started (interval=3600s)\n2026-09-01 19:30:37,764 | INFO    | scp.core.startup_optimizer | V104.3 Deferred background start: waiting 60s before starting schedulers...\n2026-09-01 19:30:37,764 | INFO    | scp.api | V104.3 StartupOptimizer started (deferred background init)\n2026-09-01 19:30:37,766 | INFO    | scp.api | V104.4 DataPartitioner started (2 partitions) + ThreeTierCache wired\n2026-09-01 19:30:37,806 | INFO    | scp.llm_gateway.free_catalog | [free_catalog] external refresh skipped by SCP LLM egress policy\n2026-09-01 19:30:37,806 | WARNING | scp.llm_gateway.free_catalog | [free_catalog] fetch returned nothing - keep hardcoded allowlist\n2026-09-01 19:30:37,806 | INFO    | scp.runtime.multi_llm_crosscheck | [MULTI-LLM] primary(none)=None secondary(none)=None consensus=missing_distinct_providers final=None\n2026-09-01 19:30:37,817 | INFO    | scp.meta.why_gate | [WHY-GATE] Singleton initialized � WHY is now PRIMARY CONTROL GATE\nINFO:     127.0.0.1:55049 - \"POST /ask HTTP/1.1\" 200 OK\n"
+        "server_log_tail": "2026-09-02 14:53:29,156 | INFO    | scp.api | [Security] HTTPS redirect disabled (set SCP_FORCE_HTTPS=1 in prod)\n2026-09-02 14:53:29,156 | INFO    | scp.api | [Security] CSRF protection: Bearer token auth\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n2026-09-02 14:53:29,539 | WARNING | scp.core.capability_token | SCP_CAPABILITY_SECRET is missing. Using fallback dev-secret. DO NOT USE IN PRODUCTION.\n2026-09-02 14:53:29,649 | INFO    | scp.autofix | [R7-Full] IMP-6 (rollback token) + IMP-9 (dry-run) injected into AutoFixEngine\n2026-09-02 14:53:29,680 | INFO    | scp.api | [OTel] tracing disabled: SCP_OTEL_ENABLED=0\nINFO:     Started server process [21812]\nINFO:     Waiting for application startup.\n2026-09-02 14:53:29,680 | INFO    | scp.api | ============================================================\n2026-09-02 14:53:29,680 | INFO    | scp.api | SCP 14.0.0 API Server starting...\n2026-09-02 14:53:29,680 | INFO    | scp.api | ============================================================\n2026-09-02 14:53:29,680 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Judge init dispatched to background thread\n2026-09-02 14:53:29,680 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Yielding NOW \\u2502â�\\x9a¬â€�\\x9d port 8000 binds immediately\n2026-09-02 14:53:29,711 | INFO    | scp.api | [AUTO] Deep audit scheduler started before lifespan yield (24h interval)\n2026-09-02 14:53:29,718 | INFO    | scp.api | [AUTO] Attack mode monitor started before lifespan yield (5min interval)\n2026-09-02 14:53:29,736 | INFO    | scp.api | [DOUBT] Cronjob of Doubt started (interval=21600.0s)\nINFO:     Application startup complete.\nINFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)\nINFO:     127.0.0.1:62525 - \"GET /health HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:62526 - \"GET /v3/hands/status HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:62527 - \"GET /v3/hands/actions HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:62528 - \"POST /v3/hands/plan HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:62529 - \"POST /v3/hands/execute HTTP/1.1\" 200 OK\n2026-09-02 14:53:30,247 | INFO    | scp.ask_kernel_adapter | [C3] kernel maintenance ok: quick_check=ok backup=kernel-backup-20260902-145330-241631700-ee5b1f.sqlite3 (65536 bytes, retained=5)\n2026-09-02 14:53:30,256 | INFO    | scp.api | Initializing RealityJudge (V98)...\n2026-09-02 14:53:30,354 | INFO    | scp.data_sources.fred | [FRED] disabled � set FRED_API_KEY to enable\n2026-09-02 14:53:30,354 | INFO    | scp.data_sources.worldbank | [WorldBank] enabled (no API key required)\n2026-09-02 14:53:30,354 | INFO    | scp.data_sources.fred | [FRED] disabled � set FRED_API_KEY to enable\n2026-09-02 14:53:30,354 | INFO    | scp.data_sources.worldbank | [WorldBank] enabled (no API key required)\n2026-09-02 14:53:30,355 | INFO    | scp.data_sources.eric | [ERIC] enabled without key � rate-limited to 50 req/day. Set ERIC_API_KEY for 5000 req/day.\n2026-09-02 14:53:30,355 | INFO    | scp.data_sources.eric | [ERIC] enabled without key � rate-limited to 50 req/day. Set ERIC_API_KEY for 5000 req/day.\n2026-09-02 14:53:30,365 | INFO    | scp.data_sources.gutenberg | [Gutenberg] enabled (no API key required)\n2026-09-02 14:53:30,365 | INFO    | scp.data_sources.gutenberg | [Gutenberg] enabled (no API key required)\n2026-09-02 14:53:30,378 | INFO    | scp.api | RealityJudge ready: 27 SLMs, V98 modules=True\n2026-09-02 14:53:30,387 | INFO    | scp.api | V104.36 PredictiveOrchestrator wired to production judge (SelfLearner will retrain judge.v13.classifier)\n2026-09-02 14:53:30,387 | INFO    | scp.api | V103 AttackCrawler started (10 min interval)\n2026-09-02 14:53:30,387 | INFO    | scp.security.cross_language_learner | CrossLanguage: transferred 48 patterns to 8 languages\n2026-09-02 14:53:30,387 | INFO    | scp.api | V104 CrossLanguage: 48 patterns across 8 langs (6 EN patterns ready)\n2026-09-02 14:53:30,388 | INFO    | scp.security.attack_crawler | AttackCrawler started (interval=3600s)\n2026-09-02 14:53:30,388 | INFO    | scp.api | V104.2 FastLearningEngine started (CANONICAL � post G3-MERGE) (10 concurrent Ollama + 5 concurrent Wiki + adaptive 1-30 min). RealLearningEngine merged in; V104.1 sequential API still available via /v104/learn/{ollama,local,news,all} endpoints.\n2026-09-02 14:53:30,389 | INFO    | scp.core.startup_optimizer | V104.3 Deferred background start: waiting 60s before starting schedulers...\n2026-09-02 14:53:30,389 | INFO    | scp.api | V104.3 StartupOptimizer started (deferred background init)\n2026-09-02 14:53:30,392 | INFO    | scp.api | V104.4 DataPartitioner started (0 partitions) + ThreeTierCache wired\n2026-09-02 14:53:30,479 | INFO    | scp.llm_gateway.free_catalog | [free_catalog] external refresh skipped by SCP LLM egress policy\n2026-09-02 14:53:30,479 | WARNING | scp.llm_gateway.free_catalog | [free_catalog] catalog fetch failed/empty - no fresh pricing proof\n2026-09-02 14:53:30,479 | INFO    | scp.runtime.multi_llm_crosscheck | [MULTI-LLM] primary(none)=None secondary(none)=None consensus=missing_distinct_providers final=None\n2026-09-02 14:53:30,491 | INFO    | scp.meta.why_gate | [WHY-GATE] Singleton initialized � WHY is now PRIMARY CONTROL GATE\nINFO:     127.0.0.1:62530 - \"POST /ask HTTP/1.1\" 200 OK\n"
       },
       "second": {
         "ok": true,
@@ -828,7 +787,7 @@
         "runner_error": null,
         "evidence": {
           "schema_version": "scp-bounded-system-smoke-v3",
-          "commit": "96b01c2b6e9ed152799c4506396b23234b32c15f",
+          "commit": "4177cee7aa1ec9069a49b3380acc082c465fe75d",
           "host": "127.0.0.1",
           "port": 8000,
           "port_8000_used": false,
@@ -843,8 +802,8 @@
                   "mode": "test",
                   "host": "127.0.0.1",
                   "configured_port": 8000,
-                  "pid": 3764,
-                  "commit": "96b01c2b6e9ed152799c4506396b23234b32c15f",
+                  "pid": 22672,
+                  "commit": "4177cee7aa1ec9069a49b3380acc082c465fe75d",
                   "config_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                   "argv": [
                     "C:\\Users\\check\\Downloads\\scp\\scp\\__main__.py",
@@ -882,87 +841,46 @@
                 "version": "3.5",
                 "hands": "online",
                 "actionCount": 25,
-                "auditEntries": 1407,
-                "checkpoints": 5,
+                "auditEntries": 37,
+                "checkpoints": 14,
                 "managedProcessCount": 0,
                 "killSwitch": false,
                 "capability": {
                   "schema_version": "scp-capability-epoch-v1",
-                  "epoch": 2,
+                  "epoch": 0,
                   "revoked": false,
-                  "reason": "controlled_rights_probe_20260827",
-                  "actor": "operator",
-                  "updated_at": 1787770006.1094527,
+                  "reason": "initial",
+                  "actor": "system",
+                  "updated_at": 1788335615.1207983,
                   "state_path": "C:\\Users\\check\\Downloads\\scp\\data\\hands\\capability_state.json"
                 },
                 "policy": "explicit registry + capability epoch + approval + ownership + DOM verifier + audit",
                 "planner": {
                   "version": "3.7",
                   "planner": "online",
-                  "planCount": 20,
+                  "planCount": 0,
                   "journal": {
-                    "valid": false,
+                    "valid": true,
                     "checked": 0,
-                    "legacy": 174,
+                    "legacy": 0,
                     "errors": []
                   },
-                  "activePlan": {
-                    "planId": "abe3b8b881ca4d1c8bd3276b6ea3453a",
-                    "version": "3.7",
-                    "goal": "fault probe",
-                    "state": "WAITING_APPROVAL",
-                    "createdAt": 1786791299.0752025,
-                    "updatedAt": 1786791299.3014898,
-                    "currentStepId": "approval-probe",
-                    "completedStepCount": 0,
-                    "metadata": {
-                      "source": "fault_injection"
-                    },
-                    "steps": [
-                      {
-                        "stepId": "approval-probe",
-                        "action": "pc.write_file",
-                        "params": {
-                          "content": "must-not-write-before-approval",
-                          "path": "data/diagnostics/agent-orchestrator-fault-probe.txt"
-                        },
-                        "capabilityLevel": 3,
-                        "approved": false,
-                        "dryRun": false,
-                        "dependsOn": [],
-                        "precondition": {
-                          "type": "always"
-                        },
-                        "postcondition": {
-                          "type": "always"
-                        },
-                        "retryPolicy": {
-                          "maxAttempts": 1,
-                          "backoffSeconds": 0.0,
-                          "on": "verification_failed"
-                        },
-                        "state": "WAITING_APPROVAL",
-                        "attempts": 0,
-                        "evidence": {},
-                        "error": "Explicit approval or higher capability is required"
-                      }
-                    ]
-                  },
+                  "activePlan": null,
                   "states": {
-                    "COMPLETED": 7,
+                    "COMPLETED": 0,
                     "FAILED": 0,
                     "HUMAN_REVIEW": 0,
-                    "PLANNED": 8,
+                    "PLANNED": 0,
                     "ROLLED_BACK": 0,
                     "RUNNING": 0,
                     "UNKNOWN": 0,
                     "VERIFIED": 0,
-                    "WAITING_APPROVAL": 5
+                    "WAITING_APPROVAL": 0
                   }
                 },
                 "plannerVersion": "3.7",
-                "run_id": "run-9986a340eba44a179f5b4d870fabf316",
-                "trace_id": "trace-583ef8fe491b4228aec3e2d2a08e542a",
+                "run_id": "run-1d3df630ce5b4074896039c3a8667ead",
+                "trace_id": "trace-f3d5ec81d30442d5a0c514e6575775f7",
                 "run_status": "SUCCESS",
                 "ledger_status": "OK"
               }
@@ -1256,8 +1174,8 @@
                   "/rollback"
                 ],
                 "plannerVersion": "3.7",
-                "run_id": "run-919856bf3e8846128fc9cd8c5da5e3ac",
-                "trace_id": "trace-3f399a3208b14706aa4a1cee454aad55",
+                "run_id": "run-eaf793f4d415432ba41be3fe85ef7bf2",
+                "trace_id": "trace-b3680853711447b4b68b31299570cf86",
                 "run_status": "SUCCESS",
                 "ledger_status": "OK"
               }
@@ -1281,8 +1199,8 @@
                 "reason": "allowlisted action",
                 "requestedCapability": 1,
                 "approved": true,
-                "run_id": "run-39a4be2e6758485da73a9b55e32378d0",
-                "trace_id": "trace-25fb46be048c49bf8c6c3f32cc7b2c44",
+                "run_id": "run-3ded21c45cdb4fd2a2eb2d3ac9f2f59e",
+                "trace_id": "trace-1c0a3300b8c74f0683cf91fb32adc021",
                 "run_status": "SUCCESS",
                 "ledger_status": "OK"
               }
@@ -1304,13 +1222,13 @@
                   "verifier": "controller_online",
                   "rollback": "none"
                 },
-                "capabilityEpoch": 2,
+                "capabilityEpoch": 0,
                 "verification": {
                   "passed": true,
                   "rule": "dry-run-only"
                 },
-                "run_id": "run-1c7223d14bac491db0c6ecdd6c215c9b",
-                "trace_id": "trace-c4df101d61a4488e8a64cd7cfaddfede",
+                "run_id": "run-fddffb72d6604d199ccd89371b714297",
+                "trace_id": "trace-692d862b0e864c74a9caa47f73904bb7",
                 "run_status": "SUCCESS",
                 "ledger_status": "OK"
               }
@@ -1330,10 +1248,10 @@
                 "v98_counter_executed": null,
                 "v98_canary_token": null,
                 "v98_bypass_recorded": null,
-                "elapsed_ms": 488.8,
+                "elapsed_ms": 217.8,
                 "session_id": "release-gate-bounded-smoke",
-                "run_id": "run-aed3e209a8e143659b093977b0c66bd8",
-                "trace_id": "trace-627bdc75e2454fe3a3fa0b767162d79c",
+                "run_id": "run-ab5b033d769045baaf85f053d4d95179",
+                "trace_id": "trace-6ed96177614546eb873386db35989c10",
                 "run_status": "REJECTED",
                 "ledger_status": "OK",
                 "expert_trace": [],
@@ -1374,10 +1292,10 @@
         },
         "port_free_observed": true,
         "external_http_requests": [],
-        "server_log_tail": "2026-09-01 19:30:41,647 | INFO    | scp.api | [Security] HTTPS redirect disabled (set SCP_FORCE_HTTPS=1 in prod)\n2026-09-01 19:30:41,647 | INFO    | scp.api | [Security] CSRF protection: Bearer token auth\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n2026-09-01 19:30:42,023 | WARNING | scp.core.capability_token | SCP_CAPABILITY_SECRET is missing. Using fallback dev-secret. DO NOT USE IN PRODUCTION.\n2026-09-01 19:30:42,132 | INFO    | scp.autofix | [R7-Full] IMP-6 (rollback token) + IMP-9 (dry-run) injected into AutoFixEngine\n2026-09-01 19:30:42,163 | INFO    | scp.api | [OTel] tracing disabled: SCP_OTEL_ENABLED=0\nINFO:     Started server process [3764]\nINFO:     Waiting for application startup.\n2026-09-01 19:30:42,163 | INFO    | scp.api | ============================================================\n2026-09-01 19:30:42,163 | INFO    | scp.api | SCP 14.0.0 API Server starting...\n2026-09-01 19:30:42,163 | INFO    | scp.api | ============================================================\n2026-09-01 19:30:42,164 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Judge init dispatched to background thread\n2026-09-01 19:30:42,164 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Yielding NOW \\u2502â�\\x9a¬â€�\\x9d port 8000 binds immediately\n2026-09-01 19:30:42,195 | INFO    | scp.api | [AUTO] Deep audit scheduler started before lifespan yield (24h interval)\n2026-09-01 19:30:42,214 | INFO    | scp.api | [AUTO] Attack mode monitor started before lifespan yield (5min interval)\n2026-09-01 19:30:42,494 | INFO    | scp.api | [DOUBT] Cronjob of Doubt started (interval=21600.0s)\nINFO:     Application startup complete.\nINFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)\nINFO:     127.0.0.1:55059 - \"GET /health HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:55060 - \"GET /v3/hands/status HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:55061 - \"GET /v3/hands/actions HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:55062 - \"POST /v3/hands/plan HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:55063 - \"POST /v3/hands/execute HTTP/1.1\" 200 OK\n2026-09-01 19:30:43,059 | INFO    | scp.ask_kernel_adapter | [C3] kernel maintenance ok: quick_check=ok backup=kernel-backup-20260901-193043-053640900-5055ac.sqlite3 (65536 bytes, retained=7)\n2026-09-01 19:30:43,067 | INFO    | scp.api | Initializing RealityJudge (V98)...\n2026-09-01 19:30:43,158 | INFO    | scp.data_sources.fred | [FRED] disabled � set FRED_API_KEY to enable\n2026-09-01 19:30:43,158 | INFO    | scp.data_sources.worldbank | [WorldBank] enabled (no API key required)\n2026-09-01 19:30:43,158 | INFO    | scp.data_sources.fred | [FRED] disabled � set FRED_API_KEY to enable\n2026-09-01 19:30:43,158 | INFO    | scp.data_sources.worldbank | [WorldBank] enabled (no API key required)\n2026-09-01 19:30:43,159 | INFO    | scp.data_sources.eric | [ERIC] enabled without key � rate-limited to 50 req/day. Set ERIC_API_KEY for 5000 req/day.\n2026-09-01 19:30:43,159 | INFO    | scp.data_sources.eric | [ERIC] enabled without key � rate-limited to 50 req/day. Set ERIC_API_KEY for 5000 req/day.\n2026-09-01 19:30:43,167 | INFO    | scp.data_sources.gutenberg | [Gutenberg] enabled (no API key required)\n2026-09-01 19:30:43,167 | INFO    | scp.data_sources.gutenberg | [Gutenberg] enabled (no API key required)\n2026-09-01 19:30:43,180 | INFO    | scp.api | RealityJudge ready: 27 SLMs, V98 modules=True\n2026-09-01 19:30:43,494 | INFO    | scp.api | V104.36 PredictiveOrchestrator wired to production judge (SelfLearner will retrain judge.v13.classifier)\n2026-09-01 19:30:43,496 | INFO    | scp.api | V103 AttackCrawler started (10 min interval)\n2026-09-01 19:30:43,496 | INFO    | scp.security.cross_language_learner | CrossLanguage: transferred 48 patterns to 8 languages\n2026-09-01 19:30:43,498 | INFO    | scp.api | V104 CrossLanguage: 48 patterns across 8 langs (6 EN patterns ready)\n2026-09-01 19:30:43,498 | INFO    | scp.api | V104.2 FastLearningEngine started (CANONICAL � post G3-MERGE) (10 concurrent Ollama + 5 concurrent Wiki + adaptive 1-30 min). RealLearningEngine merged in; V104.1 sequential API still available via /v104/learn/{ollama,local,news,all} endpoints.\n2026-09-01 19:30:43,499 | INFO    | scp.security.attack_crawler | AttackCrawler started (interval=3600s)\n2026-09-01 19:30:43,499 | INFO    | scp.core.startup_optimizer | V104.3 Deferred background start: waiting 60s before starting schedulers...\n2026-09-01 19:30:43,499 | INFO    | scp.api | V104.3 StartupOptimizer started (deferred background init)\n2026-09-01 19:30:43,503 | INFO    | scp.api | V104.4 DataPartitioner started (2 partitions) + ThreeTierCache wired\n2026-09-01 19:30:43,538 | INFO    | scp.llm_gateway.free_catalog | [free_catalog] external refresh skipped by SCP LLM egress policy\n2026-09-01 19:30:43,539 | WARNING | scp.llm_gateway.free_catalog | [free_catalog] fetch returned nothing - keep hardcoded allowlist\n2026-09-01 19:30:43,539 | INFO    | scp.runtime.multi_llm_crosscheck | [MULTI-LLM] primary(none)=None secondary(none)=None consensus=missing_distinct_providers final=None\n2026-09-01 19:30:43,573 | INFO    | scp.meta.why_gate | [WHY-GATE] Singleton initialized � WHY is now PRIMARY CONTROL GATE\nINFO:     127.0.0.1:55064 - \"POST /ask HTTP/1.1\" 200 OK\n"
+        "server_log_tail": "2026-09-02 14:53:34,263 | INFO    | scp.api | [Security] HTTPS redirect disabled (set SCP_FORCE_HTTPS=1 in prod)\n2026-09-02 14:53:34,263 | INFO    | scp.api | [Security] CSRF protection: Bearer token auth\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n2026-09-02 14:53:34,653 | WARNING | scp.core.capability_token | SCP_CAPABILITY_SECRET is missing. Using fallback dev-secret. DO NOT USE IN PRODUCTION.\n2026-09-02 14:53:34,767 | INFO    | scp.autofix | [R7-Full] IMP-6 (rollback token) + IMP-9 (dry-run) injected into AutoFixEngine\n2026-09-02 14:53:34,798 | INFO    | scp.api | [OTel] tracing disabled: SCP_OTEL_ENABLED=0\nINFO:     Started server process [22672]\nINFO:     Waiting for application startup.\n2026-09-02 14:53:34,798 | INFO    | scp.api | ============================================================\n2026-09-02 14:53:34,798 | INFO    | scp.api | SCP 14.0.0 API Server starting...\n2026-09-02 14:53:34,798 | INFO    | scp.api | ============================================================\n2026-09-02 14:53:34,798 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Judge init dispatched to background thread\n2026-09-02 14:53:34,799 | INFO    | scp.api | [R20-ROOT-FIX-REAL] Yielding NOW \\u2502â�\\x9a¬â€�\\x9d port 8000 binds immediately\n2026-09-02 14:53:34,828 | INFO    | scp.api | [AUTO] Deep audit scheduler started before lifespan yield (24h interval)\n2026-09-02 14:53:34,853 | INFO    | scp.api | [AUTO] Attack mode monitor started before lifespan yield (5min interval)\n2026-09-02 14:53:34,872 | INFO    | scp.api | [DOUBT] Cronjob of Doubt started (interval=21600.0s)\nINFO:     Application startup complete.\nINFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)\nINFO:     127.0.0.1:62540 - \"GET /health HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:62541 - \"GET /v3/hands/status HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:62542 - \"GET /v3/hands/actions HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:62543 - \"POST /v3/hands/plan HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:62544 - \"POST /v3/hands/execute HTTP/1.1\" 200 OK\n2026-09-02 14:53:35,212 | INFO    | scp.ask_kernel_adapter | [C3] kernel maintenance ok: quick_check=ok backup=kernel-backup-20260902-145335-207646800-e49e0d.sqlite3 (65536 bytes, retained=5)\n2026-09-02 14:53:35,220 | INFO    | scp.api | Initializing RealityJudge (V98)...\n2026-09-02 14:53:35,317 | INFO    | scp.data_sources.fred | [FRED] disabled � set FRED_API_KEY to enable\n2026-09-02 14:53:35,317 | INFO    | scp.data_sources.worldbank | [WorldBank] enabled (no API key required)\n2026-09-02 14:53:35,317 | INFO    | scp.data_sources.fred | [FRED] disabled � set FRED_API_KEY to enable\n2026-09-02 14:53:35,317 | INFO    | scp.data_sources.worldbank | [WorldBank] enabled (no API key required)\n2026-09-02 14:53:35,318 | INFO    | scp.data_sources.eric | [ERIC] enabled without key � rate-limited to 50 req/day. Set ERIC_API_KEY for 5000 req/day.\n2026-09-02 14:53:35,318 | INFO    | scp.data_sources.eric | [ERIC] enabled without key � rate-limited to 50 req/day. Set ERIC_API_KEY for 5000 req/day.\n2026-09-02 14:53:35,327 | INFO    | scp.data_sources.gutenberg | [Gutenberg] enabled (no API key required)\n2026-09-02 14:53:35,327 | INFO    | scp.data_sources.gutenberg | [Gutenberg] enabled (no API key required)\n2026-09-02 14:53:35,341 | INFO    | scp.api | RealityJudge ready: 27 SLMs, V98 modules=True\n2026-09-02 14:53:35,349 | INFO    | scp.api | V104.36 PredictiveOrchestrator wired to production judge (SelfLearner will retrain judge.v13.classifier)\n2026-09-02 14:53:35,349 | INFO    | scp.api | V103 AttackCrawler started (10 min interval)\n2026-09-02 14:53:35,350 | INFO    | scp.security.cross_language_learner | CrossLanguage: transferred 48 patterns to 8 languages\n2026-09-02 14:53:35,350 | INFO    | scp.api | V104 CrossLanguage: 48 patterns across 8 langs (6 EN patterns ready)\n2026-09-02 14:53:35,350 | INFO    | scp.security.attack_crawler | AttackCrawler started (interval=3600s)\n2026-09-02 14:53:35,350 | INFO    | scp.api | V104.2 FastLearningEngine started (CANONICAL � post G3-MERGE) (10 concurrent Ollama + 5 concurrent Wiki + adaptive 1-30 min). RealLearningEngine merged in; V104.1 sequential API still available via /v104/learn/{ollama,local,news,all} endpoints.\n2026-09-02 14:53:35,351 | INFO    | scp.core.startup_optimizer | V104.3 Deferred background start: waiting 60s before starting schedulers...\n2026-09-02 14:53:35,351 | INFO    | scp.api | V104.3 StartupOptimizer started (deferred background init)\n2026-09-02 14:53:35,354 | INFO    | scp.api | V104.4 DataPartitioner started (0 partitions) + ThreeTierCache wired\n2026-09-02 14:53:35,434 | INFO    | scp.llm_gateway.free_catalog | [free_catalog] external refresh skipped by SCP LLM egress policy\n2026-09-02 14:53:35,434 | WARNING | scp.llm_gateway.free_catalog | [free_catalog] catalog fetch failed/empty - no fresh pricing proof\n2026-09-02 14:53:35,434 | INFO    | scp.runtime.multi_llm_crosscheck | [MULTI-LLM] primary(none)=None secondary(none)=None consensus=missing_distinct_providers final=None\n2026-09-02 14:53:35,445 | INFO    | scp.meta.why_gate | [WHY-GATE] Singleton initialized � WHY is now PRIMARY CONTROL GATE\nINFO:     127.0.0.1:62545 - \"POST /ask HTTP/1.1\" 200 OK\n"
       }
     }
   ],
-  "overall_verdict": "BLOCKED",
+  "overall_verdict": "PASS_WITHIN_SCOPE",
   "scope": "Isolated local system audit: boot/readiness, auth brute-force and valid token, fail-closed ask semantics, prompt-injection kill/withhold, mandatory SCP Skill + DNA contract, semantic parity, provider failover/timeout/egress contracts, full pytest, Reality suite, fitness suite, hermetic boot, durable-kernel idempotent replay/crash recovery/external tamper detection/parallel journal consistency, and two sequential bounded API→router→ledger/kernel→RAG governance→Hands dry-run smoke cycles with independent port-cleanup and deny-egress observation. No claim about distributed production deployment or live third-party-provider correctness."
 }

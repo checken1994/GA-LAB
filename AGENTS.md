@@ -73,3 +73,13 @@ corresponding work. Do not load every specialised skill for unrelated work.
 
 The current pack has 13 skills in `.agents/skills/`. Re-check this count from
 the filesystem if the pack changes; the count is an inventory hint, not evidence.
+
+## Working rules & session mandate
+
+- **Ngôn ngữ:** Làm việc bằng tiếng Việt; giữ nguyên identifier kỹ thuật tiếng Anh khi cần.
+- **Trước mọi task:** Đọc `GA.md` trên `main`. Sau đó refresh GitHub live, đọc DNA/Skills/authority mà `GA.md` yêu cầu.
+- **Nguồn sự thật:** `Live repo + Reality/evidence > memory/chat history`. Không dùng hoặc lưu làm authority các trạng thái dễ lỗi thời như SHA, số test, blocker, branch state, roadmap hay next task.
+- **Session boundary:** 1 task SCP lớn = 1 session/chat riêng; cùng root cause thì tiếp tục cùng session.
+- **Handoff:** Cuối task lớn: cập nhật handoff trong `GA.md` trên `main` rồi mới chuyển session.
+- **Kỷ luật test:** Không làm xanh test bằng delete/skip/xfail/hạ chuẩn; sửa đúng PRODUCT/HARNESS tại điểm lỗi.
+

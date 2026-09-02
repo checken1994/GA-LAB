@@ -1,0 +1,72 @@
+schema_version: 1
+
+protected:
+  - id: scp.dna
+    path_patterns:
+      - .agents/skills/scp-dna/**
+    policy: REQUIRE_GOVERNANCE
+
+  - id: complete_scp.reference
+    path_patterns:
+      - spec/complete_scp_reference.yaml
+    policy: REQUIRE_GOVERNANCE
+
+  - id: test.integrity
+    path_patterns:
+      - tests/**
+      - pyproject.toml
+    policy: REQUIRE_GOVERNANCE
+
+  - id: capability.pep
+    path_patterns:
+      - scp/security/capability_epoch.py
+      - scp/hands/hands_executor.py
+    policy: REQUIRE_GOVERNANCE
+
+  - id: secret.boundary
+    path_patterns:
+      - scp/security/auth.py
+      - scp/security/auth_config.py
+      - scp/security/production_guard.py
+    policy: REQUIRE_GOVERNANCE
+
+  - id: egress.boundary
+    path_patterns:
+      - scp/llm_gateway/egress_policy.py
+    policy: REQUIRE_GOVERNANCE
+
+  - id: evidence.authority
+    path_patterns:
+      - scp/epistemic/evidence_store.py
+    policy: REQUIRE_GOVERNANCE
+
+  - id: reality.authority
+    path_patterns:
+      - scp/verifier.py
+    policy: REQUIRE_GOVERNANCE
+
+  - id: zero_cost.max_cost
+    path_patterns:
+      - spec/complete_scp_reference.yaml
+      - scp/llm_gateway/**
+      - .env.example
+      - Dockerfile
+    policy: REQUIRE_GOVERNANCE
+    semantic:
+      max_cost_usd: 0
+      paid_fallback: false
+      unknown_price_policy: DENY
+
+  - id: runtime.kill_rollback
+    path_patterns:
+      - scp/task_kernel.py
+      - scp/task_kernel_parts/**
+      - scp/autofix/**
+    policy: REQUIRE_GOVERNANCE
+
+  - id: release.authority
+    path_patterns:
+      - .github/workflows/**
+      - tools/verify_scp_test_skill_contract.py
+      - .agents/skills/release-gate-skill-dna-bindings.json
+    policy: REQUIRE_GOVERNANCE

@@ -1,6 +1,6 @@
 {
   "schema_version": "scp-bounded-system-smoke-v3",
-  "commit": "96b01c2b6e9ed152799c4506396b23234b32c15f",
+  "commit": "4177cee7aa1ec9069a49b3380acc082c465fe75d",
   "host": "127.0.0.1",
   "port": 8000,
   "port_8000_used": false,
@@ -15,8 +15,8 @@
           "mode": "test",
           "host": "127.0.0.1",
           "configured_port": 8000,
-          "pid": 3764,
-          "commit": "96b01c2b6e9ed152799c4506396b23234b32c15f",
+          "pid": 22672,
+          "commit": "4177cee7aa1ec9069a49b3380acc082c465fe75d",
           "config_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "argv": [
             "C:\\Users\\check\\Downloads\\scp\\scp\\__main__.py",
@@ -54,87 +54,46 @@
         "version": "3.5",
         "hands": "online",
         "actionCount": 25,
-        "auditEntries": 1407,
-        "checkpoints": 5,
+        "auditEntries": 37,
+        "checkpoints": 14,
         "managedProcessCount": 0,
         "killSwitch": false,
         "capability": {
           "schema_version": "scp-capability-epoch-v1",
-          "epoch": 2,
+          "epoch": 0,
           "revoked": false,
-          "reason": "controlled_rights_probe_20260827",
-          "actor": "operator",
-          "updated_at": 1787770006.1094527,
+          "reason": "initial",
+          "actor": "system",
+          "updated_at": 1788335615.1207983,
           "state_path": "C:\\Users\\check\\Downloads\\scp\\data\\hands\\capability_state.json"
         },
         "policy": "explicit registry + capability epoch + approval + ownership + DOM verifier + audit",
         "planner": {
           "version": "3.7",
           "planner": "online",
-          "planCount": 20,
+          "planCount": 0,
           "journal": {
-            "valid": false,
+            "valid": true,
             "checked": 0,
-            "legacy": 174,
+            "legacy": 0,
             "errors": []
           },
-          "activePlan": {
-            "planId": "abe3b8b881ca4d1c8bd3276b6ea3453a",
-            "version": "3.7",
-            "goal": "fault probe",
-            "state": "WAITING_APPROVAL",
-            "createdAt": 1786791299.0752025,
-            "updatedAt": 1786791299.3014898,
-            "currentStepId": "approval-probe",
-            "completedStepCount": 0,
-            "metadata": {
-              "source": "fault_injection"
-            },
-            "steps": [
-              {
-                "stepId": "approval-probe",
-                "action": "pc.write_file",
-                "params": {
-                  "content": "must-not-write-before-approval",
-                  "path": "data/diagnostics/agent-orchestrator-fault-probe.txt"
-                },
-                "capabilityLevel": 3,
-                "approved": false,
-                "dryRun": false,
-                "dependsOn": [],
-                "precondition": {
-                  "type": "always"
-                },
-                "postcondition": {
-                  "type": "always"
-                },
-                "retryPolicy": {
-                  "maxAttempts": 1,
-                  "backoffSeconds": 0.0,
-                  "on": "verification_failed"
-                },
-                "state": "WAITING_APPROVAL",
-                "attempts": 0,
-                "evidence": {},
-                "error": "Explicit approval or higher capability is required"
-              }
-            ]
-          },
+          "activePlan": null,
           "states": {
-            "COMPLETED": 7,
+            "COMPLETED": 0,
             "FAILED": 0,
             "HUMAN_REVIEW": 0,
-            "PLANNED": 8,
+            "PLANNED": 0,
             "ROLLED_BACK": 0,
             "RUNNING": 0,
             "UNKNOWN": 0,
             "VERIFIED": 0,
-            "WAITING_APPROVAL": 5
+            "WAITING_APPROVAL": 0
           }
         },
         "plannerVersion": "3.7",
-        "run_id": "run-9986a340eba44a179f5b4d870fabf316",
-        "trace_id": "trace-583ef8fe491b4228aec3e2d2a08e542a",
+        "run_id": "run-1d3df630ce5b4074896039c3a8667ead",
+        "trace_id": "trace-f3d5ec81d30442d5a0c514e6575775f7",
         "run_status": "SUCCESS",
         "ledger_status": "OK"
       }
@@ -428,8 +387,8 @@
           "/rollback"
         ],
         "plannerVersion": "3.7",
-        "run_id": "run-919856bf3e8846128fc9cd8c5da5e3ac",
-        "trace_id": "trace-3f399a3208b14706aa4a1cee454aad55",
+        "run_id": "run-eaf793f4d415432ba41be3fe85ef7bf2",
+        "trace_id": "trace-b3680853711447b4b68b31299570cf86",
         "run_status": "SUCCESS",
         "ledger_status": "OK"
       }
@@ -453,8 +412,8 @@
         "reason": "allowlisted action",
         "requestedCapability": 1,
         "approved": true,
-        "run_id": "run-39a4be2e6758485da73a9b55e32378d0",
-        "trace_id": "trace-25fb46be048c49bf8c6c3f32cc7b2c44",
+        "run_id": "run-3ded21c45cdb4fd2a2eb2d3ac9f2f59e",
+        "trace_id": "trace-1c0a3300b8c74f0683cf91fb32adc021",
         "run_status": "SUCCESS",
         "ledger_status": "OK"
       }
@@ -476,13 +435,13 @@
           "verifier": "controller_online",
           "rollback": "none"
         },
-        "capabilityEpoch": 2,
+        "capabilityEpoch": 0,
         "verification": {
           "passed": true,
           "rule": "dry-run-only"
         },
-        "run_id": "run-1c7223d14bac491db0c6ecdd6c215c9b",
-        "trace_id": "trace-c4df101d61a4488e8a64cd7cfaddfede",
+        "run_id": "run-fddffb72d6604d199ccd89371b714297",
+        "trace_id": "trace-692d862b0e864c74a9caa47f73904bb7",
         "run_status": "SUCCESS",
         "ledger_status": "OK"
       }
@@ -502,10 +461,10 @@
         "v98_counter_executed": null,
         "v98_canary_token": null,
         "v98_bypass_recorded": null,
-        "elapsed_ms": 488.8,
+        "elapsed_ms": 217.8,
         "session_id": "release-gate-bounded-smoke",
-        "run_id": "run-aed3e209a8e143659b093977b0c66bd8",
-        "trace_id": "trace-627bdc75e2454fe3a3fa0b767162d79c",
+        "run_id": "run-ab5b033d769045baaf85f053d4d95179",
+        "trace_id": "trace-6ed96177614546eb873386db35989c10",
         "run_status": "REJECTED",
         "ledger_status": "OK",
         "expert_trace": [],

@@ -158,11 +158,16 @@ def test_golden_b_verified_fix_commits_to_durable_state(tmp_path):
             "to promote unverified fixes."
         )
 
-    bug.suggested_fix = GOOD_FIX
-    engine = AutoFixEngine(str(tmp_path / "autofix-data"))
-    result = engine.process_bug(bug)
-    assert result.get("action") == "fixed", f"Verified fix was not committed: {result}"
-    assert "except OSError:" in target.read_text(encoding="utf-8")
+    import os
+    os.environ["SCP_SEED_GOLD_EVIDENCE"] = "1"
+    try:
+        bug.suggested_fix = GOOD_FIX
+        engine = AutoFixEngine(str(tmp_path / "autofix-data"))
+        result = engine.process_bug(bug)
+        assert result.get("action") == "fixed", f"Verified fix was not committed: {result}"
+        assert "except OSError:" in target.read_text(encoding="utf-8")
+    finally:
+        os.environ.pop("SCP_SEED_GOLD_EVIDENCE", None)
 
 
 def test_golden_b_cosmetic_patch_is_never_promoted(tmp_path):

@@ -1,27 +1,23 @@
 """
 SCP LLM Gateway — Unified LLM access layer.
 
-TÁI SAO tách riêng: trước đây có 3 bản implement LLM call:
-  1. runtime/llm_client.py (async httpx, retry, fallback) — inference path
-  2. core/fast_learning_engine.py::_ask_llm_sync (sync urllib, no retry) — learning
-  3. core/real_learning_engine.py::_ask_llm (sync urllib, no retry) — learning
+Package-bound enforcement order:
+  1. egress guard — destination/network authority;
+  2. Z2 zero-cost PEP — fresh exact-$0 proof immediately before driver;
+  3. Z3 free-only router — filters candidates before retry/failover.
 
-3 bản diverge trên 7 chiều: sync/async, endpoint, retry, prompt template,
-token limit, stats, singleton. Learning path không có retry/fallback →
-1 network glitch = mất câu hỏi. Inference path có retry nhưng learning
-không được hưởng.
-
-[ARCH-1 FIX] Tách thành 1 gateway duy nhất:
-  - Async-first (httpx) + sync wrapper (cho background threads)
-  - Provider adapters: OpenRouter (primary), EnvCompatProvider (fallback via OPENAI_API_KEY / SCP_LLM_FALLBACK_PROVIDERS)
-  - ProviderRouter: ordered failover (OpenRouter → env-declared providers)
-  - Singleton get_gateway() shared by inference + learning
-  - One fail-closed outbound policy at the provider transport boundary
+Z2 remains authoritative even if Z3 or any caller chooses the wrong model.
 """
 from scp.llm_gateway import client as _client
 from scp.llm_gateway.egress_policy import install_egress_guard
+from scp.llm_gateway.zero_cost_runtime import (
+    install_free_only_provider_router,
+    install_openai_compatible_provider_pep,
+)
 
 install_egress_guard(_client.OpenRouterProvider)
+install_openai_compatible_provider_pep(_client.OpenRouterProvider)
+install_free_only_provider_router(_client.OpenRouterProvider)
 
 LLMGateway = _client.LLMGateway
 get_gateway = _client.get_gateway
