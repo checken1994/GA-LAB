@@ -178,7 +178,7 @@ project: SCP / GA-LAB
 repository: checken1994/GA-LAB
 active_sync_branch: main
 current_workstream: SCP Future Target Architecture baseline 4.0.2 -> implementation/test alignment
-work_snapshot_sha: eaa689fdf80228d81a26d8b03aae048df38e49ed
+work_snapshot_sha: 2ab8bc3064b6e9c106754ec5828d1f7fb48684ed
 main_role: nguồn đồng bộ hiện hành để nhiều AI kiểm tra cùng một trạng thái
 ```
 
@@ -241,8 +241,8 @@ T00-T11 taxonomy exists: YES
 Target architecture effective revision: 4.0.2
 bounded target compose/integrity validator installed: YES
 machine-generated effective coverage universe: 138 capabilities + 60 cause-effect edges
-reviewed concrete-test claims currently bound: 13
-effective binding statuses at current reviewed scope: 13 TEST_BOUND_PARTIAL + 185 UNPROVEN
+reviewed concrete-test claims currently bound: 15
+effective binding statuses at current reviewed scope: 15 TEST_BOUND_PARTIAL + 183 UNPROVEN
 coverage_proven flag: false
 EVIDENCE_VERIFIED claims: 0
 reverse concrete-test -> exact target mapping generated: YES for explicit claims
@@ -254,7 +254,18 @@ current_complete_scp_test_verdict: TEST_COVERAGE_UNPROVEN / INCOMPLETE
 
 The coverage layer is intentionally non-duplicative: the 138/60 universe, applicable gates and target evidence requirements are derived from the composed v4.0.2 target; `scp_target_test_coverage.yaml` stores only reviewed concrete-test claims. Test presence never upgrades a row to runtime evidence. `EVIDENCE_VERIFIED` requires evidence level + snapshot SHA + evidence refs.
 
-Current reviewed bindings include real contracts for TaskKernel storage/journal behavior, Windows sandbox partial behavior, exact-zero/provider resilience portions, EvidenceStore occurrence/immutability, and source lineage. They remain `TEST_BOUND_PARTIAL`, not C/D verified.
+Current reviewed bindings include real contracts for TaskKernel storage/journal behavior, **lease fencing + logical-action idempotency**, Windows sandbox partial behavior, exact-zero/provider resilience portions, EvidenceStore occurrence/immutability, and source lineage. They remain `TEST_BOUND_PARTIAL`, not C/D verified.
+
+P0 Execution OS root fix installed in this work snapshot:
+
+```text
+product_gap: stale worker could mutate idempotency ledger because idempotency_claim/idempotency_complete were not lease-fenced
+fix: TaskKernel public boundary binds the exact claimed lease to execution context and re-validates it inside idempotency write transactions
+recovery_compatibility: no-lease duplicate probe is read-only; it cannot create/retry/complete a logical action
+regression_test: tests/T04_kernel/test_lease_fencing_idempotency.py
+traceability: execution.lease_fencing + execution.checkpoint_idempotency + CE-S01-05 => TEST_BOUND_PARTIAL/B
+same-SHA test execution: NOT YET OBSERVED; GitHub jobs queued at last refresh
+```
 
 Local bounded Reality checks for this task:
 
@@ -265,6 +276,7 @@ Python compile of T00 coverage tests: PASS
 synthetic full-shape effective map: 138 capabilities + 60 edges
 synthetic validator result: 0 errors
 synthetic status summary: 13 TEST_BOUND_PARTIAL + 185 UNPROVEN
+(note: this synthetic summary is from the preceding traceability-structure snapshot; current binding now declares 15 partial / 183 unproven and still requires current-SHA execution)
 coverage_proven: false
 ```
 
@@ -281,6 +293,9 @@ d501d0e1d384ae0de90416f9e090457df245ab3e  test: fail closed on target-test trace
 9ad2949103e2a245dceb5a8852e4f42e2525dd16  fix: make coverage validator direct-run safe
 5233c86eb274de1fdb419c35192bece79f091014  governance: protect target test coverage authority
 eaa689fdf80228d81a26d8b03aae048df38e49ed  test: guard target coverage authority protection
+de067c5c414dfa2e4f58e55e2ad025ae53d40f17  fix: fence TaskKernel idempotency writes by active lease
+8a164eddaa3daf368291ca7f95bce10f83051b92  test: prove stale lease cannot mutate idempotency ledger
+2ab8bc3064b6e9c106754ec5828d1f7fb48684ed  spec: bind lease fencing and idempotency regression coverage
 ```
 
 ## B5. Historical P0 evidence
@@ -300,8 +315,10 @@ Target internal content review: COMPLETED FOR CURRENT DECLARED SCOPE
 Bounded target-spec validator/T00 guard: IMPLEMENTED
 Target -> gate -> concrete-test traceability structure: IMPLEMENTED
 Effective coverage inventory completeness: MACHINE-DERIVED 138/60, NO SILENT OMISSION
-Reviewed concrete bindings: 13 TEST_BOUND_PARTIAL
-Remaining target rows: 185 UNPROVEN
+Reviewed concrete bindings: 15 TEST_BOUND_PARTIAL
+Remaining target rows: 183 UNPROVEN
+P0 lease/idempotency root fix: PRODUCT PATCH INSTALLED + T04 TEST BOUND
+Same-SHA execution evidence for that root fix: NOT YET ESTABLISHED (jobs queued)
 Full target concrete-test coverage: NOT PROVEN
 GitHub-hosted same-SHA execution of new guards: BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT
 Absolute/no-missing-piece completeness: NOT CLAIMED / UNPROVABLE BY DESIGN
@@ -314,32 +331,26 @@ This closes the **traceability-structure** task, not the product/test-coverage p
 
 ## B7. Open implementation/alignment work
 
-1. Expand honest concrete bindings while building/fixing product. Unclaimed target rows stay `UNPROVEN`; missing product can be explicitly classified `BLOCKED_MISSING_IMPLEMENTATION`.
-2. Align `complete_scp_reference.yaml` with target WHAT inventory without adding implementation HOW or deleting target requirements.
-3. Build product by baseline dependency order. First inspect v4.0.2 P0 Execution OS gaps (durable state machine / lease fencing / checkpoint-idempotency / service readiness / sandbox-browser isolation) and fix the first real `PRODUCT_BLOCKED` gap found.
-4. When GitHub/self-hosted runner actually executes, obtain same-SHA T00/coverage-validator evidence. A runner failure before checkout remains `BLOCKED`.
-5. Promote a coverage row beyond `TEST_BOUND_*` only with evidence meeting its A/B/C/D requirement and provenance; no inferred C/D from unit/integration test presence.
-6. Continue phase-scoped strict/recovery/Reality verification as implementation matures.
+1. Finish classifying `execution.checkpoint_idempotency` beyond the new stale-writer fix: checkpoint integrity, resume/reconcile and duplicate-side-effect semantics remain below D until current evidence proves them.
+2. Continue P0 dependency slice with `execution.sandbox_isolation` -> `execution.browser_session_isolation` -> `execution.service_lifecycle_readiness`; fix the earliest real product gap, not the easiest test gap.
+3. Expand honest concrete bindings while building/fixing product. Unclaimed target rows stay `UNPROVEN`; missing product can be explicitly classified `BLOCKED_MISSING_IMPLEMENTATION`.
+4. Align `complete_scp_reference.yaml` with target WHAT inventory without adding implementation HOW or deleting target requirements.
+5. When GitHub/self-hosted runner actually executes, obtain same-SHA T04/T00/coverage evidence. A runner failure before checkout remains `BLOCKED`.
+6. Promote a coverage row beyond `TEST_BOUND_*` only with evidence meeting its A/B/C/D requirement and provenance; no inferred C/D from unit/integration test presence.
 
 These are **build tasks**, not automatic triggers to reopen target architecture 4.0.2.
 
 ## B8. Next exact task
 
 ```text
-Start product build from the effective 4.0.2 coverage map.
-Audit the P0 Execution OS dependency slice against live implementation:
-execution.durable_state_machine
-execution.event_journal_projection
-execution.lease_fencing
-execution.checkpoint_idempotency
-execution.sandbox_isolation
-execution.browser_session_isolation
-execution.service_lifecycle_readiness
+Continue P0 Execution OS from technical snapshot 2ab8bc3064b6e9c106754ec5828d1f7fb48684ed.
+Do not reopen target architecture and do not add another validator layer.
 
-Use existing concrete bindings/evidence first.
-Classify each as implemented/test-bound/PRODUCT_BLOCKED without inflating maturity.
-Fix the first dependency/root-cause gap with a small reversible patch + T04/T03/T01/T10 Reality tests as applicable.
-Then update scp_target_test_coverage.yaml only for relations actually proven.
+1. Refresh main and same-SHA CI first; queued/no-checkout remains BLOCKED, not PASS/FAIL.
+2. Re-check remaining execution.checkpoint_idempotency contract against current tests/recovery path.
+3. Then inspect execution.sandbox_isolation -> execution.browser_session_isolation -> execution.service_lifecycle_readiness.
+4. Fix the earliest real PRODUCT_BLOCKED/PRODUCT_FAIL root cause with a small reversible product patch + applicable T03/T04/T10/T01 test.
+5. Update scp_target_test_coverage.yaml only for a reviewed real test relation; keep TEST_BOUND separate from EVIDENCE_VERIFIED.
 ```
 
 ---
