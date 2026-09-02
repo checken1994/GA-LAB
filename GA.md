@@ -178,7 +178,7 @@ project: SCP / GA-LAB
 repository: checken1994/GA-LAB
 active_sync_branch: main
 current_workstream: SCP Future Target Architecture baseline 4.0.2 -> implementation/test alignment
-work_snapshot_sha: 2b20b841a745049b972e536e9597532902b7f7b9
+work_snapshot_sha: eaa689fdf80228d81a26d8b03aae048df38e49ed
 main_role: nguồn đồng bộ hiện hành để nhiều AI kiểm tra cùng một trạng thái
 ```
 
@@ -231,35 +231,56 @@ V4.0.2 keeps the same 12 core + 8 cross-cutting systems and P0–P4 phases, but 
 ## B4. Current test/reference reality
 
 ```text
-validator_snapshot_sha: 2b20b841a745049b972e536e9597532902b7f7b9
 target_validator: tools/verify_scp_future_target.py
+target_coverage_binding: spec/scp_target_test_coverage.yaml
+target_coverage_validator: tools/verify_scp_target_test_coverage.py
 T00_target_guard: tests/T00_integrity/test_scp_future_target.py
+T00_coverage_guard: tests/T00_integrity/test_scp_target_test_coverage.py
+T00_coverage_authority_guard: tests/T00_integrity/test_target_coverage_authority_protected.py
 T00-T11 taxonomy exists: YES
 Target architecture effective revision: 4.0.2
 bounded target compose/integrity validator installed: YES
-T00 poison tests for orphan capability / invalid gate / Skill-gap / validator-recursion: YES
-local Python compile: PASS
-local synthetic full-shape compose/validate (12+8 systems, 138 caps, 60 edges, 34 invariants, 13 Skills): 0 errors
-GitHub-hosted same-SHA validator/T00 execution: BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT at last observation
-p0-baseline job evidence: completed=failure, steps=[]; therefore not classified as PRODUCT_FAIL or validator FAIL
-other GitHub checks at last observation: QUEUED
-138 capability -> concrete test traceability proven: NO
-60 cause-effect edge -> concrete test traceability proven: NO
-bidirectional target <-> concrete test traceability: NOT YET MACHINE-PROVEN
+machine-generated effective coverage universe: 138 capabilities + 60 cause-effect edges
+reviewed concrete-test claims currently bound: 13
+effective binding statuses at current reviewed scope: 13 TEST_BOUND_PARTIAL + 185 UNPROVEN
+coverage_proven flag: false
+EVIDENCE_VERIFIED claims: 0
+reverse concrete-test -> exact target mapping generated: YES for explicit claims
+missing target rows silently omitted: NO by construction; unclaimed rows remain UNPROVEN
 complete_scp_reference aligned to all 138 target capabilities: NO
 implementation bindings cover full target: NO (expected during development)
 current_complete_scp_test_verdict: TEST_COVERAGE_UNPROVEN / INCOMPLETE
 ```
 
-Permanent bounded target-spec validation now exists. It proves/guards **composition + declared structural integrity + Skill traceability only**; it does not prove implementation/runtime/release or full target->concrete-test coverage.
+The coverage layer is intentionally non-duplicative: the 138/60 universe, applicable gates and target evidence requirements are derived from the composed v4.0.2 target; `scp_target_test_coverage.yaml` stores only reviewed concrete-test claims. Test presence never upgrades a row to runtime evidence. `EVIDENCE_VERIFIED` requires evidence level + snapshot SHA + evidence refs.
 
-`complete_scp_reference.yaml` and implementation bindings still machine-encode a smaller subset than target inventory. `tools/verify_scp_future_target.py` reports this as `REFERENCE_ALIGNMENT_GAP`; the gap is **report-only for target membership** and must never delete future target capabilities.
+Current reviewed bindings include real contracts for TaskKernel storage/journal behavior, Windows sandbox partial behavior, exact-zero/provider resilience portions, EvidenceStore occurrence/immutability, and source lineage. They remain `TEST_BOUND_PARTIAL`, not C/D verified.
+
+Local bounded Reality checks for this task:
+
+```text
+YAML parse of coverage binding: PASS
+Python compile of coverage validator: PASS
+Python compile of T00 coverage tests: PASS
+synthetic full-shape effective map: 138 capabilities + 60 edges
+synthetic validator result: 0 errors
+synthetic status summary: 13 TEST_BOUND_PARTIAL + 185 UNPROVEN
+coverage_proven: false
+```
+
+GitHub-hosted same-SHA execution remains unavailable at last observation: `p0-baseline` completed `failure` in ~3s with `steps=null`, i.e. before checkout/test execution. Classification remains `BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT`, not PRODUCT_FAIL, HARNESS_FAIL, or a failed validator verdict. Other workflow jobs were still queued at observation.
 
 Relevant commits:
 
 ```text
 1cd89368b6452105f3845c3526fbb4fb342e17cf  tools: add bounded SCP future target validator
 2b20b841a745049b972e536e9597532902b7f7b9  test: guard SCP future target v4.0.2 in T00
+d9d16ef0a2ce6aa7292d69e21494d2067799a6f4  spec: add target concrete-test coverage binding
+0a6d54a78c0d1b093246cbd92dc5083ea673f180  tools: verify target concrete-test traceability
+d501d0e1d384ae0de90416f9e090457df245ab3e  test: fail closed on target-test traceability gaps
+9ad2949103e2a245dceb5a8852e4f42e2525dd16  fix: make coverage validator direct-run safe
+5233c86eb274de1fdb419c35192bece79f091014  governance: protect target test coverage authority
+eaa689fdf80228d81a26d8b03aae048df38e49ed  test: guard target coverage authority protection
 ```
 
 ## B5. Historical P0 evidence
@@ -277,35 +298,48 @@ historical_verdict: PASS_WITHIN_SCOPE
 SCP Future Target Architecture 4.0.2: ACTIVE BASELINE FOR BUILD
 Target internal content review: COMPLETED FOR CURRENT DECLARED SCOPE
 Bounded target-spec validator/T00 guard: IMPLEMENTED
-Local target-validator structural simulation: PASS_WITHIN_DECLARED_SCOPE
-GitHub-hosted same-SHA execution of new guard: BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT
+Target -> gate -> concrete-test traceability structure: IMPLEMENTED
+Effective coverage inventory completeness: MACHINE-DERIVED 138/60, NO SILENT OMISSION
+Reviewed concrete bindings: 13 TEST_BOUND_PARTIAL
+Remaining target rows: 185 UNPROVEN
+Full target concrete-test coverage: NOT PROVEN
+GitHub-hosted same-SHA execution of new guards: BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT
 Absolute/no-missing-piece completeness: NOT CLAIMED / UNPROVABLE BY DESIGN
 Current implementation: NOT CLAIMED COMPLETE
-Current concrete test coverage: INCOMPLETE / NOT MACHINE-PROVEN
 Current runtime verification: NOT ESTABLISHED FOR COMPLETE SCP
 Current release readiness: NOT ESTABLISHED FOR COMPLETE SCP
 ```
 
-Không tiếp tục mở rộng đặc tả hoặc tạo validator-of-validator chỉ để “audit thêm”. Từ đây mặc định **build theo baseline 4.0.2**; chỉ reopen theo trigger ở A9.
+This closes the **traceability-structure** task, not the product/test-coverage program. Do not create another validator layer merely because this one exists. From here, use the effective coverage map to drive implementation and add concrete claims only when a real test/evidence relation is reviewed.
 
 ## B7. Open implementation/alignment work
 
-1. Tạo machine-readable target test coverage binding: 138 capabilities / 60 edges -> T00–T11 -> concrete test -> evidence target/status.
-2. Mở rộng **chính bounded T00 contract** để fail-closed khi coverage binding thiếu/sai; không tạo chuỗi validator đệ quy.
-3. Đồng bộ `complete_scp_reference.yaml` với target WHAT inventory mà không nhét implementation HOW.
-4. Xây/sửa product theo baseline; missing implementation = `PRODUCT_BLOCKED`, không omit/skip để giữ green.
-5. Khi runner thực sự chạy, lấy same-SHA Reality result của validator/T00; CI failure trước checkout giữ nhãn `BLOCKED`, không suy diễn test FAIL.
-6. Khi từng phase/scope đủ implementation, chạy bounded same-SHA verification đúng evidence target.
+1. Expand honest concrete bindings while building/fixing product. Unclaimed target rows stay `UNPROVEN`; missing product can be explicitly classified `BLOCKED_MISSING_IMPLEMENTATION`.
+2. Align `complete_scp_reference.yaml` with target WHAT inventory without adding implementation HOW or deleting target requirements.
+3. Build product by baseline dependency order. First inspect v4.0.2 P0 Execution OS gaps (durable state machine / lease fencing / checkpoint-idempotency / service readiness / sandbox-browser isolation) and fix the first real `PRODUCT_BLOCKED` gap found.
+4. When GitHub/self-hosted runner actually executes, obtain same-SHA T00/coverage-validator evidence. A runner failure before checkout remains `BLOCKED`.
+5. Promote a coverage row beyond `TEST_BOUND_*` only with evidence meeting its A/B/C/D requirement and provenance; no inferred C/D from unit/integration test presence.
+6. Continue phase-scoped strict/recovery/Reality verification as implementation matures.
 
-Đây là **build work**, không phải lý do tự động reopen architecture baseline.
+These are **build tasks**, not automatic triggers to reopen target architecture 4.0.2.
 
 ## B8. Next exact task
 
 ```text
-Build machine-readable target -> concrete-test coverage binding for all 138 capabilities / 60 edges.
-Bind each requirement to T00-T11, concrete test(s), evidence target and implementation/coverage status.
-Extend the existing bounded T00 guard to validate that binding fail-closed.
-Then continue product implementation by phase/dependency; do not reopen architecture audit without an A9 trigger.
+Start product build from the effective 4.0.2 coverage map.
+Audit the P0 Execution OS dependency slice against live implementation:
+execution.durable_state_machine
+execution.event_journal_projection
+execution.lease_fencing
+execution.checkpoint_idempotency
+execution.sandbox_isolation
+execution.browser_session_isolation
+execution.service_lifecycle_readiness
+
+Use existing concrete bindings/evidence first.
+Classify each as implemented/test-bound/PRODUCT_BLOCKED without inflating maturity.
+Fix the first dependency/root-cause gap with a small reversible patch + T04/T03/T01/T10 Reality tests as applicable.
+Then update scp_target_test_coverage.yaml only for relations actually proven.
 ```
 
 ---
