@@ -58,7 +58,7 @@ bindings:
 
   cognitive.doubt_authority:
     implementations:
-      - scp.knowledge.doubt_engine
+      - scp.knowledge.open_question_authority
       - scp.knowledge.contradiction_authority
     required_now: true
 
