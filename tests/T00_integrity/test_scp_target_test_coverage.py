@@ -27,14 +27,14 @@ def test_shipped_target_test_traceability_structure_is_valid():
     assert report["summary"]["coverage_proven"] is False
 
 
-def test_effective_map_contains_all_138_capabilities_and_60_edges():
+def test_effective_map_contains_all_138_capabilities_and_67_edges():
     _binding, _target, report = _shipped()
     capabilities = report["capabilities"]
     edges = report["cause_effect_edges"]
     assert len(capabilities) == 138
-    assert len(edges) == 60
+    assert len(edges) == 67
     assert len({row["target_id"] for row in capabilities}) == 138
-    assert len({row["target_id"] for row in edges}) == 60
+    assert len({row["target_id"] for row in edges}) == 67
 
 
 def test_unclaimed_target_is_explicitly_unproven_not_omitted():

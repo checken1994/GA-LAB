@@ -44,7 +44,7 @@ def test_effective_target_is_base_plus_overlay_with_frozen_counts():
     ]
     assert str(target["spec_revision"]) == "4.0.2"
     assert len(capabilities) == 138
-    assert len(edges) == 60
+    assert len(edges) == 67
     assert len(target["global_invariants"]) == 34
     assert len(target["skill_traceability"]["skills"]) == 13
     assert manifest["result_contract"]["runtime_verdict"] == "NOT_DERIVED_FROM_TARGET_SPEC"

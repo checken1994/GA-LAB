@@ -3,10 +3,10 @@
  "base": [
   "spec/scp_future_cause_effect_matrix.yaml",
   "93f0f2a614b8253bea2acdd6fe9983e21f33c44c",
-  "4.0.2"
+  "4.0.1"
  ],
  "result": {
-  "revision": "4.0.3",
+  "revision": "4.0.2",
   "core": 12,
   "cross": 8,
   "capabilities": 138,
