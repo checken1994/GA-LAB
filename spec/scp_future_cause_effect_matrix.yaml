@@ -1,0 +1,133 @@
+schema_version: "2.0"
+reference_id: "scp-future-architecture-matrix"
+description: "Ma trận mã hóa các điều kiện Nhân - Quả (Cause-Effect) cho kiến trúc SCP tương lai, đối chiếu từ T00 đến T11."
+
+cause_effect_conditions:
+  # ---------------------------------------------------------
+  # T00: Integrity & Meta-Audit
+  # ---------------------------------------------------------
+  T00:
+    description: "Nhân: Thiết kế kiến trúc thay đổi. Quả: Tự động phát hiện thiếu Test."
+    conditions:
+      - cause: "Thêm một Authority mới vào spec (ví dụ CausalAuthority)."
+        effect: "T00 phải đỏ (FAILED) nếu không có test tương ứng tại T02, T03, T09."
+        status: "PARTIAL"  # Hiện có cho P0/P1, đang thiếu test_p2_architecture_coverage
+      - cause: "Sử dụng 'assert True' hoặc mock tĩnh trong Test."
+        effect: "T00 (test_meta_audit.py) phải đánh trượt bài test đó để chống làm giả bằng chứng."
+        status: "IMPLEMENTED"
+
+  # ---------------------------------------------------------
+  # T01: Boot & Lifecycle
+  # ---------------------------------------------------------
+  T01:
+    description: "Nhân: Khởi động hệ thống. Quả: Môi trường an toàn và vô trùng."
+    conditions:
+      - cause: "Phát hiện DB Bitemporal bị lỗi version hoặc hỏng cấu trúc lúc boot."
+        effect: "Supervisor từ chối khởi động SCP (Fail-Closed) thay vì tạo DB rỗng mới."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T02: Contract & Authorities (P0, P1, P2)
+  # ---------------------------------------------------------
+  T02:
+    description: "Nhân: Gọi các hàm cốt lõi. Quả: Hợp đồng dữ liệu được tôn trọng."
+    conditions:
+      - cause: "Một observation mới từ bên ngoài được gửi tới WorldStateAuthority."
+        effect: "Ghi nhận vào Bitemporal DB với Valid Time và System Time riêng biệt, không ghi đè."
+        status: "MISSING"
+      - cause: "Entity/Event Authority nhận hai sự kiện trùng lặp từ 2 nguồn."
+        effect: "Phân giải thành 1 Entity thống nhất mà không mất đi Lineage gốc."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T03: Capability & Security
+  # ---------------------------------------------------------
+  T03:
+    description: "Nhân: Yêu cầu đặc quyền. Quả: Ranh giới bảo mật không thể bị xuyên thủng."
+    conditions:
+      - cause: "P2 yêu cầu cào dữ liệu (Scrape) từ mạng để quan sát."
+        effect: "Egress Gate chặn tuyệt đối mọi payload có tính chất thay đổi (POST/PUT/DELETE)."
+        status: "MISSING"
+      - cause: "Risk Authority (P2) phát hiện rủi ro mức độ CRITICAL."
+        effect: "Capability Token của Agent lập tức bị Revoke, đóng băng Execution."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T04: Task Kernel
+  # ---------------------------------------------------------
+  T04:
+    description: "Nhân: Giao dịch trạng thái. Quả: Tính nhất quán của State Machine."
+    conditions:
+      - cause: "Tiến trình Kernel bị sập (Crash) khi đang xử lý Bitemporal Event."
+        effect: "Checkpoint phục hồi (Recovery) Rollback event đó, không để lại dữ liệu rác."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T05: LLM Gateway
+  # ---------------------------------------------------------
+  T05:
+    description: "Nhân: Gửi request tới LLM. Quả: Tính kiên cường, Zero-Cost, Route đúng Model."
+    conditions:
+      - cause: "Causal Authority yêu cầu tính toán logic nhân quả phức tạp."
+        effect: "Gateway tự động Route request này tới Model Tier 1 (Pro), từ chối Zero-Cost."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T06: Independent Verifier
+  # ---------------------------------------------------------
+  T06:
+    description: "Nhân: Quan sát thực tế. Quả: Niềm tin phải dựa trên Bằng chứng."
+    conditions:
+      - cause: "Agent đưa ra bản Dự báo (Forecast) tương lai."
+        effect: "Verifier kiểm tra chéo (Cross-check) với các sự kiện độc lập để chống Ảo giác (Hallucination)."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T07: Learning (Giao thoa P1 & P2)
+  # ---------------------------------------------------------
+  T07:
+    description: "Nhân: Sai lầm thực tế. Quả: Tiến hóa nhận thức."
+    conditions:
+      - cause: "Dự báo (Forecast) của P2 không xảy ra trong thực tế."
+        effect: "EpistemicBoundary thu thập mâu thuẫn -> Ghi MissingPiece -> Sinh OpenQuestion."
+        status: "MISSING" # Giao thoa P2 và P1
+
+  # ---------------------------------------------------------
+  # T08: Runtime & Soak
+  # ---------------------------------------------------------
+  T08:
+    description: "Nhân: Áp lực thời gian dài. Quả: Chống rò rỉ và tràn giới hạn."
+    conditions:
+      - cause: "Stream 10,000 sự kiện Bitemporal đổ về liên tục."
+        effect: "Hệ thống vẫn giữ được latency dưới mức cho phép, không OOM."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T09: Golden Task (End-to-End)
+  # ---------------------------------------------------------
+  T09:
+    description: "Nhân: Một nhiệm vụ trọn vẹn. Quả: Chạy xuyên suốt 3 lớp P0, P1, P2."
+    conditions:
+      - cause: "Dữ liệu đầu vào: Một tin tức thay đổi môi trường. Đầu ra mong muốn: Báo cáo rủi ro chặn Task Kernel."
+        effect: "Golden C Task hoàn thành mà không có sự can thiệp của Dummy/Stub."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T10: Recovery & Chaos
+  # ---------------------------------------------------------
+  T10:
+    description: "Nhân: Lỗi phần cứng/Hệ thống. Quả: Hồi phục nguyên vẹn."
+    conditions:
+      - cause: "Tiến trình Causal Engine bị Kill -9 mid-inference."
+        effect: "Event được đưa về trạng thái UNKNOWN và retry khi Boot lại."
+        status: "MISSING"
+
+  # ---------------------------------------------------------
+  # T11: Release Gates
+  # ---------------------------------------------------------
+  T11:
+    description: "Nhân: Yêu cầu Release. Quả: Chặn đứng mã lỗi lọt vào Production."
+    conditions:
+      - cause: "Module P2 (World Intelligence) không chứa khai báo bind với DNA skills."
+        effect: "Pipeline Release đánh Fail toàn bộ tiến trình Build."
+        status: "MISSING"
