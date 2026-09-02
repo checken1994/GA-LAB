@@ -172,6 +172,7 @@ def _bound_lease_id(kernel: Any, task_id: str) -> str | None:
 
 _original_claim = TaskKernel.claim
 _original_claim_next = TaskKernel.claim_next
+_original_reconcile_unknown = TaskKernel.reconcile_unknown
 
 
 def _claim_with_lease_context(
@@ -292,11 +293,81 @@ def _idempotency_status(self: Any, logical_key: str) -> dict[str, Any]:
     return dict(row)
 
 
+def _reconcile_unknown_complete_outcomes(
+    self: Any,
+    task_id: str,
+    checkpoint_id: str,
+    outcome: str,
+    evidence_ref: str,
+    verifier_id: str | None = None,
+) -> dict[str, Any]:
+    """Record all target recovery outcomes without making ambiguous effects retryable."""
+    normalized = str(outcome or "").strip().upper()
+    if normalized in {"NOT_APPLIED", "APPLIED", "UNKNOWN"}:
+        return _original_reconcile_unknown(
+            self, task_id, checkpoint_id, normalized, evidence_ref, verifier_id
+        )
+    if normalized not in {"PARTIAL", "CONFLICT"}:
+        raise KernelError("invalid reconcile outcome")
+    if not evidence_ref or not str(evidence_ref).strip():
+        raise KernelError("reconcile evidence is required")
+    if not verifier_id or not str(verifier_id).strip():
+        raise KernelError(f"{normalized} reconciliation requires verifier")
+    _assert_checkpoint_safe({"evidence_ref": evidence_ref, "verifier_id": verifier_id})
+
+    self._begin()
+    try:
+        task = self._task(task_id)
+        checkpoint = self._load_reconcile_checkpoint(task_id, checkpoint_id)
+        if task["state"] != "RECONCILING":
+            raise InvalidTransition(f"{task['state']}->reconcile_outcome")
+        idem = self.conn.execute(
+            "SELECT * FROM idempotency WHERE logical_key=?",
+            (checkpoint["idempotency_key"],),
+        ).fetchone()
+        if not idem:
+            raise KernelError("reconcile idempotency key not found")
+        if idem["status"] != "CLAIMED":
+            raise KernelError("reconcile idempotency status is not CLAIMED")
+
+        status = f"RECONCILED_{normalized}"
+        event_type = f"RECONCILE_{normalized}"
+        self.conn.execute(
+            "UPDATE idempotency SET status=?,result_ref=? WHERE logical_key=?",
+            (status, evidence_ref, checkpoint["idempotency_key"]),
+        )
+        self.conn.execute(
+            "UPDATE tasks SET state='HUMAN_REVIEW',version=version+1,updated_at=? WHERE task_id=?",
+            (now_iso(), task_id),
+        )
+        self._append_event(
+            task_id,
+            event_type,
+            task["state"],
+            "HUMAN_REVIEW",
+            str(verifier_id),
+            "reconcile_outcome_recorded",
+            {
+                "checkpoint_id": checkpoint_id,
+                "outcome": normalized,
+                "evidence_ref": evidence_ref,
+                "verifier_id": verifier_id,
+                "safe_to_retry": False,
+            },
+        )
+        self._commit()
+        return self.get_task(task_id)
+    except Exception:
+        self._rollback()
+        raise
+
+
 TaskKernel.claim = _claim_with_lease_context
 TaskKernel.claim_next = _claim_next_with_lease_context
 TaskKernel.idempotency_claim = _idempotency_claim_fenced
 TaskKernel.idempotency_complete = _idempotency_complete_fenced
 TaskKernel.idempotency_status = _idempotency_status
+TaskKernel.reconcile_unknown = _reconcile_unknown_complete_outcomes
 
 # The implementation may live in a part module, but the public class lived at
 # ``scp.task_kernel.TaskKernel`` before the split. Preserve that identity for
