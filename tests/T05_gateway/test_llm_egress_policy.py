@@ -25,6 +25,16 @@ class _Client:
         return _Response()
 
 
+
+def _mock_zero_cost(monkeypatch):
+    from scp.llm_gateway import zero_cost_runtime
+    from scp.llm_gateway.zero_cost_guard import ZeroCostRequest
+    def mock_auth(*args, **kwargs):
+        provider = kwargs.get("provider", args[0] if args else "mock")
+        model = kwargs.get("model", args[1] if len(args) > 1 else "mock")
+        return ZeroCostRequest(provider, model, kwargs.get("task_class", "default"), kwargs.get("data_class", "default")), None
+    monkeypatch.setattr(zero_cost_runtime, "authorize_outbound", mock_auth)
+
 def _configure_openrouter(monkeypatch, provider_cls) -> None:
     monkeypatch.setattr(provider_cls, "_API_KEYS", ["test-key"], raising=False)
     monkeypatch.setattr(provider_cls, "_key_cycle", itertools.cycle(["test-key"]), raising=False)
@@ -32,6 +42,7 @@ def _configure_openrouter(monkeypatch, provider_cls) -> None:
 
 
 def test_deny_blocks_external_provider_before_network(monkeypatch):
+    _mock_zero_cost(monkeypatch)
     from scp.llm_gateway.client import OpenRouterProvider
 
     _configure_openrouter(monkeypatch, OpenRouterProvider)
@@ -48,6 +59,7 @@ def test_deny_blocks_external_provider_before_network(monkeypatch):
 
 
 def test_allowlist_rejects_unlisted_provider_before_network(monkeypatch):
+    _mock_zero_cost(monkeypatch)
     from scp.llm_gateway.client import OpenRouterProvider
 
     _configure_openrouter(monkeypatch, OpenRouterProvider)
@@ -65,6 +77,7 @@ def test_allowlist_rejects_unlisted_provider_before_network(monkeypatch):
 
 
 def test_allowlist_permits_exact_https_provider_host(monkeypatch):
+    _mock_zero_cost(monkeypatch)
     from scp.llm_gateway.client import OpenRouterProvider
 
     _configure_openrouter(monkeypatch, OpenRouterProvider)
@@ -82,6 +95,7 @@ def test_allowlist_permits_exact_https_provider_host(monkeypatch):
 
 
 def test_deny_still_allows_loopback_fixture(monkeypatch):
+    _mock_zero_cost(monkeypatch)
     from scp.llm_gateway.client import EnvCompatProvider
 
     monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
@@ -136,3 +150,4 @@ def test_free_catalog_obeys_allowlist_before_constructing_network_client(monkeyp
     monkeypatch.setattr(free_catalog, "_last_ok", None)
 
     assert free_catalog.refresh_free_catalog(force=True) is False
+

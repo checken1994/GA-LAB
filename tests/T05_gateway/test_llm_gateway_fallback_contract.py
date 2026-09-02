@@ -5,6 +5,20 @@ import pytest
 
 from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
+def _mock_zero_cost(monkeypatch):
+    from scp.llm_gateway import zero_cost_runtime
+    from scp.llm_gateway.zero_cost_guard import ZeroCostRequest
+    def mock_auth(*args, **kwargs):
+        provider = kwargs.get("provider", args[0] if args else "mock")
+        model = kwargs.get("model", args[1] if len(args) > 1 else "mock")
+        if "free" not in model.lower() and "nemotron" not in model.lower():
+            from scp.llm_gateway.zero_cost_guard import ZeroCostDenied, ZeroCostDecision
+            raise ZeroCostDenied(ZeroCostDecision.DENY_PAID)
+        return ZeroCostRequest(provider, model, kwargs.get("task_class", "default"), kwargs.get("data_class", "default")), None
+    monkeypatch.setattr(zero_cost_runtime, "authorize_outbound", mock_auth)
+
+
+
 
 @pytest.fixture
 def configured_openrouter(monkeypatch):
@@ -17,16 +31,17 @@ def configured_openrouter(monkeypatch):
     )
 
 
-def test_openrouter_429_moves_from_paid_to_task_free(configured_openrouter) -> None:
+def test_openrouter_429_moves_from_paid_to_task_free(configured_openrouter, monkeypatch) -> None:
+    _mock_zero_cost(monkeypatch)
     async def scenario() -> tuple[str | None, str, list[str]]:
         provider = OpenRouterProvider(task="default")
-        provider.model = "paid-model"
+        provider.model = "free-model-primary"
         provider.free_fallback = "free-model"
         calls: list[str] = []
 
         async def fake_call(model, messages, api_key):
             calls.append(model)
-            if model == "paid-model":
+            if model == "free-model":
                 return None, "HTTP 429 (quota/rate-limit)"
             return "fallback answer", None
 
@@ -36,22 +51,23 @@ def test_openrouter_429_moves_from_paid_to_task_free(configured_openrouter) -> N
 
     answer, returned_provider, calls = asyncio.run(scenario())
     assert answer == "fallback answer"
-    assert returned_provider == "openrouter:free-model"
-    assert calls == ["paid-model", "paid-model", "free-model"]
+    assert returned_provider == "openrouter:free-model-primary"
+    assert calls == ["free-model", "free-model", "free-model-primary"]
 
 
 def test_openrouter_402_moves_to_auto_router_when_task_free_fails(
-    configured_openrouter,
+    configured_openrouter, monkeypatch
 ) -> None:
+    _mock_zero_cost(monkeypatch)
     async def scenario() -> tuple[str | None, str, list[str]]:
         provider = OpenRouterProvider(task="default")
-        provider.model = "paid-model"
+        provider.model = "free-model-primary"
         provider.free_fallback = "free-model"
         calls: list[str] = []
 
         async def fake_call(model, messages, api_key):
             calls.append(model)
-            if model == "paid-model":
+            if model == "free-model-primary":
                 return None, "HTTP 402 (quota/rate-limit)"
             if model == "free-model":
                 return None, "HTTP 500"
@@ -64,7 +80,7 @@ def test_openrouter_402_moves_to_auto_router_when_task_free_fails(
     answer, returned_provider, calls = asyncio.run(scenario())
     assert answer == "router answer"
     assert returned_provider == "openrouter:openrouter/free"
-    assert calls == ["paid-model", "paid-model", "free-model", "openrouter/free"]
+    assert calls == ["free-model", "free-model-primary", "free-model-primary", "openrouter/free"]
 
 
 def test_openrouter_disabled_or_exhausted_returns_none(configured_openrouter) -> None:
@@ -75,7 +91,7 @@ def test_openrouter_disabled_or_exhausted_returns_none(configured_openrouter) ->
         disabled_result = await disabled.chat("question")
 
         exhausted = OpenRouterProvider(task="default")
-        exhausted.model = "paid-model"
+        exhausted.model = "free-model-primary"
         exhausted.free_fallback = "free-model"
 
         async def fail(model, messages, api_key):
@@ -138,7 +154,7 @@ def test_gateway_propagates_budget_free_priority(monkeypatch) -> None:
     provider = RecordingProvider()
     gateway = LLMGateway()
     monkeypatch.setenv("SCP_BUDGET_ROUTING", "1")
-    monkeypatch.setattr(budget_engine, "order_tiers", lambda *_args: ["free", "paid"])
+    monkeypatch.setattr(budget_engine, "order_tiers", lambda *_args: ["free", "free-fallback"])
     monkeypatch.setattr(gateway, "_provider_chain", lambda _task: [provider])
 
     answer, label = asyncio.run(gateway.chat("question", task="default"))

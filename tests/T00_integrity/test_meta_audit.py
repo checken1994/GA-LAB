@@ -127,3 +127,25 @@ def test_meta_audit_no_recursive_pytest_and_no_live_repo_git_mutation():
                     f"Test {filepath} runs git commit/reset against the live checkout without an "
                     "isolated temp repo. Mandatory tests must never mutate main-checkout HEAD."
                 )
+import os
+import glob
+import pytest
+
+def test_meta_audit_t05_no_forbidden_semantic_patterns():
+    # Enforce that T05 doesn't use old paid semantics
+    forbidden = [
+        "paid -> free fallback",
+        "paid -> free fallback",
+        "[free, paid]",
+        "[\"free\", \"paid\"]",
+        "paid primary",
+        "try paid first"
+    ]
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    dir_path = os.path.join(root_dir, 'T05_gateway')
+    for filepath in glob.glob(os.path.join(dir_path, '*.py')):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read().lower()
+            for pattern in forbidden:
+                if pattern.lower() in content:
+                    assert False, f"Test {filepath} contains forbidden semantic pattern: {pattern}"

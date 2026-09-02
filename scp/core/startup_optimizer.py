@@ -207,7 +207,10 @@ async def deferred_background_start(
     logger.info("V104.3 Deferred: starting background schedulers now")
 
     # Now start the actual scheduler
-    await judge.schedule_background_jobs()
+    if hasattr(judge, "schedule_background_jobs"):
+        await judge.schedule_background_jobs()
+    elif hasattr(judge, "schedule_v100_background_jobs"):
+        await judge.schedule_v100_background_jobs()
 
 
 def get_data_directory_stats(data_dir: str = "data") -> dict:

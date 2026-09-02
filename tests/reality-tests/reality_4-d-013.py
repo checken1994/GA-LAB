@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 SOURCE_PATH = Path(
-    str(Path(__file__).resolve().parents[2]) + '/mini-services/llm-bridge/index.ts'
+    str(Path(__file__).resolve().parents[2]) + '/mini-services/llm-bridge/core.ts'
 )
 
 
