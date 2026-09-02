@@ -2,7 +2,10 @@ import os
 import glob
 
 def test_meta_audit_no_skip_in_mandatory_tests():
-    # Enforce that no mandatory tests are skipped for reasons other than OS incompatibility.
+    # Enforce that no mandatory tests are skipped for reasons other than OS
+    # incompatibility. AST-based: a quoted "pytest.skip" token inside a drift-
+    # guard deny list is NOT a real skip call - only actual Call nodes count.
+    import ast
     root_dir = os.path.dirname(os.path.dirname(__file__))
     mandatory_dirs = ['T03_capability', 'T04_kernel', 'T05_gateway', 'T10_recovery']
     for d in mandatory_dirs:
@@ -10,10 +13,19 @@ def test_meta_audit_no_skip_in_mandatory_tests():
         for filepath in glob.glob(os.path.join(dir_path, '*.py')):
             if filepath == __file__: continue
             with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read()
-                # If there's a skip, it MUST be OS-conditional.
-                if 'pytest.skip' in content and 'platform.system' not in content:
-                    assert False, f"Mandatory test {filepath} contains pytest.skip(). Mandatory tests must FAIL if blocked, unless OS-specific."
+                source = f.read()
+            tree = ast.parse(source, filename=filepath)
+            has_real_skip = any(
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in {'skip', 'importorskip'}
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == 'pytest'
+                for node in ast.walk(tree)
+            )
+            # If there's a real skip call, it MUST be OS-conditional.
+            if has_real_skip and 'platform.system' not in source:
+                assert False, f"Mandatory test {filepath} contains a real pytest.skip() call. Mandatory tests must FAIL if blocked, unless OS-specific."
 
 def test_meta_audit_no_assert_true():
     # Enforce that no tests just assert True

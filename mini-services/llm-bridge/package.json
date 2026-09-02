@@ -1,12 +1,13 @@
 {
   "name": "scp-llm-bridge",
-  "version": "1.1.0",
-  "description": "Ollama-compatible HTTP bridge that forwards chat/generate requests to OpenRouter. Listens on port 11434 so SCP's default OLLAMA_HOST config works without changes. [R14-BRIDGE] Switched from z-ai-web-dev-sdk (internal-api.z.ai) to OpenRouter direct (public API).",
+  "version": "1.2.0",
+  "description": "Ollama-compatible SCP bridge with P0 zero-cost inference PEP.",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot index.ts",
-    "start": "bun index.ts"
+    "dev": "bun --hot zero_cost_bootstrap.ts",
+    "start": "bun zero_cost_bootstrap.ts",
+    "build": "bun build zero_cost_bootstrap.ts --target=bun --outdir dist"
   },
   "dependencies": {},
   "engines": {

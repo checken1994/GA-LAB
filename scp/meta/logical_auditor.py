@@ -1,23 +1,9 @@
 """
 SCP V107 — LogicalAuditorEngine
 ================================
-Kiểm tra lỗi logic sâu — ngụy biện, mâu thuẫn nội tại, lỗ hổng suy luận.
-
-Sử dụng LLM (GLM 5.2 qua OpenRouter) với reasoning_effort=max để:
-  1. Phát hiện mâu thuẫn nội tại (Internal Consistency)
-  2. Phát hiện ngụy biện logic (Logical Fallacies)
-  3. Kiểm tra chuỗi nhân quả (Causal Chain)
-  4. Đánh giá tính đầy đủ (Completeness)
-  5. Đánh giá khả năng bác bỏ (Falsifiability)
-
-Output: LogicalAuditResult với verdict + issues + falsification_attempt
-
-Integration:
-  Phase 6.5 (SAU ClaimExtractor, TRƯỚC FalsificationEngine):
-    ClaimExtractor → LogicalAuditor → FalsificationEngine → Governance
-
-  Nếu LogicalAuditor phát hiện critical issue → downgrade confidence
-  Nếu phát hiện unfalsifiable → verdict = UNREFUTED_IN_CURRENT_SCOPE
+Deep logical audit. P0 Z2 additionally enforces the zero-cost policy immediately
+before every direct OpenRouter driver call: paid/unknown/stale model pricing
+returns UNKNOWN without a provider request.
 """
 from __future__ import annotations
 
@@ -28,12 +14,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from scp.contracts.data_class import DataClass
+from scp.llm_gateway.zero_cost_guard import ZeroCostDenied
+from scp.llm_gateway.zero_cost_runtime import authorize_outbound, record_outbound_sent
+
 logger = logging.getLogger("scp.meta.logical_auditor")
-
-
-# ============================================================
-# LOGICAL AUDITOR PROMPT
-# ============================================================
 
 LOGICAL_AUDITOR_PROMPT = """Bạn là một Logical Auditor – chuyên gia kiểm tra lỗi logic sâu trong các hệ thống suy luận của AI. Nhiệm vụ của bạn là phát hiện các lỗi logic, ngụy biện, mâu thuẫn nội tại và các lỗ hổng suy luận trong bất kỳ chuỗi lập luận nào.
 
@@ -58,10 +43,9 @@ Chỉ trả về JSON, không thêm gì khác."""
 
 @dataclass
 class LogicalIssue:
-    """1 lỗi logic phát hiện."""
-    type: str  # internal_contradiction | fallacy | logical_leap | missing_premise | unfalsifiable
+    type: str
     description: str
-    severity: str  # critical | major | minor
+    severity: str
     location: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -75,7 +59,6 @@ class LogicalIssue:
 
 @dataclass
 class LogicalAuditResult:
-    """Kết quả logical audit."""
     verdict: str = "UNREFUTED_IN_CURRENT_SCOPE"
     confidence: float = 0.5
     issues: list[LogicalIssue] = field(default_factory=list)
@@ -100,27 +83,21 @@ class LogicalAuditResult:
 
 
 class LogicalAuditorEngine:
-    """Kiểm tra lỗi logic sâu bằng LLM với reasoning_effort=max.
+    """Audit logical consistency with a bounded external LLM helper.
 
-    Naming convention: <Purpose>Engine (world standard).
-
-    Sử dụng GLM 5.2 (qua OpenRouter) với deep thinking để:
-      - Phát hiện ngụy biện logic
-      - Kiểm tra nhất quán nội tại
-      - Truy vết chuỗi nhân quả
-      - Đánh giá falsifiability
-
-    Pipeline integration:
-      Phase 6.5: Sau ClaimExtractor, trước FalsificationEngine
-      Nếu critical issue → confidence *= 0.3
-      Nếu unfalsifiable → verdict = UNREFUTED_IN_CURRENT_SCOPE
+    The helper is not Reality authority. A model response is advisory analysis;
+    any direct provider transport is independently subject to ZeroCostGuard.
     """
 
     def __init__(self):
         self._api_key = os.environ.get("OPENROUTER_API_KEY", "")
         self._base_url = "https://openrouter.ai/api/v1/chat/completions"
-        self._model = "z-ai/glm-5.2"  # GLM 5.2 — deep reasoning
-        self._fallback_model = "meta-llama/llama-3.3-70b-instruct"
+        # Candidate names only. Fresh pricing proof decides eligibility.
+        self._model = os.environ.get("OPENROUTER_MODEL_LOGICAL_AUDITOR", "z-ai/glm-5.2")
+        self._fallback_model = os.environ.get(
+            "OPENROUTER_MODEL_LOGICAL_AUDITOR_FALLBACK",
+            "meta-llama/llama-3.3-70b-instruct:free",
+        )
         self._timeout = 30
         self._stats = {
             "total_audits": 0,
@@ -133,59 +110,40 @@ class LogicalAuditorEngine:
         }
 
     async def audit(self, text_to_audit: str, context: str = "") -> LogicalAuditResult:
-        """Audit text for logical errors.
-
-        Args:
-            text_to_audit: Text to audit (answer or reasoning chain)
-            context: Optional context (original question, SLM responses)
-
-        Returns:
-            LogicalAuditResult
-        """
         self._stats["total_audits"] += 1
         result = LogicalAuditResult()
         t0 = time.time()
-
         if not text_to_audit or len(text_to_audit.strip()) < 10:
             result.verdict = "UNKNOWN"
             result.error = "Text too short to audit"
             return result
 
-        # Build prompt
         full_text = text_to_audit
         if context:
             full_text = f"Context: {context}\n\nText to audit: {text_to_audit}"
-
         prompt = LOGICAL_AUDITOR_PROMPT.replace("__TEXT__", full_text[:4000])
 
-        # Call LLM
         try:
             import httpx
             async with httpx.AsyncClient(timeout=self._timeout) as client:
-                # Try GLM 5.2 first
                 response_data = await self._call_llm(client, prompt, self._model)
                 if response_data is None:
-                    # Fallback to Llama 3.3
-                    logger.info("[LogicalAuditor] GLM 5.2 failed — fallback to Llama 3.3")
+                    logger.info("[LogicalAuditor] primary candidate unavailable — try guarded free fallback")
                     response_data = await self._call_llm(client, prompt, self._fallback_model)
-
                 if response_data is None:
                     result.verdict = "UNKNOWN"
-                    result.error = "LLM call failed — both models unavailable"
+                    result.error = "No eligible/available zero-cost logical-audit model"
                     self._stats["total_errors"] += 1
                     return result
 
                 result.raw_response = response_data.get("content", "")
                 result.model_used = response_data.get("model", self._model)
-
-                # Parse JSON from response
                 parsed = self._parse_json_response(result.raw_response)
                 if parsed:
                     result.verdict = parsed.get("verdict", "UNREFUTED_IN_CURRENT_SCOPE")
                     result.confidence = float(parsed.get("confidence", 0.5))
                     result.falsification_attempt = parsed.get("falsification_attempt", "")
                     result.recommendation = parsed.get("recommendation", "")
-
                     for issue_data in parsed.get("issues", []):
                         result.issues.append(LogicalIssue(
                             type=issue_data.get("type", "unknown"),
@@ -193,11 +151,9 @@ class LogicalAuditorEngine:
                             severity=issue_data.get("severity", "minor"),
                             location=issue_data.get("location", ""),
                         ))
-
                     self._stats["total_issues_found"] += len(result.issues)
-                    critical_count = sum(1 for i in result.issues if i.severity == "critical")
+                    critical_count = sum(1 for issue in result.issues if issue.severity == "critical")
                     self._stats["total_critical"] += critical_count
-
                     if result.verdict == "PASS":
                         self._stats["total_pass"] += 1
                     elif result.verdict == "FAIL":
@@ -207,28 +163,45 @@ class LogicalAuditorEngine:
                 else:
                     result.verdict = "UNKNOWN"
                     result.error = "Failed to parse LLM response as JSON"
-
-        except Exception as e:
+        except Exception as exc:
             result.verdict = "UNKNOWN"
-            result.error = str(e)[:200]
+            result.error = str(exc)[:200]
             self._stats["total_errors"] += 1
-            logger.warning(f"[LogicalAuditor] Error: {e}")
+            logger.warning("[LogicalAuditor] Error: %s", exc)
 
         result.elapsed_ms = (time.time() - t0) * 1000
         logger.info(
-            f"[LogicalAuditor] verdict={result.verdict} conf={result.confidence:.2f} "
-            f"issues={len(result.issues)} elapsed={result.elapsed_ms:.0f}ms model={result.model_used}"
+            "[LogicalAuditor] verdict=%s conf=%.2f issues=%d elapsed=%.0fms model=%s",
+            result.verdict,
+            result.confidence,
+            len(result.issues),
+            result.elapsed_ms,
+            result.model_used,
         )
         return result
 
     async def _call_llm(self, client, prompt: str, model: str) -> dict | None:
-        """Call LLM via OpenRouter."""
+        """Call OpenRouter after a fresh exact-$0 + data-class authorization."""
         if not self._api_key:
             logger.warning("[LogicalAuditor] No API key")
             return None
-
         try:
-            r = await client.post(
+            zreq, zproof = authorize_outbound(
+                provider="openrouter",
+                model=model,
+                task_class="judge",
+                data_class=DataClass.INTERNAL,
+            )
+        except ZeroCostDenied as exc:
+            logger.info(
+                "[LogicalAuditor] zero-cost PEP denied model=%s decision=%s",
+                model,
+                exc.decision.value,
+            )
+            return None
+        try:
+            record_outbound_sent(zreq, zproof)
+            response = await client.post(
                 self._base_url,
                 headers={
                     "Authorization": f"Bearer {self._api_key}",
@@ -238,70 +211,51 @@ class LogicalAuditorEngine:
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 2000,
-                    "temperature": 0.1,  # Low temp for analytical tasks
+                    "temperature": 0.1,
                 },
             )
-            if r.status_code == 200:
-                data = r.json()
+            if response.status_code == 200:
+                data = response.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 return {"content": content, "model": model}
-            else:
-                logger.debug(f"[LogicalAuditor] {model} HTTP {r.status_code}: {r.text[:100]}")
-                return None
-        except Exception as e:
-            logger.debug(f"[LogicalAuditor] {model} error: {e}")
+            logger.debug("[LogicalAuditor] %s HTTP %s: %s", model, response.status_code, response.text[:100])
+            return None
+        except Exception as exc:
+            logger.debug("[LogicalAuditor] %s error: %s", model, exc)
             return None
 
     def _parse_json_response(self, response: str) -> dict | None:
-        """Extract JSON from LLM response."""
-        # Try direct JSON parse
         try:
             return json.loads(response.strip())
-        except json.JSONDecodeError as e:
-            logger.debug(f"[V104.37] meta/logical_auditor.py: e={e}")
-
-        # Try to find JSON block in response
+        except json.JSONDecodeError as exc:
+            logger.debug("[LogicalAuditor] direct JSON parse failed: %s", exc)
         import re
-        # Look for ```json ... ``` block
         match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL)
         if match:
             try:
                 return json.loads(match.group(1))
-            except json.JSONDecodeError as e:
-                logger.debug(f"[V104.37] meta/logical_auditor.py: e={e}")
-
-        # Look for { ... } block
+            except json.JSONDecodeError as exc:
+                logger.debug("[LogicalAuditor] fenced JSON parse failed: %s", exc)
         match = re.search(r'\{[^{}]*"(?:verdict|issues)"[^{}]*\}', response, re.DOTALL)
         if match:
             try:
                 return json.loads(match.group(0))
-            except json.JSONDecodeError as e:
-                logger.debug(f"[V104.37] meta/logical_auditor.py: e={e}")
-
-        # Last resort — find first { and last }
+            except json.JSONDecodeError as exc:
+                logger.debug("[LogicalAuditor] object JSON parse failed: %s", exc)
         first = response.find('{')
         last = response.rfind('}')
         if first >= 0 and last > first:
             try:
                 return json.loads(response[first:last+1])
-            except json.JSONDecodeError as e:
-                logger.debug(f"[V104.37] meta/logical_auditor.py: e={e}")
-
+            except json.JSONDecodeError as exc:
+                logger.debug("[LogicalAuditor] fallback JSON parse failed: %s", exc)
         return None
 
     def should_audit(self, verdict: str, answer: str) -> bool:
-        """Check if logical audit should run.
-
-        Run audit when:
-          - verdict is PASS (verify the reasoning is sound)
-          - answer is long enough (>50 chars — short answers don't need deep audit)
-          - answer contains reasoning/claims (not just a single word)
-        """
         if verdict != "PASS":
             return False
         if not answer or len(answer) < 50:
             return False
-        # Skip simple math answers
         if answer.replace(" ", "").replace("=", "").replace("+", "").replace("-", "").replace("*", "").replace("/", "").replace(".", "").isdigit():
             return False
         return True
