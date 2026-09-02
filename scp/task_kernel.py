@@ -6,6 +6,7 @@ import json
 import re
 import secrets
 import time
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -146,6 +147,157 @@ def as_json(value: Any) -> str:
 from .task_kernel_parts import taskkernel as _taskkernel_part
 _taskkernel_part.__dict__.update(globals())
 TaskKernel = _taskkernel_part.TaskKernel
+
+# Lease authority is execution-context scoped. ContextVar keeps concurrent
+# async tasks/threads from borrowing another worker's lease while preserving
+# the existing public idempotency method signatures. Only a successful claim
+# binds a lease. Idempotency writes then re-check that exact lease *inside the
+# write transaction*, so expiry, release, kill-epoch drift or a newer fencing
+# token fail closed. A no-lease duplicate lookup may return "already claimed"
+# but cannot create/retry/complete a logical action.
+_LEASE_CONTEXT: ContextVar[dict[tuple[int, str], str]] = ContextVar(
+    "scp_task_kernel_lease_context", default={}
+)
+
+
+def _bind_lease_context(kernel: Any, lease: Lease) -> None:
+    bound = dict(_LEASE_CONTEXT.get())
+    bound[(id(kernel), lease.task_id)] = lease.lease_id
+    _LEASE_CONTEXT.set(bound)
+
+
+def _bound_lease_id(kernel: Any, task_id: str) -> str | None:
+    return _LEASE_CONTEXT.get().get((id(kernel), task_id))
+
+
+_original_claim = TaskKernel.claim
+_original_claim_next = TaskKernel.claim_next
+
+
+def _claim_with_lease_context(
+    self: Any,
+    task_id: str,
+    worker_id: str,
+    attempt_id: str | None = None,
+    ttl_seconds: float = 30.0,
+) -> Lease:
+    lease = _original_claim(self, task_id, worker_id, attempt_id, ttl_seconds)
+    _bind_lease_context(self, lease)
+    return lease
+
+
+def _claim_next_with_lease_context(
+    self: Any,
+    worker_id: str,
+    max_active_per_owner: int = 1,
+    ttl_seconds: float = 30.0,
+    now: float | None = None,
+) -> Lease | None:
+    lease = _original_claim_next(self, worker_id, max_active_per_owner, ttl_seconds, now)
+    if lease is not None:
+        _bind_lease_context(self, lease)
+    return lease
+
+
+def _idempotency_claim_fenced(
+    self: Any,
+    task_id: str,
+    step_id: str,
+    action_type: str,
+    resource_identity: str,
+) -> tuple[str, bool]:
+    logical_key = stable_hash(
+        {
+            "task_id": task_id,
+            "step_id": step_id,
+            "action_type": action_type,
+            "resource_identity": resource_identity,
+        }
+    )
+    lease_id = _bound_lease_id(self, task_id)
+    if not lease_id:
+        # Recovery/read-only duplicate check is safe without lease authority.
+        # Never turn RETRYABLE into CLAIMED and never create a new row here.
+        row = self.conn.execute(
+            "SELECT logical_key FROM idempotency WHERE logical_key=?", (logical_key,)
+        ).fetchone()
+        if row:
+            return logical_key, False
+        raise StaleLease("idempotency claim requires active lease authority")
+
+    self._begin()
+    try:
+        self._assert_lease(lease_id, task_id)
+        row = self.conn.execute(
+            "SELECT * FROM idempotency WHERE logical_key=?", (logical_key,)
+        ).fetchone()
+        if row:
+            if row["status"] == "RETRYABLE":
+                self.conn.execute(
+                    "UPDATE idempotency SET status='CLAIMED',result_ref=NULL WHERE logical_key=?",
+                    (logical_key,),
+                )
+                self._commit()
+                return logical_key, True
+            self._commit()
+            return logical_key, False
+        self.conn.execute(
+            "INSERT INTO idempotency(logical_key,task_id,step_id,action_type,resource_identity,status,created_at) VALUES (?,?,?,?,?,?,?)",
+            (logical_key, task_id, step_id, action_type, resource_identity, "CLAIMED", now_iso()),
+        )
+        self._commit()
+        return logical_key, True
+    except Exception:
+        self._rollback()
+        raise
+
+
+def _idempotency_complete_fenced(self: Any, logical_key: str, result_ref: str) -> None:
+    if not logical_key or not result_ref:
+        raise KernelError("invalid idempotency completion")
+    self._begin()
+    try:
+        row = self.conn.execute(
+            "SELECT * FROM idempotency WHERE logical_key=?", (logical_key,)
+        ).fetchone()
+        if not row:
+            raise KernelError("idempotency key not found")
+        lease_id = _bound_lease_id(self, str(row["task_id"]))
+        if not lease_id:
+            raise StaleLease("idempotency completion requires active lease authority")
+        self._assert_lease(lease_id, str(row["task_id"]))
+        if row["status"] == "COMPLETED":
+            if row["result_ref"] != result_ref:
+                raise KernelError("idempotency result mismatch")
+            self._commit()
+            return
+        if row["status"] != "CLAIMED":
+            raise KernelError(f"invalid idempotency status: {row['status']}")
+        self.conn.execute(
+            "UPDATE idempotency SET status='COMPLETED',result_ref=? WHERE logical_key=?",
+            (result_ref, logical_key),
+        )
+        self._commit()
+    except Exception:
+        self._rollback()
+        raise
+
+
+def _idempotency_status(self: Any, logical_key: str) -> dict[str, Any]:
+    row = self.conn.execute(
+        "SELECT * FROM idempotency WHERE logical_key=?", (logical_key,)
+    ).fetchone()
+    if not row:
+        raise NotFound(logical_key)
+    return dict(row)
+
+
+TaskKernel.claim = _claim_with_lease_context
+TaskKernel.claim_next = _claim_next_with_lease_context
+TaskKernel.idempotency_claim = _idempotency_claim_fenced
+TaskKernel.idempotency_complete = _idempotency_complete_fenced
+TaskKernel.idempotency_status = _idempotency_status
+
 # The implementation may live in a part module, but the public class lived at
 # ``scp.task_kernel.TaskKernel`` before the split. Preserve that identity for
 # introspection and pickle/import compatibility.
