@@ -15,6 +15,9 @@ protected:
     path_patterns:
       - tests/**
       - pyproject.toml
+      - spec/scp_target_test_coverage.yaml
+      - tools/verify_scp_future_target.py
+      - tools/verify_scp_target_test_coverage.py
     policy: REQUIRE_GOVERNANCE
 
   - id: capability.pep
