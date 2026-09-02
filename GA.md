@@ -1,8 +1,8 @@
 # GA — SCP Session Authority + Current Handoff
 
-> File bootstrap duy nhất cho mọi phiên SCP. Người dùng chỉ cần nói: **“Đọc GA trên main, refresh GitHub live rồi tiếp tục SCP.”**
+> Bootstrap duy nhất cho phiên SCP. Câu gọi chuẩn: **“Đọc GA trên main, refresh GitHub live rồi tiếp tục SCP.”**
 >
-> `GA.md` gồm **SESSION RULES** và **CURRENT HANDOFF**. Chat history/model memory chỉ hỗ trợ continuity; không phải source of truth.
+> Chat/memory chỉ hỗ trợ continuity. Repo + Reality evidence trên đúng SHA là source of truth.
 
 ---
 
@@ -10,80 +10,60 @@
 
 ## A1. Authority order
 
-Khi có mâu thuẫn, ưu tiên:
+Khi mâu thuẫn, ưu tiên:
 
 1. Chỉ thị trực tiếp mới nhất của người dùng.
 2. `AGENTS.md`.
-3. `.agents/skills/scp-dna/SKILL.md` + `.agents/skills/scp-dna/references/dna-principles.md`.
+3. `.agents/skills/scp-dna/SKILL.md` + DNA principles.
 4. `spec/complete_scp_reference.yaml` + `spec/protected_invariants.yaml`.
 5. Skill chuyên biệt phù hợp task.
-6. `spec/scp_future_target_manifest.yaml` và **effective target spec** mà manifest compose.
-7. `spec/implementation_bindings.yaml`, `.agents/skills/release-gate-skill-dna-bindings.json` và binding machine-readable liên quan.
-8. Live Git + runtime/test/evidence trên đúng SHA để xác định implementation/maturity thực tế.
-9. `CURRENT HANDOFF` trong file này và evidence/task capsule liên quan.
-10. Chat history/model memory.
+6. `spec/scp_future_target_manifest.yaml` + effective target spec mà manifest compose.
+7. Implementation/test/release bindings machine-readable.
+8. Live Git + runtime/test/evidence trên đúng SHA.
+9. CURRENT HANDOFF này.
+10. Chat/model memory.
 
-Normative target requirement không bị xóa chỉ vì implementation hiện tại thiếu. Ngược lại, target spec không phải runtime proof. Nếu memory/chat mâu thuẫn với repo/evidence live thì **repo/evidence thắng**.
+Target requirement không biến mất vì implementation thiếu; target spec cũng không phải runtime proof. **Reality > Model.**
 
-### Effective Target Architecture
+## A2. Effective SCP Future Target
 
 Không đọc `spec/scp_future_cause_effect_matrix.yaml` riêng lẻ như baseline hiện hành.
 
 ```text
 spec/scp_future_target_manifest.yaml
-    -> base: spec/scp_future_cause_effect_matrix.yaml @ revision 4.0.1
-    -> overlay: spec/scp_future_cause_effect_matrix_v4_0_2.overlay.json
-    -> effective SCP Future Target Architecture revision 4.0.2
+  -> base: spec/scp_future_cause_effect_matrix.yaml @ 4.0.1
+  -> overlay: spec/scp_future_cause_effect_matrix_v4_0_2.overlay.json
+  -> effective SCP Future Target Architecture 4.0.2
 ```
 
-Base + overlay phải được compose đúng một lần theo manifest. Overlay không tự đứng một mình; base 4.0.1 cũng không còn là effective target baseline khi làm architecture task.
-
-## A2. Bootstrap bắt buộc cho task SCP không tầm thường
-
-Trước substantial analysis/audit/code/test-verdict/release claim:
-
-1. Đọc `GA.md` trên `main`.
-2. Đọc `AGENTS.md`.
-3. Đọc SCP DNA Skill; đọc DNA principles khi cần wording/invariant chính xác.
-4. Đọc `complete_scp_reference.yaml` + protected invariants nếu liên quan target/maturity/evidence/governance.
-5. Nếu liên quan kiến trúc/roadmap/test coverage: đọc `spec/scp_future_target_manifest.yaml`, rồi compose base + overlay theo manifest.
-6. Đọc Skill chuyên biệt liên quan; không nạp toàn bộ Skill pack mặc định trừ khi task thật sự là cross-Skill architecture review.
-7. Đọc release-gate Skill/DNA bindings nếu là mandatory gate/release/customer handoff.
-8. Refresh live Git branch/HEAD.
-9. So sánh live HEAD với `work_snapshot_sha`; nếu khác, xem commit/diff mới trước khi kế thừa trạng thái cũ.
-10. Retrieve code/test/evidence theo dependency cone; không đọc lại toàn repo mặc định.
-
-## A3. Session Header nội bộ
+Baseline effective:
 
 ```text
-branch: <live branch>
-live_head: <live SHA>
-work_snapshot_sha: <handoff SHA>
-objective: <một mục tiêu chính>
-loaded_authority: GA + AGENTS + DNA + Complete Reference + Target Manifest/Skill nếu liên quan
-known_blockers: <...>
-evidence_target: A/B/C/D hoặc scope tương ứng
-structural_coverage_target: <systems/capabilities/cause-effect edges>
-test_coverage_status: <PROVEN / PARTIAL / UNPROVEN / BLOCKED>
-mutation_scope: <files/subsystems>
-main_sync_policy: SYNC_FOR_CROSS_AI_REVIEW_AFTER_RELEVANT_REALITY_CHECK
+12 core systems
+8 cross-cutting systems
+5 phases P0-P4
+12 gates T00-T11
+138 capabilities
+60 cause-effect edges
+34 global invariants
+13 normative SCP Skills
 ```
 
-## A4. Một task lớn = một session
+Target 4.0.2 là baseline BUILD, không phải bằng chứng SCP runtime đã hoàn thiện.
 
-Mặc định: **một task lớn = một cuộc hội thoại/agent session riêng = một decision boundary rõ ràng**. Tiếp tục cùng session nếu vẫn xử lý cùng root cause. Khi đạt exit condition hoặc BLOCKED với evidence rõ ràng thì cập nhật handoff và kết thúc; không kéo thêm task lớn khác chỉ để giữ continuity.
+## A3. Bootstrap cho substantial SCP task
 
-## A5. Context discipline
+1. Đọc `GA.md` live trên `main`.
+2. Đọc `AGENTS.md`.
+3. Đọc SCP DNA Skill/principles.
+4. Đọc Complete Reference + protected invariants khi liên quan authority/evidence/governance.
+5. Nếu liên quan architecture/coverage, compose target 4.0.2 theo manifest.
+6. Đọc Skill chuyên biệt đúng dependency cone; không nạp cả Skill pack nếu không cần.
+7. Refresh live `main` ngay trước analysis quan trọng và ngay trước mutation.
+8. Nếu HEAD khác `work_snapshot_sha`, đọc commit/diff chen ngang trước khi kế thừa.
+9. Test/evidence claim phải gắn đúng scope/SHA.
 
-Không nén bằng cách bỏ evidence. Nén bằng địa chỉ hóa evidence:
-
-- Stable invariants: tham chiếu file/hash.
-- SHA-bound state: dùng SHA + diff + affected dependency cone.
-- Log/test lớn: lưu artifact/evidence; context chỉ giữ finding + evidence ref.
-- File không đổi ngoài dependency cone: không đọc lại mặc định.
-- Handoff ngắn nhưng phải truy ngược được về source/evidence.
-
-## A6. Invariants bắt buộc
+## A4. Engineering invariants
 
 ```text
 Reality > Model
@@ -91,274 +71,215 @@ PASS != TRUE
 UNKNOWN != VERIFIED
 Consensus != Truth
 independent lineage required
-UNKNOWN_INDEPENDENCE does not count as independent support
 fail-closed khi thiếu authority/evidence quan trọng
 same-SHA evidence cho mandatory verification/release claim
-không delete/skip/xfail test để manufacture green
-không hạ assertion/coverage/security/mutation/acceptance threshold
-không đổi fail-closed thành fail-open chỉ để pass
+không delete/skip/xfail hoặc hạ assertion/security/mutation/acceptance threshold để manufacture green
+không đổi fail-closed thành fail-open để pass
 không blind-retry uncertain external side effect; reconcile first
 small + reversible + observable changes
-External Data -> Evidence -> Epistemic Assessment -> Knowledge
-Knowledge/Reasoning/Forecast/Risk -> Proposal -> Governance -> Execution
-confidence không thay epistemic verdict
-correlation/precedence không tự biến thành causality
-forecast != Reality fact cho tới khi resolve độc lập
-simulation PASS != production PASS
 max_cost_usd=0; unknown/stale price=DENY; paid_fallback=false
-future capability chưa implement vẫn phải tồn tại trong target structural/test model
-12 gate directories T00–T11 != Complete-SCP test coverage
+External Data -> Evidence -> Epistemic Assessment -> Knowledge
+Knowledge/Reasoning/Risk -> Proposal -> Governance -> Execution
 sandbox/browser/workspace/process state phải task-scoped; không reuse state bẩn/cross-task
 open port/stale log != service readiness
 latency optimization không được bỏ policy/capability/revocation/egress/verifier/recovery/high-risk approval
 gateway failover không được hạ privacy/zero-cost/epistemic/retry safety
-Skill count/index tự khai chỉ là giả thuyết; phải recount khi Skill pack đổi
+Skill count/index tự khai chỉ là giả thuyết; recount khi pack đổi
+stale lease/worker không được commit task/idempotency state
+recovery authority không được vô tình cấp lại quyền cho stale worker
 ```
 
-Sau code work, dọn file tạm/rác ở root trước khi đồng bộ `main`.
+## A5. Test/evidence semantics
 
-## A7. Failure classification
-
-- `HARNESS_BROKEN`: test/harness mã hóa semantics sai/cũ; sửa harness nhưng giữ hoặc tăng strictness.
-- `PRODUCT_BLOCKED`: capability/evidence cần thiết chưa tồn tại hoặc chưa đủ để verify.
-- `PRODUCT_FAIL`: production path chạy và không đạt contract.
-- `STRUCTURAL_COVERAGE_GAP`: target spec có requirement/capability/edge nhưng test obligation/mapping thiếu.
-- `TEST_COVERAGE_UNPROVEN`: gate/test tồn tại nhưng chưa có machine evidence chứng minh đủ coverage.
-- `BLOCKED`: thiếu evidence/authority; không suy diễn PASS.
-
-## A8. Structural/Test Coverage Contract
-
-Bộ test phải tiến tới traceability hai chiều:
+Traceability đích:
 
 ```text
-Target requirement/capability/cause-effect edge
-    -> applicable T00–T11 gate
-    -> concrete test/validator
-    -> required evidence A/B/C/D
-    -> same-SHA evidence khi mandatory
-
-và ngược lại:
-mandatory concrete test -> exact target requirement/capability/edge
+target capability/edge
+  -> T00-T11 gate
+  -> concrete test
+  -> required evidence A/B/C/D
+  -> same-SHA evidence khi mandatory
 ```
 
-Có đủ `tests/T00_integrity` ... `tests/T11_release` không đủ để kết luận coverage. Capability chưa implement vẫn nằm trong target model; test obligation có thể `BLOCKED_MISSING_IMPLEMENTATION`. T00 phải dần fail-closed cho orphan capability/test, missing mapping/evidence, forbidden shortcut và stale/mismatched SHA evidence.
+`spec/scp_target_test_coverage.yaml` chỉ lưu reviewed concrete-test claims. Effective universe 138 capability + 60 edge được derive từ target 4.0.2; target chưa bind phải hiện `UNPROVEN`, không được bỏ khỏi report.
 
-Final Complete-SCP claim chỉ hợp lệ khi structural coverage gap = 0, mandatory test coverage gap = 0, blocker = 0 và maturity/evidence target đạt trên đúng SHA.
+Test tồn tại không tự thành Reality proof. `TEST_BOUND_PARTIAL`/`TEST_BOUND_CONTRACT` khác `EVIDENCE_VERIFIED`. `EVIDENCE_VERIFIED` cần scope + evidence level + snapshot SHA + evidence refs đúng contract.
 
-## A9. Bounded architecture audit / baseline freeze
+Failure classes dùng thống nhất:
 
-Effective target baseline hiện là **4.0.2**. Sau bounded structural checks + cross-Skill traceability trong declared scope, **dừng architecture-audit và build SCP theo baseline**.
+```text
+HARNESS_BROKEN
+PRODUCT_BLOCKED
+PRODUCT_FAIL
+STRUCTURAL_COVERAGE_GAP
+TEST_COVERAGE_UNPROVEN
+BLOCKED
+```
 
-Chỉ reopen target architecture khi có một trong các trigger:
+## A6. Bounded verification / chống audit vô hạn
 
-- direct user architecture change;
-- DNA hoặc normative Skill thay đổi;
-- Reality evidence mới phát hiện missing piece/contradiction;
-- implementation chứng minh target contract hiện tại không thể dung hòa;
+Target architecture 4.0.2 đã freeze làm baseline BUILD. Không mở lại chỉ để audit thêm hoặc tạo validator của validator.
+
+Chỉ reopen khi có trigger thật:
+- user đổi architecture requirement;
+- DNA/normative Skill đổi;
+- Reality phát hiện missing piece/contradiction;
+- implementation chứng minh target contract không dung hòa;
 - security/recovery evidence phủ định assumption kiến trúc.
 
-Không reopen chỉ vì muốn audit thêm, vì validator PASS rồi muốn thêm validator không có evidence mới, hoặc vì implementation detail không làm đổi target WHAT contract.
+Một verification round có finite scope + budget + exit condition. Hết budget/evidence => UNKNOWN/BLOCKED, không forced PASS và không loop vô hạn.
 
-## A10. Main synchronization + session close
+## A7. Main synchronization
 
-Chính sách hiện tại: **đồng bộ thay đổi đã qua relevant Reality check lên `main` để AI khác kiểm tra**. `main` là nguồn cộng tác hiện hành, không tự động là release proof.
+Chính sách hiện tại: **đồng bộ relevant Reality-checked work lên `main` để AI khác kiểm tra cùng trạng thái**.
 
-Trước khi đóng task lớn, cập nhật `CURRENT HANDOFF` với SHA live, objective, changed files/commits, test/evidence thực tế, structural/test coverage state, blockers, next exact task và limitations.
+`main` là coordination source, không tự động là release proof. Trước write luôn refresh live HEAD; nếu AI khác đã commit thì reconcile/fast-forward, không overwrite concurrent work.
+
+Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó và blocker=0. Release/customer handoff còn cần full-system verification mới trên resulting `main` SHA.
 
 ---
 
 # B. CURRENT HANDOFF
 
-> Continuity metadata, không phải release evidence authority. Phiên mới luôn refresh GitHub live trước khi làm.
-
-## B1. Project
+## B1. Snapshot
 
 ```text
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
 active_sync_branch: main
-current_workstream: SCP Future Target Architecture baseline 4.0.2 -> implementation/test alignment
-work_snapshot_sha: 2ab8bc3064b6e9c106754ec5828d1f7fb48684ed
-main_role: nguồn đồng bộ hiện hành để nhiều AI kiểm tra cùng một trạng thái
-```
-
-## B2. Effective future-target architecture baseline
-
-```text
-effective_target_revision: 4.0.2
-target_manifest: spec/scp_future_target_manifest.yaml
-base_file: spec/scp_future_cause_effect_matrix.yaml
-base_revision: 4.0.1
-base_blob_sha: 0954c3002dfcc8d688efb1b826cfa509e71516e6
-overlay_file: spec/scp_future_cause_effect_matrix_v4_0_2.overlay.json
-overlay_blob_sha: 9e82a9c7d26e4a8f7f96a4db61b01c9eea4c48cd
-composition: BASE_PLUS_OVERLAY_BY_UNIQUE_ID
-scope: WHOLE_FUTURE_TARGET_ARCHITECTURE
-core_systems: 12
-cross_cutting_systems: 8
-phases: 5 (P0-P4)
-test_gates: 12 (T00-T11)
-capabilities: 138
-cause_effect_edges: 60
-global_invariants: 34
-normative_scp_skills: 13
-runtime_verdict_from_target_spec: NOT_DERIVED_FROM_TARGET_SPEC
-epistemic_completeness: OPEN_TO_NEW_REALITY_MISSING_PIECES
+workstream: SCP Future Target 4.0.2 -> P0 Execution OS implementation
+work_snapshot_sha: 1096e5255049ca381d0994ac68535294facb6ed0
+snapshot_role: product/test/coverage boundary before this GA handoff commit
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
+runtime/release_verdict: NOT_DERIVED / NOT CLAIMED
 ```
 
-Relevant synchronization commits:
+Always refresh `main`; other AIs are actively committing to the same branch.
+
+## B2. Target / machine guards
 
 ```text
-65d9702c855efe834b9d586caef47c20ca5734dd  spec: complete SCP future target matrix v4
-d2f85381c75cd99bc749a7c936164bf19039c2a2  spec: add SCP target v4.0.2 overlay
-b79172a63c53e373ed7aa82bba510267bcd27780  spec: activate SCP future target v4.0.2 baseline
-```
-
-## B3. What v4.0.2 added over v4.0.1
-
-V4.0.2 keeps the same 12 core + 8 cross-cutting systems and P0–P4 phases, but closes Skill-derived architecture gaps before deep implementation:
-
-- durable task state machine, append-only journal/projection, lease fencing, checkpoint/idempotency;
-- sandbox/workspace/process/browser task isolation and verified cleanup;
-- service lifecycle/readiness contract based on configured-vs-observed Reality;
-- gateway circuit breaker, bounded jitter backoff, privacy/zero-cost-safe fallback and disagreement→UNKNOWN;
-- DOM visibility sanitization, injection guard, browser egress enforcement and hard timeout semantics;
-- performance spans + safety metrics + bounded concurrency/fairness contract;
-- Skill contract integrity and 13/13 Skill -> structural target -> T00–T11 traceability;
-- 5 new global invariants G30–G34 and open questions OQ16–OQ19.
-
-## B4. Current test/reference reality
-
-```text
+target_manifest: spec/scp_future_target_manifest.yaml
 target_validator: tools/verify_scp_future_target.py
-target_coverage_binding: spec/scp_target_test_coverage.yaml
-target_coverage_validator: tools/verify_scp_target_test_coverage.py
-T00_target_guard: tests/T00_integrity/test_scp_future_target.py
-T00_coverage_guard: tests/T00_integrity/test_scp_target_test_coverage.py
-T00_coverage_authority_guard: tests/T00_integrity/test_target_coverage_authority_protected.py
-T00-T11 taxonomy exists: YES
-Target architecture effective revision: 4.0.2
-bounded target compose/integrity validator installed: YES
-machine-generated effective coverage universe: 138 capabilities + 60 cause-effect edges
-reviewed concrete-test claims currently bound: 15
-effective binding statuses at current reviewed scope: 15 TEST_BOUND_PARTIAL + 183 UNPROVEN
-coverage_proven flag: false
-EVIDENCE_VERIFIED claims: 0
-reverse concrete-test -> exact target mapping generated: YES for explicit claims
-missing target rows silently omitted: NO by construction; unclaimed rows remain UNPROVEN
-complete_scp_reference aligned to all 138 target capabilities: NO
-implementation bindings cover full target: NO (expected during development)
-current_complete_scp_test_verdict: TEST_COVERAGE_UNPROVEN / INCOMPLETE
-```
-
-The coverage layer is intentionally non-duplicative: the 138/60 universe, applicable gates and target evidence requirements are derived from the composed v4.0.2 target; `scp_target_test_coverage.yaml` stores only reviewed concrete-test claims. Test presence never upgrades a row to runtime evidence. `EVIDENCE_VERIFIED` requires evidence level + snapshot SHA + evidence refs.
-
-Current reviewed bindings include real contracts for TaskKernel storage/journal behavior, **lease fencing + logical-action idempotency**, Windows sandbox partial behavior, exact-zero/provider resilience portions, EvidenceStore occurrence/immutability, and source lineage. They remain `TEST_BOUND_PARTIAL`, not C/D verified.
-
-P0 Execution OS root fix installed in this work snapshot:
-
-```text
-product_gap: stale worker could mutate idempotency ledger because idempotency_claim/idempotency_complete were not lease-fenced
-fix: TaskKernel public boundary binds the exact claimed lease to execution context and re-validates it inside idempotency write transactions
-recovery_compatibility: no-lease duplicate probe is read-only; it cannot create/retry/complete a logical action
-regression_test: tests/T04_kernel/test_lease_fencing_idempotency.py
-traceability: execution.lease_fencing + execution.checkpoint_idempotency + CE-S01-05 => TEST_BOUND_PARTIAL/B
-same-SHA test execution: NOT YET OBSERVED; GitHub jobs queued at last refresh
-```
-
-Local bounded Reality checks for this task:
-
-```text
-YAML parse of coverage binding: PASS
-Python compile of coverage validator: PASS
-Python compile of T00 coverage tests: PASS
-synthetic full-shape effective map: 138 capabilities + 60 edges
-synthetic validator result: 0 errors
-synthetic status summary: 13 TEST_BOUND_PARTIAL + 185 UNPROVEN
-(note: this synthetic summary is from the preceding traceability-structure snapshot; current binding now declares 15 partial / 183 unproven and still requires current-SHA execution)
+target_T00_guard: tests/T00_integrity/test_scp_future_target.py
+coverage_binding: spec/scp_target_test_coverage.yaml
+coverage_validator: tools/verify_scp_target_test_coverage.py
+coverage_T00_guard: tests/T00_integrity/test_scp_target_test_coverage.py
+coverage_universe: 138 capabilities + 60 edges
 coverage_proven: false
+EVIDENCE_VERIFIED: 0
+current test coverage verdict: TEST_COVERAGE_UNPROVEN / INCOMPLETE
 ```
 
-GitHub-hosted same-SHA execution remains unavailable at last observation: `p0-baseline` completed `failure` in ~3s with `steps=null`, i.e. before checkout/test execution. Classification remains `BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT`, not PRODUCT_FAIL, HARNESS_FAIL, or a failed validator verdict. Other workflow jobs were still queued at observation.
+Coverage remains non-duplicative: target inventory comes from composed 4.0.2; the coverage file records only reviewed concrete bindings.
 
-Relevant commits:
+## B3. P0 Execution OS — lease/idempotency root cause CLOSED AT CODE+TEST-BINDING LEVEL
+
+Root cause found:
 
 ```text
-1cd89368b6452105f3845c3526fbb4fb342e17cf  tools: add bounded SCP future target validator
-2b20b841a745049b972e536e9597532902b7f7b9  test: guard SCP future target v4.0.2 in T00
-d9d16ef0a2ce6aa7292d69e21494d2067799a6f4  spec: add target concrete-test coverage binding
-0a6d54a78c0d1b093246cbd92dc5083ea673f180  tools: verify target concrete-test traceability
-d501d0e1d384ae0de90416f9e090457df245ab3e  test: fail closed on target-test traceability gaps
-9ad2949103e2a245dceb5a8852e4f42e2525dd16  fix: make coverage validator direct-run safe
-5233c86eb274de1fdb419c35192bece79f091014  governance: protect target test coverage authority
-eaa689fdf80228d81a26d8b03aae048df38e49ed  test: guard target coverage authority protection
+TaskKernel already fenced checkpoint/dispatch/final commit,
+but idempotency_claim/idempotency_complete originally lacked lease authority.
+Then a second hole remained: a worker whose lease expired while an external driver ran
+could call transition() before the watchdog swept the lease, mutating task projection/journal.
+```
+
+Fixes now on main ancestry:
+
+```text
 de067c5c414dfa2e4f58e55e2ad025ae53d40f17  fix: fence TaskKernel idempotency writes by active lease
 8a164eddaa3daf368291ca7f95bce10f83051b92  test: prove stale lease cannot mutate idempotency ledger
-2ab8bc3064b6e9c106754ec5828d1f7fb48684ed  spec: bind lease fencing and idempotency regression coverage
+f32c5248996c4a14ba4e66e096b903412ee0fc0c  fix: fence bound-lease task transitions
+73fb605251bd5e013394c2c644c12b2a58687b7c  test: prove expired unswept lease cannot transition
+1096e5255049ca381d0994ac68535294facb6ed0  spec: bind transition lease fencing coverage
 ```
 
-## B5. Historical P0 evidence
+Current semantics:
+
+- successful `claim`/`claim_next` binds exact lease to execution context;
+- idempotency create/retry/complete re-check exact lease inside write transaction;
+- once a lease is bound, ordinary `transition()` re-checks that lease in the same state+event transaction;
+- wall-clock expiry blocks state/event mutation even before `expire_leases()` watchdog sweep;
+- boot recovery temporarily suppresses dead-worker lease context only during replay, then restores stale context so dead worker does not regain mutation rights;
+- fresh recovery process may read duplicate idempotency status without creating/retrying/completing it.
+
+Regression tests:
 
 ```text
-last_recorded_p0_verified_snapshot: 8582a03147608442331967ef2b1d9c790e21695f
-historical_verdict: PASS_WITHIN_SCOPE
+tests/T04_kernel/test_lease_fencing_idempotency.py
+tests/T04_kernel/test_transition_lease_fencing.py
 ```
 
-Đây chỉ là evidence SHA/P0 scope cũ. Không dùng nó làm current-main hoặc Complete-SCP proof.
-
-## B6. Current global verdict
+Coverage binding remains deliberately:
 
 ```text
-SCP Future Target Architecture 4.0.2: ACTIVE BASELINE FOR BUILD
-Target internal content review: COMPLETED FOR CURRENT DECLARED SCOPE
-Bounded target-spec validator/T00 guard: IMPLEMENTED
-Target -> gate -> concrete-test traceability structure: IMPLEMENTED
-Effective coverage inventory completeness: MACHINE-DERIVED 138/60, NO SILENT OMISSION
-Reviewed concrete bindings: 15 TEST_BOUND_PARTIAL
-Remaining target rows: 183 UNPROVEN
-P0 lease/idempotency root fix: PRODUCT PATCH INSTALLED + T04 TEST BOUND
-Same-SHA execution evidence for that root fix: NOT YET ESTABLISHED (jobs queued)
-Full target concrete-test coverage: NOT PROVEN
-GitHub-hosted same-SHA execution of new guards: BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT
-Absolute/no-missing-piece completeness: NOT CLAIMED / UNPROVABLE BY DESIGN
-Current implementation: NOT CLAIMED COMPLETE
-Current runtime verification: NOT ESTABLISHED FOR COMPLETE SCP
-Current release readiness: NOT ESTABLISHED FOR COMPLETE SCP
+execution.lease_fencing -> TEST_BOUND_PARTIAL / B
+execution.checkpoint_idempotency -> TEST_BOUND_PARTIAL / B
+CE-S01-05 -> TEST_BOUND_PARTIAL / B
 ```
 
-This closes the **traceability-structure** task, not the product/test-coverage program. Do not create another validator layer merely because this one exists. From here, use the effective coverage map to drive implementation and add concrete claims only when a real test/evidence relation is reviewed.
+No C/D/runtime promotion was made.
 
-## B7. Open implementation/alignment work
+## B4. Concurrent work already absorbed
 
-1. Finish classifying `execution.checkpoint_idempotency` beyond the new stale-writer fix: checkpoint integrity, resume/reconcile and duplicate-side-effect semantics remain below D until current evidence proves them.
-2. Continue P0 dependency slice with `execution.sandbox_isolation` -> `execution.browser_session_isolation` -> `execution.service_lifecycle_readiness`; fix the earliest real product gap, not the easiest test gap.
-3. Expand honest concrete bindings while building/fixing product. Unclaimed target rows stay `UNPROVEN`; missing product can be explicitly classified `BLOCKED_MISSING_IMPLEMENTATION`.
-4. Align `complete_scp_reference.yaml` with target WHAT inventory without adding implementation HOW or deleting target requirements.
-5. When GitHub/self-hosted runner actually executes, obtain same-SHA T04/T00/coverage evidence. A runner failure before checkout remains `BLOCKED`.
-6. Promote a coverage row beyond `TEST_BOUND_*` only with evidence meeting its A/B/C/D requirement and provenance; no inferred C/D from unit/integration test presence.
-
-These are **build tasks**, not automatic triggers to reopen target architecture 4.0.2.
-
-## B8. Next exact task
+Other AI commits were preserved, not overwritten. Relevant recent ancestry includes reconciliation completion and sandbox/process work:
 
 ```text
-Continue P0 Execution OS from technical snapshot 2ab8bc3064b6e9c106754ec5828d1f7fb48684ed.
-Do not reopen target architecture and do not add another validator layer.
-
-1. Refresh main and same-SHA CI first; queued/no-checkout remains BLOCKED, not PASS/FAIL.
-2. Re-check remaining execution.checkpoint_idempotency contract against current tests/recovery path.
-3. Then inspect execution.sandbox_isolation -> execution.browser_session_isolation -> execution.service_lifecycle_readiness.
-4. Fix the earliest real PRODUCT_BLOCKED/PRODUCT_FAIL root cause with a small reversible product patch + applicable T03/T04/T10/T01 test.
-5. Update scp_target_test_coverage.yaml only for a reviewed real test relation; keep TEST_BOUND separate from EVIDENCE_VERIFIED.
+3ba77105e18917eb9e77c55d9db97f59368ab33e  complete durable reconciliation outcome contract
+9fa2b5cbdb928887d60d8c1f737bb92041bd2d74  accept complete Hands reconciliation outcome set
+087695feff7063c7d92c71c2330a6f88242c592d  PARTIAL/CONFLICT fail-closed tests
+318e180ba9bedab361f9e1450656db8029fa8055  fresh recovery duplicate probe
+7b8fe6fbae5fc8dfcf730e2708071304769f2d6c  PARTIAL API-boundary regression
+3eeb8127feeece10af106bc01c893170b07503e7  bind reconciliation coverage
+8a323785d10af91b5bb948c4181a480dc1cee100  isolate managed process workspace and environment
 ```
 
----
+Do not revert/reimplement these blindly; inspect live diff first.
 
-# C. Câu lệnh ngắn cho phiên mới
+## B5. Reality / blockers at snapshot
 
-> **“Đọc `GA.md` trên `main`, refresh GitHub live rồi tiếp tục SCP.”**
+For SHA `1096e5255049ca381d0994ac68535294facb6ed0` GitHub created 7 check runs. At last refresh all were `queued`, including platform gates, main-lineage, security-mutation-durability and pre-RC jobs.
 
-Agent phải nhớ:
+Therefore:
 
-> **Effective target architecture = manifest 4.0.2 = base 4.0.1 + overlay 4.0.2. Đây là baseline để BUILD, không phải runtime/release proof; không audit đặc tả vô hạn nếu không có reopen trigger.**
+```text
+same-SHA CI PASS: NOT OBSERVED
+product FAIL from CI: NOT ESTABLISHED
+current CI classification: BLOCKED / QUEUED INFRASTRUCTURE
+release claim: FORBIDDEN
+```
+
+Do not reuse historical green status for this SHA.
+
+## B6. Next exact dependency cone
+
+Continue P0 Execution OS, but first refresh live main because `8a323...` already changed sandbox/process handling.
+
+Priority order:
+
+```text
+1. execution.sandbox_isolation
+   - inspect 8a323 live implementation + T03/T04/T10 tests
+   - prove task-scoped workspace/process tree/environment + cleanup/reuse semantics
+   - fix root cause only if contract still missing
+2. execution.browser_session_isolation
+   - profile/cookie/localStorage/task identity isolation
+   - egress + cleanup before reuse
+3. execution.service_lifecycle_readiness
+   - configured-vs-observed manifest
+   - dependency-aware startup
+   - current PID/timestamp/endpoint evidence
+   - port-open/stale-log must not equal READY
+```
+
+Do not add another validator layer. For each capability: Detect -> Why -> Fix -> Verify -> Learn/traceability, then sync to `main`.
+
+## B7. Completion language
+
+Allowed now:
+
+> P0 lease/idempotency fencing root cause has code + regression-test + target-binding coverage on main, pending same-SHA runtime execution.
+
+Forbidden now:
+
+> P0 Execution OS verified / SCP complete / release ready.
