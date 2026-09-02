@@ -1,0 +1,187 @@
+schema_version: 1
+binding_id: scp-target-test-coverage
+status: ACTIVE
+purpose: >-
+  Machine-readable concrete-test traceability for the active SCP Future Target.
+  The effective inventory is derived from the composed target; this file records only
+  explicit concrete-test claims and never turns test presence into runtime/release proof.
+
+target:
+  manifest_path: spec/scp_future_target_manifest.yaml
+  manifest_blob_sha: cc83ab86336d3f4007245e0755ea528d033daafa
+  effective_revision: 4.0.2
+  expected_capabilities: 138
+  expected_cause_effect_edges: 60
+
+inventory_policy:
+  universe_source: COMPOSED_TARGET
+  unclaimed_status: UNPROVEN
+  capability_gate_source: UNION_OF_COVERING_EDGES
+  capability_evidence_source: MATURITY_EVIDENCE_FLOOR
+  edge_gate_source: EDGE_GATES
+  edge_evidence_source: EDGE_EVIDENCE_TARGET
+  rule: >-
+    Every target capability and cause-effect edge appears in the generated effective
+    coverage map even when no concrete test exists. Missing claims remain visible as
+    UNPROVEN; they are never omitted to manufacture coverage.
+
+status_model:
+  UNPROVEN: No reviewed concrete-test binding exists yet.
+  TEST_BOUND_PARTIAL: Concrete tests are linked but do not claim the whole target contract.
+  TEST_BOUND_CONTRACT: Concrete tests cover the declared target contract, but test presence alone is not Reality proof.
+  BLOCKED_MISSING_IMPLEMENTATION: The target remains required but current product implementation is missing.
+  EVIDENCE_VERIFIED: Reserved for same-scope evidence that meets the target evidence level and provenance contract.
+
+claim_policy:
+  concrete_test_selector: repo_relative_pytest_node_id
+  require_existing_test_function: true
+  require_test_gate_compatible_with_target: true
+  test_bound_is_not_evidence_verified: true
+  evidence_verified_requires_snapshot_sha_and_evidence_refs: true
+  reverse_mapping_required_for_every_claimed_test: true
+
+gate_catalog:
+  T00: tests/T00_integrity
+  T01: tests/T01_boot
+  T02: tests/T02_contract
+  T03: tests/T03_capability
+  T04: tests/T04_kernel
+  T05: tests/T05_gateway
+  T06: tests/T06_verifier
+  T07: tests/T07_learning
+  T08: tests/T08_runtime
+  T09: tests/T09_golden_task
+  T10: tests/T10_recovery
+  T11: tests/T11_release
+
+claims:
+  - target_kind: capability
+    target_id: execution.task_kernel
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T04_kernel/test_kernel_storage.py::test_task_kernel_uses_injected_storage_for_transaction_lifecycle
+      - tests/T04_kernel/test_kernel_storage.py::test_task_kernel_backup_is_delegated_to_storage
+    note: Transaction/storage lifecycle and durable backup are exercised; this is not full M5 recovery proof.
+
+  - target_kind: capability
+    target_id: execution.event_journal_projection
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T04_kernel/test_kernel_crash_consistency.py::test_crash_between_event_and_projection_is_repaired_by_rebuild
+      - tests/T04_kernel/test_kernel_crash_consistency.py::test_tampered_journal_is_fail_closed
+    note: Journal-authoritative projection rebuild and tamper fail-closed behavior are exercised.
+
+  - target_kind: edge
+    target_id: CE-S01-05
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T04_kernel/test_kernel_storage.py::test_task_kernel_uses_injected_storage_for_transaction_lifecycle
+      - tests/T04_kernel/test_kernel_crash_consistency.py::test_crash_between_event_and_projection_is_repaired_by_rebuild
+    note: State/journal portions are bound; lease fencing and checkpoint idempotency remain unproven here.
+
+  - target_kind: capability
+    target_id: execution.sandbox_isolation
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: A
+    concrete_tests:
+      - tests/T03_capability/test_os_sandbox.py::test_sandbox_executes_command_inside_job_object
+      - tests/T03_capability/test_os_sandbox.py::test_sandbox_rejects_invalid_capability
+    note: Windows Job Object behavior is platform-specific and skipped elsewhere; cross-platform task isolation remains unproven.
+
+  - target_kind: capability
+    target_id: intelligence.zero_cost
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T05_gateway/test_zero_cost_guard.py::test_paid_unknown_stale_and_data_class_never_reach_send_boundary
+      - tests/T05_gateway/test_zero_cost_guard.py::test_free_to_paid_catalog_transition_denies_next_request
+      - tests/T05_gateway/test_zero_cost_guard.py::test_free_only_config_cannot_enable_paid_or_unknown_price
+      - tests/T05_gateway/test_zero_cost_guard.py::test_pricing_proof_survives_restart
+    note: Exact-zero/privacy PEP semantics and durable pricing proof are exercised without claiming real-provider C evidence.
+
+  - target_kind: edge
+    target_id: CE-S02-01
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T05_gateway/test_zero_cost_guard.py::test_paid_unknown_stale_and_data_class_never_reach_send_boundary
+      - tests/T05_gateway/test_zero_cost_guard.py::test_free_to_paid_catalog_transition_denies_next_request
+    note: Pre-dispatch exact-zero/data-class gate is exercised; full real-provider dispatch path remains unproven.
+
+  - target_kind: capability
+    target_id: intelligence.circuit_breaker
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: A
+    concrete_tests:
+      - tests/T05_gateway/test_circuit_breaker_mutation_contract.py::test_default_threshold_and_initial_state
+      - tests/T05_gateway/test_circuit_breaker_mutation_contract.py::test_threshold_one_is_valid_and_opens_on_first_failure
+    note: Unit behavior is bound; timeout/backoff/fallback integration remains separate.
+
+  - target_kind: edge
+    target_id: CE-S02-03
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T05_gateway/test_429_fallback_contract.py::test_api_rate_limit_has_retry_after_without_model_fallback
+      - tests/T05_gateway/test_429_fallback_contract.py::test_openrouter_provider_429_falls_back_to_task_model
+      - tests/T05_gateway/test_circuit_breaker_mutation_contract.py::test_default_threshold_and_initial_state
+    note: Retry-After/free fallback/circuit behavior is bound; full privacy and retry-budget contract remains unproven.
+
+  - target_kind: capability
+    target_id: epistemic.evidence
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T06_verifier/test_evidence_store.py::test_same_content_twice_same_blob_two_occurrences
+      - tests/T06_verifier/test_evidence_store.py::test_evidence_table_is_machine_immutable
+      - tests/T06_verifier/test_evidence_store.py::test_restart_persistence_and_tamper_detection
+      - tests/T06_verifier/test_evidence_store.py::test_supersede_never_rewrites_history
+    note: Immutable occurrence/provenance storage semantics are exercised; this is not independent C Reality verification.
+
+  - target_kind: edge
+    target_id: CE-S05-01
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T06_verifier/test_evidence_store.py::test_same_content_twice_same_blob_two_occurrences
+    note: Repeated observation occurrence semantics are directly exercised.
+
+  - target_kind: capability
+    target_id: epistemic.source_identity
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T06_verifier/test_source_identity_lineage.py::test_source_identity_is_conservative_and_stable
+    note: Conservative source canonicalization and identity stability are exercised.
+
+  - target_kind: capability
+    target_id: epistemic.lineage
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T06_verifier/test_source_identity_lineage.py::test_db_default_is_unknown_independence_not_python_only
+      - tests/T06_verifier/test_source_identity_lineage.py::test_unknown_and_shared_sources_cannot_manufacture_independence
+    note: UNKNOWN_INDEPENDENCE and conservative independent-support semantics are exercised.
+
+  - target_kind: edge
+    target_id: CE-S05-02
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T06_verifier/test_source_identity_lineage.py::test_unknown_and_shared_sources_cannot_manufacture_independence
+    note: Shared/unknown lineage cannot manufacture independent corroboration.
+
+coverage_verdict_policy:
+  structural_binding_integrity_pass: >-
+    All active target rows are present in the generated effective map, all explicit
+    claims resolve to real target IDs and real pytest selectors, and gate/evidence
+    metadata is internally consistent.
+  must_not_claim:
+    - all_target_capabilities_tested
+    - all_target_edges_tested
+    - runtime_verified
+    - release_ready
+    - no_missing_piece
