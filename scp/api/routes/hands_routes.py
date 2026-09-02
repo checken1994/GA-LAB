@@ -52,7 +52,7 @@ class HandsRollbackRequest(BaseModel):
 class HandsReconcileRequest(BaseModel):
     taskId: str = Field(min_length=8, max_length=128)
     checkpointId: str = Field(min_length=8, max_length=128)
-    outcome: str = Field(min_length=8, max_length=16)
+    outcome: str = Field(min_length=7, max_length=16)
     evidenceRef: str = Field(min_length=1, max_length=512)
     verifierId: str | None = Field(default=None, max_length=128)
 
