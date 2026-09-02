@@ -44,7 +44,8 @@ def _reconciling_task(kernel: TaskKernel, task_id: str = "reconcile-1") -> tuple
 def test_ambiguous_reconciliation_outcomes_are_durable_and_never_retryable(
     tmp_path, outcome: str, expected_status: str, expected_event: str
 ) -> None:
-    kernel = TaskKernel(tmp_path / f"{outcome.lower()}.sqlite3")
+    db_path = tmp_path / f"{outcome.lower()}.sqlite3"
+    kernel = TaskKernel(db_path)
     try:
         checkpoint_id, logical_key = _reconciling_task(kernel)
         task = kernel.reconcile_unknown(
@@ -67,11 +68,17 @@ def test_ambiguous_reconciliation_outcomes_are_durable_and_never_retryable(
         assert payload["safe_to_retry"] is False
         assert payload["verifier_id"] == "independent-state-verifier"
 
-        # A reconciled partial/conflicting side effect is not a retryable claim.
-        _same_key, claimed_again = kernel.idempotency_claim(
-            "reconcile-1", "submit", "external.submit", "remote-object-1"
-        )
-        assert claimed_again is False
+        # A fresh recovery context may read the duplicate, but cannot re-claim it.
+        reader = TaskKernel(db_path)
+        try:
+            same_key, claimed_again = reader.idempotency_claim(
+                "reconcile-1", "submit", "external.submit", "remote-object-1"
+            )
+            assert same_key == logical_key
+            assert claimed_again is False
+            assert reader.idempotency_status(logical_key)["status"] == expected_status
+        finally:
+            reader.close()
     finally:
         kernel.close()
 
