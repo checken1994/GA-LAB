@@ -1,133 +1,1257 @@
-schema_version: "2.0"
-reference_id: "scp-future-architecture-matrix"
-description: "Ma trận mã hóa các điều kiện Nhân - Quả (Cause-Effect) cho kiến trúc SCP tương lai, đối chiếu từ T00 đến T11."
+schema_version: "3.0"
+reference_id: "scp-future-cause-effect-matrix"
+
+title: "SCP Future Architecture Cause-Effect Verification Matrix"
+
+description: >
+  Ma trận machine-readable mô tả các quan hệ Nhân -> Quả bắt buộc của
+  kiến trúc SCP tương lai, ánh xạ vào taxonomy kiểm thử T00-T11.
+  File này là design/verification guard cho capability tương lai.
+  Nó không phải implementation binding, không phải runtime evidence,
+  không tự xác nhận maturity, và không phải release verdict.
+
+document_role:
+  type: "future_architecture_verification_matrix"
+
+  scope:
+    - "future SCP capabilities"
+    - "P2 World Intelligence"
+    - "future P3/P4 capability interactions"
+    - "cross-phase P0/P1/P2 invariants"
+    - "T00-T11 architecture coverage"
+
+  authority_scope:
+    may_define:
+      - "required cause-effect behavior for future architecture"
+      - "mandatory authority paths"
+      - "forbidden shortcuts"
+      - "minimum evidence level"
+      - "test coverage expectations"
+
+    must_not_define:
+      - "current runtime maturity without evidence"
+      - "implementation class/module as semantic truth"
+      - "release PASS"
+      - "current tested SHA"
+      - "provider pricing truth"
+      - "permission to weaken protected invariants"
+
+  must_conform_to:
+    - "AGENTS.md"
+    - ".agents/skills/scp-dna/SKILL.md"
+    - ".agents/skills/scp-dna/references/dna-principles.md"
+    - "spec/complete_scp_reference.yaml"
+    - "spec/protected_invariants.yaml"
+    - "spec/implementation_bindings.yaml"
+    - ".agents/skills/release-gate-skill-dna-bindings.json"
+
+  conflict_policy: "HIGHER_AUTHORITY_WINS"
+
+# ---------------------------------------------------------------------------
+# STATUS SEMANTICS
+# ---------------------------------------------------------------------------
+
+status_semantics:
+
+  design_status:
+    SPECIFIED:
+      meaning: "Cause-effect contract đã được định nghĩa."
+    DEPRECATED:
+      meaning: "Contract không còn được dùng."
+    BLOCKED_SPEC:
+      meaning: "Contract chưa thể hoàn thiện vì thiếu authority/policy."
+
+  implementation_status:
+    UNASSESSED:
+      meaning: "Chưa có evidence runtime đáng tin."
+    MISSING:
+      meaning: "Production capability chưa tồn tại."
+    PARTIAL:
+      meaning: "Có một phần production path nhưng chưa đạt contract."
+    IMPLEMENTED_UNVERIFIED:
+      meaning: "Code tồn tại nhưng chưa có evidence đúng maturity."
+    VERIFIED_WITHIN_SCOPE:
+      meaning: >
+        Có evidence phù hợp với required_evidence và đúng snapshot/SHA
+        trong phạm vi được ghi nhận.
+
+status_rules:
+  - >
+    IMPLEMENTED hoặc class/function existence không đồng nghĩa
+    VERIFIED_WITHIN_SCOPE.
+  - >
+    VERIFIED_WITHIN_SCOPE bắt buộc phải có evidence_refs.
+  - >
+    Evidence C/D bắt buộc bind tested SHA, profile và authority hashes.
+  - >
+    Không được lưu một status runtime cũ như authority sau khi HEAD thay đổi.
+  - >
+    UNKNOWN hoặc thiếu evidence phải fail closed đối với capability
+    security/governance/release.
+
+# ---------------------------------------------------------------------------
+# CAPABILITY HORIZON
+# ---------------------------------------------------------------------------
+
+capability_horizon:
+
+  existing_authorities:
+    - "execution.task_kernel"
+    - "execution.capability_security"
+    - "epistemic.ontology"
+    - "epistemic.evidence"
+    - "epistemic.lineage"
+    - "epistemic.calibration"
+    - "self.capability_map"
+    - "governance.drift_guard"
+    - "governance.privacy_retention"
+    - "intelligence.zero_cost"
+    - "cognitive.promotion_authority"
+    - "cognitive.doubt_authority"
+    - "cognitive.revalidation_authority"
+    - "cognitive.experiment_authority"
+    - "risk.local_containment"
+    - "risk.external_alert"
+
+  proposed_future_capabilities:
+    - id: "world.acquisition"
+      phase: "P2"
+    - id: "world.entity_identity"
+      phase: "P2"
+    - id: "world.event_model"
+      phase: "P2"
+    - id: "world.temporal_state"
+      phase: "P2"
+    - id: "world.change_detection"
+      phase: "P2"
+    - id: "world.geospatial"
+      phase: "P2"
+    - id: "world.causal"
+      phase: "P2"
+    - id: "world.forecasting"
+      phase: "P2"
+    - id: "risk.assessment"
+      phase: "P2"
+    - id: "risk.early_warning"
+      phase: "P2"
+
+  activation_rule: >
+    Một proposed capability không được coi là current Complete-SCP
+    capability cho tới khi được thêm hợp lệ vào
+    spec/complete_scp_reference.yaml và có implementation/test bindings
+    tương ứng.
+
+# ---------------------------------------------------------------------------
+# GLOBAL INVARIANTS
+# ---------------------------------------------------------------------------
+
+global_invariants:
+
+  - id: "G01_REALITY_OVER_MODEL"
+    requirement: >
+      Model output, confidence hoặc consensus không được thay thế
+      Reality evidence.
+
+  - id: "G02_EVIDENCE_BEFORE_KNOWLEDGE"
+    requirement: >
+      External observation phải đi qua Evidence/Lineage/Epistemic
+      Assessment trước khi có thể ảnh hưởng Knowledge status.
+
+  - id: "G03_EXTERNAL_DATA_UNTRUSTED"
+    requirement: >
+      Web/API/Git/feeds/documents đều là untrusted data, không phải
+      executable instruction.
+
+  - id: "G04_INDEPENDENT_LINEAGE"
+    requirement: >
+      Shared lineage và UNKNOWN_INDEPENDENCE không được manufacture
+      corroboration.
+
+  - id: "G05_CONFIDENCE_IS_ADVISORY"
+    requirement: >
+      Confidence không được nâng epistemic verdict thành VERIFIED.
+
+  - id: "G06_COGNITION_CANNOT_DIRECTLY_ACT"
+    requirement: >
+      World/Causal/Forecast/Risk authority chỉ tạo assessment/proposal;
+      external/local action phải đi qua Governance + Capability + Execution.
+
+  - id: "G07_ZERO_COST_HARD_WALL"
+    requirement: >
+      max_cost_usd=0, paid_fallback=false,
+      unknown/stale pricing=DENY.
+      Complexity của task không được tạo quyền sử dụng paid model.
+
+  - id: "G08_PRIVACY_BEFORE_PROVIDER"
+    requirement: >
+      DataClass/privacy eligibility phải được kiểm trước network dispatch,
+      kể cả provider/model có giá 0 USD.
+
+  - id: "G09_NO_BLIND_RETRY"
+    requirement: >
+      Uncertain external side effect phải RECONCILE trước khi retry.
+
+  - id: "G10_BITEMPORAL_TRUTH"
+    requirement: >
+      Valid Time và System/Knowledge Time phải tách riêng;
+      state mới không overwrite lịch sử cũ.
+
+  - id: "G11_FORECAST_IS_NOT_FACT"
+    requirement: >
+      Forecast lúc phát hành ở trạng thái OPEN;
+      chỉ Reality tương lai mới resolve forecast.
+
+  - id: "G12_CORRELATION_NOT_CAUSATION"
+    requirement: >
+      Association, precedence và correlation không tự trở thành
+      causal claim.
+
+  - id: "G13_NO_FAKE_GEO_PRECISION"
+    requirement: >
+      Geo authority không được manufacture độ chính xác vị trí
+      cao hơn evidence.
+
+  - id: "G14_EXTERNAL_ALERT_HUMAN_AUTHORITY"
+    requirement: >
+      External alert có hậu quả thực phải có human authority theo
+      Complete SCP Reference.
+
+  - id: "G15_SAME_SHA_EVIDENCE"
+    requirement: >
+      Mandatory verification/release claim phải bind evidence với
+      đúng tested SHA và test profile.
+
+  - id: "G16_NO_MANUFACTURED_GREEN"
+    requirement: >
+      Không delete/skip/xfail/lower threshold/fail-open để tạo PASS.
+
+# ---------------------------------------------------------------------------
+# CONDITION DEFAULTS
+# ---------------------------------------------------------------------------
+
+condition_defaults:
+
+  design_status: "SPECIFIED"
+  implementation_status: "UNASSESSED"
+  evidence_refs: []
+
+  required_evidence:
+    minimum_level: "B"
+    independent_verifier: false
+    same_sha: false
+
+  on_missing_required_authority: "BLOCKED"
+  on_unknown: "FAIL_CLOSED"
+
+# ===========================================================================
+# T00 — INTEGRITY & META-AUDIT
+# ===========================================================================
 
 cause_effect_conditions:
-  # ---------------------------------------------------------
-  # T00: Integrity & Meta-Audit
-  # ---------------------------------------------------------
+
   T00:
-    description: "Nhân: Thiết kế kiến trúc thay đổi. Quả: Tự động phát hiện thiếu Test."
-    conditions:
-      - cause: "Thêm một Authority mới vào spec (ví dụ CausalAuthority)."
-        effect: "T00 phải đỏ (FAILED) nếu không có test tương ứng tại T02, T03, T09."
-        status: "PARTIAL"  # Hiện có cho P0/P1, đang thiếu test_p2_architecture_coverage
-      - cause: "Sử dụng 'assert True' hoặc mock tĩnh trong Test."
-        effect: "T00 (test_meta_audit.py) phải đánh trượt bài test đó để chống làm giả bằng chứng."
-        status: "IMPLEMENTED"
+    test_dir: "tests/T00_integrity"
 
-  # ---------------------------------------------------------
-  # T01: Boot & Lifecycle
-  # ---------------------------------------------------------
+    description: >
+      Kiến trúc hoặc test thay đổi phải làm tăng tương ứng coverage và
+      khả năng tự phát hiện harness/authority gap.
+
+    conditions:
+
+      - id: "T00-FUTURE-CAPABILITY-ACTIVATION"
+
+        cause: >
+          Một proposed future capability được chuyển thành implementation
+          target hoặc required capability.
+
+        expected_effects:
+          - >
+            Capability phải có semantic ID trong Complete SCP Reference
+            trước khi được coi là current required capability.
+          - >
+            Phải có implementation binding khi production implementation
+            được kích hoạt.
+          - >
+            Phải khai báo test coverage ở các gate thích hợp.
+          - >
+            Nếu thiếu một binding bắt buộc thì T00 phải FAILED/BLOCKED.
+
+        forbidden_shortcuts:
+          - "class existence => capability verified"
+          - "future matrix entry => Complete SCP capability"
+          - "implementation path embedded into Complete SCP Reference"
+
+        required_evidence:
+          minimum_level: "A"
+          independent_verifier: false
+          same_sha: false
+
+      - id: "T00-HARNESS-INTEGRITY"
+
+        cause: >
+          Mandatory test dùng assert True, placeholder,
+          unconditional skip/xfail hoặc mock để giả C/D Reality proof.
+
+        expected_effects:
+          - "T00 phải đánh trượt harness."
+          - "Failure phải được phân loại HARNESS_BROKEN."
+          - >
+            Không được sửa bằng cách xóa test hoặc hạ evidence target.
+
+        forbidden_shortcuts:
+          - "assert True"
+          - "fake runtime state"
+          - "static hasattr test labeled C"
+          - "simulated string state labeled D"
+
+        required_evidence:
+          minimum_level: "A"
+
+      - id: "T00-AUTHORITY-COVERAGE"
+
+        cause: >
+          Một Authority mới có quyền thay đổi knowledge, world state,
+          risk, governance hoặc execution semantics.
+
+        expected_effects:
+          - "T02 phải có contract coverage."
+          - "T03 phải có security/governance coverage nếu có privilege."
+          - "T06 phải có evidence/verifier coverage nếu tạo epistemic claim."
+          - "T09 phải có production-path E2E coverage."
+          - "T10 phải có recovery coverage nếu authority có durable state."
+          - "T11 phải có release/binding coverage."
+
+        forbidden_shortcuts:
+          - "authority exists without mandatory gate mapping"
+
+# ===========================================================================
+# T01 — BOOT & LIFECYCLE
+# ===========================================================================
+
   T01:
-    description: "Nhân: Khởi động hệ thống. Quả: Môi trường an toàn và vô trùng."
-    conditions:
-      - cause: "Phát hiện DB Bitemporal bị lỗi version hoặc hỏng cấu trúc lúc boot."
-        effect: "Supervisor từ chối khởi động SCP (Fail-Closed) thay vì tạo DB rỗng mới."
-        status: "MISSING"
+    test_dir: "tests/T01_boot"
 
-  # ---------------------------------------------------------
-  # T02: Contract & Authorities (P0, P1, P2)
-  # ---------------------------------------------------------
+    description: >
+      Boot phải xác minh schema, authority configuration và recovery state
+      trước khi hệ thống được coi là READY.
+
+    conditions:
+
+      - id: "T01-BITEMPORAL-SCHEMA-INTEGRITY"
+
+        cause: >
+          World/Temporal database có schema version không hỗ trợ,
+          migration checksum sai hoặc integrity check thất bại.
+
+        expected_effects:
+          - "Supervisor từ chối READY."
+          - "Không tạo database rỗng thay thế."
+          - "State = BLOCKED_SCHEMA_INTEGRITY."
+          - "Historical authority data phải được giữ nguyên."
+
+        forbidden_shortcuts:
+          - "delete corrupt DB and recreate"
+          - "ignore migration mismatch"
+
+        required_evidence:
+          minimum_level: "D"
+          independent_verifier: true
+
+      - id: "T01-UNCLEAN-SHUTDOWN"
+
+        cause: >
+          Boot phát hiện một operation/cycle trước đó chưa kết thúc sạch.
+
+        expected_effects:
+          - "Reload durable intent/journal."
+          - >
+            Read-only deterministic work có thể resume/replay nếu policy
+            xác nhận an toàn.
+          - >
+            Uncertain external side effect phải chuyển
+            RECONCILE_REQUIRED.
+          - "Không blind retry."
+
+        required_evidence:
+          minimum_level: "D"
+          independent_verifier: true
+
+      - id: "T01-POLICY-BOOT-FAIL-CLOSED"
+
+        cause: >
+          SourcePolicy, Privacy policy, ZeroCost policy hoặc protected
+          authority config thiếu/không hợp lệ.
+
+        expected_effects:
+          - "System không được mở affected capability."
+          - "Affected capability = BLOCKED/UNAVAILABLE."
+          - "Không dùng permissive defaults."
+
+# ===========================================================================
+# T02 — CONTRACT & AUTHORITIES
+# ===========================================================================
+
   T02:
-    description: "Nhân: Gọi các hàm cốt lõi. Quả: Hợp đồng dữ liệu được tôn trọng."
-    conditions:
-      - cause: "Một observation mới từ bên ngoài được gửi tới WorldStateAuthority."
-        effect: "Ghi nhận vào Bitemporal DB với Valid Time và System Time riêng biệt, không ghi đè."
-        status: "MISSING"
-      - cause: "Entity/Event Authority nhận hai sự kiện trùng lặp từ 2 nguồn."
-        effect: "Phân giải thành 1 Entity thống nhất mà không mất đi Lineage gốc."
-        status: "MISSING"
+    test_dir: "tests/T02_contract"
 
-  # ---------------------------------------------------------
-  # T03: Capability & Security
-  # ---------------------------------------------------------
+    description: >
+      Object identity, authority boundary, temporal semantics và state
+      transition phải được machine-enforce.
+
+    conditions:
+
+      - id: "T02-OBSERVATION-INGRESS"
+
+        cause: "P2 nhận một external observation."
+
+        required_authority_path:
+          - "WorldAcquisitionAuthority"
+          - "Quarantine/Sanitization"
+          - "Privacy classification"
+          - "Source Identity"
+          - "EvidenceStore"
+          - "WorldObservation"
+          - "World/Event/Temporal Authority"
+
+        expected_effects:
+          - "Raw input không trực tiếp mutate WorldState."
+          - "Evidence occurrence có provenance."
+          - "observed_at được giữ."
+          - "valid time không bị đồng nhất với ingest time."
+
+        forbidden_shortcuts:
+          - "external payload => Knowledge"
+          - "external payload => WorldState UPDATE"
+
+        required_evidence:
+          minimum_level: "C"
+          independent_verifier: true
+
+      - id: "T02-BITEMPORAL-ASSERTION"
+
+        cause: >
+          Một property của entity thay đổi giữa T1 và T2.
+
+        expected_effects:
+          - "Assertion cũ giữ nguyên historical validity."
+          - "Assertion mới có validity interval riêng."
+          - "System/known time được ghi riêng."
+          - "state(entity, T1) và state(entity, T2) reconstruct được."
+
+        forbidden_shortcuts:
+          - "UPDATE old row in place"
+          - "current state only storage"
+
+        required_evidence:
+          minimum_level: "C"
+
+      - id: "T02-ENTITY-AMBIGUITY"
+
+        cause: >
+          EntityAuthority nhận hai candidate có tên/embedding giống nhau
+          nhưng identity evidence chưa đủ.
+
+        expected_effects:
+          - "IdentityStatus = AMBIGUOUS hoặc POSSIBLE_MATCH."
+          - "Không silent merge."
+          - "Mọi evidence/source ref được giữ."
+
+        forbidden_shortcuts:
+          - "same name => same entity"
+          - "highest embedding score => identity resolved"
+
+      - id: "T02-EVENT-DEDUP"
+
+        cause: >
+          Nhiều observations có vẻ mô tả cùng một real-world event.
+
+        expected_effects:
+          - >
+            EventAuthority chỉ canonicalize khi identity/scope/time evidence
+            đáp ứng contract.
+          - >
+            Nếu chưa đủ evidence, giữ events riêng và đánh
+            POSSIBLE_DUPLICATE.
+          - "Không làm mất source/evidence lineage."
+
+# ===========================================================================
+# T03 — CAPABILITY & SECURITY
+# ===========================================================================
+
   T03:
-    description: "Nhân: Yêu cầu đặc quyền. Quả: Ranh giới bảo mật không thể bị xuyên thủng."
-    conditions:
-      - cause: "P2 yêu cầu cào dữ liệu (Scrape) từ mạng để quan sát."
-        effect: "Egress Gate chặn tuyệt đối mọi payload có tính chất thay đổi (POST/PUT/DELETE)."
-        status: "MISSING"
-      - cause: "Risk Authority (P2) phát hiện rủi ro mức độ CRITICAL."
-        effect: "Capability Token của Agent lập tức bị Revoke, đóng băng Execution."
-        status: "MISSING"
+    test_dir: "tests/T03_capability"
 
-  # ---------------------------------------------------------
-  # T04: Task Kernel
-  # ---------------------------------------------------------
+    description: >
+      P2 tăng khả năng quan sát nhưng không tự mở rộng quyền hành động.
+
+    conditions:
+
+      - id: "T03-ACQUISITION-EGRESS"
+
+        cause: "WorldAcquisitionAuthority yêu cầu truy cập external source."
+
+        expected_effects:
+          - "Request phải qua Egress/Capability policy."
+          - "Redirect target phải được kiểm lại."
+          - "Private/local metadata ranges bị deny nếu không được authorize."
+          - >
+            Side-effect class UNKNOWN phải DENY.
+          - >
+            GET/HEAD là mặc định cho observation; read-only POST chỉ được
+            dùng khi endpoint contract + policy chứng minh nó là query
+            không side-effect.
+
+        forbidden_shortcuts:
+          - "URL string allowlist only"
+          - "redirect without revalidation"
+          - "POST assumed safe because response is read-only"
+
+        required_evidence:
+          minimum_level: "C"
+          independent_verifier: true
+
+      - id: "T03-PROMPT-INJECTION-QUARANTINE"
+
+        cause: >
+          External document chứa instruction kiểu
+          'ignore policy', 'run command', 'upload secret'.
+
+        expected_effects:
+          - "Nội dung vẫn chỉ là untrusted data."
+          - "Không tạo ActionProposal từ instruction đó."
+          - "Không trở thành system/developer authority."
+          - "Provenance được giữ để audit."
+
+        forbidden_shortcuts:
+          - "external text => executable instruction"
+
+      - id: "T03-CRITICAL-RISK-AUTHORITY"
+
+        cause: "RiskAssessment đạt policy-defined CRITICAL/MATERIAL threshold."
+
+        expected_effects:
+          - "RiskAuthority tạo RiskAssessment/ContainmentRecommendation."
+          - "RiskAuthority không trực tiếp revoke capability."
+          - "Governance đánh giá ALLOW/DENY/REQUIRE_HUMAN/UNKNOWN."
+          - >
+            Chỉ Capability Authority mới được revoke token nếu policy
+            explicit cho phép.
+          - >
+            External alert phải REQUIRE_HUMAN nếu Complete SCP contract
+            yêu cầu human authority.
+
+        forbidden_shortcuts:
+          - "risk score => direct execution freeze"
+          - "risk engine => external alert"
+
+      - id: "T03-DATA-CLASS-BOUNDARY"
+
+        cause: >
+          Acquisition, experiment hoặc LLM reasoning chứa dữ liệu nhạy cảm.
+
+        expected_effects:
+          - "Privacy/DataClass policy chạy trước external dispatch."
+          - "Provider free nhưng không eligible vẫn DENY."
+          - "Derived data không tự hạ classification."
+
+# ===========================================================================
+# T04 — TASK KERNEL
+# ===========================================================================
+
   T04:
-    description: "Nhân: Giao dịch trạng thái. Quả: Tính nhất quán của State Machine."
-    conditions:
-      - cause: "Tiến trình Kernel bị sập (Crash) khi đang xử lý Bitemporal Event."
-        effect: "Checkpoint phục hồi (Recovery) Rollback event đó, không để lại dữ liệu rác."
-        status: "MISSING"
+    test_dir: "tests/T04_kernel"
 
-  # ---------------------------------------------------------
-  # T05: LLM Gateway
-  # ---------------------------------------------------------
+    description: >
+      Long-running cognitive/world tasks phải sử dụng durable TaskKernel
+      semantics, bounded execution và recovery-safe transitions.
+
+    conditions:
+
+      - id: "T04-WORLD-EVENT-CRASH"
+
+        cause: >
+          Process crash giữa durable event intent và projection update.
+
+        expected_effects:
+          - "Committed authority event không bị mất."
+          - "Partial projection có thể rebuild/replay."
+          - "Không tạo phantom event."
+          - "Không mutate historical evidence."
+
+        required_evidence:
+          minimum_level: "D"
+          independent_verifier: true
+
+      - id: "T04-UNCERTAIN-ACTION-OUTCOME"
+
+        cause: >
+          Crash xảy ra sau ActionIntent nhưng trước durable Observation.
+
+        expected_effects:
+          - "Task state = RECONCILE_REQUIRED."
+          - "Action không được tự động chạy lại."
+          - >
+            Reconciliation phải quan sát external post-state trước khi
+            quyết định retry/commit/rollback.
+
+        forbidden_shortcuts:
+          - "process restart => rerun last action"
+
+        required_evidence:
+          minimum_level: "D"
+          independent_verifier: true
+
+      - id: "T04-BOUNDED-MONITOR"
+
+        cause: "P2 tạo monitor/acquisition task dài hạn."
+
+        expected_effects:
+          - "Có explicit frequency/budget/stop condition."
+          - "Task có cancellation/lease."
+          - "Không tạo unbounded crawler loop."
+
+# ===========================================================================
+# T05 — LLM GATEWAY / ZERO-COST
+# ===========================================================================
+
   T05:
-    description: "Nhân: Gửi request tới LLM. Quả: Tính kiên cường, Zero-Cost, Route đúng Model."
-    conditions:
-      - cause: "Causal Authority yêu cầu tính toán logic nhân quả phức tạp."
-        effect: "Gateway tự động Route request này tới Model Tier 1 (Pro), từ chối Zero-Cost."
-        status: "MISSING"
+    test_dir: "tests/T05_gateway"
 
-  # ---------------------------------------------------------
-  # T06: Independent Verifier
-  # ---------------------------------------------------------
+    description: >
+      Complexity chỉ ảnh hưởng ranking trong tập provider/model đã được
+      xác minh đủ capability, privacy và đúng $0; không tạo quyền paid.
+
+    conditions:
+
+      - id: "T05-CAUSAL-COMPLEXITY-ROUTING"
+
+        cause: >
+          Causal/Forecast Authority yêu cầu reasoning phức tạp.
+
+        expected_effects:
+          - >
+            Gateway chọn model tốt nhất trong VERIFIED-FREE candidate set
+            đáp ứng task capability.
+          - "ZeroCost PEP vẫn chạy ngay trước network dispatch."
+          - >
+            Không có qualified verified-free model thì
+            BLOCKED_NO_QUALIFIED_FREE_MODEL hoặc WAIT.
+
+        forbidden_shortcuts:
+          - "complex task => paid model"
+          - "Tier 1/Pro => cost exemption"
+          - "quality requirement => paid fallback"
+
+        required_evidence:
+          minimum_level: "C"
+          independent_verifier: true
+
+      - id: "T05-PRICE-PROOF"
+
+        cause: >
+          Candidate có price proof PAID, UNKNOWN hoặc STALE.
+
+        expected_effects:
+          - "Candidate không được network dispatch."
+          - "Outbound call count cho candidate = 0."
+          - "Name ':free' không override PricingProof."
+
+        forbidden_shortcuts:
+          - "free by model name"
+          - "stale allowlist => authorization"
+
+      - id: "T05-FREE-FAILOVER"
+
+        cause: >
+          Verified-free candidate A trả 429/timeout/unavailable.
+
+        expected_effects:
+          - "Circuit breaker/backoff được áp dụng."
+          - "Gateway thử verified-free eligible candidate B."
+          - >
+            Khi free pool cạn: WAITING_FREE_QUOTA hoặc BLOCKED.
+          - "Paid candidate không bao giờ được reach."
+
+      - id: "T05-PRIVACY-OVERRIDES-PRICE"
+
+        cause: >
+          Model có exact-$0 proof nhưng không được phép nhận DataClass
+          của request.
+
+        expected_effects:
+          - "DENY_DATA_CLASS."
+          - "Network call count = 0."
+
+# ===========================================================================
+# T06 — INDEPENDENT VERIFIER
+# ===========================================================================
+
   T06:
-    description: "Nhân: Quan sát thực tế. Quả: Niềm tin phải dựa trên Bằng chứng."
-    conditions:
-      - cause: "Agent đưa ra bản Dự báo (Forecast) tương lai."
-        effect: "Verifier kiểm tra chéo (Cross-check) với các sự kiện độc lập để chống Ảo giác (Hallucination)."
-        status: "MISSING"
+    test_dir: "tests/T06_verifier"
 
-  # ---------------------------------------------------------
-  # T07: Learning (Giao thoa P1 & P2)
-  # ---------------------------------------------------------
+    description: >
+      Verifier đánh giá evidence/postcondition; không biến prediction,
+      model confidence hoặc source count thành Truth.
+
+    conditions:
+
+      - id: "T06-FORECAST-ISSUANCE"
+
+        cause: "Forecast Authority phát hành một forecast."
+
+        expected_effects:
+          - "Forecast status = OPEN."
+          - "Scope/horizon/assumptions được ghi."
+          - "Baseline hoặc baseline=UNKNOWN được ghi."
+          - "Resolution policy được ghi."
+          - "Evidence/provenance được kiểm."
+          - "Forecast chưa được gọi VERIFIED chỉ vì model confidence cao."
+
+        forbidden_shortcuts:
+          - "forecast issued => forecast verified"
+          - "model self-score => Reality"
+
+      - id: "T06-FORECAST-RESOLUTION"
+
+        cause: "Resolution horizon của forecast đến."
+
+        required_authority_path:
+          - "Reality observation"
+          - "EvidenceStore"
+          - "Independent Resolver"
+          - "ForecastResolution"
+          - "Calibration Ledger"
+
+        expected_effects:
+          - "Outcome được resolve bằng Reality evidence."
+          - "Original forecast immutable."
+          - "Calibration được cập nhật bằng resolution record."
+
+        required_evidence:
+          minimum_level: "C"
+          independent_verifier: true
+
+      - id: "T06-CAUSAL-CLAIM"
+
+        cause: >
+          CausalAuthority muốn nâng relation từ association/precedence
+          thành supported cause.
+
+        expected_effects:
+          - "Confounders được xét."
+          - "Alternative causes được giữ."
+          - >
+            Promotion contract phải yêu cầu evidence phù hợp với loại
+            causal claim.
+          - >
+            Khi contract yêu cầu intervention/experiment evidence,
+            correlation-only evidence là INSUFFICIENT.
+
+        forbidden_shortcuts:
+          - "A precedes B => A causes B"
+          - "correlation coefficient => causal proof"
+
+      - id: "T06-LINEAGE-COLLAPSE"
+
+        cause: >
+          N nguồn báo cùng event nhưng cùng upstream lineage.
+
+        expected_effects:
+          - "report_count có thể tăng."
+          - "independent_support không tăng tương ứng."
+          - "UNKNOWN_INDEPENDENCE đóng góp 0 independent support."
+
+# ===========================================================================
+# T07 — LEARNING
+# ===========================================================================
+
   T07:
-    description: "Nhân: Sai lầm thực tế. Quả: Tiến hóa nhận thức."
-    conditions:
-      - cause: "Dự báo (Forecast) của P2 không xảy ra trong thực tế."
-        effect: "EpistemicBoundary thu thập mâu thuẫn -> Ghi MissingPiece -> Sinh OpenQuestion."
-        status: "MISSING" # Giao thoa P2 và P1
+    test_dir: "tests/T07_learning"
 
-  # ---------------------------------------------------------
-  # T08: Runtime & Soak
-  # ---------------------------------------------------------
+    description: >
+      Reality feedback phải cập nhật calibration/doubt/knowledge mà không
+      biến một outcome đơn lẻ thành Truth mới.
+
+    conditions:
+
+      - id: "T07-FORECAST-MISS"
+
+        cause: "Reality outcome khác forecast."
+
+        expected_effects:
+          - "Forecast được resolve theo contract."
+          - "Calibration ledger ghi error/outcome."
+          - >
+            Forecast miss tự nó không đồng nghĩa underlying knowledge
+            bị CONTRADICTED.
+          - >
+            Nếu miss cho thấy missing observability/model assumption/
+            knowledge gap, DoubtAuthority có thể tạo MissingPiece/OpenQuestion.
+
+        forbidden_shortcuts:
+          - "forecast wrong => all supporting knowledge false"
+
+      - id: "T07-MATERIAL-CONTRADICTION"
+
+        cause: >
+          New Reality evidence tạo material contradiction với
+          VERIFIED/GOLD knowledge.
+
+        expected_effects:
+          - "Contradiction được lưu append-only."
+          - "Knowledge chuyển UNDER_REVIEW theo Promotion/Revalidation policy."
+          - "Lịch sử cũ không bị overwrite."
+          - "Temporal change phải được phân biệt với direct contradiction."
+
+      - id: "T07-EXPERIMENT-LEARNING"
+
+        cause: "Experiment hoàn tất."
+
+        expected_effects:
+          - "ExperimentResult tạo Evidence."
+          - "Hypothesis được update."
+          - "LessonLearned mới bắt đầu RAW."
+          - "Không trực tiếp VERIFIED/GOLD."
+
+        forbidden_shortcuts:
+          - "one successful experiment => universal rule"
+
+# ===========================================================================
+# T08 — RUNTIME & SOAK
+# ===========================================================================
+
   T08:
-    description: "Nhân: Áp lực thời gian dài. Quả: Chống rò rỉ và tràn giới hạn."
-    conditions:
-      - cause: "Stream 10,000 sự kiện Bitemporal đổ về liên tục."
-        effect: "Hệ thống vẫn giữ được latency dưới mức cho phép, không OOM."
-        status: "MISSING"
+    test_dir: "tests/T08_runtime"
 
-  # ---------------------------------------------------------
-  # T09: Golden Task (End-to-End)
-  # ---------------------------------------------------------
+    description: >
+      P2 phải chịu được workload dài hạn trong bounded resource profile
+      mà không làm sai semantics.
+
+    conditions:
+
+      - id: "T08-BITEMPORAL-STREAM-SOAK"
+
+        cause: >
+          Một bounded soak profile đưa lượng lớn world observations/events
+          liên tục vào production path.
+
+        expected_effects:
+          - "Không OOM."
+          - "Không mất event."
+          - "Không duplicate authority event ngoài contract."
+          - "Temporal reconstruction vẫn đúng."
+          - "Latency/throughput được so với machine-readable profile."
+
+        performance_profile:
+          required: true
+          profile_ref: "spec/performance_profiles/world_intelligence.yaml"
+          on_missing_profile: "BLOCKED"
+
+        forbidden_shortcuts:
+          - "latency dưới mức cho phép without explicit threshold"
+
+      - id: "T08-RESOURCE-BOUND"
+
+        cause: >
+          Acquisition vượt request/byte/storage/concurrency/free-quota
+          budget đã cấp.
+
+        expected_effects:
+          - "Task chuyển WAIT_RESOURCE/BLOCKED."
+          - "Không tự tăng budget."
+          - "Không fallback paid."
+          - "Không tạo crawler runaway."
+
+      - id: "T08-PROJECTION-DETERMINISM"
+
+        cause: >
+          World-state projection được rebuild từ cùng authority event history.
+
+        expected_effects:
+          - "Projection semantic result phải tương đương."
+          - "No hidden mutable state được phép thay Truth."
+
+# ===========================================================================
+# T09 — GOLDEN TASK END-TO-END
+# ===========================================================================
+
   T09:
-    description: "Nhân: Một nhiệm vụ trọn vẹn. Quả: Chạy xuyên suốt 3 lớp P0, P1, P2."
-    conditions:
-      - cause: "Dữ liệu đầu vào: Một tin tức thay đổi môi trường. Đầu ra mong muốn: Báo cáo rủi ro chặn Task Kernel."
-        effect: "Golden C Task hoàn thành mà không có sự can thiệp của Dummy/Stub."
-        status: "MISSING"
+    test_dir: "tests/T09_golden_task"
 
-  # ---------------------------------------------------------
-  # T10: Recovery & Chaos
-  # ---------------------------------------------------------
+    description: >
+      Golden C chứng minh P0 + P1 + P2 nối thành một World Intelligence
+      loop thật, không bypass authority.
+
+    conditions:
+
+      - id: "T09-GOLDEN-C-WORLD-LOOP"
+
+        cause: >
+          Hermetic external source thay đổi service state:
+          HEALTHY -> DEGRADED -> DOWN.
+
+        required_authority_path:
+          - "World Acquisition"
+          - "Quarantine"
+          - "EvidenceStore"
+          - "Source Identity"
+          - "Lineage"
+          - "Entity/Event Authority"
+          - "Bitemporal World State"
+          - "Change Detection"
+          - "P1 Epistemic Assessment"
+          - "Risk Assessment"
+          - "Governance"
+          - "Audit"
+
+        expected_effects:
+          - "Historical states reconstruct được."
+          - "Current state phản ánh evidence mới nhất hợp lệ."
+          - "Raw source không trực tiếp mutate knowledge."
+          - "Risk không trực tiếp execute."
+          - "Full evidence chain reconstruct được."
+
+        test_environment:
+          external_world: "hermetic local service"
+          production_authorities: true
+          authority_stubs_allowed: false
+
+        required_evidence:
+          minimum_level: "C"
+          independent_verifier: true
+
+      - id: "T09-GOLDEN-C-CONTAINMENT"
+
+        cause: >
+          Golden C tạo material local risk có containment action được
+          policy cho phép.
+
+        expected_effects:
+          - "RiskAuthority tạo recommendation."
+          - "Governance quyết định."
+          - "Capability authority cấp/revoke quyền tương ứng."
+          - "TaskKernel thực hiện bounded reversible action."
+          - "RealityVerifier kiểm tra post-state."
+          - "DENY/UNKNOWN không tạo side effect."
+
+        forbidden_shortcuts:
+          - "RiskAuthority calls tool directly"
+
+        required_evidence:
+          minimum_level: "C"
+          independent_verifier: true
+
+# ===========================================================================
+# T10 — RECOVERY & CHAOS
+# ===========================================================================
+
   T10:
-    description: "Nhân: Lỗi phần cứng/Hệ thống. Quả: Hồi phục nguyên vẹn."
-    conditions:
-      - cause: "Tiến trình Causal Engine bị Kill -9 mid-inference."
-        effect: "Event được đưa về trạng thái UNKNOWN và retry khi Boot lại."
-        status: "MISSING"
+    test_dir: "tests/T10_recovery"
 
-  # ---------------------------------------------------------
-  # T11: Release Gates
-  # ---------------------------------------------------------
-  T11:
-    description: "Nhân: Yêu cầu Release. Quả: Chặn đứng mã lỗi lọt vào Production."
+    description: >
+      Recovery phải phân biệt read-only replay với uncertain external
+      side effect; không dùng một quy tắc retry chung.
+
     conditions:
-      - cause: "Module P2 (World Intelligence) không chứa khai báo bind với DNA skills."
-        effect: "Pipeline Release đánh Fail toàn bộ tiến trình Build."
-        status: "MISSING"
+
+      - id: "T10-CAUSAL-INFERENCE-KILL"
+
+        cause: >
+          Process bị hard-kill giữa causal/forecast computation chưa có
+          external side effect.
+
+        expected_effects:
+          - "Incomplete computation không trở thành authority result."
+          - "State = INCOMPLETE/UNKNOWN."
+          - >
+            Computation có thể replay nếu input snapshot và policy chứng minh
+            read-only/deterministic-enough.
+          - "Không tạo duplicate durable decision."
+
+        required_evidence:
+          minimum_level: "D"
+          independent_verifier: true
+
+      - id: "T10-POST-ACTION-PRE-OBSERVATION-KILL"
+
+        cause: >
+          Process bị kill sau external ActionIntent/action dispatch nhưng
+          trước durable Observation.
+
+        expected_effects:
+          - "State = RECONCILE_REQUIRED."
+          - "Không blind retry."
+          - "External Reality phải được quan sát trước."
+
+        required_evidence:
+          minimum_level: "D"
+          independent_verifier: true
+
+      - id: "T10-FORECAST-OPEN-RECOVERY"
+
+        cause: >
+          Process restart sau khi forecast đã được committed nhưng trước
+          resolution horizon.
+
+        expected_effects:
+          - "Forecast vẫn OPEN."
+          - "Không phát hành forecast duplicate."
+          - "Resolution job được phục hồi."
+          - "Original issued_at/horizon giữ nguyên."
+
+      - id: "T10-WORLD-PROJECTION-RECOVERY"
+
+        cause: >
+          Projection store mất/corrupt nhưng authority event/evidence history
+          vẫn nguyên vẹn.
+
+        expected_effects:
+          - "Projection có thể rebuild."
+          - "Historical authority records không được synthesize lại tùy ý."
+          - "Nếu authority history thiếu thì state = UNKNOWN/BLOCKED."
+
+# ===========================================================================
+# T11 — RELEASE & EVIDENCE AUTHORITY
+# ===========================================================================
+
+  T11:
+    test_dir: "tests/T11_release"
+
+    description: >
+      Không future capability nào được dùng trong release claim nếu thiếu
+      semantic authority, binding, mandatory test evidence hoặc same-SHA proof.
+
+    conditions:
+
+      - id: "T11-FUTURE-CAPABILITY-BINDING"
+
+        cause: >
+          P2 capability được đưa vào release/current-Complete-SCP scope.
+
+        expected_effects:
+          - "Capability phải tồn tại trong Complete SCP Reference."
+          - "Implementation binding phải tồn tại."
+          - "Mandatory T00-T11 mapping phải đầy đủ theo applicability."
+          - "DNA + specialized Skill gate binding phải tồn tại."
+          - "Thiếu bất kỳ authority bắt buộc => BLOCKED."
+
+      - id: "T11-SAME-SHA-EVIDENCE"
+
+        cause: "Release/checkpoint claim được tạo cho SHA X."
+
+        expected_effects:
+          - "Mandatory evidence.tested_sha = X."
+          - "Reference hash được bind."
+          - "DNA/Skill hashes được bind."
+          - "Policy/profile/config/runtime hashes được bind khi applicable."
+          - "Evidence của SHA Y không được dùng chứng minh X."
+
+        required_evidence:
+          minimum_level: "C"
+          independent_verifier: true
+          same_sha: true
+
+      - id: "T11-MISSING-GATE"
+
+        cause: >
+          Một mandatory gate FAILED, BLOCKED, HARNESS_BROKEN hoặc thiếu
+          evidence.
+
+        expected_effects:
+          - "Final release verdict không được PASS."
+          - "UNKNOWN không được chuyển thành PASS."
+          - "Manifest phải giữ failure classification."
+
+        forbidden_shortcuts:
+          - "missing evidence => assumed green"
+          - "stale CI result"
+          - "manual status override without authority"
+
+      - id: "T11-EXTERNAL-ALERT-AUTHORITY"
+
+        cause: >
+          Release scope bao gồm risk.external_alert.
+
+        expected_effects:
+          - "Human-authority requirement phải có test/evidence."
+          - "No auto-send path bypassing governance."
+          - "Missing human authority proof => BLOCKED."
+
+# ---------------------------------------------------------------------------
+# CROSS-GATE VERTICAL SLICES
+# ---------------------------------------------------------------------------
+
+vertical_slices:
+
+  - id: "P2-VS-A-WORLD-STATE"
+
+    flow:
+      - "Hermetic source"
+      - "Acquisition"
+      - "Evidence"
+      - "Source Identity"
+      - "Entity/Event"
+      - "Bitemporal Assertion"
+      - "World Change"
+      - "World State Projection"
+
+    required_assertions:
+      - "T1/T2/T3 preserved"
+      - "current != historical overwrite"
+      - "valid time != observed time where fixture differs"
+      - "raw source cannot directly mutate Knowledge"
+
+    minimum_evidence: "C"
+
+  - id: "P2-VS-B-LINEAGE"
+
+    flow:
+      - "Source A"
+      - "Copies B/C sharing upstream A"
+      - "Lineage Authority"
+      - "Independent Source D"
+
+    required_assertions:
+      - "report_count may equal 3"
+      - "independent_support remains 1 before D"
+      - "UNKNOWN_INDEPENDENCE counts 0"
+      - "D increases independent support only after assessment"
+
+    minimum_evidence: "C"
+
+  - id: "P2-VS-C-TEMPORAL-CHANGE"
+
+    scenario:
+      T1: "Model X has verified exact-$0 pricing"
+      T2: "Fresh pricing evidence says Model X is paid"
+
+    required_assertions:
+      - "old assertion preserved for old validity interval"
+      - "new current state separately represented"
+      - "old evidence is not rewritten as false"
+      - "next Gateway dispatch to Model X is denied by ZeroCost PEP"
+
+    minimum_evidence: "C"
+
+  - id: "P2-VS-D-FORECAST"
+
+    flow:
+      - "Observed trend"
+      - "Forecast issued OPEN"
+      - "Simulated/harness time advances"
+      - "Reality observation"
+      - "Forecast resolution"
+      - "Calibration update"
+
+    required_assertions:
+      - "forecaster cannot self-resolve"
+      - "original prediction immutable"
+      - "Reality evidence required"
+
+    minimum_evidence: "C"
+
+  - id: "P2-VS-E-CAUSAL"
+
+    scenario:
+      true_cause: "A causes B"
+      confounder_or_correlate: "C correlates with B but does not cause B"
+
+    required_assertions:
+      - "association alone cannot promote CAUSES"
+      - "controlled/intervention evidence distinguishes A and C"
+      - "alternative causes/confounders retained"
+
+    minimum_evidence: "C"
+
+  - id: "P2-VS-F-RISK"
+
+    flow:
+      - "Anomaly"
+      - "World change"
+      - "Forecast/Risk assessment"
+      - "Containment recommendation"
+      - "Governance decision"
+      - "optional authorized local action"
+      - "Reality verification"
+
+    required_assertions:
+      - "anomaly != hazard != risk"
+      - "RiskAuthority cannot execute directly"
+      - "external alert requires human authority"
+      - "UNKNOWN governance creates no side effect"
+
+    minimum_evidence: "C"
+
+# ---------------------------------------------------------------------------
+# MACHINE VALIDATION REQUIREMENTS
+# ---------------------------------------------------------------------------
+
+machine_validation:
+
+  structural_rules:
+    - "Every condition id must be globally unique."
+    - "Every T00-T11 gate must exist."
+    - "Every gate must map to a live tests/Txx_* taxonomy directory."
+    - "Every condition must define cause and expected_effects."
+    - >
+      Security/governance conditions must define forbidden shortcut or
+      explicit authority path where applicable.
+    - >
+      VERIFIED_WITHIN_SCOPE implementation status requires non-empty
+      evidence_refs.
+    - >
+      C/D VERIFIED_WITHIN_SCOPE evidence requires tested SHA metadata.
+    - >
+      Any proposed capability promoted to active/current scope must exist
+      in Complete SCP Reference.
+    - >
+      Any active implementation capability must have implementation binding.
+    - >
+      risk.external_alert must retain human-authority semantics.
+    - >
+      intelligence.zero_cost semantics must remain:
+      max_cost_usd=0, paid_fallback=false, unknown_price_policy=DENY.
+
+  semantic_red_flags:
+    - "paid fallback"
+    - "complex task => paid"
+    - "confidence => VERIFIED"
+    - "source count => independent support"
+    - "external data => Knowledge"
+    - "RiskAuthority => direct tool execution"
+    - "forecast => VERIFIED at issuance"
+    - "correlation => CAUSES"
+    - "restart => blind retry"
+    - "entity name equality => identity"
+    - "current state overwrite history"
+
+  change_policy: >
+    Thay đổi matrix này phải qua T00 semantic audit.
+    Nếu thay đổi làm yếu một global invariant hoặc protected invariant,
+    DriftGuard/Governance phải DENY hoặc REQUIRE_GOVERNANCE.
+
+# ---------------------------------------------------------------------------
+# RELEASE INTERPRETATION
+# ---------------------------------------------------------------------------
+
+release_interpretation:
+
+  this_file_can_prove:
+    - "future requirement exists"
+    - "expected cross-gate architecture coverage is specified"
+
+  this_file_cannot_prove:
+    - "capability implemented"
+    - "capability runtime verified"
+    - "P2 complete"
+    - "Complete SCP complete"
+    - "release safe"
+
+  scoped_p2_verdict_template: >
+    26-P2 World Intelligence Plane verified within P2 scope on
+    evidence snapshot SHA X.
+
+  prohibited_overclaim:
+    - "Complete SCP DONE"
+    - "production safe because matrix is complete"
+    - "verified because all YAML conditions exist"
