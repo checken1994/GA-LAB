@@ -93,6 +93,8 @@ không đổi fail-closed thành fail-open chỉ để pass
 không blind-retry uncertain external side effect; reconcile first
 small + reversible + observable changes
 main không merge/mutate code trừ khi người dùng chỉ thị rõ và release rules cho phép
+- **khi thực hiện xong code, dọn dẹp các file tạm và rác trong thư mục gốc trước khi đồng bộ lên Main để giữ 1 thư mục gốc sạch theo chuẩn hóa hệ thống đã sẵn sàng công khai.**
+
 ```
 
 ## A7. Failure classification
