@@ -521,20 +521,20 @@ phase_coverage_map:
   P3: {must_establish: [X03_RESOURCE_GOVERNOR.full, X06_SIMULATION_DIGITAL_TWIN, X07_MULTI_AGENT_COORDINATION, S01_EXECUTION_OS.long_running_mission, S10_RISK_INTELLIGENCE.incident_command, S12_SELF_AWARENESS_AUDIT.audit_the_auditor_and_independent_review, X05_DISASTER_RECOVERY.schema_migration]}
   P4: {must_establish: [S11_GOVERNANCE.external_authority, S10_RISK_INTELLIGENCE.external_alert, X04_SUPPLY_CHAIN.full, X05_DISASTER_RECOVERY.full_continuity, S01_EXECUTION_OS.high_consequence_boundary]}
 open_questions_required:
-- {id: OQ01, question: Khi nào storage authority phải vượt SQLite/equivalent và migration authority thay đổi ra sao?}
-- {id: OQ02, question: Lineage resolver deterministic có thể đạt đến mức nào trước khi cần semantic assistance?}
-- {id: OQ03, question: Làm sao qualification model miễn phí tránh benchmark overfit và stale capability?}
-- {id: OQ04, question: Revalidation cadence tối ưu theo từng domain/volatility là gì?}
-- {id: OQ05, question: External authority connectors nào thực sự được ủy quyền và ở phạm vi nào?}
-- {id: OQ06, question: Privacy/retention theo jurisdiction nào và policy nào được ưu tiên khi xung đột?}
-- {id: OQ07, question: Digital Twin cần fidelity nào trước khi dùng cho từng loại action/risk?}
-- {id: OQ08, question: Hai independent verifier bất đồng thì resolution authority nào được dùng?}
-- {id: OQ09, question: Causal inference verified-free nào đủ tốt theo từng task class?}
-- {id: OQ10, question: Knowledge graph partition/rebuild authority vận hành thế nào khi scale?}
-- {id: OQ11, question: Information-gain scheduler chống source bias và feedback loop thế nào?}
-- {id: OQ12, question: Phát hiện long-term poisoning và giả independent lineage bằng cách nào?}
-- {id: OQ13, question: Quota phân bổ user task, verification, learning và curiosity thế nào?}
-- {id: OQ14, question: Self-fix test infrastructure được phép tự sửa đến đâu để tránh Goodhart?}
+- {id: OQ01, question: "Khi nào storage authority phải vượt SQLite/equivalent và migration authority thay đổi ra sao?"}
+- {id: OQ02, question: "Lineage resolver deterministic có thể đạt đến mức nào trước khi cần semantic assistance?"}
+- {id: OQ03, question: "Làm sao qualification model miễn phí tránh benchmark overfit và stale capability?"}
+- {id: OQ04, question: "Revalidation cadence tối ưu theo từng domain/volatility là gì?"}
+- {id: OQ05, question: "External authority connectors nào thực sự được ủy quyền và ở phạm vi nào?"}
+- {id: OQ06, question: "Privacy/retention theo jurisdiction nào và policy nào được ưu tiên khi xung đột?"}
+- {id: OQ07, question: "Digital Twin cần fidelity nào trước khi dùng cho từng loại action/risk?"}
+- {id: OQ08, question: "Hai independent verifier bất đồng thì resolution authority nào được dùng?"}
+- {id: OQ09, question: "Causal inference verified-free nào đủ tốt theo từng task class?"}
+- {id: OQ10, question: "Knowledge graph partition/rebuild authority vận hành thế nào khi scale?"}
+- {id: OQ11, question: "Information-gain scheduler chống source bias và feedback loop thế nào?"}
+- {id: OQ12, question: "Phát hiện long-term poisoning và giả independent lineage bằng cách nào?"}
+- {id: OQ13, question: "Quota phân bổ user task, verification, learning và curiosity thế nào?"}
+- {id: OQ14, question: "Self-fix test infrastructure được phép tự sửa đến đâu để tránh Goodhart?"}
 - {id: OQ15, question: 'Root-of-trust/authority nào vĩnh viễn human-owned hoặc non-self-modifiable, và rotation/recovery policy cụ thể là gì?'}
 coverage_contract:
   required: {core_systems: 12, cross_cutting_systems: 8, capabilities: 120, cause_effect_edges: 51, test_gates: 12, phases: 5, global_invariants: 29}
