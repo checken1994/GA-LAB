@@ -311,6 +311,21 @@ claims:
   - tests/T02_contract/test_god_split_semantic_parity.py::test_split_facades_keep_public_callable_identity
   - tests/T02_contract/test_god_split_semantic_parity.py::test_split_facades_keep_public_module_identity
   note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
+- target_kind: capability
+  target_id: execution.recovery_reconciliation
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_outcomes_are_durable_and_never_retryable
+  - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_requires_independent_verifier
+  note: Auto-bound (parametrization stripped to base node); semantic review pending.
+- target_kind: capability
+  target_id: world.source_registry
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports
+  note: Auto-bound (parametrization stripped to base node); semantic review pending.
 coverage_verdict_policy:
   structural_binding_integrity_pass: All active target rows are present in the generated effective map, all explicit claims resolve to real target
     IDs and real pytest selectors, and gate/evidence metadata is internally consistent.
