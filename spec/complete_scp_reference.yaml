@@ -89,3 +89,18 @@ capabilities:
     required: true
     human_authority: true
     minimum_maturity: C
+  cognitive.promotion_authority:
+    required: true
+    minimum_maturity: C
+
+  cognitive.doubt_authority:
+    required: true
+    minimum_maturity: C
+
+  cognitive.revalidation_authority:
+    required: true
+    minimum_maturity: C
+
+  cognitive.experiment_authority:
+    required: true
+    minimum_maturity: C

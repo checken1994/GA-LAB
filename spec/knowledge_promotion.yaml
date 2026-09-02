@@ -1,0 +1,28 @@
+schema_version: 1
+
+profiles:
+  factual_general:
+    RAW_TO_CURATED:
+      require:
+        schema_valid: true
+        scope_defined: true
+        provenance_present: true
+
+    CURATED_TO_CORROBORATED:
+      require:
+        independent_support_policy: standard
+        unresolved_material_contradictions: 0
+
+    CORROBORATED_TO_VERIFIED:
+      require:
+        reality_verification: true
+        evidence_integrity: true
+        scope_match: true
+        temporal_validity: true
+
+    VERIFIED_TO_GOLD:
+      require:
+        repeated_verification: true
+        adversarial_check: true
+        counterexample_check: true
+        temporal_stability: true

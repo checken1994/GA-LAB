@@ -50,3 +50,19 @@ bindings:
       - scp.llm_gateway.zero_cost_guard
       - scp.llm_gateway.zero_cost_runtime
     required_now: true
+
+  cognitive.promotion_authority:
+    implementations: []
+    required_now: false
+
+  cognitive.doubt_authority:
+    implementations: []
+    required_now: false
+
+  cognitive.revalidation_authority:
+    implementations: []
+    required_now: false
+
+  cognitive.experiment_authority:
+    implementations: []
+    required_now: false
