@@ -89,7 +89,28 @@ claims:
     concrete_tests:
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_stale_lease_cannot_complete_existing_idempotency_claim
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_fresh_recovery_reader_can_probe_duplicate_without_mutating_it
-    note: Logical-action claim completion and recovery-safe duplicate probing are exercised without claiming the whole checkpoint/reconciliation contract.
+      - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_outcomes_are_durable_and_never_retryable
+      - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_requires_independent_verifier
+    note: Logical-action claim, stale-writer fencing and fail-closed ambiguous reconciliation are exercised at B; full D checkpoint/resume/process-crash proof remains separate.
+
+  - target_kind: capability
+    target_id: execution.recovery_reconciliation
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_outcomes_are_durable_and_never_retryable
+      - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_requires_independent_verifier
+      - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_lowercase_partial_is_normalized_without_becoming_retryable
+    note: PARTIAL and CONFLICT now persist as explicit fail-closed recovery outcomes with evidence/verifier provenance and HUMAN_REVIEW; this is not D-level real-provider crash reconciliation.
+
+  - target_kind: edge
+    target_id: CE-S01-02
+    status: TEST_BOUND_PARTIAL
+    observed_evidence_level: B
+    concrete_tests:
+      - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_outcomes_are_durable_and_never_retryable
+      - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_requires_independent_verifier
+    note: Ambiguous post-dispatch reconciliation outcomes are fail-closed and non-retryable; process death plus external provider read-back remains required for D evidence.
 
   - target_kind: edge
     target_id: CE-S01-05
@@ -101,7 +122,8 @@ claims:
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_stale_lease_cannot_create_idempotency_claim
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_stale_lease_cannot_complete_existing_idempotency_claim
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_fresh_recovery_reader_can_probe_duplicate_without_mutating_it
-    note: State/journal plus lease-fenced logical-action idempotency are bound at B; full D-level worker-attempt recovery remains unproven.
+      - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_outcomes_are_durable_and_never_retryable
+    note: State/journal plus lease-fenced logical-action idempotency and ambiguous reconciliation are bound at B; full D-level worker-attempt recovery remains unproven.
 
   - target_kind: capability
     target_id: execution.sandbox_isolation
