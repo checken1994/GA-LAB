@@ -252,6 +252,65 @@ claims:
   - tests/T07_learning/test_autofix_protected_path.py::test_autofix_protected_path_blocked
   - tests/T03_capability/test_drift_guard.py::test_paid_fallback_or_positive_cost_is_denied_even_if_authorized
   note: Policy gate KILL + cosmetic patch never promoted (Golden B real loop).
+- target_kind: capability
+  target_id: identity.source_identity
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T06_verifier/test_source_identity_lineage.py::test_db_default_is_unknown_independence_not_python_only
+  - tests/T06_verifier/test_source_identity_lineage.py::test_source_identity_is_conservative_and_stable
+  - tests/T06_verifier/test_source_identity_lineage.py::test_unknown_and_shared_sources_cannot_manufacture_independence
+  note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
+- target_kind: capability
+  target_id: intelligence.adaptive_free_router
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T05_gateway/test_llm_gateway_fallback_contract.py::test_openrouter_402_moves_to_auto_router_when_task_free_fails
+  - tests/T05_gateway/test_llm_gateway_fallback_contract.py::test_openrouter_429_moves_from_paid_to_task_free
+  - tests/T05_gateway/test_provider_timeout_recovery.py::test_openrouter_timeout_recovers_via_task_free_fallback
+  note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
+- target_kind: capability
+  target_id: recovery.corrupt_journal
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T10_recovery/test_kernel_chaos_recovery.py::test_recover_on_boot_never_tamperes_corrupted_journal
+  note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
+- target_kind: capability
+  target_id: resource.free_llm_quota
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T05_gateway/test_llm_egress_policy.py::test_free_catalog_obeys_allowlist_before_constructing_network_client
+  - tests/T05_gateway/test_llm_gateway_fallback_contract.py::test_gateway_propagates_budget_free_priority
+  - tests/T05_gateway/test_llm_gateway_fallback_contract.py::test_openrouter_402_moves_to_auto_router_when_task_free_fails
+  note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
+- target_kind: capability
+  target_id: self.skill_contract_integrity
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T00_integrity/test_scp_future_target.py::test_validator_rejects_skill_traceability_gap
+  note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
+- target_kind: capability
+  target_id: self_improvement.meta_audit
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T00_integrity/test_meta_audit.py::test_meta_audit_architecture_coverage
+  - tests/T00_integrity/test_meta_audit.py::test_meta_audit_bare_scp_imports_must_resolve_to_real_production_symbols
+  - tests/T00_integrity/test_meta_audit.py::test_meta_audit_no_assert_true
+  note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
+- target_kind: capability
+  target_id: world.entity_identity
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T02_contract/test_god_split_semantic_parity.py::test_api_server_keeps_public_service_identity
+  - tests/T02_contract/test_god_split_semantic_parity.py::test_split_facades_keep_public_callable_identity
+  - tests/T02_contract/test_god_split_semantic_parity.py::test_split_facades_keep_public_module_identity
+  note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
 coverage_verdict_policy:
   structural_binding_integrity_pass: All active target rows are present in the generated effective map, all explicit claims resolve to real target
     IDs and real pytest selectors, and gate/evidence metadata is internally consistent.
