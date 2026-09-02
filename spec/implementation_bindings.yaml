@@ -52,17 +52,17 @@ bindings:
     required_now: true
 
   cognitive.promotion_authority:
-    implementations: []
-    required_now: false
+    implementations:
+      - scp.knowledge.promotion_authority
+    required_now: true
 
   cognitive.doubt_authority:
-    implementations: []
-    required_now: false
+    implementations:
+      - scp.knowledge.doubt_engine
+      - scp.knowledge.contradiction_authority
+    required_now: true
 
   cognitive.revalidation_authority:
-    implementations: []
-    required_now: false
-
-  cognitive.experiment_authority:
-    implementations: []
-    required_now: false
+    implementations:
+      - scp.knowledge.revalidation_authority
+    required_now: true
