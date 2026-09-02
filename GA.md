@@ -178,6 +178,7 @@ project: SCP / GA-LAB
 repository: checken1994/GA-LAB
 active_sync_branch: main
 current_workstream: SCP Future Target Architecture baseline 4.0.2 -> implementation/test alignment
+work_snapshot_sha: 2b20b841a745049b972e536e9597532902b7f7b9
 main_role: nguồn đồng bộ hiện hành để nhiều AI kiểm tra cùng một trạng thái
 ```
 
@@ -230,8 +231,18 @@ V4.0.2 keeps the same 12 core + 8 cross-cutting systems and P0–P4 phases, but 
 ## B4. Current test/reference reality
 
 ```text
+validator_snapshot_sha: 2b20b841a745049b972e536e9597532902b7f7b9
+target_validator: tools/verify_scp_future_target.py
+T00_target_guard: tests/T00_integrity/test_scp_future_target.py
 T00-T11 taxonomy exists: YES
 Target architecture effective revision: 4.0.2
+bounded target compose/integrity validator installed: YES
+T00 poison tests for orphan capability / invalid gate / Skill-gap / validator-recursion: YES
+local Python compile: PASS
+local synthetic full-shape compose/validate (12+8 systems, 138 caps, 60 edges, 34 invariants, 13 Skills): 0 errors
+GitHub-hosted same-SHA validator/T00 execution: BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT at last observation
+p0-baseline job evidence: completed=failure, steps=[]; therefore not classified as PRODUCT_FAIL or validator FAIL
+other GitHub checks at last observation: QUEUED
 138 capability -> concrete test traceability proven: NO
 60 cause-effect edge -> concrete test traceability proven: NO
 bidirectional target <-> concrete test traceability: NOT YET MACHINE-PROVEN
@@ -240,7 +251,16 @@ implementation bindings cover full target: NO (expected during development)
 current_complete_scp_test_verdict: TEST_COVERAGE_UNPROVEN / INCOMPLETE
 ```
 
-`complete_scp_reference.yaml` và implementation bindings hiện chỉ machine-encode subset nhỏ hơn target inventory. Đây là reference/test alignment debt; **không được xóa target capability chỉ vì chưa implement hoặc chưa có reference binding**.
+Permanent bounded target-spec validation now exists. It proves/guards **composition + declared structural integrity + Skill traceability only**; it does not prove implementation/runtime/release or full target->concrete-test coverage.
+
+`complete_scp_reference.yaml` and implementation bindings still machine-encode a smaller subset than target inventory. `tools/verify_scp_future_target.py` reports this as `REFERENCE_ALIGNMENT_GAP`; the gap is **report-only for target membership** and must never delete future target capabilities.
+
+Relevant commits:
+
+```text
+1cd89368b6452105f3845c3526fbb4fb342e17cf  tools: add bounded SCP future target validator
+2b20b841a745049b972e536e9597532902b7f7b9  test: guard SCP future target v4.0.2 in T00
+```
 
 ## B5. Historical P0 evidence
 
@@ -256,6 +276,9 @@ historical_verdict: PASS_WITHIN_SCOPE
 ```text
 SCP Future Target Architecture 4.0.2: ACTIVE BASELINE FOR BUILD
 Target internal content review: COMPLETED FOR CURRENT DECLARED SCOPE
+Bounded target-spec validator/T00 guard: IMPLEMENTED
+Local target-validator structural simulation: PASS_WITHIN_DECLARED_SCOPE
+GitHub-hosted same-SHA execution of new guard: BLOCKED_BY_CI_INFRA_BEFORE_CHECKOUT
 Absolute/no-missing-piece completeness: NOT CLAIMED / UNPROVABLE BY DESIGN
 Current implementation: NOT CLAIMED COMPLETE
 Current concrete test coverage: INCOMPLETE / NOT MACHINE-PROVEN
@@ -263,24 +286,26 @@ Current runtime verification: NOT ESTABLISHED FOR COMPLETE SCP
 Current release readiness: NOT ESTABLISHED FOR COMPLETE SCP
 ```
 
-Không tiếp tục mở rộng đặc tả chỉ để “audit thêm”. Từ đây mặc định **build theo baseline 4.0.2**; chỉ reopen theo trigger ở A9.
+Không tiếp tục mở rộng đặc tả hoặc tạo validator-of-validator chỉ để “audit thêm”. Từ đây mặc định **build theo baseline 4.0.2**; chỉ reopen theo trigger ở A9.
 
 ## B7. Open implementation/alignment work
 
-1. Tạo machine-readable target test coverage binding: 138 capabilities / 60 edges -> T00–T11 -> concrete test -> evidence target.
-2. Nâng T00 meta-audit để fail-closed khi coverage binding thiếu/sai.
+1. Tạo machine-readable target test coverage binding: 138 capabilities / 60 edges -> T00–T11 -> concrete test -> evidence target/status.
+2. Mở rộng **chính bounded T00 contract** để fail-closed khi coverage binding thiếu/sai; không tạo chuỗi validator đệ quy.
 3. Đồng bộ `complete_scp_reference.yaml` với target WHAT inventory mà không nhét implementation HOW.
 4. Xây/sửa product theo baseline; missing implementation = `PRODUCT_BLOCKED`, không omit/skip để giữ green.
-5. Khi từng phase/scope đủ implementation, chạy bounded same-SHA verification đúng evidence target.
+5. Khi runner thực sự chạy, lấy same-SHA Reality result của validator/T00; CI failure trước checkout giữ nhãn `BLOCKED`, không suy diễn test FAIL.
+6. Khi từng phase/scope đủ implementation, chạy bounded same-SHA verification đúng evidence target.
 
 Đây là **build work**, không phải lý do tự động reopen architecture baseline.
 
 ## B8. Next exact task
 
 ```text
-Build against effective target revision 4.0.2.
-Ưu tiên đóng machine-readable target -> concrete-test traceability và tiếp tục P1/P2 implementation theo dependency order.
-Không quay lại architecture audit trừ khi một A9 reopen trigger xuất hiện.
+Build machine-readable target -> concrete-test coverage binding for all 138 capabilities / 60 edges.
+Bind each requirement to T00-T11, concrete test(s), evidence target and implementation/coverage status.
+Extend the existing bounded T00 guard to validate that binding fail-closed.
+Then continue product implementation by phase/dependency; do not reopen architecture audit without an A9 trigger.
 ```
 
 ---
