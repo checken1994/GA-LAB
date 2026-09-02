@@ -29,4 +29,4 @@ def orchestrator(tmp_path):
 def test_orchestrator_initializes_and_ticks(orchestrator):
     # Just verifies that it can be instantiated and ticked without crashing
     orchestrator.run_tick()
-    assert True
+    assert orchestrator is not None
