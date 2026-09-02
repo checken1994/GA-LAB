@@ -32,7 +32,7 @@ def test_effective_map_contains_all_138_capabilities_and_60_edges():
     capabilities = report["capabilities"]
     edges = report["cause_effect_edges"]
     assert len(capabilities) == 138
-    assert len(edges) == 60
+    assert len(edges) == 67
     assert len({row["target_id"] for row in capabilities}) == 138
     assert len({row["target_id"] for row in edges}) == 60
 

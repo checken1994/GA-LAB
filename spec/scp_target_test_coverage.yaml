@@ -5,10 +5,10 @@ purpose: Machine-readable concrete-test traceability for the active SCP Future T
   this file records only explicit concrete-test claims and never turns test presence into runtime/release proof.
 target:
   manifest_path: spec/scp_future_target_manifest.yaml
-  manifest_blob_sha: cc83ab86336d3f4007245e0755ea528d033daafa
-  effective_revision: 4.0.2
+  manifest_blob_sha: 0bc27935d9a14d8af896f0b5f207e05bc34b6465
+  effective_revision: 4.0.3
   expected_capabilities: 138
-  expected_cause_effect_edges: 60
+  expected_cause_effect_edges: 67
 inventory_policy:
   universe_source: COMPOSED_TARGET
   unclaimed_status: UNPROVEN
