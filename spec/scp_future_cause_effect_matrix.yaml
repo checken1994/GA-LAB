@@ -1,113 +1,90 @@
 schema_version: '4.0'
+spec_revision: 4.0.1
 reference_id: complete-scp-structural-cause-effect-matrix
-title: Complete SCP Structural Cause-Effect Matrix
-description: 'Ma trận machine-readable bao phủ toàn bộ cấu trúc Complete SCP: 12 hệ thống lõi, 8 hệ xuyên suốt,
-  các phase P0-P4, authority boundary, dependency, cause-effect, failure/recovery semantics, evidence maturity và
-  ánh xạ T00-T11. Đây là structural reference để kiểm SCP hiện tại và tương lai; không phải runtime proof.
-
-  '
+title: SCP Future Target Structural Cause-Effect Matrix
+description: 'Đặc tả machine-readable chuẩn hóa kiến trúc đích SCP tương lai (Complete-SCP target state): 12 hệ thống lõi, 8 hệ xuyên suốt, phase P0-P4, authority boundary, dependency, cause-effect, failure/recovery semantics, evidence maturity và T00-T11. Đây là target structural specification; không phải bằng chứng rằng SCP hiện tại đã hoàn thành.'
+terminology:
+  complete_scp: Tên của trạng thái đích SCP khi toàn bộ kiến trúc mục tiêu được hiện thực hóa; không phải current status.
+  target_scp: Đồng nghĩa vận hành với Complete-SCP target state trong file này.
+  target_spec_coverage_complete: Chỉ có nghĩa inventory/obligation đã khai báo được bao phủ trong phạm vi đặc tả và validator hiện tại; không chứng minh rằng không còn missing piece.
+  runtime_verified: Chỉ được suy ra từ implementation + production path + Reality evidence đúng scope/SHA.
 document_role:
-  type: complete_scp_structural_cause_effect_matrix
+  type: future_target_structural_cause_effect_specification
   scope: ENTIRE_COMPLETE_SCP
-  completeness_rule: 'File chỉ được coi là STRUCTURALLY_COMPLETE khi mọi hệ thống lõi, hệ xuyên suốt, capability
-    bắt buộc, authority boundary, cause-effect edge, failure/recovery obligation và T00-T11 mapping đều được khai
-    báo và không còn structural gap.
-
-    '
-  authority_order:
-  - latest_direct_user_instruction
-  - AGENTS.md
-  - .agents/skills/scp-dna/SKILL.md
-  - .agents/skills/scp-dna/references/dna-principles.md
-  - spec/complete_scp_reference.yaml
-  - spec/protected_invariants.yaml
-  - spec/implementation_bindings.yaml
-  - relevant_specialized_skill
-  - live_runtime_and_same_sha_evidence
-  - this_matrix
-  must_not_claim:
-  - implementation_exists_without_binding_and_code
-  - runtime_verified_without_C_or_D_evidence
-  - release_pass_without_same_sha_mandatory_gates
-  - complete_scp_done_because_yaml_is_complete
+  scope_semantics: WHOLE_FUTURE_TARGET_ARCHITECTURE
+  normative_authority_order: [latest_direct_user_instruction, AGENTS.md, .agents/skills/scp-dna/SKILL.md, .agents/skills/scp-dna/references/dna-principles.md, spec/complete_scp_reference.yaml, spec/protected_invariants.yaml, relevant_specialized_skill, this_matrix]
+  state_evidence_sources: [spec/implementation_bindings.yaml, self.capability_map, live_runtime_and_same_sha_evidence]
+  conflict_domains: [Normative target requirements are not removed because current implementation is missing., State evidence may downgrade current maturity/status but may not erase a target requirement., 'A matrix capability absent from complete_scp_reference.yaml is REFERENCE_ALIGNMENT_GAP, not permission to omit it.']
+  must_not_claim: [implementation_exists_without_binding_and_code, runtime_verified_without_C_or_D_evidence, release_pass_without_same_sha_mandatory_gates, current_scp_done_because_target_yaml_is_complete, no_missing_piece_remains]
+completeness_semantics:
+  closed_world_target_inventory: Machine validation may establish that all currently declared required systems, capabilities, edges, forbidden paths and gate obligations are internally covered.
+  open_world_epistemic_limit: SCP DNA forbids claiming that no unknown missing piece exists. New Reality evidence may expand or revise the target inventory even after target-spec coverage passes.
+  allowed_verdict: TARGET_SPEC_COVERAGE_COMPLETE_WITHIN_DECLARED_SCOPE
+  forbidden_verdicts: [ABSOLUTELY_COMPLETE, NO_MISSING_PIECES, CURRENT_RUNTIME_COMPLETE_FROM_SPEC]
 semantic_basis:
-  complete_scp_definition: 'Safe Agent Runtime / Agent OS + Epistemic System + Autonomous Knowledge and Experience
-    Learning + Independent Evidence / Reality Verification + Self-Auditing / Self-Improving Engineering Loop + Zero-Cost
-    Intelligence + Internet Safety / Knowledge Quality Firewall + Risk Intelligence / Early Warning + Governance
-    / External Authority Boundary + Self-Model / Capability Awareness.
-
-    '
-  canonical_closed_loop:
-  - OBSERVE
-  - QUESTION_WHY
-  - NAME_MISSING_EVIDENCE
-  - ACQUIRE
-  - QUARANTINE_VALIDATE
-  - CORROBORATE_CONTRADICT
-  - HYPOTHESIZE
-  - PLAN_SMALL_REVERSIBLE
-  - POLICY_CAPABILITY_GATE
-  - EXECUTE
-  - OBSERVE_REAL_POST_STATE
-  - INDEPENDENT_VERIFY
-  - COMMIT_ROLLBACK_OR_UNKNOWN
-  - LEARN
-  - UPDATE_KNOWLEDGE_EXPERIENCE_SELF_MODEL
-  - AUDIT_THE_METHOD
-  proof_chain:
-  - EXISTS
-  - REACHABLE
-  - PRODUCTION_CALLER
-  - REAL_STATE_EFFECT
-  - OBSERVATION
-  - INDEPENDENT_VERIFIER
-  - FAILURE_INJECTION
-  - RECOVERY_EVIDENCE
+  target_scp_definition: Safe Agent Runtime / Agent OS + Epistemic System + Autonomous Knowledge and Experience Learning + Independent Evidence / Reality Verification + Self-Auditing / Self-Improving Engineering Loop + Zero-Cost Intelligence + Internet Safety / Knowledge Quality Firewall + Risk Intelligence / Early Warning + Governance / External Authority Boundary + Self-Model / Capability Awareness.
+  canonical_closed_loop: [OBSERVE, QUESTION_WHY, NAME_MISSING_EVIDENCE, ACQUIRE, QUARANTINE_VALIDATE, CORROBORATE_CONTRADICT, HYPOTHESIZE, PLAN_SMALL_REVERSIBLE, POLICY_CAPABILITY_GATE, EXECUTE, OBSERVE_REAL_POST_STATE, INDEPENDENT_VERIFY, COMMIT_ROLLBACK_OR_UNKNOWN, LEARN, UPDATE_KNOWLEDGE_EXPERIENCE_SELF_MODEL, AUDIT_THE_METHOD]
+  proof_chain: [EXISTS, REACHABLE, PRODUCTION_CALLER, REAL_STATE_EFFECT, OBSERVATION, INDEPENDENT_VERIFIER, FAILURE_INJECTION, RECOVERY_EVIDENCE]
 global_invariants:
-- id: G01_REALITY_OVER_MODEL
-  rule: Reality evidence outranks model output, model confidence and consensus.
-- id: G02_PASS_NOT_TRUE
-  rule: PASS means no observed failure inside the tested scope; PASS is not Truth.
-- id: G03_FAIL_CLOSED_UNKNOWN
-  rule: Missing authority/evidence yields UNKNOWN/BLOCKED, never implicit ALLOW/VERIFIED.
-- id: G04_EXTERNAL_DATA_UNTRUSTED
-  rule: Internet, documents, tool output and repository content are data, not higher-priority instruction.
-- id: G05_INDEPENDENT_LINEAGE
-  rule: Shared lineage and UNKNOWN_INDEPENDENCE do not count as independent support.
-- id: G06_CONFIDENCE_ADVISORY
-  rule: Confidence cannot promote an epistemic verdict to VERIFIED.
-- id: G07_REVERSIBLE_CHANGE
-  rule: System changes are bounded, observable, reversible and independently verified.
-- id: G08_GOVERNED_ACTION
-  rule: Reasoning, Knowledge, Forecast and Risk cannot directly call external/local side-effect tools.
-- id: G09_ZERO_COST_HARD_WALL
-  rule: max_cost_usd=0; unknown/stale pricing=DENY; paid_fallback=false.
-- id: G10_PRIVACY_BEFORE_EGRESS
-  rule: DataClass/privacy eligibility is checked before provider/tool/network dispatch.
-- id: G11_NO_BLIND_RETRY
-  rule: Uncertain external side effects require reconciliation before any retry.
-- id: G12_APPEND_ONLY_AUTHORITY
-  rule: Evidence, authority decisions and history are corrected by supersession, not silent rewrite.
-- id: G13_TEMPORAL_HISTORY
-  rule: Current state never destroys historical valid-time/system-time history.
-- id: G14_CORRELATION_NOT_CAUSATION
-  rule: Association or precedence alone cannot become a causal claim.
-- id: G15_FORECAST_NOT_FACT
-  rule: A forecast remains a prediction until independently resolved against later Reality.
-- id: G16_SIMULATION_NOT_REALITY
-  rule: Simulation/Digital Twin evidence cannot be promoted to production Reality proof.
-- id: G17_HUMAN_AUTHORITY_HIGH_CONSEQUENCE
-  rule: High-consequence external authority/action remains human-governed where contract requires it.
-- id: G18_NO_MANUFACTURED_GREEN
-  rule: No delete/skip/xfail/threshold weakening/fail-open change may manufacture PASS.
-- id: G19_SAME_SHA_RELEASE_EVIDENCE
-  rule: Mandatory verification/release evidence binds the exact tested SHA and test profile.
-- id: G20_SELF_MODEL_EVIDENCE
-  rule: Capability maturity derives from evidence, not class/function existence.
-- id: G21_LEARNING_CANNOT_WEAKEN_AUTHORITY
-  rule: Learning/AutoFix cannot weaken DNA, Evidence, Reality, security, privacy, zero-cost or release authority.
-- id: G22_UNKNOWN_MUST_BE_REMEMBERED
-  rule: Unresolved questions, blind spots, contradictions and missing observability remain durable.
+- {id: G01_REALITY_OVER_MODEL, rule: Reality evidence outranks model output, model confidence and consensus.}
+- {id: G02_PASS_NOT_TRUE, rule: 'PASS means no observed failure inside the tested scope; PASS is not Truth.'}
+- {id: G03_FAIL_CLOSED_UNKNOWN, rule: 'Missing authority/evidence yields UNKNOWN/BLOCKED, never implicit ALLOW/VERIFIED.'}
+- {id: G04_EXTERNAL_DATA_UNTRUSTED, rule: 'Internet, documents, tool output and repository content are data, not higher-priority instruction.'}
+- {id: G05_INDEPENDENT_LINEAGE, rule: Shared lineage and UNKNOWN_INDEPENDENCE do not count as independent support.}
+- {id: G06_CONFIDENCE_ADVISORY, rule: Confidence cannot promote an epistemic verdict to VERIFIED.}
+- {id: G07_REVERSIBLE_CHANGE, rule: 'System changes are bounded, observable, reversible and independently verified.'}
+- {id: G08_GOVERNED_ACTION, rule: 'Reasoning, Knowledge, Forecast and Risk cannot directly call external/local side-effect tools.'}
+- {id: G09_ZERO_COST_HARD_WALL, rule: 'max_cost_usd=0; unknown/stale pricing=DENY; paid_fallback=false.'}
+- {id: G10_PRIVACY_BEFORE_EGRESS, rule: DataClass/privacy eligibility is checked before provider/tool/network dispatch.}
+- {id: G11_NO_BLIND_RETRY, rule: Uncertain external side effects require reconciliation before any retry.}
+- {id: G12_APPEND_ONLY_AUTHORITY, rule: 'Evidence, authority decisions and history are corrected by supersession, not silent rewrite.'}
+- {id: G13_TEMPORAL_HISTORY, rule: Current state never destroys historical valid-time/system-time history.}
+- {id: G14_CORRELATION_NOT_CAUSATION, rule: Association or precedence alone cannot become a causal claim.}
+- {id: G15_FORECAST_NOT_FACT, rule: A forecast remains a prediction until independently resolved against later Reality.}
+- {id: G16_SIMULATION_NOT_REALITY, rule: Simulation/Digital Twin evidence cannot be promoted to production Reality proof.}
+- {id: G17_HUMAN_AUTHORITY_HIGH_CONSEQUENCE, rule: High-consequence external authority/action remains human-governed where contract requires it.}
+- {id: G18_NO_MANUFACTURED_GREEN, rule: No delete/skip/xfail/threshold weakening/fail-open change may manufacture PASS.}
+- {id: G19_SAME_SHA_RELEASE_EVIDENCE, rule: Mandatory verification/release evidence binds the exact tested SHA and test profile.}
+- {id: G20_SELF_MODEL_EVIDENCE, rule: Capability maturity derives from evidence, not class/function existence.}
+- {id: G21_LEARNING_CANNOT_WEAKEN_AUTHORITY, rule: 'Learning/AutoFix cannot weaken DNA, Evidence, Reality, security, privacy, zero-cost or release authority.'}
+- {id: G22_UNKNOWN_MUST_BE_REMEMBERED, rule: 'Unresolved questions, blind spots, contradictions and missing observability remain durable.'}
+- {id: G23_EXTERNAL_ROOT_OF_TRUST, rule: 'Capability-grant, protected-policy and release roots of trust remain outside normal self-modifiable authority.'}
+- {id: G24_HUMAN_COMPREHENSION_REQUIRED, rule: 'High-consequence approval is invalid unless impact, evidence, scope and rollback are presented for human understanding.'}
+- {id: G25_NO_CLOSED_WORLD_COMPLETENESS_CLAIM, rule: Coverage of known inventory cannot prove that no missing piece exists; target architecture remains revisable by Reality.}
+- {id: G26_BOUNDED_VERIFICATION, rule: Audit/verification loops have explicit budgets/termination; exhaustion preserves UNKNOWN/BLOCKED instead of looping forever or forcing PASS.}
+- {id: G27_CATASTROPHIC_FORGETTING_GUARD, rule: Learning and self-change must preserve or strengthen protected safety invariants and regression evidence.}
+- {id: G28_CHANGE_AUDIT_ROLLBACK_PROVENANCE, rule: 'Every material self-change records before/after identity, Reality result and rollback provenance.'}
+- {id: G29_INDEPENDENT_META_REVIEW, rule: 'Major self-audit, self-improvement and release claims require an independent reviewer/lineage appropriate to the claim.'}
+dna_traceability:
+  1: [semantic_basis.canonical_closed_loop.QUESTION_WHY, S08_REASONING_SYSTEM]
+  2: [semantic_basis.canonical_closed_loop, DP02_ACTION, DP05_SELF_IMPROVEMENT]
+  3: [S12_SELF_AWARENESS_AUDIT.self.audit_the_auditor, CE-S12-02]
+  4: [G17_HUMAN_AUTHORITY_HIGH_CONSEQUENCE, G24_HUMAN_COMPREHENSION_REQUIRED, S11_GOVERNANCE]
+  5: [G05_INDEPENDENT_LINEAGE, CE-S05-02, X07_MULTI_AGENT_COORDINATION]
+  6: [G23_EXTERNAL_ROOT_OF_TRUST, identity.root_of_trust, CE-X01-02]
+  7: [self_improvement.autofix_safety_guards, CE-S09-04]
+  8: [G28_CHANGE_AUDIT_ROLLBACK_PROVENANCE, X02_OBSERVABILITY_CAUSAL_TELEMETRY.self_change_required_fields]
+  9: [G07_REVERSIBLE_CHANGE, self_improvement.rollback, CE-S09-01, CE-S09-03]
+  10: [X07_MULTI_AGENT_COORDINATION, CE-X07-01]
+  11: [G24_HUMAN_COMPREHENSION_REQUIRED, governance.human_comprehension, CE-S11-01]
+  12: [G07_REVERSIBLE_CHANGE, CE-S08-02, X06_SIMULATION_DIGITAL_TWIN]
+  13: [S02_ZERO_COST_INTELLIGENCE.intelligence.free_qualification, S02_ZERO_COST_INTELLIGENCE.intelligence.adaptive_free_router]
+  14: [G05_INDEPENDENT_LINEAGE, 'X07_MULTI_AGENT_COORDINATION.forbidden_paths.majority_vote -> truth']
+  15: [G29_INDEPENDENT_META_REVIEW, self.independent_meta_review, CE-S12-03]
+  16: [G10_PRIVACY_BEFORE_EGRESS, shared_architecture_contracts.capability_token_contract, governance.privacy_retention]
+  17: [G07_REVERSIBLE_CHANGE, CE-S08-02, CE-S09-01]
+  18: [semantic_basis.canonical_closed_loop, S09_SELF_IMPROVEMENT]
+  19: [self.blindspot_registry, CE-S12-02]
+  20: [G26_BOUNDED_VERIFICATION, resource.verification_budget, CE-X03-02]
+  21: [G29_INDEPENDENT_META_REVIEW, CE-S12-03]
+  22: [G02_PASS_NOT_TRUE, completeness_semantics.open_world_epistemic_limit]
+  23: [G25_NO_CLOSED_WORLD_COMPLETENESS_CLAIM, completeness_semantics, open_questions_required]
+  24: [G22_UNKNOWN_MUST_BE_REMEMBERED, open_questions_required]
+  25: [G25_NO_CLOSED_WORLD_COMPLETENESS_CLAIM, self.blindspot_registry, CE-S12-03]
+  26: [G01_REALITY_OVER_MODEL, semantic_basis.proof_chain, epistemic.reality_verification]
+  27: [G04_EXTERNAL_DATA_UNTRUSTED, S04_INTERNET_SAFETY, internet.raw_quarantine]
+  28: [G27_CATASTROPHIC_FORGETTING_GUARD, self_improvement.catastrophic_forgetting_guard, CE-S09-05]
+  29: [G29_INDEPENDENT_META_REVIEW, X07_MULTI_AGENT_COORDINATION, CE-X07-01]
 maturity_model:
   M0: IDEA
   M1: SPECIFIED
@@ -116,1953 +93,481 @@ maturity_model:
   M4: C_RUNTIME_VERIFIED
   M5: D_RECOVERY_VERIFIED
   M6: RELEASE_GATED
+  evidence_floor_by_maturity: {M0: null, M1: A, M2: A, M3: B, M4: C, M5: D, M6: D_PLUS_RELEASE}
   rule: No maturity jump may be inferred from lower-level evidence.
 phase_model:
-  rule: 'Phase controls implementation order, not membership in Complete SCP. A future capability remains part of
-    the complete structural inventory even when implementation_status=MISSING.
-
-    '
+  rule: Phase controls implementation order, not membership in the future target architecture.
   phases:
-    P0:
-      name: FOUNDATION_AUTHORITY
-      purpose: Evidence, lineage, ontology, calibration, self-model, governance, privacy, zero-cost and durable
-        execution foundations.
-    P1:
-      name: COGNITIVE_CONTROL
-      purpose: Promotion, doubt, contradiction, revalidation, hypotheses, experiments, lessons, benchmark and cognitive
-        orchestration.
-    P2:
-      name: WORLD_INTELLIGENCE
-      purpose: Safe acquisition, entity/event identity, bitemporal world state, change, geo, causality, forecasting,
-        risk and early warning.
-    P3:
-      name: AUTONOMOUS_COORDINATION
-      purpose: Resource planning, simulation, bounded multi-agent coordination, incident command and long-running
-        missions.
-    P4:
-      name: EXTERNAL_OPERATION_CONTINUITY
-      purpose: Authorized external connectors, high-consequence boundaries, human command, continuity and disaster
-        recovery at full-system scope.
+    P0: {name: FOUNDATION_AUTHORITY, purpose: 'Evidence, lineage, ontology, calibration, self-model, governance, privacy, zero-cost and durable execution foundations.'}
+    P1: {name: COGNITIVE_CONTROL, purpose: 'Promotion, doubt, contradiction, revalidation, hypotheses, experiments, lessons, benchmark and cognitive orchestration.'}
+    P2: {name: WORLD_INTELLIGENCE, purpose: 'Safe acquisition, entity/event identity, bitemporal world state, change, geo, causality, forecasting, risk and early warning.'}
+    P3: {name: AUTONOMOUS_COORDINATION, purpose: 'Resource planning, simulation, bounded multi-agent coordination, incident command and long-running missions.'}
+    P4: {name: EXTERNAL_OPERATION_CONTINUITY, purpose: 'Authorized external connectors, high-consequence boundaries, human command, continuity and disaster recovery at full-system scope.'}
 structural_inventory:
   required_core_systems: 12
   required_cross_cutting_systems: 8
+  required_capabilities: 120
+  required_cause_effect_edges: 51
   required_test_gates: 12
-  core_system_ids:
-  - S01_EXECUTION_OS
-  - S02_ZERO_COST_INTELLIGENCE
-  - S03_INTERNET_ACQUISITION
-  - S04_INTERNET_SAFETY
-  - S05_EVIDENCE_SYSTEM
-  - S06_KNOWLEDGE_SYSTEM
-  - S07_EXPERIENCE_SYSTEM
-  - S08_REASONING_SYSTEM
-  - S09_SELF_IMPROVEMENT
-  - S10_RISK_INTELLIGENCE
-  - S11_GOVERNANCE
-  - S12_SELF_AWARENESS_AUDIT
-  cross_cutting_ids:
-  - X01_IDENTITY_TRUST
-  - X02_OBSERVABILITY_CAUSAL_TELEMETRY
-  - X03_RESOURCE_GOVERNOR
-  - X04_SUPPLY_CHAIN
-  - X05_DISASTER_RECOVERY
-  - X06_SIMULATION_DIGITAL_TWIN
-  - X07_MULTI_AGENT_COORDINATION
-  - X08_WORLD_STATE_TEMPORAL_MODEL
+  required_phases: 5
+  required_global_invariants: 29
+  core_system_ids: [S01_EXECUTION_OS, S02_ZERO_COST_INTELLIGENCE, S03_INTERNET_ACQUISITION, S04_INTERNET_SAFETY, S05_EVIDENCE_SYSTEM, S06_KNOWLEDGE_SYSTEM, S07_EXPERIENCE_SYSTEM, S08_REASONING_SYSTEM, S09_SELF_IMPROVEMENT, S10_RISK_INTELLIGENCE, S11_GOVERNANCE, S12_SELF_AWARENESS_AUDIT]
+  cross_cutting_ids: [X01_IDENTITY_TRUST, X02_OBSERVABILITY_CAUSAL_TELEMETRY, X03_RESOURCE_GOVERNOR, X04_SUPPLY_CHAIN, X05_DISASTER_RECOVERY, X06_SIMULATION_DIGITAL_TWIN, X07_MULTI_AGENT_COORDINATION, X08_WORLD_STATE_TEMPORAL_MODEL]
 capability_defaults:
-  complete_scp_required: true
+  target_required: true
+  reference_alignment_status_source: validator(compare matrix capability IDs with spec/complete_scp_reference.yaml)
   implementation_status_source: self.capability_map + live implementation_bindings + same-SHA evidence
-  missing_implementation_semantics: Capability remains in structural inventory; implementation_status=MISSING/BLOCKED,
-    never omitted.
+  missing_reference_semantics: REFERENCE_ALIGNMENT_GAP; target capability remains visible.
+  missing_implementation_semantics: MISSING/BLOCKED; target capability remains visible.
 core_systems:
   S01_EXECUTION_OS:
     name: Execution OS
-    phase_focus:
-    - P0
-    - P3
-    - P4
+    phase_focus: [P0, P3, P4]
     purpose: Turn governed intent into durable bounded action, observation, verification and artifact.
-    authority_owners:
-    - TaskKernelAuthority
-    - CapabilityAuthority
-    - GovernanceAuthority
-    - RealityVerifier
+    authority_owners: [TaskKernelAuthority, CapabilityAuthority, GovernanceAuthority, RealityVerifier]
     capabilities:
-    - id: execution.task_kernel
-      target_maturity: M5
-      phase: P0
-    - id: execution.capability_security
-      target_maturity: M5
-      phase: P0
-    - id: execution.scheduler_supervisor
-      target_maturity: M5
-      phase: P3
-    - id: execution.hands_tools
-      target_maturity: M4
-      phase: P0
-    - id: execution.recovery_reconciliation
-      target_maturity: M5
-      phase: P0
-    - id: execution.kill_switch
-      target_maturity: M5
-      phase: P0
-    depends_on:
-    - S11_GOVERNANCE
-    - X02_OBSERVABILITY_CAUSAL_TELEMETRY
-    - X03_RESOURCE_GOVERNOR
-    - X05_DISASTER_RECOVERY
-    forbidden_paths:
-    - model -> direct_tool_side_effect
-    - knowledge -> direct_tool_side_effect
-    - unknown_external_outcome -> blind_retry
+    - {id: execution.task_kernel, target_maturity: M5, phase: P0}
+    - {id: execution.capability_security, target_maturity: M5, phase: P0}
+    - {id: execution.scheduler_supervisor, target_maturity: M5, phase: P3}
+    - {id: execution.long_running_mission, target_maturity: M5, phase: P3}
+    - {id: execution.hands_tools, target_maturity: M4, phase: P0}
+    - {id: execution.recovery_reconciliation, target_maturity: M5, phase: P0}
+    - {id: execution.kill_switch, target_maturity: M5, phase: P0}
+    - {id: execution.high_consequence_boundary, target_maturity: M5, phase: P4}
+    depends_on: [S11_GOVERNANCE, X02_OBSERVABILITY_CAUSAL_TELEMETRY, X03_RESOURCE_GOVERNOR, X05_DISASTER_RECOVERY]
+    forbidden_paths: ['model -> direct_tool_side_effect', 'knowledge -> direct_tool_side_effect', 'unknown_external_outcome -> blind_retry', 'mission -> unbounded_runtime', 'high_consequence_action -> bypass_human_governance']
     cause_effect_edges:
-    - id: CE-S01-01
-      cause: Governed ActionProposal is authorized with a scoped capability.
-      authority_path:
-      - GovernanceAuthority
-      - CapabilityAuthority
-      - TaskKernelAuthority
-      - ToolDriver
-      - RealityVerifier
-      effects:
-      - durable_intent
-      - bounded_action
-      - post_state_observation
-      - verification_record
-      - commit_or_rollback
-      must_not_effect:
-      - unscoped_tool_access
-      - silent_external_write
-      evidence_target: C
-      gates:
-      - T03
-      - T04
-      - T08
-      - T09
-    - id: CE-S01-02
-      cause: Process crashes after possible external side effect but before durable observation.
-      authority_path:
-      - TaskKernelAuthority
-      - RecoveryAuthority
-      effects:
-      - RECONCILE_REQUIRED
-      - no_blind_retry
-      - external_post_state_check
-      must_not_effect:
-      - automatic_action_replay
-      evidence_target: D
-      gates:
-      - T04
-      - T10
+    - {id: CE-S01-01, covers_capabilities: [execution.task_kernel, execution.capability_security, execution.hands_tools], cause: Governed ActionProposal is authorized with a scoped capability., authority_path: [GovernanceAuthority, CapabilityAuthority, TaskKernelAuthority, ToolDriver, RealityVerifier], effects: [durable_intent, bounded_action, post_state_observation, verification_record, commit_or_rollback], must_not_effect: [unscoped_tool_access, silent_external_write], evidence_target: C, gates: [T03, T04, T08, T09]}
+    - {id: CE-S01-02, covers_capabilities: [execution.recovery_reconciliation], cause: Process crashes after possible external side effect but before durable observation., authority_path: [TaskKernelAuthority, RecoveryAuthority], effects: [RECONCILE_REQUIRED, no_blind_retry, external_post_state_check], must_not_effect: [automatic_action_replay], evidence_target: D, gates: [T04, T10]}
+    - {id: CE-S01-03, covers_capabilities: [execution.scheduler_supervisor, execution.long_running_mission, execution.kill_switch], cause: 'A long-running mission starts, reaches a checkpoint, exceeds a bound, or receives stop/kill authority.', authority_path: [SchedulerSupervisor, ResourceGovernor, TaskKernelAuthority, KillSwitchAuthority], effects: [bounded_lease, checkpoint, pause_resume_or_cancel, durable_mission_state], must_not_effect: [unbounded_runtime, orphan_process, ignore_kill_switch], evidence_target: D, gates: [T04, T08, T10]}
+    - {id: CE-S01-04, covers_capabilities: [execution.high_consequence_boundary, execution.capability_security, execution.hands_tools], cause: A credential/destructive/privilege/production/financial or other high-consequence action is proposed., authority_path: [GovernanceAuthority, HumanComprehension, HumanAuthority, CapabilityAuthority, TaskKernelAuthority, RealityVerifier], effects: [REQUIRE_HUMAN_or_DENY, narrow_capability_if_approved, post_action_reality_check], must_not_effect: [approval_bypasses_sandbox, model_self_authorization, broad_capability_grant], evidence_target: C, gates: [T03, T09, T11]}
   S02_ZERO_COST_INTELLIGENCE:
     name: Zero-Cost Intelligence Fabric
-    phase_focus:
-    - P0
-    - P1
+    phase_focus: [P0, P1]
     purpose: Use only price-verified free intelligence while preserving quality, privacy, quota and resilience semantics.
-    authority_owners:
-    - PricingProofAuthority
-    - ZeroCostPEP
-    - ProviderRegistryAuthority
-    - QuotaLedgerAuthority
-    - AdaptiveRouter
+    authority_owners: [PricingProofAuthority, ZeroCostPEP, ProviderRegistryAuthority, QuotaLedgerAuthority, AdaptiveRouter]
     capabilities:
-    - id: intelligence.zero_cost
-      target_maturity: M4
-      phase: P0
-    - id: intelligence.provider_registry
-      target_maturity: M4
-      phase: P1
-    - id: intelligence.quota_ledger
-      target_maturity: M4
-      phase: P1
-    - id: intelligence.free_qualification
-      target_maturity: M4
-      phase: P1
-    - id: intelligence.adaptive_free_router
-      target_maturity: M4
-      phase: P1
-    - id: intelligence.cache_coalescing
-      target_maturity: M3
-      phase: P1
-    depends_on:
-    - S11_GOVERNANCE
-    - S12_SELF_AWARENESS_AUDIT
-    - X02_OBSERVABILITY_CAUSAL_TELEMETRY
-    - X03_RESOURCE_GOVERNOR
-    forbidden_paths:
-    - complexity -> paid_model
-    - free_by_name -> authorization
-    - unknown_price -> network_dispatch
-    - free_model -> bypass_privacy
+    - {id: intelligence.zero_cost, target_maturity: M4, phase: P0}
+    - {id: intelligence.provider_registry, target_maturity: M4, phase: P1}
+    - {id: intelligence.quota_ledger, target_maturity: M4, phase: P1}
+    - {id: intelligence.free_qualification, target_maturity: M4, phase: P1}
+    - {id: intelligence.adaptive_free_router, target_maturity: M4, phase: P1}
+    - {id: intelligence.cache_coalescing, target_maturity: M3, phase: P1}
+    depends_on: [S11_GOVERNANCE, S12_SELF_AWARENESS_AUDIT, X02_OBSERVABILITY_CAUSAL_TELEMETRY, X03_RESOURCE_GOVERNOR]
+    forbidden_paths: ['complexity -> paid_model', 'free_by_name -> authorization', 'unknown_price -> network_dispatch', 'free_model -> bypass_privacy']
     cause_effect_edges:
-    - id: CE-S02-01
-      cause: An LLM task requires a model.
-      authority_path:
-      - AdaptiveRouter
-      - PrivacyPolicy
-      - PricingProofAuthority
-      - ZeroCostPEP
-      - ProviderDriver
-      effects:
-      - rank_verified_free_candidates
-      - dispatch_only_exact_zero_price_and_eligible_candidate
-      must_not_effect:
-      - paid_fallback
-      - unknown_price_dispatch
-      evidence_target: C
-      gates:
-      - T05
-      - T08
-    - id: CE-S02-02
-      cause: All qualified verified-free candidates are exhausted, rate-limited or unhealthy.
-      authority_path:
-      - QuotaLedgerAuthority
-      - ProviderRegistryAuthority
-      - AdaptiveRouter
-      effects:
-      - WAITING_FREE_QUOTA_or_BLOCKED
-      - next_eligible_time_if_known
-      must_not_effect:
-      - paid_fallback
-      - quality_requirement_weakening
-      evidence_target: C
-      gates:
-      - T05
-      - T10
+    - {id: CE-S02-01, covers_capabilities: [intelligence.zero_cost, intelligence.provider_registry, intelligence.free_qualification, intelligence.adaptive_free_router], cause: An LLM task requires a model., authority_path: [AdaptiveRouter, PrivacyPolicy, PricingProofAuthority, ZeroCostPEP, ProviderDriver], effects: [rank_verified_free_candidates, dispatch_only_exact_zero_price_and_eligible_candidate], must_not_effect: [paid_fallback, unknown_price_dispatch, privacy_bypass], evidence_target: C, gates: [T05, T08]}
+    - {id: CE-S02-02, covers_capabilities: [intelligence.quota_ledger, intelligence.provider_registry, intelligence.adaptive_free_router, intelligence.cache_coalescing], cause: 'All qualified verified-free candidates are exhausted, rate-limited or unhealthy.', authority_path: [QuotaLedgerAuthority, ProviderRegistryAuthority, AdaptiveRouter], effects: [cache_or_coalesce_if_valid, WAITING_FREE_QUOTA_or_BLOCKED, next_eligible_time_if_known], must_not_effect: [paid_fallback, quality_requirement_weakening], evidence_target: C, gates: [T05, T10]}
   S03_INTERNET_ACQUISITION:
     name: Internet Acquisition
-    phase_focus:
-    - P2
-    purpose: Acquire external observations for explicit questions, revalidation, monitoring or evidence needs without
-      unbounded crawling.
-    authority_owners:
-    - AcquisitionAuthority
-    - SourceRegistryAuthority
-    - AcquisitionScheduler
+    phase_focus: [P2]
+    purpose: Acquire external observations for explicit questions, revalidation, monitoring or evidence needs without unbounded crawling.
+    authority_owners: [AcquisitionAuthority, SourceRegistryAuthority, AcquisitionScheduler]
     capabilities:
-    - id: world.acquisition
-      target_maturity: M4
-      phase: P2
-    - id: world.source_registry
-      target_maturity: M4
-      phase: P2
-    - id: world.discovery
-      target_maturity: M3
-      phase: P2
-    - id: world.monitor_policy
-      target_maturity: M4
-      phase: P2
-    - id: world.free_api_qualification
-      target_maturity: M4
-      phase: P2
-    depends_on:
-    - S04_INTERNET_SAFETY
-    - S05_EVIDENCE_SYSTEM
-    - S11_GOVERNANCE
-    - X03_RESOURCE_GOVERNOR
-    - X08_WORLD_STATE_TEMPORAL_MODEL
-    forbidden_paths:
-    - crawler -> direct_knowledge
-    - discovered_host -> automatic_egress_allow
-    - curiosity -> unbounded_monitoring
+    - {id: world.acquisition, target_maturity: M4, phase: P2}
+    - {id: world.source_registry, target_maturity: M4, phase: P2}
+    - {id: world.discovery, target_maturity: M3, phase: P2}
+    - {id: world.monitor_policy, target_maturity: M4, phase: P2}
+    - {id: world.free_api_qualification, target_maturity: M4, phase: P2}
+    depends_on: [S04_INTERNET_SAFETY, S05_EVIDENCE_SYSTEM, S11_GOVERNANCE, X03_RESOURCE_GOVERNOR, X08_WORLD_STATE_TEMPORAL_MODEL]
+    forbidden_paths: ['crawler -> direct_knowledge', 'discovered_host -> automatic_egress_allow', 'curiosity -> unbounded_monitoring']
     cause_effect_edges:
-    - id: CE-S03-01
-      cause: User/OpenQuestion/Revalidation/RiskMonitor requests an external observation.
-      authority_path:
-      - AcquisitionAuthority
-      - SourcePolicy
-      - InternetSafety
-      - EvidenceAuthority
-      effects:
-      - bounded_fetch
-      - source_identity
-      - evidence_occurrence
-      - world_observation
-      must_not_effect:
-      - direct_knowledge_write
-      - direct_action
-      evidence_target: C
-      gates:
-      - T02
-      - T03
-      - T08
-      - T09
-    - id: CE-S03-02
-      cause: Acquisition resource or rate budget is exhausted.
-      authority_path:
-      - AcquisitionScheduler
-      - ResourceGovernor
-      effects:
-      - WAIT_RESOURCE_or_BLOCKED
-      - preserve_pending_need
-      must_not_effect:
-      - budget_self_increase
-      - paid_provider_switch
-      evidence_target: C
-      gates:
-      - T08
-      - T10
+    - {id: CE-S03-01, covers_capabilities: [world.acquisition, world.source_registry, world.discovery, world.monitor_policy], cause: User/OpenQuestion/Revalidation/RiskMonitor requests an external observation., authority_path: [AcquisitionAuthority, SourcePolicy, InternetSafety, EvidenceAuthority], effects: [bounded_fetch, source_identity, evidence_occurrence, world_observation], must_not_effect: [direct_knowledge_write, direct_action], evidence_target: C, gates: [T02, T03, T08, T09]}
+    - {id: CE-S03-02, covers_capabilities: [world.free_api_qualification, world.monitor_policy], cause: 'Acquisition resource, rate budget, or free-API eligibility is exhausted/unknown.', authority_path: [AcquisitionScheduler, ResourceGovernor, FreeApiQualification], effects: [WAIT_RESOURCE_or_BLOCKED, preserve_pending_need], must_not_effect: [budget_self_increase, paid_provider_switch, unqualified_api_dispatch], evidence_target: C, gates: [T05, T08, T10]}
   S04_INTERNET_SAFETY:
     name: Internet Safety and Knowledge Quality Firewall
-    phase_focus:
-    - P0
-    - P2
-    purpose: Keep external content untrusted, bounded, non-executable and provenance-preserving before it reaches
-      evidence/knowledge.
-    authority_owners:
-    - URLGuard
-    - SafeFetcher
-    - QuarantineAuthority
-    - ThreatScanner
-    - PrivacyIngressAuthority
-    - QualityFirewall
+    phase_focus: [P0, P2]
+    purpose: Keep external content untrusted, bounded, non-executable and provenance-preserving before it reaches evidence/knowledge.
+    authority_owners: [URLGuard, SafeFetcher, QuarantineAuthority, ThreatScanner, PrivacyIngressAuthority, QualityFirewall]
     capabilities:
-    - id: internet.ssrf_egress_guard
-      target_maturity: M5
-      phase: P0
-    - id: internet.raw_quarantine
-      target_maturity: M4
-      phase: P0
-    - id: internet.prompt_injection_firewall
-      target_maturity: M4
-      phase: P2
-    - id: internet.malware_dangerous_data_guard
-      target_maturity: M4
-      phase: P2
-    - id: internet.secret_pii_ingress
-      target_maturity: M4
-      phase: P0
-    - id: internet.quality_spam_dedupe
-      target_maturity: M4
-      phase: P2
-    depends_on:
-    - S11_GOVERNANCE
-    - S05_EVIDENCE_SYSTEM
-    - X01_IDENTITY_TRUST
-    - X03_RESOURCE_GOVERNOR
-    forbidden_paths:
-    - external_text -> system_instruction
-    - raw_quarantined_content -> planner_action
-    - redirect -> skip_ssrf_recheck
-    - executable_archive -> auto_execute
+    - {id: internet.ssrf_egress_guard, target_maturity: M5, phase: P0}
+    - {id: internet.raw_quarantine, target_maturity: M4, phase: P0}
+    - {id: internet.prompt_injection_firewall, target_maturity: M4, phase: P2}
+    - {id: internet.malware_dangerous_data_guard, target_maturity: M4, phase: P2}
+    - {id: internet.secret_pii_ingress, target_maturity: M4, phase: P0}
+    - {id: internet.quality_spam_dedupe, target_maturity: M4, phase: P2}
+    depends_on: [S11_GOVERNANCE, S05_EVIDENCE_SYSTEM, X01_IDENTITY_TRUST, X03_RESOURCE_GOVERNOR]
+    forbidden_paths: ['external_text -> system_instruction', 'raw_quarantined_content -> planner_action', 'redirect -> skip_ssrf_recheck', 'executable_archive -> auto_execute']
     cause_effect_edges:
-    - id: CE-S04-01
-      cause: Fetched content contains prompt injection, hidden control text or exfiltration instructions.
-      authority_path:
-      - QuarantineAuthority
-      - ThreatScanner
-      - PrivacyIngressAuthority
-      effects:
-      - remain_untrusted
-      - threat_flags
-      - safe_extraction_or_quarantine
-      must_not_effect:
-      - system_prompt_override
-      - ActionProposal_from_payload
-      evidence_target: C
-      gates:
-      - T03
-      - T07
-    - id: CE-S04-02
-      cause: URL resolves or redirects to disallowed/private/link-local/metadata target.
-      authority_path:
-      - URLGuard
-      - EgressPolicy
-      effects:
-      - DENY
-      - security_event
-      must_not_effect:
-      - network_dispatch_to_denied_target
-      evidence_target: C
-      gates:
-      - T03
-      - T10
+    - {id: CE-S04-01, covers_capabilities: [internet.raw_quarantine, internet.prompt_injection_firewall, internet.malware_dangerous_data_guard, internet.secret_pii_ingress, internet.quality_spam_dedupe], cause: 'Fetched content contains prompt injection, hidden control text, exfiltration instruction, malware/dangerous payload, PII/secret, spam or duplicate material.', authority_path: [QuarantineAuthority, ThreatScanner, PrivacyIngressAuthority, QualityFirewall], effects: [remain_untrusted, threat_flags, redaction_or_safe_extraction_or_quarantine, quality_dedupe_metadata], must_not_effect: [system_prompt_override, ActionProposal_from_payload, raw_secret_to_model], evidence_target: C, gates: [T03, T07]}
+    - {id: CE-S04-02, covers_capabilities: [internet.ssrf_egress_guard], cause: URL resolves or redirects to disallowed/private/link-local/metadata target., authority_path: [URLGuard, EgressPolicy], effects: [DENY, security_event], must_not_effect: [network_dispatch_to_denied_target], evidence_target: C, gates: [T03, T10]}
   S05_EVIDENCE_SYSTEM:
     name: Evidence System
-    phase_focus:
-    - P0
-    - P1
-    - P2
+    phase_focus: [P0, P1, P2]
     purpose: Preserve immutable observation occurrences, provenance, lineage, contradictions and Reality evidence.
-    authority_owners:
-    - EvidenceStore
-    - SourceIdentityAuthority
-    - LineageAuthority
-    - ContradictionAuthority
-    - RealityVerifier
+    authority_owners: [EvidenceStore, SourceIdentityAuthority, LineageAuthority, ContradictionAuthority, RealityVerifier]
     capabilities:
-    - id: epistemic.evidence
-      target_maturity: M4
-      phase: P0
-    - id: epistemic.source_identity
-      target_maturity: M4
-      phase: P0
-    - id: epistemic.lineage
-      target_maturity: M4
-      phase: P0
-    - id: epistemic.claims
-      target_maturity: M4
-      phase: P1
-    - id: epistemic.contradiction
-      target_maturity: M4
-      phase: P1
-    - id: epistemic.reality_verification
-      target_maturity: M5
-      phase: P0
-    depends_on:
-    - X01_IDENTITY_TRUST
-    - X02_OBSERVABILITY_CAUSAL_TELEMETRY
-    - S11_GOVERNANCE
-    forbidden_paths:
-    - model_response -> truth
-    - source_count -> independent_support
-    - evidence_update_in_place
-    - stale_evidence -> current_state_proof
+    - {id: epistemic.evidence, target_maturity: M4, phase: P0}
+    - {id: epistemic.source_identity, target_maturity: M4, phase: P0}
+    - {id: epistemic.lineage, target_maturity: M4, phase: P0}
+    - {id: epistemic.claims, target_maturity: M4, phase: P1}
+    - {id: epistemic.contradiction, target_maturity: M4, phase: P1}
+    - {id: epistemic.reality_verification, target_maturity: M5, phase: P0}
+    depends_on: [X01_IDENTITY_TRUST, X02_OBSERVABILITY_CAUSAL_TELEMETRY, S11_GOVERNANCE]
+    forbidden_paths: ['model_response -> truth', 'source_count -> independent_support', evidence_update_in_place, 'stale_evidence -> current_state_proof']
     cause_effect_edges:
-    - id: CE-S05-01
-      cause: The same content is observed twice at different times.
-      authority_path:
-      - EvidenceStore
-      effects:
-      - two_evidence_occurrences
-      - shared_content_hash_allowed
-      - distinct_observed_at
-      must_not_effect:
-      - occurrence_deduplication
-      evidence_target: C
-      gates:
-      - T02
-      - T06
-    - id: CE-S05-02
-      cause: Multiple reports share one upstream lineage.
-      authority_path:
-      - SourceIdentityAuthority
-      - LineageAuthority
-      effects:
-      - report_count_may_increase
-      - independent_support_collapsed_to_conservative_lower_bound
-      must_not_effect:
-      - manufactured_corroboration
-      evidence_target: C
-      gates:
-      - T06
-      - T07
-      - T09
-    - id: CE-S05-03
-      cause: Reality evidence contradicts a model/knowledge claim.
-      authority_path:
-      - RealityVerifier
-      - ContradictionAuthority
-      effects:
-      - CONTRADICTED_or_UNDER_REVIEW_path
-      - contradiction_preserved
-      must_not_effect:
-      - delete_conflicting_evidence
-      - model_self_override
-      evidence_target: C
-      gates:
-      - T06
-      - T07
+    - {id: CE-S05-01, covers_capabilities: [epistemic.evidence], cause: The same content is observed twice at different times., authority_path: [EvidenceStore], effects: [two_evidence_occurrences, shared_content_hash_allowed, distinct_observed_at], must_not_effect: [occurrence_deduplication], evidence_target: C, gates: [T02, T06]}
+    - {id: CE-S05-02, covers_capabilities: [epistemic.source_identity, epistemic.lineage, epistemic.claims], cause: Multiple reports/claims share one upstream lineage., authority_path: [SourceIdentityAuthority, LineageAuthority], effects: [report_count_may_increase, independent_support_collapsed_to_conservative_lower_bound], must_not_effect: [manufactured_corroboration], evidence_target: C, gates: [T06, T07, T09]}
+    - {id: CE-S05-03, covers_capabilities: [epistemic.contradiction, epistemic.reality_verification, epistemic.claims], cause: Reality evidence contradicts a model/knowledge claim., authority_path: [RealityVerifier, ContradictionAuthority], effects: [CONTRADICTED_or_UNDER_REVIEW_path, contradiction_preserved], must_not_effect: [delete_conflicting_evidence, model_self_override], evidence_target: C, gates: [T06, T07]}
   S06_KNOWLEDGE_SYSTEM:
     name: Knowledge System
-    phase_focus:
-    - P0
-    - P1
-    - P2
+    phase_focus: [P0, P1, P2]
     purpose: Manage ontology, epistemic maturity, temporal validity, promotion/demotion and scoped reusable knowledge.
-    authority_owners:
-    - OntologyAuthority
-    - PromotionAuthority
-    - RevalidationAuthority
-    - KnowledgeStoreAuthority
+    authority_owners: [OntologyAuthority, PromotionAuthority, RevalidationAuthority, KnowledgeStoreAuthority]
     capabilities:
-    - id: epistemic.ontology
-      target_maturity: M4
-      phase: P0
-    - id: cognitive.promotion_authority
-      target_maturity: M4
-      phase: P1
-    - id: cognitive.revalidation_authority
-      target_maturity: M4
-      phase: P1
-    - id: knowledge.temporal_validity
-      target_maturity: M4
-      phase: P1
-    - id: knowledge.retrieval_index
-      target_maturity: M3
-      phase: P1
-    - id: knowledge.gold_lifecycle
-      target_maturity: M4
-      phase: P1
-    depends_on:
-    - S05_EVIDENCE_SYSTEM
-    - S08_REASONING_SYSTEM
-    - S11_GOVERNANCE
-    - X08_WORLD_STATE_TEMPORAL_MODEL
-    forbidden_paths:
-    - external_data -> knowledge
-    - confidence -> VERIFIED
-    - experiment_success -> GOLD
-    - vector_index -> truth_authority
+    - {id: epistemic.ontology, target_maturity: M4, phase: P0}
+    - {id: cognitive.promotion_authority, target_maturity: M4, phase: P1}
+    - {id: cognitive.revalidation_authority, target_maturity: M4, phase: P1}
+    - {id: knowledge.temporal_validity, target_maturity: M4, phase: P1}
+    - {id: knowledge.retrieval_index, target_maturity: M3, phase: P1}
+    - {id: knowledge.gold_lifecycle, target_maturity: M4, phase: P1}
+    depends_on: [S05_EVIDENCE_SYSTEM, S08_REASONING_SYSTEM, S11_GOVERNANCE, X08_WORLD_STATE_TEMPORAL_MODEL]
+    forbidden_paths: ['external_data -> knowledge', 'confidence -> VERIFIED', 'experiment_success -> GOLD', 'vector_index -> truth_authority']
     cause_effect_edges:
-    - id: CE-S06-01
-      cause: Knowledge promotion is requested.
-      authority_path:
-      - PromotionAuthority
-      - EvidenceAuthority
-      - LineageAuthority
-      - ContradictionAuthority
-      - RealityVerifier_if_required
-      effects:
-      - PROMOTE_HOLD_UNDER_REVIEW_DEMOTE_RETIRE_or_BLOCKED
-      - immutable_decision
-      must_not_effect:
-      - direct_status_mutation
-      - confidence_override
-      evidence_target: C
-      gates:
-      - T02
-      - T06
-      - T07
-    - id: CE-S06-02
-      cause: VERIFIED/GOLD knowledge becomes stale or receives material contradiction.
-      authority_path:
-      - RevalidationAuthority
-      - ContradictionAuthority
-      - PromotionAuthority
-      effects:
-      - UNDER_REVIEW
-      - revalidation_job_or_demotion_path
-      - history_preserved
-      must_not_effect:
-      - silent_current_VERIFIED
-      - history_overwrite
-      evidence_target: C
-      gates:
-      - T06
-      - T07
-      - T10
+    - {id: CE-S06-01, covers_capabilities: [epistemic.ontology, cognitive.promotion_authority, knowledge.gold_lifecycle], cause: Knowledge promotion is requested., authority_path: [PromotionAuthority, EvidenceAuthority, LineageAuthority, ContradictionAuthority, RealityVerifier_if_required], effects: [PROMOTE_HOLD_UNDER_REVIEW_DEMOTE_RETIRE_or_BLOCKED, immutable_decision], must_not_effect: [direct_status_mutation, confidence_override], evidence_target: C, gates: [T02, T06, T07]}
+    - {id: CE-S06-02, covers_capabilities: [cognitive.revalidation_authority, knowledge.temporal_validity, knowledge.gold_lifecycle], cause: VERIFIED/GOLD knowledge becomes stale or receives material contradiction., authority_path: [RevalidationAuthority, ContradictionAuthority, PromotionAuthority], effects: [UNDER_REVIEW, revalidation_job_or_demotion_path, history_preserved], must_not_effect: [silent_current_VERIFIED, history_overwrite], evidence_target: C, gates: [T06, T07, T10]}
+    - {id: CE-S06-03, covers_capabilities: [knowledge.retrieval_index], cause: A retrieval/index query returns candidate knowledge., authority_path: [KnowledgeStoreAuthority, RetrievalIndex], effects: [ranked_candidates_with_provenance, authority_status_preserved], must_not_effect: [retrieval_score_as_truth, index_as_authority], evidence_target: B, gates: [T02, T07, T09]}
   S07_EXPERIENCE_SYSTEM:
     name: Experience System
-    phase_focus:
-    - P1
-    purpose: Store public decision traces, failures, episodes, reasoning patterns and strategies without treating
-      one episode as universal truth.
-    authority_owners:
-    - EpisodeAuthority
-    - FailureMemoryAuthority
-    - StrategyMemoryAuthority
+    phase_focus: [P1]
+    purpose: Store public decision traces, failures, episodes, reasoning patterns and strategies without treating one episode as universal truth.
+    authority_owners: [EpisodeAuthority, FailureMemoryAuthority, StrategyMemoryAuthority]
     capabilities:
-    - id: experience.episodes
-      target_maturity: M4
-      phase: P1
-    - id: experience.failure_memory
-      target_maturity: M4
-      phase: P1
-    - id: experience.reasoning_patterns
-      target_maturity: M4
-      phase: P1
-    - id: experience.strategy_library
-      target_maturity: M4
-      phase: P1
-    - id: experience.human_workflows
-      target_maturity: M3
-      phase: P1
-    depends_on:
-    - S05_EVIDENCE_SYSTEM
-    - S06_KNOWLEDGE_SYSTEM
-    - S08_REASONING_SYSTEM
-    forbidden_paths:
-    - one_success_episode -> universal_rule
-    - private_hidden_chain_of_thought -> required_memory
+    - {id: experience.episodes, target_maturity: M4, phase: P1}
+    - {id: experience.failure_memory, target_maturity: M4, phase: P1}
+    - {id: experience.reasoning_patterns, target_maturity: M4, phase: P1}
+    - {id: experience.strategy_library, target_maturity: M4, phase: P1}
+    - {id: experience.human_workflows, target_maturity: M3, phase: P1}
+    depends_on: [S05_EVIDENCE_SYSTEM, S06_KNOWLEDGE_SYSTEM, S08_REASONING_SYSTEM]
+    forbidden_paths: ['one_success_episode -> universal_rule', 'private_hidden_chain_of_thought -> required_memory']
     cause_effect_edges:
-    - id: CE-S07-01
-      cause: A task or experiment finishes with a verified outcome.
-      authority_path:
-      - EpisodeAuthority
-      - EvidenceAuthority
-      effects:
-      - episode_record
-      - failure_or_success_memory
-      - candidate_lesson_or_strategy
-      must_not_effect:
-      - automatic_VERIFIED_lesson
-      evidence_target: C
-      gates:
-      - T07
-      - T08
-      - T09
-    - id: CE-S07-02
-      cause: A similar task is planned after a known historical failure pattern.
-      authority_path:
-      - FailureMemoryAuthority
-      - StrategyMemoryAuthority
-      - ReasoningAuthority
-      effects:
-      - surface_prior_failure
-      - adjust_hypotheses_or_guardrails
-      must_not_effect:
-      - blind_repeat_known_failure
-      evidence_target: C
-      gates:
-      - T07
-      - T09
+    - {id: CE-S07-01, covers_capabilities: [experience.episodes, experience.failure_memory, experience.reasoning_patterns], cause: A task or experiment finishes with a verified outcome., authority_path: [EpisodeAuthority, EvidenceAuthority], effects: [episode_record, failure_or_success_memory, candidate_lesson_or_strategy], must_not_effect: [automatic_VERIFIED_lesson], evidence_target: C, gates: [T07, T08, T09]}
+    - {id: CE-S07-02, covers_capabilities: [experience.failure_memory, experience.strategy_library, experience.human_workflows], cause: A similar task is planned after a known historical failure pattern or approved human workflow., authority_path: [FailureMemoryAuthority, StrategyMemoryAuthority, ReasoningAuthority], effects: [surface_prior_failure, surface_applicable_human_workflow, adjust_hypotheses_or_guardrails], must_not_effect: [blind_repeat_known_failure, workflow_as_truth], evidence_target: C, gates: [T07, T09]}
   S08_REASONING_SYSTEM:
     name: Reasoning System
-    phase_focus:
-    - P1
-    - P2
-    purpose: Turn questions and evidence into explicit missing pieces, hypotheses, experiments, causal assessments
-      and calibrated decisions.
-    authority_owners:
-    - DoubtAuthority
-    - HypothesisAuthority
-    - ExperimentAuthority
-    - CausalAuthority
-    - CalibrationAuthority
-    - CognitiveOrchestrator
+    phase_focus: [P1, P2]
+    purpose: Turn questions and evidence into explicit missing pieces, hypotheses, experiments, causal assessments and calibrated decisions.
+    authority_owners: [DoubtAuthority, HypothesisAuthority, ExperimentAuthority, CausalAuthority, CalibrationAuthority, CognitiveOrchestrator]
     capabilities:
-    - id: cognitive.doubt_authority
-      target_maturity: M4
-      phase: P1
-    - id: cognitive.hypothesis_authority
-      target_maturity: M4
-      phase: P1
-    - id: cognitive.experiment_authority
-      target_maturity: M4
-      phase: P1
-    - id: reasoning.causal
-      target_maturity: M4
-      phase: P2
-    - id: epistemic.calibration
-      target_maturity: M4
-      phase: P0
-    - id: cognitive.orchestrator
-      target_maturity: M4
-      phase: P1
-    depends_on:
-    - S05_EVIDENCE_SYSTEM
-    - S06_KNOWLEDGE_SYSTEM
-    - S07_EXPERIENCE_SYSTEM
-    - S11_GOVERNANCE
-    - S12_SELF_AWARENESS_AUDIT
-    forbidden_paths:
-    - WHY_output -> final_truth
-    - correlation -> CAUSES
-    - experiment_result -> VERIFIED
-    - orchestrator -> bypass_authority
+    - {id: cognitive.doubt_authority, target_maturity: M4, phase: P1}
+    - {id: cognitive.hypothesis_authority, target_maturity: M4, phase: P1}
+    - {id: cognitive.experiment_authority, target_maturity: M4, phase: P1}
+    - {id: reasoning.causal, target_maturity: M4, phase: P2}
+    - {id: epistemic.calibration, target_maturity: M4, phase: P0}
+    - {id: cognitive.orchestrator, target_maturity: M4, phase: P1}
+    depends_on: [S05_EVIDENCE_SYSTEM, S06_KNOWLEDGE_SYSTEM, S07_EXPERIENCE_SYSTEM, S11_GOVERNANCE, S12_SELF_AWARENESS_AUDIT]
+    forbidden_paths: ['WHY_output -> final_truth', 'correlation -> CAUSES', 'experiment_result -> VERIFIED', 'orchestrator -> bypass_authority']
     cause_effect_edges:
-    - id: CE-S08-01
-      cause: Evidence is insufficient or a blind spot/contradiction is detected.
-      authority_path:
-      - DoubtAuthority
-      - SelfModel
-      - HypothesisAuthority
-      effects:
-      - OpenQuestion
-      - MissingPiece
-      - testable_hypotheses_if_possible
-      must_not_effect:
-      - forced_answer
-      - forgotten_UNKNOWN
-      evidence_target: C
-      gates:
-      - T07
-      - T09
-    - id: CE-S08-02
-      cause: A hypothesis is testable and a bounded discriminating experiment is possible.
-      authority_path:
-      - ExperimentAuthority
-      - SelfModel
-      - GovernanceAuthority
-      - TaskKernelAuthority
-      - RealityVerifier
-      effects:
-      - authorized_experiment
-      - observation
-      - evidence
-      - hypothesis_update
-      must_not_effect:
-      - experiment_result_as_truth
-      - unbounded_side_effect
-      evidence_target: C
-      gates:
-      - T03
-      - T04
-      - T07
-      - T09
-      - T10
-    - id: CE-S08-03
-      cause: A causal relation is proposed from correlation or temporal precedence.
-      authority_path:
-      - CausalAuthority
-      - EvidenceAuthority
-      - ExperimentAuthority_if_required
-      effects:
-      - ASSOCIATED_PRECEDES_POSSIBLE_CAUSE_SUPPORTED_CAUSE_or_UNKNOWN
-      - confounders_and_alternatives_preserved
-      must_not_effect:
-      - automatic_CAUSES
-      evidence_target: C
-      gates:
-      - T06
-      - T07
-      - T09
+    - {id: CE-S08-01, covers_capabilities: [cognitive.doubt_authority, cognitive.hypothesis_authority, cognitive.orchestrator], cause: Evidence is insufficient or a blind spot/contradiction is detected., authority_path: [DoubtAuthority, SelfModel, HypothesisAuthority, CognitiveOrchestrator], effects: [OpenQuestion, MissingPiece, testable_hypotheses_if_possible], must_not_effect: [forced_answer, forgotten_UNKNOWN], evidence_target: C, gates: [T07, T09]}
+    - {id: CE-S08-02, covers_capabilities: [cognitive.experiment_authority, cognitive.hypothesis_authority, cognitive.orchestrator], cause: A hypothesis is testable and a bounded discriminating experiment is possible., authority_path: [ExperimentAuthority, SelfModel, GovernanceAuthority, TaskKernelAuthority, RealityVerifier], effects: [authorized_experiment, observation, evidence, hypothesis_update], must_not_effect: [experiment_result_as_truth, unbounded_side_effect], evidence_target: C, gates: [T03, T04, T07, T09, T10]}
+    - {id: CE-S08-03, covers_capabilities: [reasoning.causal, epistemic.calibration], cause: A causal relation is proposed from correlation/precedence or a calibrated reasoning verdict is needed., authority_path: [CausalAuthority, EvidenceAuthority, CalibrationAuthority, ExperimentAuthority_if_required], effects: [ASSOCIATED_PRECEDES_POSSIBLE_CAUSE_SUPPORTED_CAUSE_or_UNKNOWN, confounders_and_alternatives_preserved, calibration_record], must_not_effect: [automatic_CAUSES, confidence_as_verdict], evidence_target: C, gates: [T06, T07, T09]}
   S09_SELF_IMPROVEMENT:
     name: Self-Improvement
-    phase_focus:
-    - P0
-    - P1
-    - P3
-    purpose: Detect real findings, apply bounded reversible fixes, verify Reality, learn durably and audit the fixer
-      itself.
-    authority_owners:
-    - ScannerOrchestrator
-    - FindingValidator
-    - DriftGuard
-    - BoundedPatchAuthority
-    - RealityVerifier
-    - LearningFeedbackAuthority
+    phase_focus: [P0, P1, P3]
+    purpose: Detect real findings, apply bounded reversible fixes, verify Reality, learn durably and audit the fixer itself.
+    authority_owners: [ScannerOrchestrator, FindingValidator, DriftGuard, BoundedPatchAuthority, RealityVerifier, LearningFeedbackAuthority]
     capabilities:
-    - id: self_improvement.scanning
-      target_maturity: M4
-      phase: P1
-    - id: self_improvement.finding_validation
-      target_maturity: M4
-      phase: P1
-    - id: self_improvement.bounded_autofix
-      target_maturity: M5
-      phase: P1
-    - id: governance.drift_guard
-      target_maturity: M4
-      phase: P0
-    - id: self_improvement.rollback
-      target_maturity: M5
-      phase: P0
-    - id: self_improvement.meta_audit
-      target_maturity: M5
-      phase: P1
-    depends_on:
-    - S01_EXECUTION_OS
-    - S05_EVIDENCE_SYSTEM
-    - S06_KNOWLEDGE_SYSTEM
-    - S08_REASONING_SYSTEM
-    - S11_GOVERNANCE
-    - S12_SELF_AWARENESS_AUDIT
-    - X05_DISASTER_RECOVERY
-    forbidden_paths:
-    - scanner_match -> finding_truth
-    - autofix -> protected_invariant_weakening
-    - autofix -> delete_or_skip_test
-    - failed_reality_test -> commit
+    - {id: self_improvement.scanning, target_maturity: M4, phase: P1}
+    - {id: self_improvement.finding_validation, target_maturity: M4, phase: P1}
+    - {id: self_improvement.bounded_autofix, target_maturity: M5, phase: P1}
+    - {id: self_improvement.autofix_safety_guards, target_maturity: M5, phase: P1}
+    - {id: governance.drift_guard, target_maturity: M4, phase: P0}
+    - {id: self_improvement.rollback, target_maturity: M5, phase: P0}
+    - {id: self_improvement.catastrophic_forgetting_guard, target_maturity: M5, phase: P1}
+    - {id: self_improvement.meta_audit, target_maturity: M5, phase: P1}
+    depends_on: [S01_EXECUTION_OS, S05_EVIDENCE_SYSTEM, S06_KNOWLEDGE_SYSTEM, S08_REASONING_SYSTEM, S11_GOVERNANCE, S12_SELF_AWARENESS_AUDIT, X05_DISASTER_RECOVERY]
+    forbidden_paths: ['scanner_match -> finding_truth', 'autofix -> protected_invariant_weakening', 'autofix -> delete_or_skip_test', 'failed_reality_test -> commit', 'autofix -> unbounded_rate_or_scope', 'new_learning -> erase_regression_guard']
     cause_effect_edges:
-    - id: CE-S09-01
-      cause: Validated product finding has a bounded reversible fix.
-      authority_path:
-      - FindingValidator
-      - DriftGuard
-      - SnapshotAuthority
-      - BoundedPatchAuthority
-      - RealityVerifier
-      effects:
-      - small_patch
-      - post_state_evidence
-      - commit_or_rollback
-      - lesson_candidate
-      must_not_effect:
-      - protected_invariant_weakening
-      - manufactured_green
-      evidence_target: C
-      gates:
-      - T03
-      - T07
-      - T09
-    - id: CE-S09-02
-      cause: Reality exposes a blind spot missed by current scanners.
-      authority_path:
-      - RealityVerifier
-      - SelfModel
-      - DoubtAuthority
-      - ScannerOrchestrator
-      effects:
-      - missing_piece
-      - coverage_gap_record
-      - method_improvement_candidate
-      - re_audit
-      must_not_effect:
-      - retroactive_claim_scanner_knew
-      - no_error_detected_equals_no_error
-      evidence_target: C
-      gates:
-      - T00
-      - T07
-      - T09
-    - id: CE-S09-03
-      cause: Process crashes during or after a self-change.
-      authority_path:
-      - TaskKernelAuthority
-      - SnapshotAuthority
-      - RecoveryAuthority
-      - RealityVerifier
-      effects:
-      - rollback_or_reconcile
-      - no_duplicate_commit
-      - durable_failure_evidence
-      must_not_effect:
-      - blind_reapply_patch
-      evidence_target: D
-      gates:
-      - T10
+    - {id: CE-S09-01, covers_capabilities: [self_improvement.scanning, self_improvement.finding_validation, self_improvement.bounded_autofix, governance.drift_guard, self_improvement.rollback], cause: Validated product finding has a bounded reversible fix., authority_path: [FindingValidator, DriftGuard, SnapshotAuthority, BoundedPatchAuthority, RealityVerifier], effects: [small_patch, post_state_evidence, commit_or_rollback, lesson_candidate], must_not_effect: [protected_invariant_weakening, manufactured_green], evidence_target: C, gates: [T03, T07, T09]}
+    - {id: CE-S09-02, covers_capabilities: [self_improvement.scanning, self_improvement.meta_audit], cause: Reality exposes a blind spot missed by current scanners., authority_path: [RealityVerifier, SelfModel, DoubtAuthority, ScannerOrchestrator], effects: [missing_piece, coverage_gap_record, method_improvement_candidate, re_audit], must_not_effect: [retroactive_claim_scanner_knew, no_error_detected_equals_no_error], evidence_target: C, gates: [T00, T07, T09]}
+    - {id: CE-S09-03, covers_capabilities: [self_improvement.rollback, self_improvement.bounded_autofix], cause: Process crashes during or after a self-change., authority_path: [TaskKernelAuthority, SnapshotAuthority, RecoveryAuthority, RealityVerifier], effects: [rollback_or_reconcile, no_duplicate_commit, durable_failure_evidence], must_not_effect: [blind_reapply_patch], evidence_target: D, gates: [T10]}
+    - {id: CE-S09-04, covers_capabilities: [self_improvement.autofix_safety_guards, self_improvement.bounded_autofix, governance.drift_guard], cause: An automatic or assisted self-change is proposed., authority_path: [FindingValidator, DriftGuard, AutofixSafetyGuard, SnapshotAuthority, BoundedPatchAuthority], effects: [rate_limit, timeout, cooldown, separate_audit_record, pre_change_snapshot, bounded_blast_radius, RELAXATION_requires_governance], must_not_effect: [unbounded_autofix_loop, auto_apply_relaxation, scope_expansion_without_authority], evidence_target: C, gates: [T00, T03, T07]}
+    - {id: CE-S09-05, covers_capabilities: [self_improvement.catastrophic_forgetting_guard, self_improvement.meta_audit], cause: 'A patch, learned strategy, model or policy candidate would supersede previously working behavior.', authority_path: [CatastrophicForgettingGuard, ProtectedInvariantRegistry, RegressionEvidence, RealityVerifier], effects: [run_protected_regression_set, preserve_or_strengthen_safety, record_before_after_hashes, rollback_token], must_not_effect: [erase_security_guard, erase_negative_evidence, promote_without_regression_evidence], evidence_target: D, gates: [T00, T07, T10, T11]}
   S10_RISK_INTELLIGENCE:
     name: Risk Intelligence and Early Warning
-    phase_focus:
-    - P2
-    - P3
-    - P4
-    purpose: Fuse evidence into anomaly, forecast, scoped risk, early warning and governed containment/alert recommendations.
-    authority_owners:
-    - AnomalyAuthority
-    - GeoAuthority
-    - ForecastAuthority
-    - RiskAuthority
-    - EarlyWarningAuthority
-    - IncidentAuthority
+    phase_focus: [P2, P3, P4]
+    purpose: Fuse evidence into anomaly, forecast, scoped risk, early warning, incident command and governed containment/alert recommendations.
+    authority_owners: [AnomalyAuthority, GeoAuthority, ForecastAuthority, RiskAuthority, EarlyWarningAuthority, IncidentAuthority]
     capabilities:
-    - id: risk.anomaly_detection
-      target_maturity: M4
-      phase: P2
-    - id: world.geospatial
-      target_maturity: M4
-      phase: P2
-    - id: world.forecasting
-      target_maturity: M4
-      phase: P2
-    - id: risk.assessment
-      target_maturity: M4
-      phase: P2
-    - id: risk.early_warning
-      target_maturity: M4
-      phase: P2
-    - id: risk.local_containment
-      target_maturity: M4
-      phase: P2
-    - id: risk.external_alert
-      target_maturity: M4
-      phase: P4
-    depends_on:
-    - S05_EVIDENCE_SYSTEM
-    - S06_KNOWLEDGE_SYSTEM
-    - S08_REASONING_SYSTEM
-    - S11_GOVERNANCE
-    - X08_WORLD_STATE_TEMPORAL_MODEL
-    - X02_OBSERVABILITY_CAUSAL_TELEMETRY
-    forbidden_paths:
-    - anomaly -> risk_without_policy
-    - risk_score -> direct_tool_action
-    - forecast -> fact
-    - low_geo_precision -> exact_coordinates
-    - external_alert -> auto_send_without_authority
+    - {id: risk.anomaly_detection, target_maturity: M4, phase: P2}
+    - {id: world.geospatial, target_maturity: M4, phase: P2}
+    - {id: world.forecasting, target_maturity: M4, phase: P2}
+    - {id: risk.assessment, target_maturity: M4, phase: P2}
+    - {id: risk.early_warning, target_maturity: M4, phase: P2}
+    - {id: risk.local_containment, target_maturity: M4, phase: P2}
+    - {id: risk.incident_command, target_maturity: M5, phase: P3}
+    - {id: risk.external_alert, target_maturity: M4, phase: P4}
+    depends_on: [S05_EVIDENCE_SYSTEM, S06_KNOWLEDGE_SYSTEM, S08_REASONING_SYSTEM, S11_GOVERNANCE, X08_WORLD_STATE_TEMPORAL_MODEL, X02_OBSERVABILITY_CAUSAL_TELEMETRY]
+    forbidden_paths: ['anomaly -> risk_without_policy', 'risk_score -> direct_tool_action', 'forecast -> fact', 'low_geo_precision -> exact_coordinates', 'external_alert -> auto_send_without_authority', 'incident -> unbounded_emergency_power']
     cause_effect_edges:
-    - id: CE-S10-01
-      cause: Temporal world state deviates materially from baseline.
-      authority_path:
-      - AnomalyAuthority
-      - ForecastAuthority
-      - RiskAuthority
-      effects:
-      - anomaly_finding
-      - forecast_if_applicable
-      - scoped_risk_assessment
-      must_not_effect:
-      - automatic_CRITICAL_label
-      - direct_containment
-      evidence_target: C
-      gates:
-      - T06
-      - T08
-      - T09
-    - id: CE-S10-02
-      cause: Forecast resolution horizon arrives.
-      authority_path:
-      - RealityObservation
-      - ForecastResolver
-      - CalibrationAuthority
-      effects:
-      - forecast_resolution
-      - calibration_update
-      must_not_effect:
-      - forecaster_self_resolution
-      - prediction_history_rewrite
-      evidence_target: C
-      gates:
-      - T06
-      - T07
-    - id: CE-S10-03
-      cause: Material local risk warrants containment.
-      authority_path:
-      - RiskAuthority
-      - GovernanceAuthority
-      - CapabilityAuthority
-      - TaskKernelAuthority
-      - RealityVerifier
-      effects:
-      - containment_recommendation
-      - governance_decision
-      - authorized_bounded_action_if_allowed
-      must_not_effect:
-      - RiskAuthority_direct_tool_call
-      evidence_target: C
-      gates:
-      - T03
-      - T09
-    - id: CE-S10-04
-      cause: External alert is proposed.
-      authority_path:
-      - RiskAuthority
-      - EvidenceBundleAuthority
-      - HumanComprehension
-      - HumanAuthority
-      - ExternalAuthorityConnector
-      effects:
-      - evidence_bundle
-      - REQUIRE_HUMAN
-      - post_submit_verification_if_authorized
-      must_not_effect:
-      - automatic_external_broadcast
-      evidence_target: C
-      gates:
-      - T03
-      - T09
-      - T11
+    - {id: CE-S10-01, covers_capabilities: [risk.anomaly_detection, world.forecasting, risk.assessment, risk.early_warning], cause: Temporal world state deviates materially from baseline., authority_path: [AnomalyAuthority, ForecastAuthority, RiskAuthority, EarlyWarningAuthority], effects: [anomaly_finding, forecast_if_applicable, scoped_risk_assessment, warning_candidate], must_not_effect: [automatic_CRITICAL_label, direct_containment], evidence_target: C, gates: [T06, T08, T09]}
+    - {id: CE-S10-02, covers_capabilities: [world.forecasting], cause: Forecast resolution horizon arrives., authority_path: [RealityObservation, ForecastResolver, CalibrationAuthority], effects: [forecast_resolution, calibration_update], must_not_effect: [forecaster_self_resolution, prediction_history_rewrite], evidence_target: C, gates: [T06, T07]}
+    - {id: CE-S10-03, covers_capabilities: [risk.local_containment, risk.assessment], cause: Material local risk warrants containment., authority_path: [RiskAuthority, GovernanceAuthority, CapabilityAuthority, TaskKernelAuthority, RealityVerifier], effects: [containment_recommendation, governance_decision, authorized_bounded_action_if_allowed], must_not_effect: [RiskAuthority_direct_tool_call], evidence_target: C, gates: [T03, T09]}
+    - {id: CE-S10-04, covers_capabilities: [risk.external_alert, risk.early_warning], cause: External alert is proposed., authority_path: [RiskAuthority, EvidenceBundleAuthority, HumanComprehension, HumanAuthority, ExternalAuthorityConnector], effects: [evidence_bundle, REQUIRE_HUMAN, post_submit_verification_if_authorized], must_not_effect: [automatic_external_broadcast], evidence_target: C, gates: [T03, T09, T11]}
+    - {id: CE-S10-05, covers_capabilities: [risk.incident_command, risk.local_containment], cause: A governed incident is declared., authority_path: [IncidentAuthority, GovernanceAuthority, CoordinationAuthority, CapabilityAuthority, TaskKernelAuthority], effects: [bounded_incident_scope, role_assignment, time_bound_capabilities, action_log, recovery_and_close_criteria], must_not_effect: [emergency_power_without_expiry, incident_role_self_authorization], evidence_target: D, gates: [T03, T04, T08, T09, T10]}
+    - {id: CE-S10-06, covers_capabilities: [world.geospatial], cause: A location is inferred from evidence with limited precision., authority_path: [GeoAuthority, EvidenceAuthority], effects: [geometry_with_uncertainty, precision_provenance], must_not_effect: [manufactured_exact_coordinate, precision_above_evidence], evidence_target: C, gates: [T02, T06, T09]}
   S11_GOVERNANCE:
     name: Governance
-    phase_focus:
-    - P0
-    - P1
-    - P2
-    - P3
-    - P4
-    purpose: Own policy, authority, privacy, approval, licenses, dangerous-knowledge boundaries and external authority.
-    authority_owners:
-    - PolicyAuthority
-    - HumanAuthority
-    - PrivacyAuthority
-    - LicenseAuthority
-    - CapabilityAuthority
-    - ExternalAuthorityGovernance
+    phase_focus: [P0, P1, P2, P3, P4]
+    purpose: Own policy, authority, privacy, secret handling, approval, licenses, dangerous-knowledge boundaries and external authority.
+    authority_owners: [PolicyAuthority, HumanAuthority, PrivacyAuthority, SecretBoundaryAuthority, LicenseAuthority, CapabilityAuthority, ExternalAuthorityGovernance]
     capabilities:
-    - id: governance.policy
-      target_maturity: M5
-      phase: P0
-    - id: governance.human_comprehension
-      target_maturity: M4
-      phase: P0
-    - id: governance.privacy_retention
-      target_maturity: M4
-      phase: P0
-    - id: governance.license_copyright
-      target_maturity: M4
-      phase: P2
-    - id: governance.dangerous_knowledge
-      target_maturity: M4
-      phase: P2
-    - id: governance.external_authority
-      target_maturity: M5
-      phase: P4
-    depends_on:
-    - X01_IDENTITY_TRUST
-    - X02_OBSERVABILITY_CAUSAL_TELEMETRY
-    - S12_SELF_AWARENESS_AUDIT
-    forbidden_paths:
-    - human_approval -> bypass_sandbox
-    - missing_policy -> permissive_default
-    - learned_content -> governance_override
-    - license_unknown -> unrestricted_redistribution
+    - {id: governance.policy, target_maturity: M5, phase: P0}
+    - {id: governance.human_comprehension, target_maturity: M4, phase: P0}
+    - {id: governance.privacy_retention, target_maturity: M4, phase: P0}
+    - {id: governance.secret_boundary, target_maturity: M5, phase: P0}
+    - {id: governance.license_copyright, target_maturity: M4, phase: P2}
+    - {id: governance.dangerous_knowledge, target_maturity: M4, phase: P2}
+    - {id: governance.external_authority, target_maturity: M5, phase: P4}
+    depends_on: [X01_IDENTITY_TRUST, X02_OBSERVABILITY_CAUSAL_TELEMETRY, S12_SELF_AWARENESS_AUDIT]
+    forbidden_paths: ['human_approval -> bypass_sandbox', 'missing_policy -> permissive_default', 'learned_content -> governance_override', 'license_unknown -> unrestricted_redistribution', 'raw_secret -> prompt_or_log_or_provider', 'internal_agent -> root_of_trust_mutation']
     cause_effect_edges:
-    - id: CE-S11-01
-      cause: ActionProposal has side effects, sensitive data or elevated consequence.
-      authority_path:
-      - PolicyAuthority
-      - PrivacyAuthority
-      - CapabilityAuthority
-      - HumanAuthority_if_required
-      effects:
-      - ALLOW_DENY_REQUIRE_HUMAN_or_UNKNOWN
-      - scoped_capability_if_allowed
-      must_not_effect:
-      - implicit_ALLOW_on_UNKNOWN
-      evidence_target: C
-      gates:
-      - T03
-      - T08
-      - T09
-    - id: CE-S11-02
-      cause: A normal learning/autofix change touches protected invariant semantics.
-      authority_path:
-      - DriftGuard
-      - PolicyAuthority
-      effects:
-      - DENY_or_REQUIRE_GOVERNANCE
-      must_not_effect:
-      - automatic_policy_weakening
-      evidence_target: C
-      gates:
-      - T00
-      - T03
-      - T07
-    - id: CE-S11-03
-      cause: External authority connector action is requested.
-      authority_path:
-      - ExternalAuthorityGovernance
-      - HumanComprehension
-      - HumanAuthority
-      - CapabilityAuthority
-      effects:
-      - REPORT_ONLY_by_default
-      - evidence_bundle_required
-      - explicit_authority_if_send_allowed
-      must_not_effect:
-      - unconfigured_external_write
-      evidence_target: C
-      gates:
-      - T03
-      - T09
-      - T11
+    - {id: CE-S11-01, covers_capabilities: [governance.policy, governance.human_comprehension, governance.privacy_retention], cause: 'ActionProposal has side effects, sensitive data or elevated consequence.', authority_path: [PolicyAuthority, PrivacyAuthority, CapabilityAuthority, HumanAuthority_if_required], effects: [ALLOW_DENY_REQUIRE_HUMAN_or_UNKNOWN, scoped_capability_if_allowed], must_not_effect: [implicit_ALLOW_on_UNKNOWN, approval_as_only_control], evidence_target: C, gates: [T03, T08, T09]}
+    - {id: CE-S11-02, covers_capabilities: [governance.policy], cause: A normal learning/autofix change touches protected invariant semantics., authority_path: [DriftGuard, PolicyAuthority], effects: [DENY_or_REQUIRE_GOVERNANCE], must_not_effect: [automatic_policy_weakening], evidence_target: C, gates: [T00, T03, T07]}
+    - {id: CE-S11-03, covers_capabilities: [governance.external_authority, governance.human_comprehension], cause: External authority connector action is requested., authority_path: [ExternalAuthorityGovernance, HumanComprehension, HumanAuthority, CapabilityAuthority], effects: [REPORT_ONLY_by_default, evidence_bundle_required, explicit_authority_if_send_allowed], must_not_effect: [unconfigured_external_write], evidence_target: C, gates: [T03, T09, T11]}
+    - {id: CE-S11-04, covers_capabilities: [governance.secret_boundary, governance.privacy_retention], cause: A task requests secret/credential access or sensitive egress., authority_path: [SecretBoundaryAuthority, PrivacyAuthority, CapabilityAuthority, SecretBroker], effects: [DENY_raw_secret_to_model, scoped_brokered_use_if_authorized, redacted_audit_event], must_not_effect: [raw_secret_in_prompt, raw_secret_in_log, secret_to_unapproved_provider], evidence_target: C, gates: [T03, T08, T11]}
+    - {id: CE-S11-05, covers_capabilities: [governance.license_copyright, governance.dangerous_knowledge], cause: 'Knowledge/artifact is proposed for ingestion, redistribution, execution or external release and license/danger level is material or unknown.', authority_path: [LicenseAuthority, DangerousKnowledgeAuthority, PolicyAuthority], effects: [ALLOW_RESTRICT_QUARANTINE_DENY_or_REQUIRE_HUMAN, provenance_and_usage_constraints], must_not_effect: [unknown_license_as_unrestricted, dangerous_content_as_executable_instruction], evidence_target: C, gates: [T03, T07, T11]}
   S12_SELF_AWARENESS_AUDIT:
     name: Self-Awareness and Audit
-    phase_focus:
-    - P0
-    - P1
-    - P3
-    purpose: Know actual capability maturity, blind spots, unresolved doubt and whether the verification method
-      can detect its own failures.
-    authority_owners:
-    - SelfModelAuthority
-    - BlindSpotRegistry
-    - DoubtAuthority
-    - MetaAuditAuthority
+    phase_focus: [P0, P1, P3]
+    purpose: Know actual capability maturity, blind spots, unresolved doubt and whether the verification method can detect its own failures.
+    authority_owners: [SelfModelAuthority, BlindSpotRegistry, DoubtAuthority, MetaAuditAuthority, IndependentReviewAuthority]
     capabilities:
-    - id: self.capability_map
-      target_maturity: M4
-      phase: P0
-    - id: self.blindspot_registry
-      target_maturity: M4
-      phase: P1
-    - id: self.doubt_audit
-      target_maturity: M4
-      phase: P1
-    - id: self.capability_evidence
-      target_maturity: M4
-      phase: P0
-    - id: self.audit_the_auditor
-      target_maturity: M5
-      phase: P3
-    depends_on:
-    - S05_EVIDENCE_SYSTEM
-    - X02_OBSERVABILITY_CAUSAL_TELEMETRY
-    forbidden_paths:
-    - class_exists -> runtime_verified
-    - scanner_no_finding -> no_problem
-    - old_sha_evidence -> current_sha_maturity
-    - unknown_blindspot -> hidden_from_report
+    - {id: self.capability_map, target_maturity: M4, phase: P0}
+    - {id: self.blindspot_registry, target_maturity: M4, phase: P1}
+    - {id: self.doubt_audit, target_maturity: M4, phase: P1}
+    - {id: self.capability_evidence, target_maturity: M4, phase: P0}
+    - {id: self.audit_the_auditor, target_maturity: M5, phase: P3}
+    - {id: self.independent_meta_review, target_maturity: M4, phase: P3}
+    depends_on: [S05_EVIDENCE_SYSTEM, X02_OBSERVABILITY_CAUSAL_TELEMETRY]
+    forbidden_paths: ['class_exists -> runtime_verified', 'scanner_no_finding -> no_problem', 'old_sha_evidence -> current_sha_maturity', 'unknown_blindspot -> hidden_from_report', 'known_inventory_covered -> no_missing_piece', 'self_audit -> self_certification']
     cause_effect_edges:
-    - id: CE-S12-01
-      cause: Capability code exists but lacks production caller or C/D evidence.
-      authority_path:
-      - SelfModelAuthority
-      - CapabilityEvidence
-      effects:
-      - STATIC_PRESENT_or_INTEGRATED_max
-      - limitations_recorded
-      must_not_effect:
-      - RUNTIME_VERIFIED_without_evidence
-      evidence_target: C
-      gates:
-      - T00
-      - T06
-      - T11
-    - id: CE-S12-02
-      cause: A verifier/scanner method cannot observe a relevant failure dimension.
-      authority_path:
-      - BlindSpotRegistry
-      - DoubtAuthority
-      - MetaAuditAuthority
-      effects:
-      - blindspot_record
-      - missing_observability
-      - OpenQuestion_or_method_improvement
-      must_not_effect:
-      - absence_of_detection_as_proof
-      evidence_target: C
-      gates:
-      - T00
-      - T07
-      - T09
+    - {id: CE-S12-01, covers_capabilities: [self.capability_map, self.capability_evidence], cause: Capability code exists but lacks production caller or C/D evidence., authority_path: [SelfModelAuthority, CapabilityEvidence], effects: [STATIC_PRESENT_or_INTEGRATED_max, limitations_recorded], must_not_effect: [RUNTIME_VERIFIED_without_evidence], evidence_target: C, gates: [T00, T06, T11]}
+    - {id: CE-S12-02, covers_capabilities: [self.blindspot_registry, self.doubt_audit, self.audit_the_auditor], cause: A verifier/scanner method cannot observe a relevant failure dimension., authority_path: [BlindSpotRegistry, DoubtAuthority, MetaAuditAuthority], effects: [blindspot_record, missing_observability, OpenQuestion_or_method_improvement], must_not_effect: [absence_of_detection_as_proof], evidence_target: C, gates: [T00, T07, T09]}
+    - {id: CE-S12-03, covers_capabilities: [self.audit_the_auditor, self.independent_meta_review, self.doubt_audit], cause: 'A major structural-completeness, self-improvement, security or release claim is proposed.', authority_path: [MetaAuditAuthority, IndependentReviewAuthority, LineageAuthority], effects: [scope_statement, independence_record, open_questions_preserved, PASS_WITHIN_SCOPE_or_BLOCKED_or_CONTRADICTED], must_not_effect: [self_certification, no_missing_piece_claim, shared_lineage_as_independent], evidence_target: C, gates: [T00, T06, T11]}
 cross_cutting_systems:
   X01_IDENTITY_TRUST:
     name: Identity and Trust Fabric
-    phase_focus:
-    - P0
-    - P2
-    - P4
-    purpose: Give humans, agents, tools, providers, sources, sensors and artifacts explicit identity/provenance
-      without turning reputation into Truth.
+    phase_focus: [P0, P2, P4]
+    purpose: Give humans, agents, tools, providers, sources, sensors, artifacts and roots of trust explicit identity/provenance without turning reputation into Truth.
     capabilities:
-    - id: identity.actor_identity
-      target_maturity: M4
-      phase: P0
-    - id: identity.source_identity
-      target_maturity: M4
-      phase: P0
-    - id: identity.trust_dimensions
-      target_maturity: M4
-      phase: P2
-    - id: identity.independence_basis
-      target_maturity: M4
-      phase: P0
-    required_properties:
-    - identity_confidence
-    - provenance
-    - scope
-    - freshness
-    - data_handling
-    - independence
-    forbidden_paths:
-    - reputation -> VERIFIED
-    - same_publisher -> independent
-    gates:
-    - T02
-    - T03
-    - T06
-    - T11
+    - {id: identity.actor_identity, target_maturity: M4, phase: P0}
+    - {id: identity.source_identity, target_maturity: M4, phase: P0}
+    - {id: identity.trust_dimensions, target_maturity: M4, phase: P2}
+    - {id: identity.independence_basis, target_maturity: M4, phase: P0}
+    - {id: identity.root_of_trust, target_maturity: M5, phase: P0}
+    required_properties: [identity_confidence, provenance, scope, freshness, data_handling, independence, root_owner, rotation_history]
+    forbidden_paths: ['reputation -> VERIFIED', 'same_publisher -> independent', 'internal_self_modify -> root_of_trust']
+    gates: [T02, T03, T06, T11]
     cause_effect_edges:
-    - id: CE-X01-01
-      cause: A source/actor/artifact is introduced or re-identified.
-      authority_path:
-      - IdentityAuthority
-      - ProvenanceAuthority
-      effects:
-      - identity_record
-      - provenance_scope_freshness_dimensions
-      - conservative_trust_state
-      must_not_effect:
-      - reputation_as_truth
-      - identity_guess_as_VERIFIED
-      evidence_target: C
-      gates:
-      - T02
-      - T06
+    - {id: CE-X01-01, covers_capabilities: [identity.actor_identity, identity.source_identity, identity.trust_dimensions, identity.independence_basis], cause: A source/actor/artifact is introduced or re-identified., authority_path: [IdentityAuthority, ProvenanceAuthority], effects: [identity_record, provenance_scope_freshness_dimensions, conservative_trust_state], must_not_effect: [reputation_as_truth, identity_guess_as_VERIFIED], evidence_target: C, gates: [T02, T06]}
+    - {id: CE-X01-02, covers_capabilities: [identity.root_of_trust], cause: A root-of-trust owner/key/policy or capability-grant authority is created, rotated, revoked or modified., authority_path: [ExternalRootAuthority, HumanAuthority, GovernanceAuthority], effects: [explicit_external_authorization, rotation_or_revocation_record, new_root_hash], must_not_effect: [internal_self_grant, silent_root_rewrite], evidence_target: D, gates: [T00, T03, T10, T11]}
   X02_OBSERVABILITY_CAUSAL_TELEMETRY:
     name: Observability and Causal Telemetry
-    phase_focus:
-    - P0
-    - P1
-    - P2
-    - P3
-    - P4
-    purpose: Connect decision -> action -> side effect -> observation -> evidence -> verdict with durable correlation
-      IDs.
+    phase_focus: [P0, P1, P2, P3, P4]
+    purpose: Connect decision -> action -> side effect -> observation -> evidence -> verdict with durable correlation IDs.
     capabilities:
-    - id: observability.trace_identity
-      target_maturity: M4
-      phase: P0
-    - id: observability.audit_events
-      target_maturity: M4
-      phase: P0
-    - id: observability.metrics
-      target_maturity: M4
-      phase: P0
-    - id: observability.provenance_links
-      target_maturity: M4
-      phase: P0
-    required_ids:
-    - trace_id
-    - task_id
-    - attempt_id
-    - step_id
-    - capability_id
-    - policy_hash
-    - tool_call_id
-    - observation_id
-    - verifier_id
-    - artifact_id
-    forbidden_paths:
-    - raw_secret -> log
-    - sensitive_full_prompt -> metric_label
-    gates:
-    - T01
-    - T04
-    - T06
-    - T08
-    - T10
-    - T11
+    - {id: observability.trace_identity, target_maturity: M4, phase: P0}
+    - {id: observability.audit_events, target_maturity: M4, phase: P0}
+    - {id: observability.metrics, target_maturity: M4, phase: P0}
+    - {id: observability.provenance_links, target_maturity: M4, phase: P0}
+    required_ids: [trace_id, task_id, attempt_id, step_id, capability_id, policy_hash, tool_call_id, observation_id, verifier_id, artifact_id]
+    self_change_required_fields: [change_id, before_hash, after_hash, reality_verdict, rollback_token]
+    forbidden_paths: ['raw_secret -> log', 'sensitive_full_prompt -> metric_label', 'material_change -> unaudited']
+    gates: [T01, T04, T06, T08, T10, T11]
     cause_effect_edges:
-    - id: CE-X02-01
-      cause: A governed decision/action/observation/verdict occurs.
-      authority_path:
-      - TelemetryAuthority
-      - EvidenceAuthority
-      effects:
-      - correlated_trace
-      - durable_audit_event
-      - provenance_link
-      must_not_effect:
-      - secret_logging
-      - untraceable_side_effect
-      evidence_target: C
-      gates:
-      - T06
-      - T08
-      - T11
+    - {id: CE-X02-01, covers_capabilities: [observability.trace_identity, observability.audit_events, observability.metrics, observability.provenance_links], cause: A governed decision/action/observation/verdict or material self-change occurs., authority_path: [TelemetryAuthority, EvidenceAuthority], effects: [correlated_trace, durable_audit_event, provenance_link, before_after_rollback_fields_if_self_change], must_not_effect: [secret_logging, untraceable_side_effect, unaudited_self_change], evidence_target: C, gates: [T06, T08, T11]}
   X03_RESOURCE_GOVERNOR:
     name: Resource Governor
-    phase_focus:
-    - P2
-    - P3
-    purpose: Bound CPU, RAM, disk, network, process, crawler and free-provider resources while preserving safety
-      priorities.
+    phase_focus: [P1, P2, P3]
+    purpose: Bound CPU, RAM, disk, network, process, crawler, verification and free-provider resources while preserving safety priorities.
     capabilities:
-    - id: resource.cpu_memory_disk
-      target_maturity: M4
-      phase: P3
-    - id: resource.network_fd_process
-      target_maturity: M4
-      phase: P3
-    - id: resource.free_api_quota
-      target_maturity: M4
-      phase: P2
-    - id: resource.free_llm_quota
-      target_maturity: M4
-      phase: P1
-    - id: resource.crawler_budget
-      target_maturity: M4
-      phase: P2
-    - id: resource.storage_budget
-      target_maturity: M4
-      phase: P3
-    priority_order:
-    - safety_recovery
-    - user_task
-    - verification
-    - learning
-    - curiosity
-    forbidden_paths:
-    - resource_exhaustion -> disable_safety
-    - quota_exhaustion -> paid_fallback
-    gates:
-    - T04
-    - T05
-    - T08
-    - T10
+    - {id: resource.cpu_memory_disk, target_maturity: M4, phase: P3}
+    - {id: resource.network_fd_process, target_maturity: M4, phase: P3}
+    - {id: resource.free_api_quota, target_maturity: M4, phase: P2}
+    - {id: resource.free_llm_quota, target_maturity: M4, phase: P1}
+    - {id: resource.crawler_budget, target_maturity: M4, phase: P2}
+    - {id: resource.storage_budget, target_maturity: M4, phase: P3}
+    - {id: resource.verification_budget, target_maturity: M4, phase: P1}
+    priority_order: [safety_recovery, user_task, verification, learning, curiosity]
+    forbidden_paths: ['resource_exhaustion -> disable_safety', 'quota_exhaustion -> paid_fallback', 'verification_budget_exhausted -> forced_PASS']
+    gates: [T04, T05, T08, T10]
     cause_effect_edges:
-    - id: CE-X03-01
-      cause: A resource budget approaches or crosses its configured bound.
-      authority_path:
-      - ResourceGovernor
-      - TaskKernelAuthority
-      effects:
-      - throttle_pause_wait_or_block
-      - lower_priority_work_paused_first
-      must_not_effect:
-      - disable_safety
-      - paid_fallback
-      - unbounded_budget_growth
-      evidence_target: C
-      gates:
-      - T04
-      - T08
-      - T10
+    - {id: CE-X03-01, covers_capabilities: [resource.cpu_memory_disk, resource.network_fd_process, resource.free_api_quota, resource.free_llm_quota, resource.crawler_budget, resource.storage_budget], cause: A resource budget approaches or crosses its configured bound., authority_path: [ResourceGovernor, TaskKernelAuthority], effects: [throttle_pause_wait_or_block, lower_priority_work_paused_first], must_not_effect: [disable_safety, paid_fallback, unbounded_budget_growth], evidence_target: C, gates: [T04, T05, T08, T10]}
+    - {id: CE-X03-02, covers_capabilities: [resource.verification_budget], cause: Audit/verification cannot converge within its bounded budget or termination criteria., authority_path: [VerificationBudgetAuthority, DoubtAuthority, MetaAuditAuthority], effects: [UNKNOWN_or_BLOCKED, open_question_preserved, resume_condition_if_known], must_not_effect: [infinite_verification_loop, forced_PASS, silent_drop_of_unknown], evidence_target: C, gates: [T00, T06, T08]}
   X04_SUPPLY_CHAIN:
     name: Supply Chain Security
-    phase_focus:
-    - P3
-    - P4
-    purpose: Track source/version/hash/license/risk/privilege/network access for packages, models, datasets, plugins,
-      binaries and workflows.
+    phase_focus: [P3, P4]
+    purpose: Track source/version/hash/license/risk/privilege/network access for packages, models, datasets, plugins, binaries and workflows.
     capabilities:
-    - id: supply_chain.inventory
-      target_maturity: M4
-      phase: P3
-    - id: supply_chain.hash_provenance
-      target_maturity: M4
-      phase: P3
-    - id: supply_chain.quarantine_test_scan
-      target_maturity: M4
-      phase: P3
-    - id: supply_chain.bounded_rollout
-      target_maturity: M5
-      phase: P4
-    update_flow:
-    - QUARANTINE
-    - TEST
-    - SECURITY_SCAN
-    - BOUNDED_ROLLOUT
-    forbidden_paths:
-    - new_dependency -> immediate_production_trust
-    gates:
-    - T01
-    - T03
-    - T07
-    - T10
-    - T11
+    - {id: supply_chain.inventory, target_maturity: M4, phase: P3}
+    - {id: supply_chain.hash_provenance, target_maturity: M4, phase: P3}
+    - {id: supply_chain.quarantine_test_scan, target_maturity: M4, phase: P3}
+    - {id: supply_chain.bounded_rollout, target_maturity: M5, phase: P4}
+    update_flow: [QUARANTINE, TEST, SECURITY_SCAN, BOUNDED_ROLLOUT]
+    forbidden_paths: ['new_dependency -> immediate_production_trust']
+    gates: [T01, T03, T07, T10, T11]
     cause_effect_edges:
-    - id: CE-X04-01
-      cause: A new package/model/dataset/plugin/binary/workflow version is proposed.
-      authority_path:
-      - SupplyChainAuthority
-      - Quarantine
-      - SecurityScan
-      - GovernanceAuthority
-      effects:
-      - inventory_record
-      - hash_license_risk_record
-      - bounded_rollout_if_allowed
-      must_not_effect:
-      - immediate_production_trust
-      evidence_target: C
-      gates:
-      - T03
-      - T07
-      - T11
+    - {id: CE-X04-01, covers_capabilities: [supply_chain.inventory, supply_chain.hash_provenance, supply_chain.quarantine_test_scan, supply_chain.bounded_rollout], cause: A new package/model/dataset/plugin/binary/workflow version is proposed., authority_path: [SupplyChainAuthority, Quarantine, SecurityScan, GovernanceAuthority], effects: [inventory_record, hash_license_risk_record, bounded_rollout_if_allowed], must_not_effect: [immediate_production_trust], evidence_target: C, gates: [T03, T07, T11]}
   X05_DISASTER_RECOVERY:
     name: Disaster Recovery
-    phase_focus:
-    - P0
-    - P3
-    - P4
-    purpose: Preserve evidence and authority state, prevent duplicate side effects, rebuild projections and reconcile
-      before safe resume.
+    phase_focus: [P0, P3, P4]
+    purpose: Preserve evidence and authority state, prevent duplicate side effects, migrate/rebuild safely and reconcile before resume.
     capabilities:
-    - id: recovery.crash_power_loss
-      target_maturity: M5
-      phase: P0
-    - id: recovery.corrupt_journal
-      target_maturity: M5
-      phase: P3
-    - id: recovery.partial_write
-      target_maturity: M5
-      phase: P0
-    - id: recovery.provider_db_network_outage
-      target_maturity: M5
-      phase: P3
-    - id: recovery.disk_full
-      target_maturity: M5
-      phase: P3
-    - id: recovery.index_rebuild
-      target_maturity: M5
-      phase: P3
-    - id: recovery.post_action_unknown
-      target_maturity: M5
-      phase: P0
-    recovery_order:
-    - preserve_evidence
-    - prevent_duplicate_side_effects
-    - restore_authority_state
-    - rebuild_projection
-    - reconcile
-    - resume_known_safe
-    forbidden_paths:
-    - cache_backup_as_authority
-    - unknown_external_outcome -> blind_retry
-    gates:
-    - T01
-    - T04
-    - T10
-    - T11
+    - {id: recovery.crash_power_loss, target_maturity: M5, phase: P0}
+    - {id: recovery.corrupt_journal, target_maturity: M5, phase: P3}
+    - {id: recovery.partial_write, target_maturity: M5, phase: P0}
+    - {id: recovery.provider_db_network_outage, target_maturity: M5, phase: P3}
+    - {id: recovery.disk_full, target_maturity: M5, phase: P3}
+    - {id: recovery.index_rebuild, target_maturity: M5, phase: P3}
+    - {id: recovery.post_action_unknown, target_maturity: M5, phase: P0}
+    - {id: recovery.schema_migration, target_maturity: M5, phase: P3}
+    recovery_order: [preserve_evidence, prevent_duplicate_side_effects, restore_authority_state, validate_or_migrate_schema, rebuild_projection, reconcile, resume_known_safe]
+    forbidden_paths: [cache_backup_as_authority, 'unknown_external_outcome -> blind_retry', 'migration_failure -> recreate_empty_authority_store']
+    gates: [T01, T04, T10, T11]
     cause_effect_edges:
-    - id: CE-X05-01
-      cause: Crash/power loss/corruption/outage interrupts authority state.
-      authority_path:
-      - RecoveryAuthority
-      - EvidenceAuthority
-      - TaskKernelAuthority
-      effects:
-      - preserve_evidence
-      - prevent_duplicate_side_effect
-      - restore_or_rebuild_authority_state
-      - reconcile
-      - safe_resume_or_BLOCKED
-      must_not_effect:
-      - cache_as_authority
-      - blind_retry
-      evidence_target: D
-      gates:
-      - T01
-      - T04
-      - T10
+    - {id: CE-X05-01, covers_capabilities: [recovery.crash_power_loss, recovery.corrupt_journal, recovery.partial_write, recovery.provider_db_network_outage, recovery.disk_full, recovery.index_rebuild, recovery.post_action_unknown], cause: Crash/power loss/corruption/outage interrupts authority state., authority_path: [RecoveryAuthority, EvidenceAuthority, TaskKernelAuthority], effects: [preserve_evidence, prevent_duplicate_side_effect, restore_or_rebuild_authority_state, reconcile, safe_resume_or_BLOCKED], must_not_effect: [cache_as_authority, blind_retry], evidence_target: D, gates: [T01, T04, T10]}
+    - {id: CE-X05-02, covers_capabilities: [recovery.schema_migration], cause: Authority storage schema/version/checksum changes or becomes incompatible., authority_path: [MigrationAuthority, RecoveryAuthority, EvidenceAuthority], effects: [validate_migration, preserve_history, reversible_migration_or_BLOCKED, post_migration_integrity_check], must_not_effect: [silent_schema_rewrite, delete_and_recreate_on_failure], evidence_target: D, gates: [T01, T02, T10, T11]}
   X06_SIMULATION_DIGITAL_TWIN:
     name: Simulation and Digital Twin
-    phase_focus:
-    - P3
-    purpose: Test patch, policy, recovery, incident and resource scenarios without confusing simulation with production
-      Reality.
+    phase_focus: [P3]
+    purpose: Test patch, policy, recovery, incident and resource scenarios without confusing simulation with production Reality.
     capabilities:
-    - id: simulation.policy
-      target_maturity: M4
-      phase: P3
-    - id: simulation.patch
-      target_maturity: M4
-      phase: P3
-    - id: simulation.recovery
-      target_maturity: M4
-      phase: P3
-    - id: simulation.incident
-      target_maturity: M4
-      phase: P3
-    - id: simulation.resource
-      target_maturity: M4
-      phase: P3
-    forbidden_paths:
-    - simulation_PASS -> production_VERIFIED
-    - low_fidelity_twin -> high_consequence_authority
-    gates:
-    - T02
-    - T07
-    - T09
-    - T10
+    - {id: simulation.policy, target_maturity: M4, phase: P3}
+    - {id: simulation.patch, target_maturity: M4, phase: P3}
+    - {id: simulation.recovery, target_maturity: M4, phase: P3}
+    - {id: simulation.incident, target_maturity: M4, phase: P3}
+    - {id: simulation.resource, target_maturity: M4, phase: P3}
+    forbidden_paths: ['simulation_PASS -> production_VERIFIED', 'low_fidelity_twin -> high_consequence_authority']
+    gates: [T02, T07, T09, T10]
     cause_effect_edges:
-    - id: CE-X06-01
-      cause: A risky policy/patch/recovery/incident/resource scenario is evaluated in simulation.
-      authority_path:
-      - SimulationAuthority
-      - GovernanceAuthority
-      effects:
-      - simulation_evidence
-      - limitations_and_fidelity_record
-      must_not_effect:
-      - production_VERIFIED
-      - automatic_high_consequence_action
-      evidence_target: B
-      gates:
-      - T07
-      - T09
+    - {id: CE-X06-01, covers_capabilities: [simulation.policy, simulation.patch, simulation.recovery, simulation.incident, simulation.resource], cause: A risky policy/patch/recovery/incident/resource scenario is evaluated in simulation., authority_path: [SimulationAuthority, GovernanceAuthority], effects: [simulation_evidence, limitations_and_fidelity_record], must_not_effect: [production_VERIFIED, automatic_high_consequence_action], evidence_target: B, gates: [T07, T09]}
   X07_MULTI_AGENT_COORDINATION:
     name: Multi-Agent Coordination
-    phase_focus:
-    - P3
-    purpose: Coordinate Planner/Researcher/Critic/Verifier/Risk/Policy/Recovery agents with bounded ownership, turns
-      and authority.
+    phase_focus: [P3]
+    purpose: Coordinate Planner/Researcher/Critic/Verifier/Risk/Policy/Recovery agents with bounded ownership, turns and authority.
     capabilities:
-    - id: coordination.roles
-      target_maturity: M4
-      phase: P3
-    - id: coordination.shared_state
-      target_maturity: M5
-      phase: P3
-    - id: coordination.bounded_turns
-      target_maturity: M4
-      phase: P3
-    - id: coordination.disagreement
-      target_maturity: M4
-      phase: P3
-    - id: coordination.no_circular_approval
-      target_maturity: M4
-      phase: P3
-    forbidden_paths:
-    - agent -> self_grant_capability
-    - planner -> self_verify
-    - majority_vote -> truth
-    - hidden_undocumented_memory -> authority_state
-    gates:
-    - T03
-    - T04
-    - T06
-    - T08
-    - T09
-    - T10
+    - {id: coordination.roles, target_maturity: M4, phase: P3}
+    - {id: coordination.shared_state, target_maturity: M5, phase: P3}
+    - {id: coordination.bounded_turns, target_maturity: M4, phase: P3}
+    - {id: coordination.disagreement, target_maturity: M4, phase: P3}
+    - {id: coordination.no_circular_approval, target_maturity: M4, phase: P3}
+    forbidden_paths: ['agent -> self_grant_capability', 'planner -> self_verify', 'majority_vote -> truth', 'hidden_undocumented_memory -> authority_state']
+    gates: [T03, T04, T06, T08, T09, T10]
     cause_effect_edges:
-    - id: CE-X07-01
-      cause: Multiple agents collaborate or disagree on one task.
-      authority_path:
-      - CoordinationAuthority
-      - TaskKernelAuthority
-      - GovernanceAuthority
-      - IndependentVerifier
-      effects:
-      - bounded_role_assignments
-      - shared_durable_state
-      - disagreement_record
-      - independent_resolution_if_needed
-      must_not_effect:
-      - circular_approval
-      - self_granted_capability
-      - majority_vote_as_truth
-      evidence_target: C
-      gates:
-      - T03
-      - T06
-      - T09
-      - T10
+    - {id: CE-X07-01, covers_capabilities: [coordination.roles, coordination.shared_state, coordination.bounded_turns, coordination.disagreement, coordination.no_circular_approval], cause: Multiple agents collaborate or disagree on one task., authority_path: [CoordinationAuthority, TaskKernelAuthority, GovernanceAuthority, IndependentVerifier], effects: [bounded_role_assignments, shared_durable_state, disagreement_record, independent_resolution_if_needed], must_not_effect: [circular_approval, self_granted_capability, majority_vote_as_truth], evidence_target: C, gates: [T03, T06, T09, T10]}
   X08_WORLD_STATE_TEMPORAL_MODEL:
     name: World-State and Temporal Model
-    phase_focus:
-    - P2
+    phase_focus: [P2]
     purpose: Represent OBSERVED/INFERRED/PREDICTED world state with bitemporal history and reconstructable projections.
     capabilities:
-    - id: world.entity_identity
-      target_maturity: M4
-      phase: P2
-    - id: world.event_model
-      target_maturity: M4
-      phase: P2
-    - id: world.temporal_state
-      target_maturity: M5
-      phase: P2
-    - id: world.change_detection
-      target_maturity: M4
-      phase: P2
-    - id: world.state_projection
-      target_maturity: M5
-      phase: P2
-    state_kinds:
-    - OBSERVED
-    - INFERRED
-    - PREDICTED
-    forbidden_paths:
-    - prediction -> observation
-    - current_state -> overwrite_history
-    - same_name -> entity_merge
-    gates:
-    - T01
-    - T02
-    - T06
-    - T08
-    - T09
-    - T10
+    - {id: world.entity_identity, target_maturity: M4, phase: P2}
+    - {id: world.event_model, target_maturity: M4, phase: P2}
+    - {id: world.temporal_state, target_maturity: M5, phase: P2}
+    - {id: world.change_detection, target_maturity: M4, phase: P2}
+    - {id: world.state_projection, target_maturity: M5, phase: P2}
+    state_kinds: [OBSERVED, INFERRED, PREDICTED]
+    forbidden_paths: ['prediction -> observation', 'current_state -> overwrite_history', 'same_name -> entity_merge']
+    gates: [T01, T02, T06, T08, T09, T10]
     cause_effect_edges:
-    - id: CE-X08-01
-      cause: A new world observation changes or conflicts with prior state.
-      authority_path:
-      - EvidenceAuthority
-      - EntityEventAuthority
-      - TemporalAuthority
-      - WorldStateProjection
-      effects:
-      - append_temporal_assertion
-      - preserve_valid_and_system_time
-      - reconstructable_history
-      - change_record
-      must_not_effect:
-      - overwrite_history
-      - prediction_as_observation
-      - same_name_entity_merge
-      evidence_target: C
-      gates:
-      - T02
-      - T06
-      - T09
-      - T10
+    - {id: CE-X08-01, covers_capabilities: [world.entity_identity, world.event_model, world.temporal_state, world.change_detection, world.state_projection], cause: A new world observation changes or conflicts with prior state., authority_path: [EvidenceAuthority, EntityEventAuthority, TemporalAuthority, WorldStateProjection], effects: [append_temporal_assertion, preserve_valid_and_system_time, reconstructable_history, change_record], must_not_effect: [overwrite_history, prediction_as_observation, same_name_entity_merge], evidence_target: C, gates: [T02, T06, T09, T10]}
 shared_architecture_contracts:
-  authority_storage:
-    rule: SQLite/immutable objects or equivalent durable stores are authority; vector index/cache/projection are
-      accelerators and rebuildable.
-  common_event_envelope:
-    required_fields:
-    - schema_version
-    - event_id
-    - event_type
-    - timestamp
-    - trace_id
-    - task_id
-    - attempt_id
-    - actor
-    - subject_refs
-    - policy_hash
-    - payload
-    - evidence_refs
-    - data_class
-    - integrity.content_hash
-  data_classes:
-  - PUBLIC
-  - INTERNAL
-  - SENSITIVE
-  - SECRET
-  epistemic_verdicts:
-  - VERIFIED
-  - CONTRADICTED
-  - INSUFFICIENT
-  - UNKNOWN
-  evidence_levels:
-    A: STATIC
-    B: INTEGRATION
-    C: REAL_END_TO_END
-    D: C_PLUS_RECOVERY
-  external_action_risk:
-    A0: read_only_no_side_effect
-    A1: local_reversible_write
-    A2: external_write_submit_upload
-    A3: credential_destructive_privilege_production_financial_or_high_consequence
+  authority_storage: {rule: Durable authority stores are canonical; vector index/cache/projection are accelerators and rebuildable.}
+  common_event_envelope: {required_fields: [schema_version, event_id, event_type, timestamp, trace_id, task_id, attempt_id, actor, subject_refs, policy_hash, payload, evidence_refs, data_class, integrity.content_hash]}
+  capability_token_contract: {required_fields: [capability_id, task_id, attempt_id, tool_scope, resource_scope, operation, max_data_class, side_effect_class, expiry, max_uses, approval_id_if_required, revocation_epoch, policy_hash]}
+  data_classes: [PUBLIC, INTERNAL, SENSITIVE, SECRET]
+  epistemic_verdicts: [VERIFIED, CONTRADICTED, INSUFFICIENT, UNKNOWN]
+  evidence_levels: {A: STATIC, B: INTEGRATION, C: REAL_END_TO_END, D: C_PLUS_RECOVERY}
+  external_action_risk: {A0: read_only_no_side_effect, A1: local_reversible_write, A2: external_write_submit_upload, A3: credential_destructive_privilege_production_financial_or_high_consequence}
 system_dependency_graph:
   canonical_paths:
-  - id: DP01_EPISTEMIC
-    path:
-    - ExternalData
-    - InternetSafety
-    - Evidence
-    - SourceIdentity
-    - Lineage
-    - Claim
-    - EpistemicAssessment
-    - Knowledge
-  - id: DP02_ACTION
-    path:
-    - Knowledge
-    - Reasoning
-    - ActionProposal
-    - Governance
-    - Capability
-    - TaskKernel
-    - Tool
-    - Reality
-    - Evidence
-  - id: DP03_LEARNING
-    path:
-    - AnomalyOrQuestion
-    - WHY
-    - MissingPiece
-    - Hypothesis
-    - Experiment
-    - Reality
-    - Evidence
-    - PromotionOrDemotion
-    - Lesson
-    - Calibration
-    - SelfModel
-  - id: DP04_WORLD
-    path:
-    - WorldSource
-    - Acquisition
-    - InternetSafety
-    - Evidence
-    - EntityEvent
-    - BitemporalWorldState
-    - Change
-    - CausalForecastRisk
-    - Governance
-  - id: DP05_SELF_IMPROVEMENT
-    path:
-    - Finding
-    - Validation
-    - BoundedPatch
-    - DriftGuard
-    - Snapshot
-    - TaskKernel
-    - Reality
-    - CommitOrRollback
-    - Lesson
-    - ReAudit
-  - id: DP06_HIGH_CONSEQUENCE
-    path:
-    - RiskAssessment
-    - EvidenceBundle
-    - HumanComprehension
-    - ExplicitAuthority
-    - ExternalConnector
-    - PostSubmitRealityVerification
-  forbidden_edges:
-  - ExternalData -> Knowledge
-  - ExternalData -> Action
-  - ModelSelfReport -> Reality
-  - Confidence -> VERIFIED
-  - Knowledge -> Tool
-  - ExperimentResult -> VERIFIED
-  - Forecast -> Fact
-  - Correlation -> CAUSES
-  - RiskAuthority -> Tool
-  - Simulation -> ProductionReality
-  - Agent -> SelfGrantCapability
-  - UnknownExternalOutcome -> BlindRetry
-  - PaidModel -> ZeroCostProductionPath
+  - {id: DP01_EPISTEMIC, path: [ExternalData, InternetSafety, Evidence, SourceIdentity, Lineage, Claim, EpistemicAssessment, Knowledge]}
+  - {id: DP02_ACTION, path: [Knowledge, Reasoning, ActionProposal, Governance, Capability, TaskKernel, Tool, Reality, Evidence]}
+  - {id: DP03_LEARNING, path: [AnomalyOrQuestion, WHY, MissingPiece, Hypothesis, Experiment, Reality, Evidence, PromotionOrDemotion, Lesson, Calibration, SelfModel]}
+  - {id: DP04_WORLD, path: [WorldSource, Acquisition, InternetSafety, Evidence, EntityEvent, BitemporalWorldState, Change, CausalForecastRisk, Governance]}
+  - {id: DP05_SELF_IMPROVEMENT, path: [Finding, Validation, AutofixSafetyGuards, BoundedPatch, DriftGuard, Snapshot, TaskKernel, Reality, ProtectedRegression, CommitOrRollback, Lesson, ReAudit]}
+  - {id: DP06_HIGH_CONSEQUENCE, path: [RiskAssessment, EvidenceBundle, HumanComprehension, ExplicitAuthority, ScopedCapability, ExternalConnector, PostSubmitRealityVerification]}
+  - {id: DP07_ROOT_AUTHORITY, path: [RootChangeRequest, IndependentGovernanceReview, HumanAuthority, RootRotationOrRevocation, AuditEvidence]}
+  forbidden_edges: ['ExternalData -> Knowledge', 'ExternalData -> Action', 'ModelSelfReport -> Reality', 'Confidence -> VERIFIED', 'Knowledge -> Tool', 'ExperimentResult -> VERIFIED', 'Forecast -> Fact', 'Correlation -> CAUSES', 'RiskAuthority -> Tool', 'Simulation -> ProductionReality', 'Agent -> SelfGrantCapability', 'UnknownExternalOutcome -> BlindRetry', 'PaidModel -> ZeroCostProductionPath', 'RawSecret -> ModelPrompt', 'RawSecret -> Log', 'InternalSelfModification -> RootOfTrust', 'KnownInventoryCoverage -> NoMissingPieceClaim']
 test_architecture:
   T00:
     dir: tests/T00_integrity
     name: Test Integrity and Meta-Audit
-    obligations:
-    - detect placeholder/assert-true/unconditional skip/xfail
-    - detect invented API or broken production binding
-    - detect fake C/D evidence labels
-    - detect capability without required test mappings
-    - detect weakened protected invariants
-    - classify HARNESS_BROKEN / PRODUCT_BLOCKED / PRODUCT_FAIL / PASS_WITHIN_SCOPE
-  T01:
-    dir: tests/T01_boot
-    name: Boot and Reproducibility
-    obligations:
-    - clean boot/start/stop
-    - schema/migration/integrity fail-closed
-    - config/manifest/lock reproducibility
-    - unclean-shutdown recovery classification
-  T02:
-    dir: tests/T02_contract
-    name: Semantic and Contract
-    obligations:
-    - IDs/schema/state transitions
-    - ontology and authority contracts
-    - entity/event/bitemporal semantics
-    - common event envelope
-  T03:
-    dir: tests/T03_capability
-    name: Trust, Capability and Internet Safety
-    obligations:
-    - deny-by-default capability and PEP
-    - SSRF/egress/path/secret/privacy/sandbox
-    - prompt-injection quarantine
-    - human comprehension and external authority
-    - risk cannot bypass governance
-  T04:
-    dir: tests/T04_kernel
-    name: Kernel and Durable State
-    obligations:
-    - journal/projection/lease/fencing/checkpoint/idempotency
-    - kill switch
-    - reconciliation state
-    - bounded monitor/task lifecycle
-  T05:
-    dir: tests/T05_gateway
-    name: Gateway and Zero-Cost
-    obligations:
-    - exact-zero fresh pricing proof
-    - unknown/stale/paid deny before dispatch
-    - verified-free failover only
-    - quota/circuit breaker/backoff/retry-after
-    - privacy before provider
-    - no paid fallback
-  T06:
-    dir: tests/T06_verifier
-    name: Evidence and Reality
-    obligations:
-    - real observation and provenance
-    - lineage independence
-    - stale/self-report rejection
-    - contradiction preservation
-    - forecast resolution by later Reality
-    - same-SHA/profile binding where applicable
-  T07:
-    dir: tests/T07_learning
-    name: Learning, Knowledge and AutoFix
-    obligations:
-    - quarantine/poisoning/lineage quality
-    - promotion/demotion/revalidation
-    - OpenQuestion/MissingPiece/Hypothesis/Experiment
-    - Lesson begins unverified
-    - bounded patch/rollback/catastrophic-forgetting guard
-    - re-audit the fixer
-  T08:
-    dir: tests/T08_runtime
-    name: Runtime Closed Loop and Soak
-    obligations:
-    - real read-understand-plan-act-observe-verify path
-    - bounded resource and soak profiles
-    - projection determinism
-    - long-running mission lifecycle when applicable
+    obligations: [detect placeholder/assert-true/unconditional skip/xfail, detect invented API or broken production binding, detect fake C/D evidence labels, detect orphan capability and orphan cause-effect edge, prove every required capability is covered by one-or-more cause-effect edges, prove every cause-effect edge maps to one-or-more T00-T11 gates, detect capability/reference alignment gap without deleting future requirement, detect weakened protected invariants and root-of-trust self-modification, reject closed-world no-missing-piece claims, 'classify HARNESS_BROKEN / PRODUCT_BLOCKED / PRODUCT_FAIL / STRUCTURAL_COVERAGE_GAP / PASS_WITHIN_SCOPE']
+  T01: {dir: tests/T01_boot, name: Boot and Reproducibility, obligations: [clean boot/start/stop, schema/migration/integrity fail-closed, config/manifest/lock reproducibility, unclean-shutdown recovery classification]}
+  T02: {dir: tests/T02_contract, name: Semantic and Contract, obligations: [IDs/schema/state transitions, ontology and authority contracts, entity/event/bitemporal semantics, common event envelope, capability token contract]}
+  T03: {dir: tests/T03_capability, name: 'Trust, Capability and Internet Safety', obligations: [deny-by-default capability and PEP, SSRF/egress/path/secret/privacy/sandbox, prompt-injection quarantine, human comprehension and external authority, root-of-trust cannot be self-granted, risk cannot bypass governance]}
+  T04: {dir: tests/T04_kernel, name: Kernel and Durable State, obligations: [journal/projection/lease/fencing/checkpoint/idempotency, kill switch, reconciliation state, bounded monitor/task/mission lifecycle]}
+  T05: {dir: tests/T05_gateway, name: Gateway and Zero-Cost, obligations: [exact-zero fresh pricing proof, unknown/stale/paid deny before dispatch, verified-free failover only, quota/circuit breaker/backoff/retry-after, privacy before provider, no paid fallback]}
+  T06: {dir: tests/T06_verifier, name: Evidence and Reality, obligations: [real observation and provenance, lineage independence, stale/self-report rejection, contradiction preservation, forecast resolution by later Reality, same-SHA/profile binding where applicable, independent meta-review lineage where required]}
+  T07: {dir: tests/T07_learning, name: 'Learning, Knowledge and AutoFix', obligations: [quarantine/poisoning/lineage quality, promotion/demotion/revalidation, OpenQuestion/MissingPiece/Hypothesis/Experiment, Lesson begins unverified, autofix rate-limit/timeout/cooldown/audit/snapshot/blast-radius guards, catastrophic-forgetting protected regression guard, re-audit the fixer]}
+  T08: {dir: tests/T08_runtime, name: Runtime Closed Loop and Soak, obligations: [real read-understand-plan-act-observe-verify path, bounded resource and verification profiles, projection determinism, long-running mission lifecycle and termination]}
   T09:
     dir: tests/T09_golden_task
     name: Golden End-to-End
-    required_scenarios_for_complete_scp:
-    - id: GOLDEN_A_AGENT_OS
-      minimum_level: C
-    - id: GOLDEN_B_SELF_IMPROVEMENT
-      minimum_level: C
-    - id: GOLDEN_C_WORLD_INTELLIGENCE
-      minimum_level: C
-    - id: GOLDEN_D_AUTONOMOUS_COORDINATION
-      minimum_level: C
-    - id: GOLDEN_E_EXTERNAL_AUTHORITY_CONTINUITY
-      minimum_level: C
-    rule: Future Golden scenarios remain structural requirements even before their phase is implemented.
-  T10:
-    dir: tests/T10_recovery
-    name: D-Level Recovery and Chaos
-    obligations:
-    - hard-kill/restart/timeout
-    - post-side-effect uncertainty
-    - resume/rollback/reconcile/BLOCKED/UNKNOWN semantics
-    - no duplicate external side effects
-    - authority/projection recovery
-  T11:
-    dir: tests/T11_release
-    name: Release and Handoff
-    obligations:
-    - tested SHA
-    - Complete SCP reference hash/version
-    - DNA hash
-    - required Skill hashes
-    - test profile/config/runtime/manifest hashes
-    - mandatory blockers=0
-    - fresh post-main-handoff verification when release semantics require it
+    required_scenarios_for_target_scp:
+    - {id: GOLDEN_A_AGENT_OS, minimum_level: C}
+    - {id: GOLDEN_B_SELF_IMPROVEMENT, minimum_level: C}
+    - {id: GOLDEN_C_WORLD_INTELLIGENCE, minimum_level: C}
+    - {id: GOLDEN_D_AUTONOMOUS_COORDINATION, minimum_level: C}
+    - {id: GOLDEN_E_EXTERNAL_AUTHORITY_CONTINUITY, minimum_level: C}
+    rule: Future Golden scenarios remain target requirements even before their phase is implemented.
+  T10: {dir: tests/T10_recovery, name: D-Level Recovery and Chaos, obligations: [hard-kill/restart/timeout, post-side-effect uncertainty, resume/rollback/reconcile/BLOCKED/UNKNOWN semantics, no duplicate external side effects, authority/projection recovery, schema migration failure and rollback]}
+  T11: {dir: tests/T11_release, name: Release and Handoff, obligations: [tested SHA, Complete SCP reference hash/version, matrix hash/revision, DNA hash, required Skill hashes, test profile/config/runtime/manifest hashes, 'mandatory blockers=0', fresh post-main-handoff verification when release semantics require it]}
 phase_coverage_map:
-  P0:
-    must_establish:
-    - S01_EXECUTION_OS
-    - S05_EVIDENCE_SYSTEM
-    - S06_KNOWLEDGE_SYSTEM.foundation
-    - S11_GOVERNANCE.foundation
-    - S12_SELF_AWARENESS_AUDIT.foundation
-    - S02_ZERO_COST_INTELLIGENCE.hard_wall
-    - S04_INTERNET_SAFETY.foundation
-    - X01_IDENTITY_TRUST.foundation
-    - X02_OBSERVABILITY_CAUSAL_TELEMETRY.foundation
-    - X05_DISASTER_RECOVERY.foundation
-  P1:
-    must_establish:
-    - S06_KNOWLEDGE_SYSTEM.promotion_revalidation
-    - S07_EXPERIENCE_SYSTEM
-    - S08_REASONING_SYSTEM
-    - S09_SELF_IMPROVEMENT
-    - S02_ZERO_COST_INTELLIGENCE.adaptive_free_routing
-    - S12_SELF_AWARENESS_AUDIT.doubt_blindspots
-  P2:
-    must_establish:
-    - S03_INTERNET_ACQUISITION
-    - S04_INTERNET_SAFETY.full_ingress
-    - S10_RISK_INTELLIGENCE.world_intelligence
-    - X08_WORLD_STATE_TEMPORAL_MODEL
-    - X03_RESOURCE_GOVERNOR.minimum_world_budget
-  P3:
-    must_establish:
-    - X03_RESOURCE_GOVERNOR.full
-    - X06_SIMULATION_DIGITAL_TWIN
-    - X07_MULTI_AGENT_COORDINATION
-    - S01_EXECUTION_OS.long_running_missions
-    - S12_SELF_AWARENESS_AUDIT.audit_the_auditor
-  P4:
-    must_establish:
-    - S11_GOVERNANCE.external_authority
-    - S10_RISK_INTELLIGENCE.external_alert
-    - X04_SUPPLY_CHAIN.full
-    - X05_DISASTER_RECOVERY.full_continuity
-    - S01_EXECUTION_OS.high_consequence_boundaries
+  P0: {must_establish: [S01_EXECUTION_OS.foundation, S05_EVIDENCE_SYSTEM, S06_KNOWLEDGE_SYSTEM.foundation, S11_GOVERNANCE.foundation_and_secret_boundary, S12_SELF_AWARENESS_AUDIT.foundation, S02_ZERO_COST_INTELLIGENCE.hard_wall, S04_INTERNET_SAFETY.foundation, X01_IDENTITY_TRUST.foundation_and_root_of_trust, X02_OBSERVABILITY_CAUSAL_TELEMETRY.foundation, X05_DISASTER_RECOVERY.foundation]}
+  P1: {must_establish: [S06_KNOWLEDGE_SYSTEM.promotion_revalidation, S07_EXPERIENCE_SYSTEM, S08_REASONING_SYSTEM, S09_SELF_IMPROVEMENT.with_autofix_guards_and_forgetting_guard, S02_ZERO_COST_INTELLIGENCE.adaptive_free_routing, S12_SELF_AWARENESS_AUDIT.doubt_blindspots, X03_RESOURCE_GOVERNOR.verification_budget]}
+  P2: {must_establish: [S03_INTERNET_ACQUISITION, S04_INTERNET_SAFETY.full_ingress, S10_RISK_INTELLIGENCE.world_intelligence, X08_WORLD_STATE_TEMPORAL_MODEL, X03_RESOURCE_GOVERNOR.minimum_world_budget]}
+  P3: {must_establish: [X03_RESOURCE_GOVERNOR.full, X06_SIMULATION_DIGITAL_TWIN, X07_MULTI_AGENT_COORDINATION, S01_EXECUTION_OS.long_running_mission, S10_RISK_INTELLIGENCE.incident_command, S12_SELF_AWARENESS_AUDIT.audit_the_auditor_and_independent_review, X05_DISASTER_RECOVERY.schema_migration]}
+  P4: {must_establish: [S11_GOVERNANCE.external_authority, S10_RISK_INTELLIGENCE.external_alert, X04_SUPPLY_CHAIN.full, X05_DISASTER_RECOVERY.full_continuity, S01_EXECUTION_OS.high_consequence_boundary]}
 open_questions_required:
-- id: OQ01
-  question: Khi nào storage authority phải vượt SQLite và migration authority thay đổi ra sao?
-- id: OQ02
-  question: Lineage resolver deterministic có thể đạt đến mức nào trước khi cần semantic assistance?
-- id: OQ03
-  question: Làm sao qualification model miễn phí tránh benchmark overfit và stale capability?
-- id: OQ04
-  question: Revalidation cadence tối ưu theo từng domain/volatility là gì?
-- id: OQ05
-  question: External authority connectors nào thực sự được ủy quyền và ở phạm vi nào?
-- id: OQ06
-  question: Privacy/retention theo jurisdiction nào và policy nào được ưu tiên khi xung đột?
-- id: OQ07
-  question: Digital Twin cần fidelity nào trước khi dùng cho từng loại action/risk?
-- id: OQ08
-  question: Hai independent verifier bất đồng thì resolution authority nào được dùng?
-- id: OQ09
-  question: Causal inference verified-free nào đủ tốt theo từng task class?
-- id: OQ10
-  question: Knowledge graph partition/rebuild authority vận hành thế nào khi scale?
-- id: OQ11
-  question: Information-gain scheduler chống source bias và feedback loop thế nào?
-- id: OQ12
-  question: Phát hiện long-term poisoning và giả independent lineage bằng cách nào?
-- id: OQ13
-  question: Quota phân bổ user task, verification, learning và curiosity thế nào?
-- id: OQ14
-  question: Self-fix test infrastructure được phép tự sửa đến đâu để tránh Goodhart?
-- id: OQ15
-  question: Những authority nào vĩnh viễn human-owned hoặc non-self-modifiable?
+- {id: OQ01, question: Khi nào storage authority phải vượt SQLite/equivalent và migration authority thay đổi ra sao?}
+- {id: OQ02, question: Lineage resolver deterministic có thể đạt đến mức nào trước khi cần semantic assistance?}
+- {id: OQ03, question: Làm sao qualification model miễn phí tránh benchmark overfit và stale capability?}
+- {id: OQ04, question: Revalidation cadence tối ưu theo từng domain/volatility là gì?}
+- {id: OQ05, question: External authority connectors nào thực sự được ủy quyền và ở phạm vi nào?}
+- {id: OQ06, question: Privacy/retention theo jurisdiction nào và policy nào được ưu tiên khi xung đột?}
+- {id: OQ07, question: Digital Twin cần fidelity nào trước khi dùng cho từng loại action/risk?}
+- {id: OQ08, question: Hai independent verifier bất đồng thì resolution authority nào được dùng?}
+- {id: OQ09, question: Causal inference verified-free nào đủ tốt theo từng task class?}
+- {id: OQ10, question: Knowledge graph partition/rebuild authority vận hành thế nào khi scale?}
+- {id: OQ11, question: Information-gain scheduler chống source bias và feedback loop thế nào?}
+- {id: OQ12, question: Phát hiện long-term poisoning và giả independent lineage bằng cách nào?}
+- {id: OQ13, question: Quota phân bổ user task, verification, learning và curiosity thế nào?}
+- {id: OQ14, question: Self-fix test infrastructure được phép tự sửa đến đâu để tránh Goodhart?}
+- {id: OQ15, question: 'Root-of-trust/authority nào vĩnh viễn human-owned hoặc non-self-modifiable, và rotation/recovery policy cụ thể là gì?'}
 coverage_contract:
-  required:
-    core_systems: 12
-    cross_cutting_systems: 8
-    test_gates: 12
-    phases: 5
-  every_core_system_must_have:
-  - name
-  - purpose
-  - phase_focus
-  - authority_owners
-  - capabilities
-  - depends_on
-  - forbidden_paths
-  - cause_effect_edges
-  every_capability_must_have:
-  - id
-  - target_maturity
-  - phase
-  every_cause_effect_edge_must_have:
-  - id
-  - cause
-  - authority_path
-  - effects
-  - must_not_effect
-  - evidence_target
-  - gates
-  every_cross_cutting_system_must_have:
-  - name
-  - purpose
-  - phase_focus
-  - capabilities
-  - forbidden_paths
-  - gates
-  - cause_effect_edges
-  - phase_focus
-  fail_if:
-  - required_core_system_missing
-  - required_cross_cutting_system_missing
-  - required_phase_missing
-  - required_test_gate_missing
-  - orphan_capability_without_owner
-  - capability_without_phase_or_maturity
-  - system_without_cause_effect_edge
-  - cause_effect_without_test_gate
-  - authority_path_bypasses_governance_when_side_effectful
-  - epistemic_path_bypasses_evidence
-  - recovery_semantics_missing_for_side_effectful_or_durable_capability
-  - future_required_capability_omitted_because_not_yet_implemented
-  - zero_cost_invariant_weakened
-  - external_alert_human_authority_weakened
-  - same_sha_release_binding_removed
-  semantic_red_flags:
-  - paid fallback
-  - complex task -> paid
-  - confidence -> VERIFIED
-  - source count -> independent support
-  - external data -> Knowledge
-  - Knowledge -> direct action
-  - RiskAuthority -> direct tool
-  - forecast -> fact
-  - correlation -> CAUSES
-  - simulation PASS -> production PASS
-  - restart -> blind retry
-  - same name -> same entity
-  - current state overwrite history
-  completion_rule: 'structural_verdict may be STRUCTURALLY_COMPLETE only when validator finds zero missing required
-    systems, zero orphan capabilities, zero uncovered cause-effect obligations, zero forbidden dependency violations
-    and zero mandatory T00-T11 mapping gaps.
-
-    '
-  implementation_status_rule: Implementation status is not hard-coded as architectural truth; validator reads live
-    Self-Model, implementation_bindings and same-SHA evidence. Missing implementation never removes the capability
-    from this matrix.
+  required: {core_systems: 12, cross_cutting_systems: 8, capabilities: 120, cause_effect_edges: 51, test_gates: 12, phases: 5, global_invariants: 29}
+  every_core_system_must_have: [name, purpose, phase_focus, authority_owners, capabilities, depends_on, forbidden_paths, cause_effect_edges]
+  every_cross_cutting_system_must_have: [name, purpose, phase_focus, capabilities, forbidden_paths, gates, cause_effect_edges]
+  every_capability_must_have: [id, target_maturity, phase]
+  every_cause_effect_edge_must_have: [id, covers_capabilities, cause, authority_path, effects, must_not_effect, evidence_target, gates]
+  traceability_rules: [Every required capability appears in at least one cause_effect_edge.covers_capabilities., Every cause-effect edge maps to one-or-more applicable T00-T11 gates., Every covered capability ID must exist exactly once in the structural inventory., Every maturity target must have a compatible evidence floor., Reference alignment and implementation maturity are separate from target inventory membership.]
+  fail_if: [required_core_system_missing, required_cross_cutting_system_missing, required_phase_missing, required_test_gate_missing, required_global_invariant_missing, duplicate_capability_id, orphan_capability_without_owner, capability_not_covered_by_any_edge, edge_covers_unknown_capability, cause_effect_without_test_gate, cause_effect_without_evidence_target, authority_path_bypasses_governance_when_side_effectful, epistemic_path_bypasses_evidence, recovery_semantics_missing_for_side_effectful_or_durable_capability, future_required_capability_omitted_because_not_yet_implemented, reference_alignment_gap_silently_deletes_target_requirement, zero_cost_invariant_weakened, secret_boundary_weakened, root_of_trust_becomes_normal_self_modifiable_state, catastrophic_forgetting_guard_removed, verification_loop_unbounded_or_forces_pass, external_alert_human_authority_weakened, same_sha_release_binding_removed, known_inventory_coverage_claimed_as_no_missing_piece]
+  completion_rule: TARGET_SPEC_COVERAGE_COMPLETE_WITHIN_DECLARED_SCOPE may be emitted only when the validator finds zero declared-inventory coverage gaps, zero orphan capabilities, zero uncovered cause-effect obligations, zero forbidden dependency violations and zero mandatory T00-T11 mapping gaps. It never means no unknown missing piece exists.
+  implementation_status_rule: Implementation status is not hard-coded as architectural truth; missing implementation never removes a target capability.
 structural_coverage_summary:
   core_systems_required: 12
   core_systems_declared: 12
   cross_cutting_required: 8
   cross_cutting_declared: 8
+  capabilities_required: 120
+  capabilities_declared: 120
+  cause_effect_edges_required: 51
+  cause_effect_edges_declared: 51
   phases_required: 5
   phases_declared: 5
   gates_required: 12
   gates_declared: 12
+  global_invariants_required: 29
+  global_invariants_declared: 29
   declared_structural_scope: ENTIRE_COMPLETE_SCP
-  structural_verdict: STRUCTURALLY_COMPLETE_BY_DECLARATION_PENDING_MACHINE_VALIDATION
+  target_spec_verdict: TARGET_SPEC_COVERAGE_COMPLETE_BY_DECLARATION_PENDING_MACHINE_VALIDATION
+  epistemic_completeness_verdict: UNPROVABLE_BY_DESIGN_OPEN_TO_NEW_MISSING_PIECES
   runtime_verdict: NOT_DERIVED_FROM_THIS_FILE
-  capabilities_declared: 110
-  cause_effect_edges_declared: 38
 release_interpretation:
-  this_file_can_prove:
-  - Complete SCP structural requirement is explicitly represented.
-  - Cause-effect and cross-gate obligations are specified.
-  - Future capabilities remain visible even when implementation is missing.
-  this_file_cannot_prove:
-  - capability implementation exists
-  - capability maturity
-  - runtime correctness
-  - release readiness
-  - Complete SCP DONE
+  this_file_can_prove_if_machine_validated: [Declared future target SCP structural inventory is internally represented., Every declared capability has cause-effect coverage and gate traceability., Future capabilities remain visible even when reference alignment or implementation is missing.]
+  this_file_cannot_prove: [current capability implementation exists, current capability maturity, runtime correctness, release readiness, no missing pieces remain, Current SCP DONE]
   scoped_phase_verdict_templates:
     P0: 26-P0 Foundation verified within P0 scope on evidence snapshot SHA X.
     P1: 26-P1 Cognitive Control Plane verified within P1 scope on evidence snapshot SHA X.
