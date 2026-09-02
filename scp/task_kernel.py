@@ -150,11 +150,11 @@ TaskKernel = _taskkernel_part.TaskKernel
 
 # Lease authority is execution-context scoped. ContextVar keeps concurrent
 # async tasks/threads from borrowing another worker's lease while preserving
-# the existing public idempotency method signatures. Only a successful claim
-# binds a lease. Idempotency writes then re-check that exact lease *inside the
-# write transaction*, so expiry, release, kill-epoch drift or a newer fencing
-# token fail closed. A no-lease duplicate lookup may return "already claimed"
-# but cannot create/retry/complete a logical action.
+# the existing public method signatures. Once a successful claim binds a lease,
+# ordinary task transitions and idempotency writes re-check that exact lease
+# inside their write transaction. Expiry, release, kill-epoch drift or a newer
+# fencing token therefore fail closed before state, journal or idempotency data
+# can change. Recovery temporarily acts as a distinct system authority.
 _LEASE_CONTEXT: ContextVar[dict[tuple[int, str], str]] = ContextVar(
     "scp_task_kernel_lease_context", default={}
 )
@@ -170,8 +170,19 @@ def _bound_lease_id(kernel: Any, task_id: str) -> str | None:
     return _LEASE_CONTEXT.get().get((id(kernel), task_id))
 
 
+def _without_kernel_lease_context(kernel: Any) -> dict[tuple[int, str], str]:
+    return {
+        key: value
+        for key, value in _LEASE_CONTEXT.get().items()
+        if key[0] != id(kernel)
+    }
+
+
 _original_claim = TaskKernel.claim
 _original_claim_next = TaskKernel.claim_next
+_original_transition = TaskKernel.transition
+_original_recover_on_boot = TaskKernel.recover_on_boot
+_original_close = TaskKernel.close
 _original_reconcile_unknown = TaskKernel.reconcile_unknown
 
 
@@ -198,6 +209,111 @@ def _claim_next_with_lease_context(
     if lease is not None:
         _bind_lease_context(self, lease)
     return lease
+
+
+def _transition_fenced_by_bound_lease(
+    self: Any,
+    task_id: str,
+    to_state: str,
+    actor: str = "kernel",
+    reason: str = "",
+    payload: dict[str, Any] | None = None,
+    event_id: str | None = None,
+) -> dict[str, Any]:
+    """Fence worker-owned state transitions after a lease has been bound.
+
+    Setup/system transitions without a bound worker lease preserve the original
+    API. Once this execution context owns a lease for the task, the exact lease
+    is revalidated in the same transaction as the state/event write. This closes
+    the post-driver race where wall-clock expiry can happen before the watchdog
+    sweeps the lease row.
+    """
+    lease_id = _bound_lease_id(self, task_id)
+    if not lease_id:
+        return _original_transition(self, task_id, to_state, actor, reason, payload, event_id)
+    if to_state not in STATES and to_state != "WAITING_APPROVAL":
+        raise InvalidTransition(f"unknown target state {to_state}")
+
+    self._begin()
+    try:
+        self._assert_lease(lease_id, task_id)
+        if event_id:
+            existing = self.conn.execute(
+                "SELECT * FROM events WHERE event_id=?", (event_id,)
+            ).fetchone()
+            if existing:
+                if existing["task_id"] != task_id or existing["to_state"] != to_state:
+                    raise InvalidTransition("event_id reused for a different transition")
+                self._commit()
+                return self.get_task(task_id)
+
+        task = self._task(task_id)
+        old = task["state"]
+        if to_state not in ALLOWED_TRANSITIONS.get(old, set()):
+            raise InvalidTransition(f"{old}->{to_state}")
+        if old in TERMINAL:
+            raise InvalidTransition("terminal task is immutable")
+        if to_state in ("COMPLETED", "FAILED", "RUNNING", "CHECKPOINTED", "VERIFYING"):
+            try:
+                from scp.meta.why_gate import WhyDecision, get_why_gate
+
+                why_res = get_why_gate().gate(
+                    action_type="kernel_transition",
+                    action_desc=f"Transition {task_id} from {old} to {to_state} by {actor}",
+                    context=reason,
+                    llm_enabled=False,
+                )
+                if why_res.decision == WhyDecision.REJECT:
+                    raise InvalidTransition(
+                        f"WHY Gate REJECTED this kernel transition: {why_res.falsification_reason}"
+                    )
+            except InvalidTransition:
+                raise
+            except Exception as why_err:
+                raise InvalidTransition(f"WHY Gate crashed, fail-closed: {why_err}")
+
+        self.conn.execute(
+            "UPDATE tasks SET state=?,version=version+1,updated_at=? WHERE task_id=?",
+            (to_state, now_iso(), task_id),
+        )
+        self._append_event(
+            task_id,
+            "STATE_TRANSITION",
+            old,
+            to_state,
+            actor,
+            reason or f"{old}->{to_state}",
+            payload,
+            event_id=event_id,
+        )
+        self._commit()
+    except Exception:
+        self._rollback()
+        raise
+    return self.get_task(task_id)
+
+
+def _recover_on_boot_with_system_authority(
+    self: Any, actor: str = "boot_recovery"
+) -> dict[str, Any]:
+    """Run boot replay without borrowing a dead worker's lease authority.
+
+    The old lease context is restored afterwards, so code from the stale worker
+    cannot gain mutation authority merely because recovery ran in the same
+    process during a test or supervised restart.
+    """
+    token = _LEASE_CONTEXT.set(_without_kernel_lease_context(self))
+    try:
+        return _original_recover_on_boot(self, actor)
+    finally:
+        _LEASE_CONTEXT.reset(token)
+
+
+def _close_with_lease_context_cleanup(self: Any) -> None:
+    try:
+        _original_close(self)
+    finally:
+        _LEASE_CONTEXT.set(_without_kernel_lease_context(self))
 
 
 def _idempotency_claim_fenced(
@@ -364,6 +480,9 @@ def _reconcile_unknown_complete_outcomes(
 
 TaskKernel.claim = _claim_with_lease_context
 TaskKernel.claim_next = _claim_next_with_lease_context
+TaskKernel.transition = _transition_fenced_by_bound_lease
+TaskKernel.recover_on_boot = _recover_on_boot_with_system_authority
+TaskKernel.close = _close_with_lease_context_cleanup
 TaskKernel.idempotency_claim = _idempotency_claim_fenced
 TaskKernel.idempotency_complete = _idempotency_complete_fenced
 TaskKernel.idempotency_status = _idempotency_status
