@@ -80,7 +80,9 @@ claims:
     concrete_tests:
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_stale_lease_cannot_create_idempotency_claim
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_stale_lease_cannot_complete_existing_idempotency_claim
-    note: Idempotency writes are now fenced by the exact execution-context lease; full D-level multi-worker recovery proof remains separate.
+      - tests/T04_kernel/test_transition_lease_fencing.py::test_expired_unswept_lease_cannot_transition_task_or_journal
+      - tests/T04_kernel/test_transition_lease_fencing.py::test_boot_recovery_temporarily_supersedes_but_does_not_erase_stale_fence
+    note: Idempotency and worker-owned task-state writes are fenced by the exact execution-context lease, including wall-clock expiry before watchdog sweep; full D-level multi-worker recovery proof remains separate.
 
   - target_kind: capability
     target_id: execution.checkpoint_idempotency
@@ -122,8 +124,10 @@ claims:
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_stale_lease_cannot_create_idempotency_claim
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_stale_lease_cannot_complete_existing_idempotency_claim
       - tests/T04_kernel/test_lease_fencing_idempotency.py::test_fresh_recovery_reader_can_probe_duplicate_without_mutating_it
+      - tests/T04_kernel/test_transition_lease_fencing.py::test_expired_unswept_lease_cannot_transition_task_or_journal
+      - tests/T04_kernel/test_transition_lease_fencing.py::test_boot_recovery_temporarily_supersedes_but_does_not_erase_stale_fence
       - tests/T10_recovery/test_reconciliation_outcome_contract.py::test_ambiguous_reconciliation_outcomes_are_durable_and_never_retryable
-    note: State/journal plus lease-fenced logical-action idempotency and ambiguous reconciliation are bound at B; full D-level worker-attempt recovery remains unproven.
+    note: State/journal plus lease-fenced logical-action idempotency, post-driver task transitions, recovery authority separation and ambiguous reconciliation are bound at B; full D-level worker-attempt recovery remains unproven.
 
   - target_kind: capability
     target_id: execution.sandbox_isolation
