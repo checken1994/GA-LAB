@@ -19,7 +19,10 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from tools.verify_scp_future_target import compose_future_target
+try:
+    from tools.verify_scp_future_target import compose_future_target
+except ModuleNotFoundError:  # direct: python tools/verify_scp_target_test_coverage.py
+    from verify_scp_future_target import compose_future_target
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BINDING = ROOT / "spec" / "scp_target_test_coverage.yaml"
