@@ -1,3 +1,5 @@
+from __future__ import annotations
+import shutil
 """
 SCP Auto-Fix Engine — autonomous bug fixing with tiered autonomy.
 
@@ -19,7 +21,7 @@ The engine uses code_evolution_agent._apply_fix() for the actual patching
   - Skips the permission gate for logic bugs
   - Fixes more than MAX_FIXES_PER_CYCLE per audit cycle (rate limit)
 """
-from __future__ import annotations
+
 
 import json
 import logging

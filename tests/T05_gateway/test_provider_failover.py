@@ -1,3 +1,14 @@
+from __future__ import annotations
+
+def _mock_zero_cost(monkeypatch):
+    from scp.llm_gateway import zero_cost_runtime
+    from scp.llm_gateway.zero_cost_guard import ZeroCostRequest
+    def mock_auth(*args, **kwargs):
+        provider = kwargs.get("provider", args[0] if args else "mock")
+        model = kwargs.get("model", args[1] if len(args) > 1 else "mock")
+        return ZeroCostRequest(provider, model, kwargs.get("task_class", "default"), kwargs.get("data_class", "default")), None
+    monkeypatch.setattr(zero_cost_runtime, "authorize_outbound", mock_auth)
+
 """Failover đa API: OpenRouter (primary) → env extras (OPENAI_API_KEY / SCP_LLM_FALLBACK_PROVIDERS).
 
 Chaos-style hermetic tests: giả lập 429/endpoint chết/breaker open bằng fake
@@ -5,7 +16,7 @@ client — không gọi mạng thật. Kèm runtime test cho Sandbox Job Object
 (chaos test của Gemini đã chứng minh sandbox cũ tự sát — test này chứng minh
 bản fix CHẠY ĐƯỢC trong Job Object thật).
 """
-from __future__ import annotations
+
 
 import asyncio
 import itertools
@@ -66,6 +77,7 @@ def test_breaker_open_skips_dead_provider_without_network_call(monkeypatch):
 
 
 def test_env_extra_provider_sits_in_chain(monkeypatch):
+    _mock_zero_cost(monkeypatch)
     from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
 
     monkeypatch.setenv("SCP_LLM_FALLBACK_PROVIDERS", "deepseek:DEEPSEEK_API_KEY:DEEPSEEK_BASE_URL:DEEPSEEK_MODEL")
@@ -97,6 +109,7 @@ def test_env_extra_provider_sits_in_chain(monkeypatch):
 
 
 def test_deny_egress_blocks_env_provider_before_injected_transport(monkeypatch):
+    _mock_zero_cost(monkeypatch)
     """Deny mode remains authoritative even when a fake transport is injected."""
     from scp.llm_gateway.client import EnvCompatProvider
 
@@ -154,5 +167,6 @@ def test_free_catalog_respects_deny_egress_without_network(monkeypatch):
     monkeypatch.setattr(free_catalog, "_last_ok", None)
 
     assert free_catalog.refresh_free_catalog(force=True) is False
+
 
 

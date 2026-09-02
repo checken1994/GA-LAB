@@ -36,6 +36,20 @@ def test_api_rate_limit_retry_after_caps_at_window(monkeypatch) -> None:
 
 
 def test_openrouter_provider_429_falls_back_to_task_model(monkeypatch) -> None:
+    from scp.llm_gateway import zero_cost_runtime
+    from scp.llm_gateway.zero_cost_guard import ZeroCostRequest
+    monkeypatch.setenv('OPENROUTER_MODEL', 'openrouter/free')
+    monkeypatch.setenv('OPENROUTER_MODEL_DEFAULT', 'openrouter/free-fallback')
+    monkeypatch.delenv('SCP_BUDGET_ROUTING', raising=False)
+    def mock_auth(*args, **kwargs):
+        provider = kwargs.get("provider", args[0] if args else "mock")
+        model = kwargs.get("model", args[1] if len(args) > 1 else "mock")
+        if "free" not in model.lower() and "nemotron" not in model.lower():
+            from scp.llm_gateway.zero_cost_guard import ZeroCostDenied, ZeroCostDecision
+            raise ZeroCostDenied(ZeroCostDecision.DENY_PAID)
+        return ZeroCostRequest(provider, model, kwargs.get("task_class", "default"), kwargs.get("data_class", "default")), None
+    monkeypatch.setattr(zero_cost_runtime, "authorize_outbound", mock_auth)
+
     monkeypatch.setenv('OPENROUTER_MODEL', 'deepseek/deepseek-v4-flash-0731')
     monkeypatch.delenv('SCP_BUDGET_ROUTING', raising=False)
     async def scenario() -> tuple[list[str], str | None, str]:
@@ -43,12 +57,12 @@ def test_openrouter_provider_429_falls_back_to_task_model(monkeypatch) -> None:
         provider._API_KEYS = ["test-key"]
         provider._next_key = lambda: "test-key"  # type: ignore[method-assign]
         calls: list[str] = []
-        paid_model = provider.model
-        print("PAID:", paid_model, "ENV:", os.environ.get("OPENROUTER_MODEL"))
+        free_model = provider.model
+        # print("FREE:", paid_model, "ENV:", os.environ.get("OPENROUTER_MODEL"))
 
         async def fake_call(model: str, messages: list[dict], api_key: str):
             calls.append(model)
-            if model == paid_model:
+            if model == "openrouter/free-fallback":
                 return None, "HTTP 429 (quota/rate-limit)"
             return "fallback answer", None
 
@@ -57,6 +71,6 @@ def test_openrouter_provider_429_falls_back_to_task_model(monkeypatch) -> None:
         return calls, answer, name
 
     calls, answer, provider_name = asyncio.run(scenario())
-    assert calls[:2] == [os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-0731"), os.environ.get("OPENROUTER_MODEL_DEFAULT", "openrouter/free")]
+    assert calls[:2] == ["openrouter/free-fallback", "openrouter/free"]
     assert answer == "fallback answer"
     assert provider_name == "openrouter:openrouter/free"

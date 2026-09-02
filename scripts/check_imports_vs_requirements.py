@@ -52,6 +52,7 @@ def get_requirements(req_path: Path) -> set[str]:
         "pywin32   ": "win32process",
         "pillow": "pil",
         "openai-whisper": "whisper",
+        "pyyaml": "yaml",
     }
     
     for line in req_path.read_text(encoding="utf-8").splitlines():

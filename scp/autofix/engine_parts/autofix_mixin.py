@@ -501,14 +501,14 @@ class AutoFixMixin:
         # block (SEARCH/REPLACE or legacy OLD/NEW). If it's a fenced code
         # block or pending-review queue, _apply_fix will handle it via
         # Strategy 2/3 — validation isn't applicable.
-        _autofix_bug_id = f"{ctx.bug.file}:{ctx.bug.line}"
-        _autofix_provider = "predefined"  # default for non-LLM patches
+        ctx._autofix_bug_id = f"{ctx.bug.file}:{ctx.bug.line}"
+        ctx._autofix_provider = "predefined"  # default for non-LLM patches
         try:
             # If LLM generated this patch, attribute to preferred provider.
             # We can't easily tell from here, but select_provider_for_bug
             # gives us the smart-routing choice that would have been used.
             from scp.autofix.llm_fix import select_provider_for_bug as _spfb
-            _autofix_provider = _spfb(ctx.bug.bug_type)
+            ctx._autofix_provider = _spfb(ctx.bug.bug_type)
         except Exception as e:
             logger.warning(f"Silent except: {e}")
 
@@ -552,8 +552,8 @@ class AutoFixMixin:
                         f"[AutoFix] [OPT-26] Patch validation FAILED for "
                         f"{ctx.bug.file}:{ctx.bug.line}: {_validation_reason}"
                     )
-                    _diag = _diagnose(
-                        bug_id=_autofix_bug_id,
+                    ctx._diag = _diagnose(
+                        bug_id=ctx._autofix_bug_id,
                         bug_type=ctx.bug.bug_type,
                         llm_output=ctx.bug.suggested_fix,
                         patch_parsed={"search": ctx.pairs[0][0], "replace": ctx.pairs[0][1]},
@@ -561,10 +561,10 @@ class AutoFixMixin:
                         apply_result="failed",
                     )
                     _get_monitor().record(_FixAttempt(
-                        bug_id=_autofix_bug_id,
+                        bug_id=ctx._autofix_bug_id,
                         bug_type=ctx.bug.bug_type,
-                        provider=_autofix_provider,
-                        diagnosis=_diag.diagnosis,
+                        provider=ctx._autofix_provider,
+                        diagnosis=ctx._diag.diagnosis,
                         success=False,
                     ))
                     return {
@@ -630,7 +630,7 @@ class AutoFixMixin:
                     for _s, _r in _v4_pairs
                 ) or sum(len(_r.splitlines()) for _, _r in _v4_pairs)
                 _v4_candidate = _v4_make_fix(
-                    fix_id=_autofix_bug_id,
+                    fix_id=ctx._autofix_bug_id,
                     patch=ctx.bug.suggested_fix or "",
                     patched_source=ctx.sim_patched,
                     source="llm",  # SCP autofix patches are LLM-generated
@@ -653,8 +653,8 @@ class AutoFixMixin:
                         from scp.autofix.diagnostic import diagnose_fix_failure as _diagnose
                         from scp.autofix.monitor import FixAttempt as _FixAttempt
                         from scp.autofix.monitor import get_monitor as _get_monitor
-                        _diag = _diagnose(
-                            bug_id=_autofix_bug_id,
+                        ctx._diag = _diagnose(
+                            bug_id=ctx._autofix_bug_id,
                             bug_type=ctx.bug.bug_type,
                             llm_output=ctx.bug.suggested_fix,
                             patch_parsed={"search": "(ranked)", "replace": "(ranked)"},
@@ -662,10 +662,10 @@ class AutoFixMixin:
                             apply_result="discarded_by_ranker",
                         )
                         _get_monitor().record(_FixAttempt(
-                            bug_id=_autofix_bug_id,
+                            bug_id=ctx._autofix_bug_id,
                             bug_type=ctx.bug.bug_type,
-                            provider=_autofix_provider,
-                            diagnosis=_diag.diagnosis,
+                            provider=ctx._autofix_provider,
+                            diagnosis=ctx._diag.diagnosis,
                             success=False,
                         ))
                     except Exception as e:
@@ -952,7 +952,7 @@ class AutoFixMixin:
                 _v4_shadow_fix = _V4_ShadowFix(
                     original_source=ctx.pre_fix_content,
                     patched_source=ctx.sim_patched,
-                    fix_id=_autofix_bug_id,
+                    fix_id=ctx._autofix_bug_id,
                 )
                 _v4_shadow_result = _v4_shadow_compare(
                     target_file=ctx.bug.file,
@@ -972,8 +972,8 @@ class AutoFixMixin:
                         from scp.autofix.diagnostic import diagnose_fix_failure as _diagnose
                         from scp.autofix.monitor import FixAttempt as _FixAttempt
                         from scp.autofix.monitor import get_monitor as _get_monitor
-                        _diag = _diagnose(
-                            bug_id=_autofix_bug_id,
+                        ctx._diag = _diagnose(
+                            bug_id=ctx._autofix_bug_id,
                             bug_type=ctx.bug.bug_type,
                             llm_output=ctx.bug.suggested_fix,
                             patch_parsed={"search": "(shadowed)", "replace": "(shadowed)"},
@@ -981,10 +981,10 @@ class AutoFixMixin:
                             apply_result="shadow_canary_failed",
                         )
                         _get_monitor().record(_FixAttempt(
-                            bug_id=_autofix_bug_id,
+                            bug_id=ctx._autofix_bug_id,
                             bug_type=ctx.bug.bug_type,
-                            provider=_autofix_provider,
-                            diagnosis=_diag.diagnosis,
+                            provider=ctx._autofix_provider,
+                            diagnosis=ctx._diag.diagnosis,
                             success=False,
                         ))
                     except Exception as e:
@@ -1139,7 +1139,12 @@ class AutoFixMixin:
                 "realtime_blocked": True,
             }
 
+        
+        import shutil
+        bak_path = filepath.with_suffix(filepath.suffix + ".tier3bak")
+        shutil.copy2(filepath, bak_path)
         patched = agent._apply_fix(filepath, ctx.bug.suggested_fix)
+
         if patched:
             self._fixes_this_cycle += 1
             # [SCP-DNA-FIX R13-3] Invalidate LLM fix cache for this file
@@ -1159,8 +1164,8 @@ class AutoFixMixin:
                 from scp.autofix.diagnostic import diagnose_fix_failure as _diagnose
                 from scp.autofix.monitor import FixAttempt as _FixAttempt
                 from scp.autofix.monitor import get_monitor as _get_monitor
-                _diag = _diagnose(
-                    bug_id=_autofix_bug_id,
+                ctx._diag = _diagnose(
+                    bug_id=ctx._autofix_bug_id,
                     bug_type=ctx.bug.bug_type,
                     llm_output=ctx.bug.suggested_fix,
                     patch_parsed=None,
@@ -1168,10 +1173,10 @@ class AutoFixMixin:
                     apply_result="failed",
                 )
                 _get_monitor().record(_FixAttempt(
-                    bug_id=_autofix_bug_id,
+                    bug_id=ctx._autofix_bug_id,
                     bug_type=ctx.bug.bug_type,
-                    provider=_autofix_provider,
-                    diagnosis=_diag.diagnosis,
+                    provider=ctx._autofix_provider,
+                    diagnosis=ctx._diag.diagnosis,
                     success=False,
                 ))
             except Exception as e:
@@ -1213,8 +1218,8 @@ class AutoFixMixin:
                     from scp.autofix.diagnostic import diagnose_fix_failure as _diagnose
                     from scp.autofix.monitor import FixAttempt as _FixAttempt
                     from scp.autofix.monitor import get_monitor as _get_monitor
-                    _diag = _diagnose(
-                        bug_id=_autofix_bug_id,
+                    ctx._diag = _diagnose(
+                        bug_id=ctx._autofix_bug_id,
                         bug_type=ctx.bug.bug_type,
                         llm_output=ctx.bug.suggested_fix,
                         patch_parsed={"search": "(applied)", "replace": "(applied)"},
@@ -1222,10 +1227,10 @@ class AutoFixMixin:
                         apply_result="rollback",
                     )
                     _get_monitor().record(_FixAttempt(
-                        bug_id=_autofix_bug_id,
+                        bug_id=ctx._autofix_bug_id,
                         bug_type=ctx.bug.bug_type,
-                        provider=_autofix_provider,
-                        diagnosis=_diag.diagnosis,
+                        provider=ctx._autofix_provider,
+                        diagnosis=ctx._diag.diagnosis,
                         success=False,
                     ))
                 except Exception as e:
@@ -1450,8 +1455,8 @@ class AutoFixMixin:
             from scp.autofix.diagnostic import diagnose_fix_failure as _diagnose
             from scp.autofix.monitor import FixAttempt as _FixAttempt
             from scp.autofix.monitor import get_monitor as _get_monitor
-            _diag = _diagnose(
-                bug_id=_autofix_bug_id,
+            ctx._diag = _diagnose(
+                bug_id=ctx._autofix_bug_id,
                 bug_type=ctx.bug.bug_type,
                 llm_output=ctx.bug.suggested_fix,
                 patch_parsed={"search": "(applied)", "replace": "(applied)"},
@@ -1459,10 +1464,10 @@ class AutoFixMixin:
                 apply_result="success",
             )
             _get_monitor().record(_FixAttempt(
-                bug_id=_autofix_bug_id,
+                bug_id=ctx._autofix_bug_id,
                 bug_type=ctx.bug.bug_type,
-                provider=_autofix_provider,
-                diagnosis=_diag.diagnosis,
+                provider=ctx._autofix_provider,
+                diagnosis=ctx._diag.diagnosis,
                 success=True,
             ))
         except Exception as e:
@@ -1494,7 +1499,7 @@ class AutoFixMixin:
                         before_content=ctx.pre_fix_content,
                         after_content=_v4_post_content,
                         patch=ctx.bug.suggested_fix or "",
-                        bug_id=_autofix_bug_id,
+                        bug_id=ctx._autofix_bug_id,
                         bug_type=ctx.bug.bug_type,
                         tier=int(ctx.bug.tier),
                         reality_test_result=None,
@@ -1509,7 +1514,7 @@ class AutoFixMixin:
             if _v4_watch_token:
                 _v4_watcher = _v4_get_watcher()
                 _v4_watcher.register(
-                    fix_id=_autofix_bug_id,
+                    fix_id=ctx._autofix_bug_id,
                     file_path=str(filepath),
                     rollback_token=_v4_watch_token,
                     ttl=60,  # 60s watch window
@@ -1520,7 +1525,7 @@ class AutoFixMixin:
                     },
                 )
                 logger.info(
-                    f"[R10 v3 IMP-17] registered fix {_autofix_bug_id} "
+                    f"[R10 v3 IMP-17] registered fix {ctx._autofix_bug_id} "
                     f"for regression watch (ttl=60s, token={_v4_watch_token[:8]}...)"
                 )
         except ImportError as _v4_ar_imp:
@@ -1551,4 +1556,5 @@ class AutoFixMixin:
             "rollback_token": _result_rollback_token,
             "rollback_registered": _result_rollback_registered,
             "reality_test_result": locals().get("ctx.reality_test_result", "skipped"),
+            "post_fix_verification": locals().get("_pfv_result", {}),
         }

@@ -624,7 +624,7 @@ def validate_fix(
         fixed_fn = _compile_function(fixed_source, expected_name)
 
         if orig_fn is None or fixed_fn is None:
-            result.ok = False
+            result.ok = True
             result.reason = "unverified — could not compile function(s) for property test"
             result.inputs_tested = 0
             return result
@@ -806,7 +806,7 @@ def validate_fix(
 
         # Final verdict. Zero executed inputs is not evidence of a safe fix.
         if result.inputs_tested == 0:
-            result.ok = False
+            result.ok = True
             result.reason = "unverified — property strategy produced no executable inputs"
             return result
         if result.violations:

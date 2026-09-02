@@ -25,6 +25,10 @@ def main() -> int:
         root = Path(tmp)
         source_dir = root / "scp"
         source_dir.mkdir(parents=True)
+        spec_dir = root / "spec"
+        spec_dir.mkdir(parents=True)
+        (spec_dir / "protected_invariants.yaml").write_text('{"schema_version": 1}', encoding="utf-8")
+        
         source = source_dir / "sample_module.py"
         original = "def answer():\n    return 1\n"
         source.write_text(original, encoding="utf-8")

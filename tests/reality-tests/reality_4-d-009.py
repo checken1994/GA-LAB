@@ -5,7 +5,7 @@ Before fix: 0.0.0.0 + CORS * + no auth → anyone can burn OpenRouter quota.
 After fix: 127.0.0.1 + CORS restricted to dashboard origin.
 """
 
-with open(str(Path(__file__).resolve().parents[2]) + '/mini-services/llm-bridge/index.ts') as f:
+with open(str(Path(__file__).resolve().parents[2]) + '/mini-services/llm-bridge/core.ts') as f:
     src = f.read()
 
 # TEST 1: must NOT bind 0.0.0.0 by default
