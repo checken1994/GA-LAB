@@ -134,7 +134,7 @@ claims:
   note: Retry-After/free fallback/circuit behavior is bound; full privacy and retry-budget contract remains unproven.
 - target_kind: capability
   target_id: epistemic.evidence
-  status: TEST_BOUND_PARTIAL
+  status: TEST_BOUND_CONTRACT
   observed_evidence_level: B
   concrete_tests:
   - tests/T06_verifier/test_evidence_store.py::test_same_content_twice_same_blob_two_occurrences
@@ -142,6 +142,9 @@ claims:
   - tests/T06_verifier/test_evidence_store.py::test_restart_persistence_and_tamper_detection
   - tests/T06_verifier/test_evidence_store.py::test_supersede_never_rewrites_history
   note: Immutable occurrence/provenance storage semantics are exercised; this is not independent C Reality verification.
+  semantic_review: 'Semantic review 2026-09-03: bound tests cover ALL CE-S05-01 effects (two_evidence_occurrences, shared_content_hash_allowed,
+    distinct_observed_at) and the must_not (occurrence_deduplication) via test_same_content_twice_...; plus tamper/restart/purge/supersede coverage
+    beyond the edge minimum. Covering edge: CE-S05-01.'
 - target_kind: edge
   target_id: CE-S05-01
   status: TEST_BOUND_PARTIAL
@@ -192,7 +195,7 @@ claims:
   note: Promotion ladder contract incl. fail-closed on invalid profile.
 - target_kind: capability
   target_id: governance.drift_guard
-  status: TEST_BOUND_PARTIAL
+  status: TEST_BOUND_CONTRACT
   observed_evidence_level: B
   concrete_tests:
   - tests/T03_capability/test_drift_guard.py::test_semantic_change_on_protected_path_requires_governance
@@ -201,6 +204,8 @@ claims:
   - tests/T03_capability/test_drift_guard.py::test_unparseable_protected_python_is_unknown_not_allow
   - tests/T03_capability/test_drift_guard.py::test_comment_only_change_is_allowed_even_on_protected_python
   note: 'Path+semantic drift: DENY paid/cost/test-weakening, UNKNOWN fail-closed, ALLOW harmless.'
+  semantic_review: 'Semantic review 2026-09-03: bound tests cover DENY_or_REQUIRE_GOVERNANCE (paid/cost/test-weakening DENY, unparseable->UNKNOWN
+    fail-closed) and must_not automatic_policy_weakening; ALLOW harmless change also proven. Covering edge: CE-S11-02.'
 - target_kind: capability
   target_id: governance.privacy_retention
   status: TEST_BOUND_PARTIAL
@@ -388,7 +393,7 @@ claims:
   - tests/T03_capability/test_risk_intelligence_contract.py::test_owned_sensor_direct_observation_is_the_missing_source_exception
 - target_kind: capability
   target_id: world.temporal_state
-  status: TEST_BOUND_PARTIAL
+  status: TEST_BOUND_CONTRACT
   note: 'Bitemporal valid_time/system_time, append-only. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
     (red, drives build). Implemented; green over real authorities.'
   observed_evidence_level: B
@@ -396,6 +401,8 @@ claims:
   - tests/T02_contract/test_world_state_temporal_contract.py::test_valid_time_and_system_time_are_recorded_separately_and_append_only
   - tests/T02_contract/test_world_state_temporal_contract.py::test_correction_supersedes_and_never_rewrites_history
   - tests/T02_contract/test_world_state_temporal_contract.py::test_predictor_can_never_promote_its_own_forecast_to_observed
+  semantic_review: 'Semantic review 2026-09-03: bound tests cover append_temporal_assertion, preserve_valid_and_system_time, reconstructable_history,
+    change_record; must_not overwrite_history (trigger) and prediction_as_observation (promote refusal) both proven. Covering edge: CE-X08-01.'
 - target_kind: capability
   target_id: world.event_model
   status: TEST_BOUND_PARTIAL
