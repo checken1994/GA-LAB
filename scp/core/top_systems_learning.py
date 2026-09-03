@@ -80,6 +80,7 @@ _QUARANTINE_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
     r"ghp_[A-Za-z0-9]{30,}",
     r"AIza[0-9A-Za-z_\-]{30,}",
     r"\b(password|passwd|secret)\s*[:=]\s*\S+",
+    r"/dev/(tcp|udp)/",
 ))
 
 

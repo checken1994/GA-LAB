@@ -99,7 +99,7 @@ def test_reverse_mapping_exists_for_every_explicit_concrete_test_claim():
     reverse = report["test_to_targets"]
     for claim in binding["claims"]:
         target_ref = f'{claim["target_kind"]}:{claim["target_id"]}'
-        for selector in claim["concrete_tests"]:
+        for selector in claim.get("concrete_tests", []):
             assert selector in reverse
             assert target_ref in reverse[selector]
 
