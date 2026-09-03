@@ -150,7 +150,7 @@ Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó v�
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
 active_sync_branch: main
-work_snapshot_sha: bba8e60808530471ab15184df6eeab8688105188
+work_snapshot_sha: 55346f2958c96b4d8f804523d080a160f5e396fa
 snapshot_role: analyzed live main boundary before this GA handoff commit
 active_target_revision: 4.0.2
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
@@ -163,94 +163,88 @@ Always refresh `main`; other AIs are actively committing to the same branch.
 
 ```text
 target_manifest: spec/scp_future_target_manifest.yaml
-target_validator: tools/verify_scp_future_target.py
-target_T00_guard: tests/T00_integrity/test_scp_future_target.py
 coverage_binding: spec/scp_target_test_coverage.yaml
-coverage_validator: tools/verify_scp_target_test_coverage.py
-coverage_T00_guard: tests/T00_integrity/test_scp_target_test_coverage.py
 coverage_universe: 138 capabilities + 67 edges
 explicit_claims: 42
-TEST_BOUND_PARTIAL: 36
-BLOCKED_MISSING_IMPLEMENTATION: 6
+TEST_BOUND_CONTRACT: 3
+TEST_BOUND_PARTIAL: 39
 UNPROVEN: 163
 EVIDENCE_VERIFIED: 0
 coverage_proven: false
 current coverage verdict: TRACEABILITY_STRUCTURE_ONLY_NOT_COVERAGE_PROOF / TEST_COVERAGE_UNPROVEN
 ```
 
-Các con số claim/status trên là trạng thái traceability sau commit `a30386f8...`; không được nâng thành runtime/release proof.
+`TEST_BOUND_CONTRACT` là semantic test binding, không phải C/D Reality proof và không cho phép suy ra release readiness.
 
 ## B3. New commits absorbed since previous monitored snapshot
 
-Từ `0bbfd20335c7b3f6363f8dce6f19069bd7863168` đến snapshot này có 4 commit, đều được giữ nguyên:
+Từ `a12ca48e22ee9dfbccfbcc28d631bcf5e132800c` đến snapshot này có 2 commit:
 
 ```text
-46758444c442dd5d0f4e953f4eb74f24d93f6acc
-  coverage: bind execution.recovery_reconciliation + world.source_registry
-  -> TEST_BOUND_PARTIAL/B; semantic review vẫn pending, không phải CONTRACT/VERIFIED.
+1dbee4adb27d487229252afe72a98371e5568772
+  feat(S10,X08): implement Risk Intelligence + World-State authorities; 4 contract reds -> green
+  - adds scp/risk_intelligence authorities: classifier, evidence bundle, alert router, incident state machine
+  - adds scp/world_state authorities: bitemporal temporal authority, entity/event authority, deterministic projection
+  - upgrades 6 prior BLOCKED_MISSING_IMPLEMENTATION claims to TEST_BOUND_PARTIAL/B
+  - does not claim EVIDENCE_VERIFIED or runtime/release proof
 
-a30386f8b94db0a22451409824fd2cec78686179
-  tests/product: S04 firewall contract + firewall hardening; add RED contracts for S10 Risk Intelligence and X08 World State
-  -> S04 adds deterministic injection/secret quarantine coverage.
-  -> risk.assessment, risk.local_containment, risk.external_alert, risk.early_warning,
-     world.temporal_state, world.event_model = BLOCKED_MISSING_IMPLEMENTATION.
-  -> Golden C was added to complete reference, but was initially also (incorrectly) listed as an implementation binding.
-
-64b40d703fca9a851f95e264e97a84d13536b688
-  harness/product follow-up: reverse mapping tolerates BLOCKED claims with no concrete_tests;
-  adds `/dev/(tcp|udp)/` scanner pattern.
-  -> harness strictness is preserved for every claim that actually has concrete tests.
-
-bba8e60808530471ab15184df6eeab8688105188
-  binding correction: removes Golden C test from `implementation_bindings.yaml`.
-  -> correct separation restored: golden task is acceptance/reference evidence, not a production subsystem implementation.
+55346f2958c96b4d8f804523d080a160f5e396fa
+  coverage semantic review
+  - epistemic.evidence -> TEST_BOUND_CONTRACT/B
+  - governance.drift_guard -> TEST_BOUND_CONTRACT/B
+  - world.temporal_state -> TEST_BOUND_CONTRACT/B
+  - remaining claims stay PARTIAL/UNPROVEN; EVIDENCE_VERIFIED remains 0
 ```
 
 ## B4. Semantics / contradiction review
 
-- Live manifest remains `effective_revision: 4.0.2` with 138 capabilities / 67 edges / 34 invariants / 13 Skills. Commit labels containing `4.0.3` do **not** override machine authority.
-- `a30386f8...` increased security strictness rather than weakening it; no skip/xfail/assertion relaxation was observed in the four-commit diff.
-- S10/X08 tests are intentionally RED because product authorities do not exist. This is a product blocker, not a reason to weaken/remove the tests.
-- `64b40d7...` changes T00 reverse mapping only for claims that legitimately have no `concrete_tests`; it still validates all selectors on claims that do have tests. Treat as harness compatibility, not coverage promotion.
-- `bba8e60...` fixes the important modeling error introduced in `a30386f8...`: tests/golden tasks are not implementation modules.
-- No new claim in this commit set is allowed to imply `EVIDENCE_VERIFIED`, full SCP completeness, release readiness, or same-SHA runtime green.
+- `AGENTS.md`, SCP DNA, active target manifest and protected invariants were not modified in this two-commit diff; their authority remains unchanged.
+- S10 implementation preserves owner-locked fail-closed semantics: social/syndication volume alone cannot manufacture PR4/PR5; high-risk qualification requires official/independent lineage or owned-sensor exception; unconfigured alert routing emits bundle only; forbidden public-broadcast operations remain denied.
+- X08 implementation preserves bitemporal/append-only semantics and prevents predictor self-promotion from PREDICTED to OBSERVED.
+- The six formerly blocked S10/X08 claims are only `TEST_BOUND_PARTIAL/B`; implementation existence + green contract nodes does not imply Reality verification.
+- The three `TEST_BOUND_CONTRACT/B` promotions are stronger traceability claims only. `world.temporal_state` covers the temporal subset of CE-X08-01; `same_name_entity_merge` belongs to the entity-identity side of the same edge and remains separately bound. Do not reinterpret this as whole-edge C proof.
+- No skip/xfail/test weakening, protected-invariant relaxation, or target revision change was observed in these commits.
 
 ## B5. Exact-SHA CI at snapshot
 
-For SHA `bba8e60808530471ab15184df6eeab8688105188`, GitHub created 7 check runs. At last refresh they were queued, including platform gates, security-mutation-durability, main-lineage-authority and pre-RC verification.
+For SHA `55346f2958c96b4d8f804523d080a160f5e396fa`, GitHub created 7 check runs.
+
+Observed at refresh:
 
 ```text
-same-SHA CI PASS: NOT OBSERVED
-same-SHA CI FAIL: NOT OBSERVED
-current CI classification: BLOCKED / QUEUED INFRASTRUCTURE
+p0-baseline: FAILURE
+platform-gates ubuntu: QUEUED
+platform-gates windows: QUEUED
+main-lineage-authority: QUEUED
+security-mutation-durability: QUEUED
+other same-SHA checks: not yet concluded
+same-SHA CI PASS: NOT ESTABLISHED
 release claim: FORBIDDEN
 ```
 
-Do not reuse historical green status for this SHA.
+The failed `p0-baseline` job completed before test steps were exposed through the connector; its decoded log was unavailable, so root-cause classification is not yet established. Treat it as a real exact-SHA blocker, not as product failure until evidence identifies the failure class.
 
 ## B6. Current dependency cone
 
-Do not revert concurrent work. Before coding, refresh `main` again.
-
-Immediate blocker-driven order from the newest contract tests:
+Do not revert concurrent S10/X08 work. Refresh `main` again before coding.
 
 ```text
-1. S10 Risk Intelligence
-   - RiskClassifier PR0-PR5 from independent evidence; volume alone never decides high risk
-   - containment through CapabilityAuthority only; RiskAuthority -> Tool forbidden
-   - Emergency Evidence Bundle + REPORT_ONLY/approval-gated AlertRouter
-   - incident state machine + false-positive/missing-source handling
+1. Diagnose exact-SHA p0-baseline failure
+   - classify HARNESS/INFRA vs PRODUCT from job evidence when available
+   - fix at the actual failure point; never weaken tests
 
-2. X08 World State / Temporal Model
-   - bitemporal valid_time/system_time
-   - append-only reconstructable history
-   - corrections supersede; never rewrite history
-   - PREDICTED cannot be written/promoted to OBSERVED by the originating predictor
+2. S10 Risk Intelligence integration depth
+   - prove containment crosses CapabilityAuthority rather than direct Tool authority
+   - verify approval/pre-authorization boundaries and evidence lineage under integration/reality tests
 
-3. Continue previously open P0 isolation/readiness cone where still UNPROVEN
-   - execution.sandbox_isolation full task-scoped/process-tree/cleanup semantics
-   - execution.browser_session_isolation
-   - execution.service_lifecycle_readiness
+3. X08 World State integration depth
+   - test entity identity + same-name non-merge together with temporal history
+   - exercise persistence/restart/rebuild and independent resolver path
+
+4. Continue open P0 isolation/readiness capabilities still UNPROVEN
+   - sandbox/process-tree cleanup semantics
+   - browser session isolation
+   - service lifecycle readiness
 ```
 
 For each capability: Detect -> Why -> Fix product/harness at failure point -> Verify -> update traceability/evidence honestly -> sync to `main`.
@@ -259,8 +253,8 @@ For each capability: Detect -> Why -> Fix product/harness at failure point -> Ve
 
 Allowed now:
 
-> Main contains additional S04 firewall hardening and explicit S10/X08 product-blocking contracts; coverage traceability is broader but remains unproven, with no EVIDENCE_VERIFIED claim.
+> S10 Risk Intelligence and X08 World-State authorities are implemented and contract-bound on main at B-level traceability; three reviewed capabilities are TEST_BOUND_CONTRACT, while exact-SHA CI is not green and EVIDENCE_VERIFIED remains zero.
 
 Forbidden now:
 
-> S10/X08 implemented, SCP complete, P0/P2 verified, CI green, or release ready.
+> S10/X08 Reality-verified, SCP complete, P0 verified, CI green, or release ready.
