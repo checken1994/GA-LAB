@@ -10,7 +10,7 @@ class WorldStateProjection:
 
     def rebuild(self, *, as_of_system_time: str | None = None) -> dict:
         rows = self.temporal.db.query(
-            "SELECT * FROM world_assertions ORDER BY system_time, assertion_id")
+            "SELECT * FROM world_assertions ORDER BY system_time, rowid")
         cutoff = parse_utc_iso(as_of_system_time) if as_of_system_time else None
         system_times = {row["assertion_id"]: parse_utc_iso(row["system_time"]) for row in rows}
         state: dict = {}
@@ -46,7 +46,7 @@ class WorldStateProjection:
                       epistemic_status, superseded_by
                FROM world_assertions
                WHERE subject=? AND predicate=?
-               ORDER BY valid_time, system_time, assertion_id""",
+               ORDER BY valid_time, system_time, rowid""",
             (subject, predicate),
         )
         active_rows = [row for row in rows if not row["superseded_by"]]
