@@ -75,3 +75,13 @@ def test_wildcard_issuer_scope_passes_any_requirement() -> None:
 
     assert capability_token.verify_token(token, required_scope="write")["valid"] is True
     assert capability_token.verify_token(token, required_scope="read")["valid"] is True
+
+
+def test_base64_padding_variants_stay_valid() -> None:
+    # Payloads whose stripped base64 length is not a multiple of 4 exercise the
+    # "=" padding restoration path in verify_token; all must stay valid.
+    for issuer in ("a", "abc", "abcd"):
+        token = capability_token.mint_token(issuer, "read", 1, ttl_seconds=600)
+        encoded = token.rsplit(".", 1)[0]
+        assert len(encoded) % 4 != 0, "test premise: this token needs padding"
+        assert capability_token.verify_token(token)["valid"] is True
