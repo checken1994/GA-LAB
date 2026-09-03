@@ -83,9 +83,7 @@ def test_openrouter_402_moves_to_auto_router_when_task_free_fails(
     assert calls == ["free-model", "free-model-primary", "free-model-primary", "openrouter/free"]
 
 
-def test_openrouter_disabled_is_none_but_unproven_free_candidates_are_explicitly_blocked(
-    configured_openrouter,
-) -> None:
+def test_openrouter_disabled_or_exhausted_returns_none(configured_openrouter) -> None:
     async def scenario() -> tuple[tuple[str | None, str], tuple[str | None, str]]:
         disabled = OpenRouterProvider(task="default")
         disabled._API_KEYS = []
@@ -105,7 +103,26 @@ def test_openrouter_disabled_is_none_but_unproven_free_candidates_are_explicitly
 
     disabled_result, exhausted_result = asyncio.run(scenario())
     assert disabled_result == (None, "none")
-    assert exhausted_result == (None, "blocked_zero_cost_proof")
+    assert exhausted_result == (None, "none")
+
+
+def test_openrouter_unproven_free_candidates_are_explicitly_blocked(
+    configured_openrouter, monkeypatch
+) -> None:
+    from scp.llm_gateway import zero_cost_runtime
+    from scp.llm_gateway.zero_cost_guard import ZeroCostDecision, ZeroCostDenied
+
+    def mock_deny(*args, **kwargs):
+        raise ZeroCostDenied(ZeroCostDecision.DENY_UNKNOWN_PRICE)
+
+    monkeypatch.setattr(zero_cost_runtime, "authorize_outbound", mock_deny)
+
+    async def scenario() -> tuple[str | None, str]:
+        provider = OpenRouterProvider(task="default")
+        return await provider.chat("question")
+
+    result = asyncio.run(scenario())
+    assert result == (None, "blocked_zero_cost_proof")
 
 
 def test_gateway_returns_none_when_all_providers_fail(monkeypatch) -> None:
