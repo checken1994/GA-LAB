@@ -119,7 +119,7 @@ class TemporalAuthority:
         return corrected
 
     def history(self, subject: str) -> list[dict]:
-        return self.db.query("SELECT * FROM world_assertions WHERE subject=? ORDER BY system_time, assertion_id", (subject,))
+        return self.db.query("SELECT * FROM world_assertions WHERE subject=? ORDER BY system_time, rowid", (subject,))
 
     def _append(self, subject, predicate, value, status, valid_time, actor_id, evidence_refs) -> dict:
         parse_utc_iso(valid_time)

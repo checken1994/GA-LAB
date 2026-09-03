@@ -242,7 +242,7 @@ def _test_function_with_hypothesis(
     args_str = strategy_call[len("@given("):-1]
     try:
         # Safe-ish eval: only allow `st` namespace (no builtins).
-        strategies = eval(args_str, {"__builtins__": {}}, {"st": st})  # noqa: S307 — restricted namespace
+        strategies = eval(args_str, {"__builtins__": {}}, {"st": st})  # nosec B307  # noqa: S307 — restricted namespace
     except Exception as e:  # noqa: BLE001
         return True, f"strategy eval failed (skip): {e}"
 

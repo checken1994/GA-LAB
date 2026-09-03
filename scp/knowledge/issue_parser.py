@@ -8,7 +8,7 @@ def parse_top_1_percent_issues(repo="pallets/flask"):
     headers = {"User-Agent": "SCP-Crawler"}
     # Token bucket rate limiting is applied in scheduled_crawler.py
     
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=10)
     if response.status_code == 200:
         issues = response.json()
         with open("data/top1_issues.jsonl", "a", encoding="utf-8") as f:

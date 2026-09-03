@@ -102,7 +102,7 @@ jobs:
           if [ "$bandit_exit" -gt 1 ]; then exit "$bandit_exit"; fi
 
       - name: Portable reality suite
-        run: python run_reality_tests_portable.py
+        run: python scripts/run_reality_tests_portable.py
 
       - name: TaskKernel durability and recovery soak
         run: >-
