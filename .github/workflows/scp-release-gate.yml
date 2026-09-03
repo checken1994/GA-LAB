@@ -104,7 +104,6 @@ jobs:
           scp/runtime/judge_parts/judgecore_mixin.py
           scp/runtime/safe_math.py
           scp/security/cisa_kev.py
-          tests/test_enforce_baseline.py
           tests/T11_release/test_scp_skill_dna_contract.py
           tests/T11_release/test_scp_test_skill_contract.py
           tools/summarize_bandit_report.py
