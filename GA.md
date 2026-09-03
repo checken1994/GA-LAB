@@ -150,8 +150,8 @@ Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó v�
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
 active_sync_branch: main
-work_snapshot_sha: 74a78cf45f0879b27bb145c65f239492c24426cd
-snapshot_role: analyzed live main boundary before this GA handoff refresh commit
+work_snapshot_sha: ff291fbc4d1a27da16821eb37564327a85111725
+snapshot_role: independently audited product/test boundary before this GA handoff commit
 active_target_revision: 4.0.2
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
 runtime/release_verdict: NOT_DERIVED / NOT CLAIMED
@@ -178,81 +178,70 @@ current coverage verdict: TRACEABILITY_STRUCTURE_ONLY_NOT_COVERAGE_PROOF / TEST_
 
 ## B3. New commits absorbed since previous monitored snapshot
 
-Từ `a12ca48e22ee9dfbccfbcc28d631bcf5e132800c` đến snapshot này:
-
 ```text
-1dbee4adb27d487229252afe72a98371e5568772
-  feat(S10,X08): implement Risk Intelligence + World-State authorities; 4 contract reds -> green
-  - adds scp/risk_intelligence authorities: classifier, evidence bundle, alert router, incident state machine
-  - adds scp/world_state authorities: bitemporal temporal authority, entity/event authority, deterministic projection
-  - upgrades 6 prior BLOCKED_MISSING_IMPLEMENTATION claims to TEST_BOUND_PARTIAL/B
-  - does not claim EVIDENCE_VERIFIED or runtime/release proof
-
-55346f2958c96b4d8f804523d080a160f5e396fa
-  coverage semantic review
-  - epistemic.evidence -> TEST_BOUND_CONTRACT/B
-  - governance.drift_guard -> TEST_BOUND_CONTRACT/B
-  - world.temporal_state -> TEST_BOUND_CONTRACT/B
-  - remaining claims stay PARTIAL/UNPROVEN; EVIDENCE_VERIFIED remains 0
-
 74a78cf45f0879b27bb145c65f239492c24426cd
-  feat(test,coverage): expand S10/X08 contract tests and bind 5 new claims (47 total, 6 CONTRACT)
-  - X08 T02 adds same-name non-merge, restart/persistence parity and change-detection tests
-  - S10 T03 adds CapabilityAuthority containment and evidence-bundle lineage preservation
-  - world.entity_identity, world.state_projection, risk.local_containment -> TEST_BOUND_CONTRACT/B
-  - world.change_detection + CE-X08-01 + CE-S10-03 + CE-S10-04 explicitly bound at PARTIAL/B
-  - EVIDENCE_VERIFIED remains 0; edge-level C/reality/release proof remains unproven
+  feat(test,coverage): expand S10/X08 contract tests and bind 5 new claims
+  - raised world.entity_identity, world.state_projection, risk.local_containment to TEST_BOUND_CONTRACT/B
+  - bound world.change_detection + CE-X08-01 + CE-S10-03 + CE-S10-04 at PARTIAL/B
+
+8ca6403cfe603656cf720048cbb97a23db2ef486
+  docs: refresh GA after S10/X08 integration coverage commit
+  - handoff rebound to 74a78cf; release remained forbidden
+
+ac034d1..ff291fb (independent audit remediation chain)
+  - X08 correction writes now require evidence_refs
+  - identity links now require evidence_refs + actor provenance
+  - identity resolution computes transitive evidence-backed closure and ignores legacy unaudited links
+  - WorldStateProjection historical as_of reconstruction now evaluates supersession relative to cutoff time
+  - WorldStateProjection exposes real append-only change detection instead of inferring a delta claim from current()
+  - S10 adds production ContainmentCoordinator: owned-scope only, effect crosses CapabilityAuthority revocation, no direct Tool call
+  - T02 adds regression proof for as_of-before-correction, evidenced/transitive identity and real changes()
+  - T03 containment selector now calls the production ContainmentCoordinator rather than performing revocation only inside the test harness
 ```
 
-## B4. Semantics / contradiction review
+## B4. Independent semantic audit / contradiction repair
 
-- `AGENTS.md`, SCP DNA, active target manifest and protected invariants were not modified by `74a78cf...`; their authority remains unchanged.
-- S10 implementation preserves owner-locked fail-closed semantics: social/syndication volume alone cannot manufacture PR4/PR5; high-risk qualification requires official/independent lineage or owned-sensor exception; unconfigured alert routing emits bundle only; forbidden public-broadcast operations remain denied. Tests now directly bind that RiskAuthority cannot call tools and containment requires CapabilityAuthority.
-- X08 preserves bitemporal/append-only semantics, prevents predictor self-promotion from PREDICTED to OBSERVED, proves deterministic projection parity across DB restart, and forbids silent entity merges across distinct lineages even when names match.
-- `TEST_BOUND_CONTRACT/B` promotions are semantic contract bindings only. CE-X08-01 remains PARTIAL because the full C-level cross-gate verifier path is unproven; CE-S10-03 remains PARTIAL pending T09 E2E; CE-S10-04 remains PARTIAL pending T09/T11 release-path evidence.
-- No skip/xfail/test weakening, protected-invariant relaxation, or target revision change was observed in `74a78cf...`.
+Independent review found four material weaknesses in `74a78cf` semantics and repaired them at the product/test failure point instead of weakening coverage:
+
+1. `world.entity_identity`: prior semantic note said explicit evidenced link, while production `link_identity` accepted no evidence and direct-neighbor resolution was not transitive. Fixed by requiring evidence refs + actor provenance and computing transitive closure over evidence-backed links.
+2. `world.state_projection`: current-state restart parity was green, but historical `as_of_system_time` could hide an assertion because its later `superseded_by` value was read from present state. Fixed by comparing the superseder's system_time with the requested cutoff; regression test proves pre-correction history remains visible.
+3. `risk.local_containment`: prior test created/revoked CapabilityAuthority directly in test code, so it did not prove a production Risk -> CapabilityAuthority path. Fixed with `ContainmentCoordinator`, which fails closed outside owned scope and performs containment only through CapabilityAuthority revocation.
+4. `world.change_detection`: prior selector only proved two observations coexist and `current()` chooses the latest. Fixed with production `changes()` and a selector that asserts the actual delta while confirming history remains append-only.
+
+No test was deleted/skipped/xfail'ed and no protected assertion/security threshold was relaxed. Coverage statuses remain 6 CONTRACT / 41 PARTIAL because the product and bound selectors were strengthened to satisfy the existing B-level semantic claims rather than downgrading bookkeeping.
 
 ## B5. Exact-SHA CI at snapshot
 
-For SHA `74a78cf45f0879b27bb145c65f239492c24426cd`, GitHub created 7 check runs.
-
-Observed at refresh:
+For code/test snapshot SHA `ff291fbc4d1a27da16821eb37564327a85111725`:
 
 ```text
-p0-baseline: FAILURE
-platform-gates ubuntu: QUEUED
-platform-gates windows: QUEUED
-main-lineage-authority: QUEUED
-security-mutation-durability: QUEUED
-other same-SHA checks: not yet concluded
+GitHub combined status records observed: none
 same-SHA CI PASS: NOT ESTABLISHED
+EVIDENCE_VERIFIED: 0
 release claim: FORBIDDEN
 ```
 
-`p0-baseline` completed in roughly three seconds with no exposed workflow steps. The connector returned no steps and decoded-log retrieval returned a missing-blob/404, so root-cause classification remains UNKNOWN. Treat this as a real exact-SHA blocker, but do not relabel it PRODUCT_FAIL without evidence.
+Absence of a GitHub status is UNKNOWN, never PASS. The changes above have been synchronized to `main` for independent checking, but must not be promoted to Runtime/Reality verification until mandatory gates execute on the same code/test SHA (or a later rebased SHA containing the same fixes) and blocker=0.
 
 ## B6. Current dependency cone
 
-Do not revert concurrent S10/X08 work. Refresh `main` again before coding.
-
 ```text
-1. Diagnose exact-SHA p0-baseline failure
-   - obtain job/runner/workflow evidence when available
-   - classify HARNESS/INFRA vs PRODUCT
-   - fix at the actual failure point; never weaken tests
+1. Verify remediation on exact SHA
+   - T00 integrity / target coverage validator
+   - T02 World-State contract tests including as_of/evidence/transitivity/change delta
+   - T03 Risk Intelligence contract tests including production containment bridge
+   - migration/restart compatibility for 0002_identity_link_evidence
 
-2. Close S10 edge-level integration evidence
-   - CE-S10-03: T09 E2E containment path through CapabilityAuthority
-   - CE-S10-04: T09/T11 approval + alert-routing + evidence-lineage path
+2. Run mandatory same-SHA CI/gates
+   - classify every failure HARNESS/INFRA vs PRODUCT from evidence
+   - repair at actual failure point; never weaken tests
 
-3. Close X08 edge-level integration evidence
-   - CE-X08-01: cross-gate verifier/integration path beyond T02 contract tests
-   - preserve bitemporal history, distinct-lineage entity identity and restart determinism
+3. Close edge-level integration evidence
+   - CE-X08-01: T06/T09/T10 path beyond T02 B-level contract
+   - CE-S10-03: T09 E2E containment path through governance/capability authority
+   - CE-S10-04: T09/T11 approval + alert routing + evidence lineage
 
-4. Continue open P0 isolation/readiness capabilities still UNPROVEN
-   - sandbox/process-tree cleanup semantics
-   - browser session isolation
-   - service lifecycle readiness
+4. Continue remaining UNPROVEN target rows according to dependency cone
 ```
 
 For each capability: Detect -> Why -> Fix product/harness at failure point -> Verify -> update traceability/evidence honestly -> sync to `main`.
@@ -261,7 +250,7 @@ For each capability: Detect -> Why -> Fix product/harness at failure point -> Ve
 
 Allowed now:
 
-> S10 Risk Intelligence and X08 World-State authorities are implemented on main with 47 explicit traceability claims: 6 TEST_BOUND_CONTRACT/B, 41 TEST_BOUND_PARTIAL/B, 158 target rows still UNPROVEN, and EVIDENCE_VERIFIED remains zero; exact-SHA CI is not green.
+> Independent audit defects in the S10/X08 B-level contract implementation were repaired on snapshot `ff291fbc...` and synchronized to main; traceability remains 47 explicit claims (6 CONTRACT/B, 41 PARTIAL/B, 158 UNPROVEN), EVIDENCE_VERIFIED remains 0, and same-SHA CI is not established.
 
 Forbidden now:
 
