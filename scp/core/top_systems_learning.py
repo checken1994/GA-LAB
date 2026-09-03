@@ -67,6 +67,19 @@ _QUARANTINE_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
     r"(scp_admin_key|jwt_secret|api[_ ]?key|\.env|credentials)\s*[:=]",
     r"bypass\s+(security|auth|policy|verif)",
     r"prompt\s+injection|jailbreak",
+    # [S04-FIREWALL-FIX 2026-09-03] Families that escaped the v1 wall
+    # (found by test_internet_safety_firewall.py): standalone .env mentions,
+    # role-hijack ("You are SCP now"), literal credential formats and
+    # password assignments. Zero-trust: external content mentioning these is
+    # QUARANTINED as a whole record, never served into prompts.
+    r"\.env\b",
+    r"you\s+are\s+(now\s+)?scp\b",
+    r"sk-(live|test|proj)-[A-Za-z0-9\-_]{16,}",
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    r"AKIA[0-9A-Z]{16}",
+    r"ghp_[A-Za-z0-9]{30,}",
+    r"AIza[0-9A-Za-z_\-]{30,}",
+    r"\b(password|passwd|secret)\s*[:=]\s*\S+",
 ))
 
 

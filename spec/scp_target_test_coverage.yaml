@@ -326,6 +326,60 @@ claims:
   concrete_tests:
   - tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports
   note: Auto-bound (parametrization stripped to base node); semantic review pending.
+- target_kind: capability
+  target_id: internet.prompt_injection_firewall
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_internet_safety_firewall.py::test_injection_payloads_are_quarantined
+  - tests/T03_capability/test_internet_safety_firewall.py::test_clean_content_passes_the_firewall
+  note: Deterministic-first injection firewall; clean content not over-blocked.
+- target_kind: capability
+  target_id: internet.secret_pii_ingress
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_internet_safety_firewall.py::test_secret_bearing_content_is_quarantined_before_extraction
+  - tests/T03_capability/test_privacy_write_gate.py::test_secret_is_redacted_before_persistence_and_class_escalates
+  note: Ingress secret scan + privacy write gate redaction.
+- target_kind: capability
+  target_id: internet.raw_quarantine
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_internet_safety_firewall.py::test_injection_payloads_are_quarantined
+  - tests/T03_capability/test_internet_safety_firewall.py::test_empty_content_does_not_crash_the_gate
+  note: Quarantine verdict + recorded reason; raw record never enters prompts.
+- target_kind: capability
+  target_id: risk.assessment
+  status: BLOCKED_MISSING_IMPLEMENTATION
+  note: 'PR0-PR5 graded classifier; volume alone never decides PR4/PR5. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
+    (red, drives build).'
+- target_kind: capability
+  target_id: risk.local_containment
+  status: BLOCKED_MISSING_IMPLEMENTATION
+  note: 'Containment inside owned infra via CapabilityAuthority only. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
+    (red, drives build).'
+- target_kind: capability
+  target_id: risk.external_alert
+  status: BLOCKED_MISSING_IMPLEMENTATION
+  note: 'Evidence Bundle + REPORT_ONLY default + human authority. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
+    (red, drives build).'
+- target_kind: capability
+  target_id: risk.early_warning
+  status: BLOCKED_MISSING_IMPLEMENTATION
+  note: 'False-positive defense + missing-source exception. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
+    (red, drives build).'
+- target_kind: capability
+  target_id: world.temporal_state
+  status: BLOCKED_MISSING_IMPLEMENTATION
+  note: 'Bitemporal valid_time/system_time, append-only. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
+    (red, drives build).'
+- target_kind: capability
+  target_id: world.event_model
+  status: BLOCKED_MISSING_IMPLEMENTATION
+  note: 'PREDICTED never written into OBSERVED by its predictor. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
+    (red, drives build).'
 coverage_verdict_policy:
   structural_binding_integrity_pass: All active target rows are present in the generated effective map, all explicit claims resolve to real target
     IDs and real pytest selectors, and gate/evidence metadata is internally consistent.

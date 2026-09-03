@@ -62,6 +62,11 @@ capabilities:
     required: true
     minimum_maturity: D
 
+  self_improvement.golden_c:
+    required: true
+    minimum_maturity: C
+    description: World Intelligence end-to-end (acquisition -> risk -> authorized containment)
+
   self.capability_map:
     required: true
     minimum_maturity: C

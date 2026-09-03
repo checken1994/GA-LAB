@@ -26,6 +26,11 @@ bindings:
     implementations:
       - scp.self_model.capability_map
     required_now: true
+  self_improvement.golden_c:
+    implementations:
+      - tests.T09_golden_task.test_golden_c_world_intelligence
+    required_now: false
+
   governance.drift_guard:
     implementations:
       - scp.governance.drift_guard
