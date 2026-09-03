@@ -150,8 +150,8 @@ Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó v�
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
 active_sync_branch: main
-work_snapshot_sha: 55346f2958c96b4d8f804523d080a160f5e396fa
-snapshot_role: analyzed live main boundary before this GA handoff commit
+work_snapshot_sha: 74a78cf45f0879b27bb145c65f239492c24426cd
+snapshot_role: analyzed live main boundary before this GA handoff refresh commit
 active_target_revision: 4.0.2
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
 runtime/release_verdict: NOT_DERIVED / NOT CLAIMED
@@ -195,24 +195,26 @@ Từ `a12ca48e22ee9dfbccfbcc28d631bcf5e132800c` đến snapshot này:
   - world.temporal_state -> TEST_BOUND_CONTRACT/B
   - remaining claims stay PARTIAL/UNPROVEN; EVIDENCE_VERIFIED remains 0
 
-Integration & Quality Upgrade:
-  - test(X08): adds same-name non-merge, persistence restart rebuild, and change detection to T02
-  - test(S10): adds containment via CapabilityAuthority and evidence bundle lineage preservation to T03
-  - coverage: upgrades world.entity_identity, world.state_projection, risk.local_containment to TEST_BOUND_CONTRACT
-  - coverage: binds world.change_detection, CE-X08-01, CE-S10-03, CE-S10-04 (claims 42 -> 47, UNPROVEN 163 -> 158)
+74a78cf45f0879b27bb145c65f239492c24426cd
+  feat(test,coverage): expand S10/X08 contract tests and bind 5 new claims (47 total, 6 CONTRACT)
+  - X08 T02 adds same-name non-merge, restart/persistence parity and change-detection tests
+  - S10 T03 adds CapabilityAuthority containment and evidence-bundle lineage preservation
+  - world.entity_identity, world.state_projection, risk.local_containment -> TEST_BOUND_CONTRACT/B
+  - world.change_detection + CE-X08-01 + CE-S10-03 + CE-S10-04 explicitly bound at PARTIAL/B
+  - EVIDENCE_VERIFIED remains 0; edge-level C/reality/release proof remains unproven
 ```
 
 ## B4. Semantics / contradiction review
 
-- `AGENTS.md`, SCP DNA, active target manifest and protected invariants were not modified; their authority remains unchanged.
-- S10 implementation preserves owner-locked fail-closed semantics: social/syndication volume alone cannot manufacture PR4/PR5; high-risk qualification requires official/independent lineage or owned-sensor exception; unconfigured alert routing emits bundle only; forbidden public-broadcast operations remain denied. Proven that RiskAuthority cannot call tools directly and containment requires CapabilityAuthority revocation.
-- X08 implementation preserves bitemporal/append-only semantics, prevents predictor self-promotion from PREDICTED to OBSERVED, guarantees deterministic projection recovery across DB restart, and forbids silent entity merges across distinct lineages even when names match.
-- The upgraded S10/X08 claims are `TEST_BOUND_CONTRACT/B` and `TEST_BOUND_PARTIAL/B`; implementation existence + green contract nodes does not imply Reality verification.
-- No skip/xfail/test weakening, protected-invariant relaxation, or target revision change was observed.
+- `AGENTS.md`, SCP DNA, active target manifest and protected invariants were not modified by `74a78cf...`; their authority remains unchanged.
+- S10 implementation preserves owner-locked fail-closed semantics: social/syndication volume alone cannot manufacture PR4/PR5; high-risk qualification requires official/independent lineage or owned-sensor exception; unconfigured alert routing emits bundle only; forbidden public-broadcast operations remain denied. Tests now directly bind that RiskAuthority cannot call tools and containment requires CapabilityAuthority.
+- X08 preserves bitemporal/append-only semantics, prevents predictor self-promotion from PREDICTED to OBSERVED, proves deterministic projection parity across DB restart, and forbids silent entity merges across distinct lineages even when names match.
+- `TEST_BOUND_CONTRACT/B` promotions are semantic contract bindings only. CE-X08-01 remains PARTIAL because the full C-level cross-gate verifier path is unproven; CE-S10-03 remains PARTIAL pending T09 E2E; CE-S10-04 remains PARTIAL pending T09/T11 release-path evidence.
+- No skip/xfail/test weakening, protected-invariant relaxation, or target revision change was observed in `74a78cf...`.
 
 ## B5. Exact-SHA CI at snapshot
 
-For SHA `55346f2958c96b4d8f804523d080a160f5e396fa`, GitHub created 7 check runs.
+For SHA `74a78cf45f0879b27bb145c65f239492c24426cd`, GitHub created 7 check runs.
 
 Observed at refresh:
 
@@ -227,7 +229,7 @@ same-SHA CI PASS: NOT ESTABLISHED
 release claim: FORBIDDEN
 ```
 
-The failed `p0-baseline` job completed before test steps were exposed through the connector; its decoded log was unavailable, so root-cause classification is not yet established. Treat it as a real exact-SHA blocker, not as product failure until evidence identifies the failure class.
+`p0-baseline` completed in roughly three seconds with no exposed workflow steps. The connector returned no steps and decoded-log retrieval returned a missing-blob/404, so root-cause classification remains UNKNOWN. Treat this as a real exact-SHA blocker, but do not relabel it PRODUCT_FAIL without evidence.
 
 ## B6. Current dependency cone
 
@@ -235,16 +237,17 @@ Do not revert concurrent S10/X08 work. Refresh `main` again before coding.
 
 ```text
 1. Diagnose exact-SHA p0-baseline failure
-   - classify HARNESS/INFRA vs PRODUCT from job evidence when available
+   - obtain job/runner/workflow evidence when available
+   - classify HARNESS/INFRA vs PRODUCT
    - fix at the actual failure point; never weaken tests
 
-2. S10 Risk Intelligence integration depth
-   - prove containment crosses CapabilityAuthority rather than direct Tool authority
-   - verify approval/pre-authorization boundaries and evidence lineage under integration/reality tests
+2. Close S10 edge-level integration evidence
+   - CE-S10-03: T09 E2E containment path through CapabilityAuthority
+   - CE-S10-04: T09/T11 approval + alert-routing + evidence-lineage path
 
-3. X08 World State integration depth
-   - test entity identity + same-name non-merge together with temporal history
-   - exercise persistence/restart/rebuild and independent resolver path
+3. Close X08 edge-level integration evidence
+   - CE-X08-01: cross-gate verifier/integration path beyond T02 contract tests
+   - preserve bitemporal history, distinct-lineage entity identity and restart determinism
 
 4. Continue open P0 isolation/readiness capabilities still UNPROVEN
    - sandbox/process-tree cleanup semantics
@@ -258,7 +261,7 @@ For each capability: Detect -> Why -> Fix product/harness at failure point -> Ve
 
 Allowed now:
 
-> S10 Risk Intelligence and X08 World-State authorities are implemented and contract-bound on main at B-level traceability; three reviewed capabilities are TEST_BOUND_CONTRACT, while exact-SHA CI is not green and EVIDENCE_VERIFIED remains zero.
+> S10 Risk Intelligence and X08 World-State authorities are implemented on main with 47 explicit traceability claims: 6 TEST_BOUND_CONTRACT/B, 41 TEST_BOUND_PARTIAL/B, 158 target rows still UNPROVEN, and EVIDENCE_VERIFIED remains zero; exact-SHA CI is not green.
 
 Forbidden now:
 
