@@ -10,7 +10,6 @@ Contract (CE-X08-01):
 """
 from __future__ import annotations
 
-import sqlite3
 import uuid
 from pathlib import Path
 
@@ -57,6 +56,10 @@ _MIGRATIONS = [
                relation TEXT NOT NULL,
                created_at TEXT NOT NULL)""",
     ]),
+    ("0002_identity_link_evidence", [
+        "ALTER TABLE identity_links ADD COLUMN evidence_refs_json TEXT",
+        "ALTER TABLE identity_links ADD COLUMN actor_id TEXT",
+    ]),
 ]
 
 
@@ -70,24 +73,18 @@ class TemporalAuthority:
 
     def record_observation(self, *, subject: str, predicate: str, value: dict,
                            valid_time: str, evidence_refs, actor_id: str) -> dict:
-        """OBSERVED assertions require independent evidence references."""
         if not evidence_refs:
-            raise WorldStateError(
-                "OBSERVED assertion requires evidence_refs - unaudited world "
-                "writes are forbidden"
-            )
+            raise WorldStateError("OBSERVED assertion requires evidence_refs - unaudited world writes are forbidden")
         return self._append(subject, predicate, value, "OBSERVED", valid_time,
                             actor_id, list(evidence_refs))
 
     def record_prediction(self, *, subject: str, predicate: str, value: dict,
                           valid_time: str, predictor_id: str) -> dict:
-        """PREDICTED assertions are stored as such; see promote_to_observed."""
         return self._append(subject, predicate, value, "PREDICTED", valid_time,
                             predictor_id, [])
 
     def promote_to_observed(self, assertion_id: str, *, evidence_refs, resolver_id: str) -> dict:
-        rows = self.db.query(
-            "SELECT * FROM world_assertions WHERE assertion_id=?", (assertion_id,))
+        rows = self.db.query("SELECT * FROM world_assertions WHERE assertion_id=?", (assertion_id,))
         if not rows:
             raise KeyError(assertion_id)
         row = rows[0]
@@ -96,43 +93,36 @@ class TemporalAuthority:
         if not evidence_refs:
             raise WorldStateError("promotion to OBSERVED requires evidence_refs")
         if row["actor_id"] == resolver_id:
-            raise WorldStateError(
-                "the predictor can never promote its own prediction to OBSERVED - "
-                "resolution requires a different resolver backed by evidence"
-            )
+            raise WorldStateError("the predictor can never promote its own prediction to OBSERVED - resolution requires a different resolver backed by evidence")
         resolved = self._append(row["subject"], row["predicate"],
                                 json_loads(row["value_json"]), "OBSERVED",
                                 row["valid_time"], resolver_id, list(evidence_refs))
-        self.db.execute(
-            "UPDATE world_assertions SET superseded_by=? WHERE assertion_id=?",
-            (resolved["assertion_id"], assertion_id))
+        self.db.execute("UPDATE world_assertions SET superseded_by=? WHERE assertion_id=?",
+                        (resolved["assertion_id"], assertion_id))
         self.db._conn.commit()
         return resolved
 
     def correct(self, assertion_id: str, *, new_value: dict, actor_id: str,
                 evidence_refs) -> dict:
-        """A correction is a NEW superseding assertion, never a rewrite."""
+        if not evidence_refs:
+            raise WorldStateError("correction requires evidence_refs")
         rows = self.db.query("SELECT * FROM world_assertions WHERE assertion_id=?", (assertion_id,))
         if not rows:
             raise KeyError(assertion_id)
         old = rows[0]
         corrected = self._append(old["subject"], old["predicate"], new_value,
                                  old["epistemic_status"], old["valid_time"],
-                                 actor_id, list(evidence_refs or []))
-        self.db.execute(
-            "UPDATE world_assertions SET superseded_by=? WHERE assertion_id=?",
-            (corrected["assertion_id"], assertion_id))
+                                 actor_id, list(evidence_refs))
+        self.db.execute("UPDATE world_assertions SET superseded_by=? WHERE assertion_id=?",
+                        (corrected["assertion_id"], assertion_id))
         self.db._conn.commit()
         return corrected
 
     def history(self, subject: str) -> list[dict]:
-        return self.db.query(
-            "SELECT * FROM world_assertions WHERE subject=? ORDER BY system_time",
-            (subject,))
+        return self.db.query("SELECT * FROM world_assertions WHERE subject=? ORDER BY system_time, assertion_id", (subject,))
 
-    def _append(self, subject, predicate, value, status, valid_time, actor_id,
-                evidence_refs) -> dict:
-        parse_utc_iso(valid_time)  # fail-closed on naive/invalid timestamps
+    def _append(self, subject, predicate, value, status, valid_time, actor_id, evidence_refs) -> dict:
+        parse_utc_iso(valid_time)
         row = {
             "assertion_id": "w_" + uuid.uuid4().hex[:24],
             "subject": subject,
@@ -146,8 +136,7 @@ class TemporalAuthority:
             "superseded_by": None,
         }
         with self.db.transaction() as conn:
-            conn.execute(
-                """INSERT INTO world_assertions (assertion_id, subject, predicate,
+            conn.execute("""INSERT INTO world_assertions (assertion_id, subject, predicate,
                        value_json, epistemic_status, valid_time, system_time,
                        actor_id, evidence_refs_json, superseded_by)
                    VALUES (:assertion_id,:subject,:predicate,:value_json,
