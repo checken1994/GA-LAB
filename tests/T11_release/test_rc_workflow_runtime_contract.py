@@ -7,10 +7,27 @@ import yaml
 
 RC_WORKFLOW = Path(".github/workflows/scp-rc-promotion.yml")
 PRE_RC_WORKFLOW = Path(".github/workflows/scp-release-gate.yml")
+WORKFLOW_DIR = Path(".github/workflows")
 
 
 def _load(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _triggers(data: dict):
+    # PyYAML 1.1 may deserialize the YAML key `on` as boolean True.
+    return data.get("on") if "on" in data else data.get(True, {})
+
+
+def _has_push(data: dict) -> bool:
+    triggers = _triggers(data)
+    if triggers == "push":
+        return True
+    if isinstance(triggers, dict):
+        return "push" in triggers
+    if isinstance(triggers, list):
+        return "push" in triggers
+    return False
 
 
 def _step_using(steps: list[dict], action_prefix: str) -> dict:
@@ -25,6 +42,10 @@ def _step_named(steps: list[dict], name: str) -> dict:
     return matches[0]
 
 
+def test_rc_promotion_declares_push_trigger() -> None:
+    assert _has_push(_load(RC_WORKFLOW)), "authoritative RC workflow must continue to run on push"
+
+
 def test_push_release_gates_provision_declared_runtimes_unconditionally() -> None:
     jobs = _load(RC_WORKFLOW)["jobs"]
 
@@ -37,10 +58,34 @@ def test_push_release_gates_provision_declared_runtimes_unconditionally() -> Non
     assert str(platform_node["with"]["node-version"]) == "20"
     assert "if" not in platform_node
 
+    python_verify = str(_step_named(platform_steps, "Verify Python 3.12 runtime")["run"])
+    node_verify = str(_step_named(platform_steps, "Verify Node 20 runtime")["run"])
+    assert "sys.version_info[:2] == (3, 12)" in python_verify
+    assert "process.versions.node.split('.')[0] !== '20'" in node_verify
+
     manifest_steps = jobs["manifest-provenance"]["steps"]
     manifest_python = _step_using(manifest_steps, "actions/setup-python@")
     assert manifest_python["with"]["python-version"] == "3.12"
     assert "if" not in manifest_python
+
+
+def test_no_push_workflow_event_gates_runtime_setup() -> None:
+    """A push-capable workflow must not hide runtime setup behind workflow_dispatch only."""
+    for workflow_path in sorted(WORKFLOW_DIR.glob("*.yml")):
+        data = _load(workflow_path)
+        if not _has_push(data):
+            continue
+
+        for job_name, job in data.get("jobs", {}).items():
+            for step in job.get("steps", []):
+                uses = str(step.get("uses", ""))
+                if not (uses.startswith("actions/setup-python@") or uses.startswith("actions/setup-node@")):
+                    continue
+                condition = str(step.get("if", ""))
+                assert "workflow_dispatch" not in condition or "push" in condition, (
+                    f"{workflow_path.name}:{job_name} gates {uses} with {condition!r}; "
+                    "push would be able to skip runtime provisioning"
+                )
 
 
 def test_pre_rc_mutation_budget_matches_authoritative_release_gate() -> None:
