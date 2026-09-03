@@ -1,64 +1,58 @@
 schema_version: 1
 reference_id: complete-scp
-reference_version: "1.0.0"
-
+reference_version: 1.0.0
 bindings:
   epistemic.ontology:
     implementations:
-      - scp.knowledge.ontology
+    - scp.knowledge.ontology
     required_now: true
   epistemic.evidence:
     implementations:
-      - scp.epistemic.evidence_store
-      - scp.epistemic.evidence_writer
+    - scp.epistemic.evidence_store
+    - scp.epistemic.evidence_writer
     required_now: true
   epistemic.lineage:
     implementations:
-      - scp.epistemic.source_identity
-      - scp.epistemic.lineage
+    - scp.epistemic.source_identity
+    - scp.epistemic.lineage
     required_now: true
   epistemic.calibration:
     implementations:
-      - scp.calibration.ledger
-      - scp.calibration.legacy_adapter
+    - scp.calibration.ledger
+    - scp.calibration.legacy_adapter
     required_now: true
   self.capability_map:
     implementations:
-      - scp.self_model.capability_map
+    - scp.self_model.capability_map
     required_now: true
-  self_improvement.golden_c:
-    implementations:
-      - tests.T09_golden_task.test_golden_c_world_intelligence
-    required_now: false
-
   governance.drift_guard:
     implementations:
-      - scp.governance.drift_guard
+    - scp.governance.drift_guard
     required_now: true
   governance.privacy_retention:
     implementations:
-      - scp.governance.privacy
-      - scp.governance.retention
+    - scp.governance.privacy
+    - scp.governance.retention
     required_now: true
   intelligence.zero_cost:
     implementations:
-      - scp.llm_gateway.zero_cost_guard
-      - scp.llm_gateway.zero_cost_runtime
+    - scp.llm_gateway.zero_cost_guard
+    - scp.llm_gateway.zero_cost_runtime
     required_now: true
   cognitive.promotion_authority:
     implementations:
-      - scp.knowledge.promotion_authority
+    - scp.knowledge.promotion_authority
     required_now: true
   cognitive.doubt_authority:
     implementations:
-      - scp.knowledge.open_question_authority
-      - scp.knowledge.contradiction_authority
+    - scp.knowledge.open_question_authority
+    - scp.knowledge.contradiction_authority
     required_now: true
   cognitive.revalidation_authority:
     implementations:
-      - scp.knowledge.revalidation_authority
+    - scp.knowledge.revalidation_authority
     required_now: true
   cognitive.experiment_authority:
     implementations:
-      - scp.knowledge.experiment_authority
+    - scp.knowledge.experiment_authority
     required_now: true
