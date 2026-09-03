@@ -31,6 +31,8 @@ from typing import Any, Callable
 import requests
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 DEFAULT_OUTPUT = ROOT / "reports" / "scp_acceptance_ci"
 
 
@@ -171,6 +173,7 @@ class ProviderFixture:
 class RuntimeHarness:
     def __init__(self, output_dir: Path, port: int, provider_port: int) -> None:
         self.output_dir = output_dir
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         self.port = port
         self.provider_port = provider_port
         self.base = f"http://127.0.0.1:{port}"
@@ -181,6 +184,35 @@ class RuntimeHarness:
         self.trace_path = output_dir / "ask_task_kernel_trace.jsonl"
         self.env_path = output_dir / "empty.env"
         self.env_path.write_text("", encoding="utf-8")
+        # Seed zero-cost pricing proofs for acceptance loopback models
+        from datetime import datetime, timezone, timedelta
+        from scp.llm_gateway.zero_cost_guard import PricingProofStore
+        zero_cost_path = ROOT / "data" / "foundation" / "zero_cost.sqlite"
+        zero_cost_path.parent.mkdir(parents=True, exist_ok=True)
+        store = PricingProofStore(zero_cost_path)
+        now = datetime.now(timezone.utc)
+        exp = now + timedelta(days=365)
+        for m in (
+            "acceptance-chat-primary",
+            "acceptance-chat-fallback",
+            "acceptance-judge-primary",
+            "acceptance-judge-fallback",
+            "acceptance-autofix-fallback",
+            "openrouter/free",
+        ):
+            try:
+                store.record(
+                    provider="openrouter",
+                    model=m,
+                    prompt_price=0,
+                    completion_price=0,
+                    catalog_hash="sha256:acceptance-mock-catalog",
+                    observed_at=now.isoformat(),
+                    expires_at=exp.isoformat(),
+                    evidence_id="ev_acceptance_test",
+                )
+            except Exception:
+                pass
 
     def environment(self) -> dict[str, str]:
         env = os.environ.copy()
@@ -194,6 +226,7 @@ class RuntimeHarness:
                 "SCP_EGRESS_MODE": "deny",
                 "SCP_WEB_FALLBACK": "0",
                 "SCP_ASK_KERNEL_ENABLED": "1",
+                "SCP_MULTI_LLM_CROSSCHECK": "0",
                 "SCP_KERNEL_DB_PATH": str(self.db_path),
                 "SCP_KERNEL_TRACE_PATH": str(self.trace_path),
                 "SCP_DATA_DIR": str(self.output_dir),
@@ -207,8 +240,8 @@ class RuntimeHarness:
                 "OPENROUTER_BASE_URL": f"http://127.0.0.1:{self.provider_port}/v1",
                 "OPENROUTER_MODEL": "acceptance-chat-primary",
                 "OPENROUTER_MODEL_CHAT": "acceptance-chat-fallback",
-                "OPENROUTER_MODEL_JUDGE_PRIMARY": "acceptance-judge-primary",
-                "OPENROUTER_MODEL_JUDGE": "acceptance-judge-fallback",
+                "OPENROUTER_MODEL_JUDGE": "acceptance-judge-primary",
+                "OPENROUTER_MODEL_JUDGE_PRIMARY": "acceptance-judge-fallback",
                 "OPENROUTER_MODEL_AUTOFIX": "acceptance-autofix-fallback",
                 "SCP_LLM_BREAKER_THRESHOLD": "3",
                 "SCP_LLM_BREAKER_COOLDOWN_SEC": "1",

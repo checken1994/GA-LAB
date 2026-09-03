@@ -216,7 +216,7 @@ jobs:
 
       - name: Task Kernel durability and recovery contract gate
         shell: bash
-        run: python -m pytest -q tests/T04_kernel/test_task_kernel_durability_contract.py tests/T04_kernel/test_transition_lease_fencing.py tests/T04_kernel/test_lease_fencing_idempotency.py tests/T10_recovery/test_crash_recovery_checkpoint_parity.py tests/T10_recovery/test_reconciliation_outcome_contract.py tests/T10_recovery/test_restart_parity.py --tb=short
+        run: python -m pytest -q tests/T04_kernel/test_task_kernel_mutation_contract.py tests/T04_kernel/test_transition_lease_fencing.py tests/T04_kernel/test_lease_fencing_idempotency.py tests/T04_kernel/test_kernel_crash_consistency.py tests/T04_kernel/test_kernel_storage.py tests/T10_recovery/test_kernel_chaos_recovery.py tests/T10_recovery/test_reconciliation_outcome_contract.py tests/T10_recovery/test_adversarial_chaos_matrix.py --tb=short
 
       - name: Full portable reality suite
         shell: bash
@@ -224,7 +224,7 @@ jobs:
 
       - name: Full system runtime audit and readiness gate
         shell: bash
-        run: python tools/run_full_system_audit.py --output-dir reports/system_audit_strict
+        run: python -m scripts.run_system_audit_strict
 
       - name: Upload security and durability evidence
         if: always()

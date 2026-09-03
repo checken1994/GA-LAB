@@ -13,10 +13,10 @@ from typing import Any, Awaitable, Callable
 _c3_logger = logging.getLogger("scp.ask_kernel_adapter")
 
 try:
-    from .task_kernel import InvalidTransition, KernelError, TaskKernel
+    from .task_kernel import InvalidTransition, KernelError, StorageIntegrityError, TaskKernel
     from .trace_ledger import TraceLedger
 except ImportError:
-    from task_kernel import InvalidTransition, KernelError, TaskKernel
+    from task_kernel import InvalidTransition, KernelError, StorageIntegrityError, TaskKernel
     from trace_ledger import TraceLedger
 try:
     from scp.api_server_parts.helpers import AskResponse
@@ -200,7 +200,7 @@ class AskKernelAdapter:
                 "checkpoint_id": checkpoint_id,
                 "input_hash": input_hash,
             }
-        except sqlite3.IntegrityError as exc:
+        except (sqlite3.IntegrityError, StorageIntegrityError) as exc:
             # Duplicate durable identity: within the idempotency window this is
             # a transport retry — a safe block, not a second handler execution.
             # Past the window a terminal duplicate is a NEW ask — re-ask once

@@ -98,3 +98,25 @@ def test_pre_rc_mutation_budget_matches_authoritative_release_gate() -> None:
     for command in (rc_command, pre_rc_command):
         assert "--max-mutants 15" in command
         assert "--min-score 0.40" in command
+
+
+def test_authoritative_workflow_pytest_paths_exist() -> None:
+    import re
+
+    root = Path(__file__).resolve().parents[2]
+    for workflow_path in (RC_WORKFLOW, PRE_RC_WORKFLOW):
+        content = _load(workflow_path)
+        missing: list[str] = []
+        for job_name, job in content.get("jobs", {}).items():
+            for step in job.get("steps", []):
+                cmd = str(step.get("run", ""))
+                for match in re.finditer(r"(tests/[\w/]+\.py)", cmd):
+                    rel_path = match.group(1)
+                    if not (root / rel_path).is_file():
+                        missing.append(f"{workflow_path}:{job_name} -> {rel_path}")
+                for match in re.finditer(r"python\s+((?:tools|scripts)/[\w/]+\.py)", cmd):
+                    rel_path = match.group(1)
+                    if not (root / rel_path).is_file():
+                        missing.append(f"{workflow_path}:{job_name} -> {rel_path}")
+        assert not missing, f"Workflow references non-existent test/script paths: {missing}"
+
