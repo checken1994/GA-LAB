@@ -83,7 +83,10 @@ def test_openrouter_402_moves_to_auto_router_when_task_free_fails(
     assert calls == ["free-model", "free-model-primary", "free-model-primary", "openrouter/free"]
 
 
-def test_openrouter_disabled_or_exhausted_returns_none(configured_openrouter) -> None:
+def test_openrouter_disabled_or_exhausted_returns_none(
+    configured_openrouter, monkeypatch
+) -> None:
+    _mock_zero_cost(monkeypatch)
     async def scenario() -> tuple[tuple[str | None, str], tuple[str | None, str]]:
         disabled = OpenRouterProvider(task="default")
         disabled._API_KEYS = []
