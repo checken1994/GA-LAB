@@ -1,0 +1,10 @@
+{
+  "name": "scp-ga",
+  "kind": "chatgpt-bootstrap-skill",
+  "authority_repo": "checken1994/GA-LAB",
+  "authority_branch": "main",
+  "build_source_sha": "c8710387522cb9d43fbf746461e8cc51bc56a71f",
+  "skill_count_routed": 13,
+  "verification_status": "CANDIDATE_C5_EXTERNAL_BLOCKED",
+  "notes": "The installed Skill is intentionally a live-source bootstrap/router. GitHub main remains authoritative. Rebuild after router semantics change."
+}
