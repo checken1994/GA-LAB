@@ -352,34 +352,58 @@ claims:
   note: Quarantine verdict + recorded reason; raw record never enters prompts.
 - target_kind: capability
   target_id: risk.assessment
-  status: BLOCKED_MISSING_IMPLEMENTATION
+  status: TEST_BOUND_PARTIAL
   note: 'PR0-PR5 graded classifier; volume alone never decides PR4/PR5. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
-    (red, drives build).'
+    (red, drives build). Implemented; green over real authorities.'
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_social_volume_alone_never_produces_pr4_or_pr5
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_official_source_qualifies_pr4
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_owned_sensor_direct_observation_is_the_missing_source_exception
 - target_kind: capability
   target_id: risk.local_containment
-  status: BLOCKED_MISSING_IMPLEMENTATION
+  status: TEST_BOUND_PARTIAL
   note: 'Containment inside owned infra via CapabilityAuthority only. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
-    (red, drives build).'
+    (red, drives build). Implemented; green over real authorities.'
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_public_broadcast_operations_are_forbidden_even_on_pre_authorized_channels
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_incident_state_machine_walks_and_refuses_illegal_jumps
 - target_kind: capability
   target_id: risk.external_alert
-  status: BLOCKED_MISSING_IMPLEMENTATION
+  status: TEST_BOUND_PARTIAL
   note: 'Evidence Bundle + REPORT_ONLY default + human authority. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
-    (red, drives build).'
+    (red, drives build). Implemented; green over real authorities.'
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_alert_router_never_sends_without_configuration_or_authority
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_public_broadcast_operations_are_forbidden_even_on_pre_authorized_channels
 - target_kind: capability
   target_id: risk.early_warning
-  status: BLOCKED_MISSING_IMPLEMENTATION
+  status: TEST_BOUND_PARTIAL
   note: 'False-positive defense + missing-source exception. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
-    (red, drives build).'
+    (red, drives build). Implemented; green over real authorities.'
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_owned_sensor_direct_observation_is_the_missing_source_exception
 - target_kind: capability
   target_id: world.temporal_state
-  status: BLOCKED_MISSING_IMPLEMENTATION
+  status: TEST_BOUND_PARTIAL
   note: 'Bitemporal valid_time/system_time, append-only. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
-    (red, drives build).'
+    (red, drives build). Implemented; green over real authorities.'
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_valid_time_and_system_time_are_recorded_separately_and_append_only
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_correction_supersedes_and_never_rewrites_history
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_predictor_can_never_promote_its_own_forecast_to_observed
 - target_kind: capability
   target_id: world.event_model
-  status: BLOCKED_MISSING_IMPLEMENTATION
+  status: TEST_BOUND_PARTIAL
   note: 'PREDICTED never written into OBSERVED by its predictor. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
-    (red, drives build).'
+    (red, drives build). Implemented; green over real authorities.'
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_predictor_can_never_promote_its_own_forecast_to_observed
 coverage_verdict_policy:
   structural_binding_integrity_pass: All active target rows are present in the generated effective map, all explicit claims resolve to real target
     IDs and real pytest selectors, and gate/evidence metadata is internally consistent.

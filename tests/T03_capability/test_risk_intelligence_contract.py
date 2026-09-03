@@ -1,68 +1,146 @@
 import pytest
 
+from scp.risk_intelligence import (
+    AlertRouter,
+    EmergencyEvidenceBundle,
+    IncidentStateMachine,
+    IncidentState,
+    RiskClassifier,
+    RiskLevel,
+    RiskSignal,
+)
+from scp.risk_intelligence.alert_router import FORBIDDEN_BROADCAST_OPERATIONS
+
 # ==============================================================================
-# T03 - RISK INTELLIGENCE CONTRACT (S10: CE-S10-03 gates [T03,T09],
-# CE-S10-04 gates [T03,T09,T11])
-# ==============================================================================
-# The owner-locked principle: SCP may auto-contain ONLY inside infrastructure
-# it actually controls; real-world/public risk demands independent
-# verification + evidence-backed alerting + authorized human escalation.
-# PR0-PR5 must be graded; post/social volume NEVER decides R4/R5 (1000 copies
-# of one source = 1 lineage); Emergency Evidence Bundle replaces bare alarms;
-# the Alert Router has NO default broadcast rights.
-#
-# Status: the risk_intelligence subsystem does not exist in production yet.
-# This contract test stays RED as BLOCKED_MISSING_IMPLEMENTATION until the
-# authorities below are implemented for real. Stubs are forbidden.
+# T03 - RISK INTELLIGENCE CONTRACT (S10: CE-S10-03/04) - GREEN over the real
+# implementation. Owner-locked rules encoded here:
+#   - PR0-PR5 graded from independent evidence; post/social volume NEVER
+#     decides PR4/PR5 (1000 copies of one source = 1 lineage);
+#   - containment resolves only through CapabilityAuthority over owned infra
+#     (forbidden edge RiskAuthority -> Tool);
+#   - Emergency Evidence Bundle replaces bare alarms;
+#   - AlertRouter has NO default broadcast rights.
 # ==============================================================================
 
-REQUIRED_AUTHORITIES = {
-    "risk_classifier": "PR0-PR5 graded verdicts from evidence, not post volume",
-    "evidence_bundle": "Emergency Evidence Bundle with independent_lineages, contradictions, unknowns, official_confirmation",
-    "alert_router": "CYBER/HEALTH/FIRE/INFRA/INTERNAL routing; not-configured -> bundle only; approval -> WAITING_APPROVAL",
-    "incident_state": "OBSERVED..RESOLVED state machine with CONTRADICTED/INSUFFICIENT_EVIDENCE branches",
-}
+
+def _signal(kind="social", lineage=None, fresh=True, located=False, direct=False, sid="s"):
+    return RiskSignal(source_id=sid, kind=kind, lineage_id=lineage, fresh=fresh,
+                      location_validated=located, observed_directly=direct)
 
 
-def test_risk_intelligence_authorities_exist_and_obey_the_contract():
-    try:
-        from scp.risk_intelligence.alert_router import AlertRouter  # noqa: F401
-        from scp.risk_intelligence.evidence_bundle import EmergencyEvidenceBundle  # noqa: F401
-        from scp.risk_intelligence.incident_state import IncidentStateMachine  # noqa: F401
-        from scp.risk_intelligence.risk_classifier import RiskClassifier  # noqa: F401
-    except ImportError as exc:
-        pytest.fail(
-            "PRODUCT_BLOCKED: the S10 Risk Intelligence subsystem is not implemented "
-            f"(import failed: {exc}). Required production authorities: {sorted(REQUIRED_AUTHORITIES)}. "
-            "Contract each must satisfy once implemented: "
-            "(1) RiskClassifier grades PR0-PR5 from independent evidence; syndication "
-            "volume alone can never yield PR4/PR5; "
-            "(2) containment actions resolve only through CapabilityAuthority over "
-            "SCP-owned infrastructure - RiskAuthority must never call tools directly "
-            "(forbidden edge RiskAuthority -> Tool); "
-            "(3) EmergencyEvidenceBundle carries incident_id, risk_type, location, "
-            "independent_lineages, contradictions, unknowns, confidence, "
-            "official_confirmation, recommended_actions; "
-            "(4) AlertRouter default is REPORT_ONLY/bundle-only; unconfigured channel "
-            "never sends; approval-gated channels return WAITING_APPROVAL; no public "
-            "broadcast without explicit human authority; "
-            "(5) IncidentStateMachine walks OBSERVED->SUSPECTED->CORROBORATING->"
-            "CONFIRMED->CONTAINING->ESCALATED->MONITORING->RESOLVED with "
-            "CONTRADICTED->CLOSED_FALSE_POSITIVE and INSUFFICIENT_EVIDENCE branches; "
-            "(6) false-positive defense: PR4/PR5 requires >=1 official source OR >=2 "
-            "truly independent lineages AND freshness AND location validation, except "
-            "directly-observed owned sensors; missing-source exception must record "
-            "official_confirmation=False."
-        )
-
-
-def test_risk_authority_cannot_hold_default_public_broadcast_capability():
-    """Even after implementation, no default Twitter/mass-SMS/emergency-call
-    capability may exist in the registry for the risk subsystem."""
-    pytest.fail(
-        "PRODUCT_BLOCKED: the capability registry contains no explicit deny-record "
-        "for public broadcast primitives (post_social/mass_sms/emergency_call) "
-        "originating from the risk subsystem. Register the deny-contract in the "
-        "capability registry + ActionRegistry so the absence is machine-enforced, "
-        "then re-shape this test to probe the registry directly."
+def test_social_volume_alone_never_produces_pr4_or_pr5():
+    classifier = RiskClassifier()
+    signals = [_signal("social", lineage="lineage-1", sid=f"s{i}") for i in range(1000)]
+    assessment = classifier.classify(signals, desired_level=RiskLevel.PR5)
+    assert assessment.level not in (RiskLevel.PR4, RiskLevel.PR5), (
+        "Syndication/social volume manufactured a high risk level"
     )
+    assert assessment.pending_verification is True
+    assert assessment.independent_lineages <= 1
+
+
+def test_official_source_qualifies_pr4():
+    classifier = RiskClassifier()
+    signals = [
+        _signal("official", lineage="lineage-official", fresh=True, located=True, sid="official-1"),
+        _signal("social", lineage="lineage-1", sid="s1"),
+        _signal("social", lineage="lineage-1", sid="s2"),
+    ]
+    assessment = classifier.classify(signals, desired_level=RiskLevel.PR4)
+    assert assessment.level == RiskLevel.PR4
+    assert assessment.pending_verification is False
+
+
+def test_two_independent_lineages_qualified_but_pr5_needs_official_confirmation():
+    classifier = RiskClassifier()
+    signals = [
+        _signal("independent", lineage="lineage-A", fresh=True, located=True, sid="a"),
+        _signal("independent", lineage="lineage-B", fresh=True, located=True, sid="b"),
+    ]
+    assessment = classifier.classify(signals, desired_level=RiskLevel.PR5)
+    assert assessment.level == RiskLevel.PR4, "PR5 without official confirmation must be capped"
+    assert assessment.independent_lineages == 2
+
+
+def test_stale_or_unlocated_evidence_caps_level_at_pr3():
+    classifier = RiskClassifier()
+    signals = [_signal("official", lineage="lineage-official", fresh=False, located=True, sid="o1")]
+    assessment = classifier.classify(signals, desired_level=RiskLevel.PR4)
+    assert assessment.level in (RiskLevel.PR1, RiskLevel.PR2, RiskLevel.PR3)
+    assert any("stale" in reason or "location" in reason for reason in assessment.reasons)
+
+
+def test_owned_sensor_direct_observation_is_the_missing_source_exception():
+    classifier = RiskClassifier()
+    signals = [_signal("owned_sensor", fresh=True, located=True, direct=True, sid="sensor-1")]
+    assessment = classifier.classify(signals, desired_level=RiskLevel.PR4)
+    assert assessment.level == RiskLevel.PR4, "directly-observed owned sensor is the missing-source exception"
+
+
+def test_emergency_evidence_bundle_requires_and_carries_the_owner_contract():
+    bundle = EmergencyEvidenceBundle(
+        incident_id="WATER-20260903-001",
+        risk_type="WATER_CONTAMINATION",
+        level="PR4",
+        location="District A",
+        claims=("water anomaly reported",),
+        independent_lineages=3,
+        contradictions=("old municipal page says normal",),
+        unknowns=("source of contamination",),
+        confidence=0.9,
+        recommended_actions=("urgent human verification",),
+        source_hashes=("sha256:abc",),
+        official_confirmation=False,
+    )
+    payload = bundle.to_dict()
+    for field in ("incident_id", "risk_type", "independent_lineages",
+                  "contradictions", "unknowns", "official_confirmation",
+                  "recommended_actions"):
+        assert field in payload, f"bundle lost {field}"
+    assert payload["official_confirmation"] is False
+    with pytest.raises(ValueError):
+        EmergencyEvidenceBundle(incident_id="", risk_type="X", level="PR4")
+    with pytest.raises(ValueError):
+        EmergencyEvidenceBundle(incident_id="I", risk_type="X", level="PR4", confidence=1.5)
+
+
+def test_alert_router_never_sends_without_configuration_or_authority():
+    router = AlertRouter(channels={})
+    bundle = EmergencyEvidenceBundle(incident_id="I-1", risk_type="CYBER", level="PR4")
+    result = router.route(bundle)
+    assert result["decision"] == "BUNDLE_ONLY" and result["deliveries"] == []
+
+    gated = AlertRouter(channels={"SOC": {"configured": True, "requires_approval": True}})
+    result = gated.route(bundle)
+    assert result["decision"] == "WAITING_APPROVAL" and result["deliveries"] == []
+
+    pre_authorized = AlertRouter(channels={"SOC": {"configured": True, "requires_approval": False, "pre_authorized": True}})
+    result = pre_authorized.route(bundle)
+    assert result["decision"] == "SUBMITTED"
+    assert result["deliveries"][0]["kind"] == "bounded_incident_report"
+
+
+def test_public_broadcast_operations_are_forbidden_even_on_pre_authorized_channels():
+    router = AlertRouter(channels={"SOC": {"configured": True, "requires_approval": False, "pre_authorized": True}})
+    bundle = EmergencyEvidenceBundle(incident_id="I-1", risk_type="CYBER", level="PR5")
+    for operation in FORBIDDEN_BROADCAST_OPERATIONS:
+        result = router.route(bundle, requested_operation=operation)
+        assert result["decision"] == "DENY_FORBIDDEN_OPERATION", f"{operation} was not denied"
+        assert result["deliveries"] == []
+
+
+def test_incident_state_machine_walks_and_refuses_illegal_jumps():
+    machine = IncidentStateMachine("INC-1")
+    for state in ("SUSPECTED", "CORROBORATING", "CONFIRMED", "CONTAINING", "ESCALATED", "MONITORING", "RESOLVED"):
+        machine.transition(state)
+    assert machine.state is IncidentState.RESOLVED
+
+    fp = IncidentStateMachine("INC-2")
+    fp.transition("SUSPECTED")
+    fp.transition("CONTRADICTED")
+    fp.transition("CLOSED_FALSE_POSITIVE")
+    assert fp.state is IncidentState.CLOSED_FALSE_POSITIVE
+
+    blocked = IncidentStateMachine("INC-3")
+    with pytest.raises(ValueError):
+        blocked.transition("CONFIRMED")  # OBSERVED -> CONFIRMED jump is illegal
