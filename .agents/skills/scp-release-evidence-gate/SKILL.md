@@ -1,6 +1,6 @@
 ---
 name: scp-release-evidence-gate
-description: Kiểm tra release candidate của SCP bằng commit snapshot, service manifest, test runner, smoke test, golden task, chaos test, security gate, reproducibility và rollback evidence. Use before calling an SCP build stable, production candidate, Agent OS release, or after claiming that findings are fixed.
+description: Review và kiểm tra release candidate của SCP bằng commit snapshot, service manifest, test runner, smoke test, golden task, chaos test, security gate, reproducibility và rollback evidence. Use when evaluating release readiness, before calling an SCP build stable, production candidate, Agent OS release, or after claiming that findings are fixed.
 ---
 
 # SCP Release Evidence Gate
