@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / '.agents' / 'skills'
-CASES = SKILLS / 'evals' / 'skill_pack_cases.json'
+CASES = ROOT / '.agents' / 'skill-evals' / 'skill_pack_cases.json'
 EXPECTED = {
 'scp-capability-security-review','scp-computer-use-recovery','scp-dna','scp-gateway-resilience',
 'scp-learning-loop-guard','scp-reality-verifier','scp-release-evidence-gate','scp-runtime-audit',
