@@ -125,7 +125,7 @@ jobs:
         id: mutation
         if: matrix.os == 'ubuntu-latest'
         shell: bash
-        run: python scripts/run_mutation_ci.py --max-mutants 5 --min-score 0.40 --report reports/mutation/mutation_report.json
+        run: python scripts/run_mutation_ci.py --max-mutants 15 --min-score 0.40 --report reports/mutation/mutation_report.json
 
       - name: Bandit production policy
         shell: bash
