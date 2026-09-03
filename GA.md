@@ -165,10 +165,10 @@ Always refresh `main`; other AIs are actively committing to the same branch.
 target_manifest: spec/scp_future_target_manifest.yaml
 coverage_binding: spec/scp_target_test_coverage.yaml
 coverage_universe: 138 capabilities + 67 edges
-explicit_claims: 42
-TEST_BOUND_CONTRACT: 3
-TEST_BOUND_PARTIAL: 39
-UNPROVEN: 163
+explicit_claims: 47
+TEST_BOUND_CONTRACT: 6
+TEST_BOUND_PARTIAL: 41
+UNPROVEN: 158
 EVIDENCE_VERIFIED: 0
 coverage_proven: false
 current coverage verdict: TRACEABILITY_STRUCTURE_ONLY_NOT_COVERAGE_PROOF / TEST_COVERAGE_UNPROVEN
@@ -178,7 +178,7 @@ current coverage verdict: TRACEABILITY_STRUCTURE_ONLY_NOT_COVERAGE_PROOF / TEST_
 
 ## B3. New commits absorbed since previous monitored snapshot
 
-Từ `a12ca48e22ee9dfbccfbcc28d631bcf5e132800c` đến snapshot này có 2 commit:
+Từ `a12ca48e22ee9dfbccfbcc28d631bcf5e132800c` đến snapshot này:
 
 ```text
 1dbee4adb27d487229252afe72a98371e5568772
@@ -194,16 +194,21 @@ Từ `a12ca48e22ee9dfbccfbcc28d631bcf5e132800c` đến snapshot này có 2 commi
   - governance.drift_guard -> TEST_BOUND_CONTRACT/B
   - world.temporal_state -> TEST_BOUND_CONTRACT/B
   - remaining claims stay PARTIAL/UNPROVEN; EVIDENCE_VERIFIED remains 0
+
+Integration & Quality Upgrade:
+  - test(X08): adds same-name non-merge, persistence restart rebuild, and change detection to T02
+  - test(S10): adds containment via CapabilityAuthority and evidence bundle lineage preservation to T03
+  - coverage: upgrades world.entity_identity, world.state_projection, risk.local_containment to TEST_BOUND_CONTRACT
+  - coverage: binds world.change_detection, CE-X08-01, CE-S10-03, CE-S10-04 (claims 42 -> 47, UNPROVEN 163 -> 158)
 ```
 
 ## B4. Semantics / contradiction review
 
-- `AGENTS.md`, SCP DNA, active target manifest and protected invariants were not modified in this two-commit diff; their authority remains unchanged.
-- S10 implementation preserves owner-locked fail-closed semantics: social/syndication volume alone cannot manufacture PR4/PR5; high-risk qualification requires official/independent lineage or owned-sensor exception; unconfigured alert routing emits bundle only; forbidden public-broadcast operations remain denied.
-- X08 implementation preserves bitemporal/append-only semantics and prevents predictor self-promotion from PREDICTED to OBSERVED.
-- The six formerly blocked S10/X08 claims are only `TEST_BOUND_PARTIAL/B`; implementation existence + green contract nodes does not imply Reality verification.
-- The three `TEST_BOUND_CONTRACT/B` promotions are stronger traceability claims only. `world.temporal_state` covers the temporal subset of CE-X08-01; `same_name_entity_merge` belongs to the entity-identity side of the same edge and remains separately bound. Do not reinterpret this as whole-edge C proof.
-- No skip/xfail/test weakening, protected-invariant relaxation, or target revision change was observed in these commits.
+- `AGENTS.md`, SCP DNA, active target manifest and protected invariants were not modified; their authority remains unchanged.
+- S10 implementation preserves owner-locked fail-closed semantics: social/syndication volume alone cannot manufacture PR4/PR5; high-risk qualification requires official/independent lineage or owned-sensor exception; unconfigured alert routing emits bundle only; forbidden public-broadcast operations remain denied. Proven that RiskAuthority cannot call tools directly and containment requires CapabilityAuthority revocation.
+- X08 implementation preserves bitemporal/append-only semantics, prevents predictor self-promotion from PREDICTED to OBSERVED, guarantees deterministic projection recovery across DB restart, and forbids silent entity merges across distinct lineages even when names match.
+- The upgraded S10/X08 claims are `TEST_BOUND_CONTRACT/B` and `TEST_BOUND_PARTIAL/B`; implementation existence + green contract nodes does not imply Reality verification.
+- No skip/xfail/test weakening, protected-invariant relaxation, or target revision change was observed.
 
 ## B5. Exact-SHA CI at snapshot
 

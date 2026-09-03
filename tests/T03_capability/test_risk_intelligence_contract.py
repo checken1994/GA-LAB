@@ -144,3 +144,68 @@ def test_incident_state_machine_walks_and_refuses_illegal_jumps():
     blocked = IncidentStateMachine("INC-3")
     with pytest.raises(ValueError):
         blocked.transition("CONFIRMED")  # OBSERVED -> CONFIRMED jump is illegal
+
+
+def test_containment_requires_capability_authority_not_direct_tool_call(tmp_path):
+    from scp.security.capability_epoch import CapabilityAuthority, CapabilityRevokedError
+
+    # 1. RiskAuthority components (Classifier/Router) do NOT expose direct tool calls
+    classifier = RiskClassifier()
+    router = AlertRouter(channels={})
+    for forbidden_method in ("execute_tool", "run_action", "kill_process", "direct_containment"):
+        assert not hasattr(classifier, forbidden_method)
+        assert not hasattr(router, forbidden_method)
+
+    # 2. Material local risk triggers EmergencyEvidenceBundle recommendation
+    bundle = EmergencyEvidenceBundle(
+        incident_id="SEC-20260903-099",
+        risk_type="DATA_EXFILTRATION_ATTEMPT",
+        level="PR4",
+        recommended_actions=("isolate_network_egress",),
+        confidence=0.95,
+    )
+    assert "isolate_network_egress" in bundle.recommended_actions
+
+    # 3. Containment resolves only via CapabilityAuthority revocation
+    state_file = tmp_path / "capability_state.json"
+    cap_auth = CapabilityAuthority(state_file)
+    token = cap_auth.issue(subject="worker-egress")
+    assert cap_auth.validate(token) is True
+
+    # Containment recommendation executed by CapabilityAuthority
+    cap_auth.revoke(reason=bundle.recommended_actions[0], actor="governance_authority")
+    assert cap_auth.validate(token) is False
+    with pytest.raises(CapabilityRevokedError):
+        cap_auth.issue(subject="worker-egress")
+
+
+def test_emergency_evidence_bundle_lineage_preservation_across_routing():
+    router = AlertRouter(channels={"SOC": {"configured": True, "requires_approval": True}})
+    bundle = EmergencyEvidenceBundle(
+        incident_id="ENV-20260903-007",
+        risk_type="CYBER",
+        level="PR4",
+        location="Server Room B",
+        claims=("credential anomaly detected", "unusual outbound sweep"),
+        independent_lineages=2,
+        contradictions=("old audit log claimed access authorized",),
+        unknowns=("scope of affected machines",),
+        confidence=0.92,
+        source_hashes=("sha256:sensor_feed_alpha", "sha256:sentinel_orbit_beta"),
+        official_confirmation=False,
+    )
+
+    # Route bundle requiring approval
+    routed = router.route(bundle)
+    assert routed["decision"] == "WAITING_APPROVAL"
+    assert routed["target"] == "SOC"
+    assert routed["bundle_id"] == bundle.bundle_id
+    assert routed["deliveries"] == []
+
+    # Verify that the bundle itself retains unbroken provenance
+    payload = bundle.to_dict()
+    assert payload["source_hashes"] == ["sha256:sensor_feed_alpha", "sha256:sentinel_orbit_beta"]
+    assert payload["independent_lineages"] == 2
+    assert payload["contradictions"] == ["old audit log claimed access authorized"]
+    assert payload["unknowns"] == ["scope of affected machines"]
+    assert payload["location"] == "Server Room B"

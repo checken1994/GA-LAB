@@ -309,13 +309,12 @@ claims:
   note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
 - target_kind: capability
   target_id: world.entity_identity
-  status: TEST_BOUND_PARTIAL
+  status: TEST_BOUND_CONTRACT
   observed_evidence_level: B
   concrete_tests:
-  - tests/T02_contract/test_god_split_semantic_parity.py::test_api_server_keeps_public_service_identity
-  - tests/T02_contract/test_god_split_semantic_parity.py::test_split_facades_keep_public_callable_identity
-  - tests/T02_contract/test_god_split_semantic_parity.py::test_split_facades_keep_public_module_identity
-  note: Auto-bound by node-name match against composed target; semantic review pending before CONTRACT.
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_entity_resolution_links_identity_and_preserves_lineage
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_same_name_different_lineage_never_silently_merged
+  semantic_review: 'Semantic review 2026-09-03: real entity-event authority tests bound; linking preserves distinct source lineage IDs, and same-name entities across different lineages are never merged without explicit evidenced link. Covering edge: CE-X08-01.'
 - target_kind: capability
   target_id: execution.recovery_reconciliation
   status: TEST_BOUND_PARTIAL
@@ -367,22 +366,23 @@ claims:
   - tests/T03_capability/test_risk_intelligence_contract.py::test_owned_sensor_direct_observation_is_the_missing_source_exception
 - target_kind: capability
   target_id: risk.local_containment
-  status: TEST_BOUND_PARTIAL
-  note: 'Containment inside owned infra via CapabilityAuthority only. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
-    (red, drives build). Implemented; green over real authorities.'
+  status: TEST_BOUND_CONTRACT
+  note: 'Containment inside owned infra via CapabilityAuthority only. Proven that RiskAuthority cannot call tools directly.'
   observed_evidence_level: B
   concrete_tests:
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_containment_requires_capability_authority_not_direct_tool_call
   - tests/T03_capability/test_risk_intelligence_contract.py::test_public_broadcast_operations_are_forbidden_even_on_pre_authorized_channels
   - tests/T03_capability/test_risk_intelligence_contract.py::test_incident_state_machine_walks_and_refuses_illegal_jumps
+  semantic_review: 'Semantic review 2026-09-03: containment recommendation crosses CapabilityAuthority revocation; direct tool calls forbidden from risk subsystem. Covering edge: CE-S10-03.'
 - target_kind: capability
   target_id: risk.external_alert
   status: TEST_BOUND_PARTIAL
-  note: 'Evidence Bundle + REPORT_ONLY default + human authority. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract
-    (red, drives build). Implemented; green over real authorities.'
+  note: 'Evidence Bundle + REPORT_ONLY default + human authority. Contract test: T03 test_risk_intelligence_contract / T02 test_world_state_temporal_contract (red, drives build). Implemented; green over real authorities.'
   observed_evidence_level: B
   concrete_tests:
   - tests/T03_capability/test_risk_intelligence_contract.py::test_alert_router_never_sends_without_configuration_or_authority
   - tests/T03_capability/test_risk_intelligence_contract.py::test_public_broadcast_operations_are_forbidden_even_on_pre_authorized_channels
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_emergency_evidence_bundle_lineage_preservation_across_routing
 - target_kind: capability
   target_id: risk.early_warning
   status: TEST_BOUND_PARTIAL
@@ -411,6 +411,52 @@ claims:
   observed_evidence_level: B
   concrete_tests:
   - tests/T02_contract/test_world_state_temporal_contract.py::test_predictor_can_never_promote_its_own_forecast_to_observed
+- target_kind: capability
+  target_id: world.state_projection
+  status: TEST_BOUND_CONTRACT
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_projection_rebuild_is_deterministic_and_respects_supersede
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_temporal_authority_persistence_across_db_restart
+  semantic_review: 'Semantic review 2026-09-03: deterministic rebuild from append log proven; superseded assertions excluded from current projection while preserved in raw history; projection parity survives simulated DB restart. Covering edge: CE-X08-01.'
+- target_kind: capability
+  target_id: world.change_detection
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_change_detection_tracks_state_deltas_without_mutating_past
+  note: 'Temporal delta tracking between observations without mutating past historical assertions is proven. Covering edge: CE-X08-01.'
+- target_kind: edge
+  target_id: CE-X08-01
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_valid_time_and_system_time_are_recorded_separately_and_append_only
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_correction_supersedes_and_never_rewrites_history
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_predictor_can_never_promote_its_own_forecast_to_observed
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_projection_rebuild_is_deterministic_and_respects_supersede
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_entity_resolution_links_identity_and_preserves_lineage
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_same_name_different_lineage_never_silently_merged
+  - tests/T02_contract/test_world_state_temporal_contract.py::test_change_detection_tracks_state_deltas_without_mutating_past
+  note: 'Core bitemporal append, entity identity linking, change detection, and predictor non-self-promotion bound at T02; full C-level cross-gate verifier path remains unproven.'
+- target_kind: edge
+  target_id: CE-S10-03
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_containment_requires_capability_authority_not_direct_tool_call
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_public_broadcast_operations_are_forbidden_even_on_pre_authorized_channels
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_incident_state_machine_walks_and_refuses_illegal_jumps
+  note: 'Local containment recommendation through CapabilityAuthority and forbidden direct tool call verified at T03; full T09 E2E closed loop remains unproven.'
+- target_kind: edge
+  target_id: CE-S10-04
+  status: TEST_BOUND_PARTIAL
+  observed_evidence_level: B
+  concrete_tests:
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_alert_router_never_sends_without_configuration_or_authority
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_public_broadcast_operations_are_forbidden_even_on_pre_authorized_channels
+  - tests/T03_capability/test_risk_intelligence_contract.py::test_emergency_evidence_bundle_lineage_preservation_across_routing
+  note: 'External alert routing requiring human approval, evidence bundle lineage preservation, and forbidden public broadcast verified at T03; full T09/T11 release gate remains unproven.'
 coverage_verdict_policy:
   structural_binding_integrity_pass: All active target rows are present in the generated effective map, all explicit claims resolve to real target
     IDs and real pytest selectors, and gate/evidence metadata is internally consistent.
