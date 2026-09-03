@@ -135,7 +135,7 @@ jobs:
 
       - name: Portable reality suite
         shell: bash
-        run: python run_reality_tests_portable.py
+        run: python scripts/run_reality_tests_portable.py
 
       - name: Bounded full-system runtime smoke
         shell: bash
