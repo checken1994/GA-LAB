@@ -26,13 +26,13 @@ TARGETS: dict[str, dict[str, list[str]]] = {
             "TaskKernel.verify_journal",
         ],
         "tests": [
-            "tests/test_task_kernel_mutation_contract.py",
-            "tests/test_kernel_storage.py",
+            "tests/T04_kernel/test_task_kernel_mutation_contract.py",
+            "tests/T04_kernel/test_kernel_storage.py",
         ],
     },
     "scp/core/capability_token.py": {
         "functions": ["mint_token", "verify_token"],
-        "tests": ["tests/test_capability_token_mutation_contract.py"],
+        "tests": ["tests/T03_capability/test_capability_token_mutation_contract.py"],
     },
     "scp/llm_gateway/client.py": {
         "functions": [
@@ -42,8 +42,8 @@ TARGETS: dict[str, dict[str, list[str]]] = {
             "CircuitBreaker.record_failure",
         ],
         "tests": [
-            "tests/test_circuit_breaker_mutation_contract.py",
-            "tests/test_gemini_indictment_hardening.py",
+            "tests/T05_gateway/test_circuit_breaker_mutation_contract.py",
+            "tests/T06_verifier/test_gemini_indictment_hardening.py",
         ],
     },
 }
