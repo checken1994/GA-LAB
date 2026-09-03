@@ -1,0 +1,135 @@
+{
+  "commit": "6cace528e74d0f79e4f92ec3961220baa8bfb437",
+  "generated_at": "2026-09-03T18:31:28.822749+00:00",
+  "max_mutants_per_target": 15,
+  "schema_version": 1,
+  "status": "PASS",
+  "targets": [
+    {
+      "baseline_duration_seconds": 3.2329,
+      "functions": [
+        "mint_token",
+        "verify_token"
+      ],
+      "killed": 10,
+      "mutants": 13,
+      "original_sha256": "df3005039c1333a842f83ff7f96e90ffce36bbd5cb05373b468b4b88b743538e",
+      "outcomes": [
+        {
+          "duration_seconds": 3.7897,
+          "line": 18,
+          "operator": "int:3600->3601",
+          "output_tail": "F......                                                                  [100%]\n================================== FAILURES ===================================\n_______________________ test_default_token_ttl_is_exact _______________________\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002164E4B1D60>\n\n    def test_default_token_ttl_is_exact(monkeypatch) -> None:\n        monkeypatch.setattr(capability_token.time, \"time\", lambda: 1_000.0)\n    \n        payload = _payload(capability_token.mint_token(\"issuer\", \"read\", 1))\n    \n        assert payload[\"iat\"] == 1_000\n>       assert payload[\"exp\"] == 4_600\nE       assert 4601 == 4600\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:21: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_default_token_ttl_is_exact\n1 failed, 6 passed in 0.94s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.6584,
+          "line": 32,
+          "operator": "NotIn->In",
+          "output_tail": "gth is not a multiple of 4 exercise the\n        # \"=\" padding restoration path in verify_token; all must stay valid.\n        for issuer in (\"a\", \"abc\", \"abcd\"):\n            token = capability_token.mint_token(issuer, \"read\", 1, ttl_seconds=600)\n            encoded = token.rsplit(\".\", 1)[0]\n            assert len(encoded) % 4 != 0, \"test premise: this token needs padding\"\n>           assert capability_token.verify_token(token)[\"valid\"] is True\nE           assert False is True\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:87: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_invalid_formats_and_signature_fail_closed\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_expired_token_fails_closed\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_expiry_boundary_is_inclusive_of_exp_second\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_scope_mismatch_fails_closed\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_wildcard_issuer_scope_passes_any_requirement\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_base64_padding_variants_stay_valid\n6 failed, 1 passed in 0.99s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.5965,
+          "line": 33,
+          "operator": "bool_flip",
+          "output_tail": ".F.....                                                                  [100%]\n================================== FAILURES ===================================\n_______________ test_invalid_formats_and_signature_fail_closed ________________\n\n    def test_invalid_formats_and_signature_fail_closed() -> None:\n>       assert capability_token.verify_token(\"\")[\"valid\"] is False\nE       assert True is False\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:25: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_invalid_formats_and_signature_fail_closed\n1 failed, 6 passed in 0.91s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.5719,
+          "line": 34,
+          "operator": "int:1->2",
+          "output_tail": "                                                                [100%]\n================================== FAILURES ===================================\n_______________ test_invalid_formats_and_signature_fail_closed ________________\n\n    def test_invalid_formats_and_signature_fail_closed() -> None:\n        assert capability_token.verify_token(\"\")[\"valid\"] is False\n        assert capability_token.verify_token(\"no-separator\")[\"valid\"] is False\n>       assert capability_token.verify_token(\"a.b.c\")[\"valid\"] is False\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:27: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\n\ntoken = 'a.b.c', required_scope = '*'\n\n    def verify_token(token: str, required_scope: str='*') -> dict:\n        if not token or '.' not in token:\n            return {'valid': False, 'error': 'Invalid token format'}\n>       payload_b64, signature = token.rsplit('.', 2)\n        ^^^^^^^^^^^^^^^^^^^^^^\nE       ValueError: too many values to unpack (expected 2)\n\nscp\\core\\capability_token.py:25: ValueError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_invalid_formats_and_signature_fail_closed\n1 failed, 6 passed in 0.90s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.5986,
+          "line": 38,
+          "operator": "bool_flip",
+          "output_tail": ".F.....                                                                  [100%]\n================================== FAILURES ===================================\n_______________ test_invalid_formats_and_signature_fail_closed ________________\n\n    def test_invalid_formats_and_signature_fail_closed() -> None:\n        assert capability_token.verify_token(\"\")[\"valid\"] is False\n        assert capability_token.verify_token(\"no-separator\")[\"valid\"] is False\n>       assert capability_token.verify_token(\"a.b.c\")[\"valid\"] is False\nE       assert True is False\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:27: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_invalid_formats_and_signature_fail_closed\n1 failed, 6 passed in 0.91s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.6485,
+          "line": 40,
+          "operator": "int:4->5",
+          "output_tail": "f test_expiry_boundary_is_inclusive_of_exp_second(monkeypatch) -> None:\n        monkeypatch.setattr(capability_token.time, \"time\", lambda: 1_000.0)\n        token = capability_token.mint_token(\"issuer\", \"read\", 1, ttl_seconds=60)\n    \n        monkeypatch.setattr(capability_token.time, \"time\", lambda: 1_059.0)\n>       assert capability_token.verify_token(token)[\"valid\"] is True\nE       assert False is True\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:51: AssertionError\n______________________ test_scope_mismatch_fails_closed _______________________\n\n    def test_scope_mismatch_fails_closed() -> None:\n        token = capability_token.mint_token(\"issuer\", \"read\", 1, ttl_seconds=600)\n    \n>       assert capability_token.verify_token(token, required_scope=\"read\")[\"valid\"] is True\nE       assert False is True\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:65: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_expired_token_fails_closed\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_expiry_boundary_is_inclusive_of_exp_second\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_scope_mismatch_fails_closed\n3 failed, 4 passed in 0.93s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.0657,
+          "line": 42,
+          "operator": "int:4->5",
+          "output_tail": ".......                                                                  [100%]\n7 passed in 0.38s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 0,
+          "status": "survived"
+        },
+        {
+          "duration_seconds": 3.1742,
+          "line": 47,
+          "operator": "bool_flip",
+          "output_tail": ".......                                                                  [100%]\n7 passed in 0.37s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 0,
+          "status": "survived"
+        },
+        {
+          "duration_seconds": 3.1523,
+          "line": 49,
+          "operator": "int:0->1",
+          "output_tail": ".......                                                                  [100%]\n7 passed in 0.37s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 0,
+          "status": "survived"
+        },
+        {
+          "duration_seconds": 3.5587,
+          "line": 50,
+          "operator": "bool_flip",
+          "output_tail": "tation_contract.py:42: AssertionError\n_______________ test_expiry_boundary_is_inclusive_of_exp_second _______________\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000025775BAFEC0>\n\n    def test_expiry_boundary_is_inclusive_of_exp_second(monkeypatch) -> None:\n        monkeypatch.setattr(capability_token.time, \"time\", lambda: 1_000.0)\n        token = capability_token.mint_token(\"issuer\", \"read\", 1, ttl_seconds=60)\n    \n        monkeypatch.setattr(capability_token.time, \"time\", lambda: 1_059.0)\n        assert capability_token.verify_token(token)[\"valid\"] is True\n    \n        monkeypatch.setattr(capability_token.time, \"time\", lambda: 1_060.0)\n        assert capability_token.verify_token(token)[\"valid\"] is True\n    \n        monkeypatch.setattr(capability_token.time, \"time\", lambda: 1_061.0)\n        expired = capability_token.verify_token(token)\n>       assert expired[\"valid\"] is False\nE       assert True is False\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:58: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_expired_token_fails_closed\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_expiry_boundary_is_inclusive_of_exp_second\n2 failed, 5 passed in 0.89s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.6632,
+          "line": 53,
+          "operator": "NotEq->Eq",
+          "output_tail": "lity_token.verify_token(token)[\"valid\"] is True\nE       assert False is True\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:66: AssertionError\n___________________ test_base64_padding_variants_stay_valid ___________________\n\n    def test_base64_padding_variants_stay_valid() -> None:\n        # Payloads whose stripped base64 length is not a multiple of 4 exercise the\n        # \"=\" padding restoration path in verify_token; all must stay valid.\n        for issuer in (\"a\", \"abc\", \"abcd\"):\n            token = capability_token.mint_token(issuer, \"read\", 1, ttl_seconds=600)\n            encoded = token.rsplit(\".\", 1)[0]\n            assert len(encoded) % 4 != 0, \"test premise: this token needs padding\"\n>           assert capability_token.verify_token(token)[\"valid\"] is True\nE           assert False is True\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:87: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_expiry_boundary_is_inclusive_of_exp_second\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_scope_mismatch_fails_closed\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_base64_padding_variants_stay_valid\n3 failed, 4 passed in 0.95s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.5955,
+          "line": 54,
+          "operator": "bool_flip",
+          "output_tail": "....F..                                                                  [100%]\n================================== FAILURES ===================================\n______________________ test_scope_mismatch_fails_closed _______________________\n\n    def test_scope_mismatch_fails_closed() -> None:\n        token = capability_token.mint_token(\"issuer\", \"read\", 1, ttl_seconds=600)\n    \n        assert capability_token.verify_token(token, required_scope=\"read\")[\"valid\"] is True\n        assert capability_token.verify_token(token)[\"valid\"] is True\n    \n        denied = capability_token.verify_token(token, required_scope=\"write\")\n>       assert denied[\"valid\"] is False\nE       assert True is False\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:69: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_scope_mismatch_fails_closed\n1 failed, 6 passed in 0.92s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        },
+        {
+          "duration_seconds": 3.7505,
+          "line": 56,
+          "operator": "bool_flip",
+          "output_tail": "utation_contract.py:76: AssertionError\n___________________ test_base64_padding_variants_stay_valid ___________________\n\n    def test_base64_padding_variants_stay_valid() -> None:\n        # Payloads whose stripped base64 length is not a multiple of 4 exercise the\n        # \"=\" padding restoration path in verify_token; all must stay valid.\n        for issuer in (\"a\", \"abc\", \"abcd\"):\n            token = capability_token.mint_token(issuer, \"read\", 1, ttl_seconds=600)\n            encoded = token.rsplit(\".\", 1)[0]\n            assert len(encoded) % 4 != 0, \"test premise: this token needs padding\"\n>           assert capability_token.verify_token(token)[\"valid\"] is True\nE           assert False is True\n\ntests\\T03_capability\\test_capability_token_mutation_contract.py:87: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_expiry_boundary_is_inclusive_of_exp_second\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_scope_mismatch_fails_closed\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_wildcard_issuer_scope_passes_any_requirement\nFAILED tests/T03_capability/test_capability_token_mutation_contract.py::test_base64_padding_variants_stay_valid\n4 failed, 3 passed in 0.97s\nC:\\Users\\check\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\requests\\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!\n  warnings.warn(\n",
+          "return_code": 1,
+          "status": "killed"
+        }
+      ],
+      "passed": true,
+      "score": 0.769231,
+      "survived": 3,
+      "target": "scp/core/capability_token.py",
+      "tests": [
+        "tests/T03_capability/test_capability_token_mutation_contract.py"
+      ],
+      "threshold": 0.4
+    }
+  ],
+  "threshold": 0.4,
+  "working_tree_dirty": true
+}
