@@ -15,6 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MAX_ATTEMPTS = 3
 ATTEMPT_TIMEOUT = 120
 TRANSIENT_CODES = {"E429", "E500", "E502", "E503", "E504", "ETIMEDOUT", "ECONNRESET", "EAI_AGAIN"}
+NPM_AUDIT_TIMEOUT_MESSAGES = {
+    "network timeout at: https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
+    "network timeout at: https://registry.npmjs.org/-/npm/v1/security/audits/quick",
+}
 
 
 def classify(returncode: int, stdout: str) -> str:
@@ -40,6 +44,11 @@ def classify(returncode: int, stdout: str) -> str:
         return "PASS_WITHIN_SCOPE" if returncode == 0 and not report.get("error") else "HARNESS_BROKEN"
     error = report.get("error")
     if returncode != 0 and isinstance(error, dict) and error.get("code") in TRANSIENT_CODES:
+        return "RETRYABLE_REGISTRY_ERROR"
+    # npm 10 on the Windows runner emits a timeout with no error.code. Match
+    # only its observed registry-audit signature, not arbitrary error prose.
+    if (returncode != 0 and isinstance(error, dict) and not error.get("code")
+            and report.get("message") in NPM_AUDIT_TIMEOUT_MESSAGES):
         return "RETRYABLE_REGISTRY_ERROR"
     return "HARNESS_BROKEN"
 

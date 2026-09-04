@@ -43,6 +43,15 @@ def test_incomplete_or_contradictory_report_cannot_pass():
         assert audit.classify(0, json.dumps(report)) == "HARNESS_BROKEN"
 
 
+def test_observed_windows_npm_timeout_without_code_is_retryable_not_green():
+    report = {"message": "network timeout at: https://registry.npmjs.org/-/npm/v1/security/audits/quick",
+              "error": {"summary": "", "detail": ""}}
+    assert audit.classify(1, json.dumps(report)) == "RETRYABLE_REGISTRY_ERROR"
+    assert audit.classify(0, json.dumps(report)) == "HARNESS_BROKEN"
+    report["message"] = "network timeout at: https://untrusted.example/audit"
+    assert audit.classify(1, json.dumps(report)) == "HARNESS_BROKEN"
+
+
 @pytest.mark.parametrize("outcomes,expected_exit,expected_calls", [
     ([(1, {"error": {"code": "E503"}}), (0, clean_report())], 0, 2),
     ([(1, {"error": {"code": "E503"}})] * 3, 1, 3),
