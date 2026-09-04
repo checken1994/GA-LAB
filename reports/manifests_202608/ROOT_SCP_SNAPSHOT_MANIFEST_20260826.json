@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-04T06:16:35.870164+00:00",
-  "captured_commit": "173adc0bd76ee4a399629255b1b973d5a631b9c4",
-  "captured_parent": "fc272cf2707ddf6e9deed406e90d778f9a4628b7",
-  "captured_tree": "4ff56ba09d5c888e308adfee31ec76e9802d8409",
-  "tracked_count": 1606,
-  "inventory_sha256": "b6db0408b67d95adb8a4e20f664f23722bc0f3ebe5851d7fb2de0631834189d0",
+  "generated_at_utc": "2026-09-04T10:37:02.647665+00:00",
+  "captured_commit": "96f4081c60636d712f0e6e4aa6b6c0182de7f364",
+  "captured_parent": "3065b1dd81f9b9b73d39fcbfbacbed02a8df1aa8",
+  "captured_tree": "a71e28a78d73d95c4f504ad9d40d98f662c59a19",
+  "tracked_count": 1610,
+  "inventory_sha256": "a4785d00e17d6690eea104e3886fe6194748289a5134c7ddf4b1d1dbba6fa6cd",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
-      "blob": "53f839a1e4f4a6bcaa138b5adbd2174263a42c92",
-      "bytes": 6013,
-      "sha256": "61ee1a0bf0b6a8e7b3d72b8cf02e12f3b49bbd86c4fa966797a85e99b7a300c0"
+      "blob": "5f2b746ca94c64880dd31d0eea764246163bb4db",
+      "bytes": 6146,
+      "sha256": "e0864b07c0209680dbcd6f17d8f7976fbb21839efd4fbc488cfb89ab0608890c"
     },
     "scp/api_server.py": {
       "blob": "f307c241b223ab2037e12640aeccb917dcb1885c",
@@ -251,7 +251,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "911ed3a49a7a97f987f108c07c803cbb269cfda0",
+      "blob": "fbd3b822a9fd5d0667396750a9928aea20619d60",
       "path": ".github/workflows/scp-rc-promotion.yml"
     },
     {
@@ -263,7 +263,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "53f839a1e4f4a6bcaa138b5adbd2174263a42c92",
+      "blob": "5f2b746ca94c64880dd31d0eea764246163bb4db",
       "path": ".github/workflows/scp-release-gate.yml"
     },
     {
@@ -293,7 +293,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ff7a03d9807e20ccffddd7c0d3a99204d1bf1ed1",
+      "blob": "9840d197bb252d38da2407dfb352f3b8a41a7d31",
       "path": "GA.md"
     },
     {
@@ -8657,6 +8657,18 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "bd89d37a0455e33a76c7622fc413eaf3d8cfb6c8",
+      "path": "tests/T11_release/test_dashboard_audit_retry.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fda2e37542c9157a418757977a4bc2a4f62a65b7",
+      "path": "tests/T11_release/test_main_handoff_dispatch.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "3256f2076238af59ea6fc3b5639683d1c2d844af",
       "path": "tests/T11_release/test_rc_workflow_runtime_contract.py"
     },
@@ -8669,7 +8681,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "223b60d2892d6e916c0eacc4b68e0a3f285aa4ac",
+      "blob": "ea408069ce8c1aa4ac438fd97c7796207647eeaf",
       "path": "tests/T11_release/test_scp_skill_dna_contract.py"
     },
     {
@@ -9563,6 +9575,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "569a110c834831ad4b6fdb9ce0c5815319fffecb",
+      "path": "tools/run_dashboard_audit.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "a2d07653084f812cfe85b802b325ef0e6611cbd0",
       "path": "tools/run_independent_gold_review_v1.py"
     },
@@ -9685,6 +9703,12 @@
       "type": "blob",
       "blob": "cae16d1c3724ff58d28f7d178a2b90786411b41e",
       "path": "tools/verify_complete_scp_reference.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "701c78f0b456718660d07b47da198fd622703450",
+      "path": "tools/verify_main_handoff.py"
     },
     {
       "mode": "100644",
