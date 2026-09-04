@@ -7,14 +7,15 @@ a trusted baseline.
 
 Violations already existing in the baseline are tracked as BASELINE_DEBT.
 New violations added by the candidate branch are REJECTED.
-Delta is computed using a finding-set (Counter) to prevent spoofing
-by adding a violation and removing another.
+Delta is computed using a finding-set (Counter) to prevent spoofing.
 """
 import sys
 import yaml
 import subprocess
 import ast
 import re
+import tempfile
+import shutil
 from pathlib import Path
 from collections import Counter
 
@@ -51,7 +52,6 @@ def run_git_cmd(args, check=False):
         return ""
 
 def get_git_content(ref, path):
-    """Fetch content of a file at a specific git ref."""
     try:
         out = subprocess.check_output(
             ["git", "show", f"{ref}:{path}"], 
@@ -62,7 +62,6 @@ def get_git_content(ref, path):
         return None
 
 def get_local_content(path):
-    """Fetch local working tree content."""
     p = PROJECT_ROOT / path
     if not p.exists():
         return None
@@ -75,7 +74,6 @@ class AuditVisitor(ast.NodeVisitor):
     def __init__(self):
         self.findings = Counter()
         self.current_func = "<module>"
-        self.test_funcs = set()
         
     def visit_FunctionDef(self, node):
         self._handle_function(node)
@@ -86,8 +84,6 @@ class AuditVisitor(ast.NodeVisitor):
     def _handle_function(self, node):
         old = self.current_func
         self.current_func = node.name
-        if node.name.startswith("test_"):
-            self.test_funcs.add(node.name)
             
         for dec in node.decorator_list:
             attr_name = None
@@ -112,18 +108,16 @@ class AuditVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 def get_fa01_signatures(code: str):
-    """FA-01: Collect skip, xfail, skipif, importorskip occurrences using AST."""
-    if not code: return Counter(), set()
+    if not code: return Counter()
     try:
         tree = ast.parse(code)
         visitor = AuditVisitor()
         visitor.visit(tree)
-        return visitor.findings, visitor.test_funcs
+        return visitor.findings
     except SyntaxError:
-        return Counter(), set()
+        return Counter()
 
 def get_fa04_signatures(code: str) -> Counter:
-    """FA-04: Collect manufactured VERIFIED claims using regex."""
     findings = Counter()
     if not code: return findings
     for i, line in enumerate(code.splitlines()):
@@ -135,21 +129,13 @@ def get_fa04_signatures(code: str) -> Counter:
     return findings
 
 def audit_content(candidate_code: str, baseline_code: str, path: str):
-    """Compare candidate against baseline for a single file using Counter delta.
-    Returns (new_violations, baseline_debt, c_funcs, b_funcs).
-    """
     new_violations = []
     debts = []
-    c_funcs = set()
-    b_funcs = set()
     
-    # FA-01 and FA-02 (Test Weakening and Test Function Tracking)
+    # FA-01
     if (path.startswith("tests/") or path.startswith("scp/tests/")) and path.endswith(".py"):
-        c_fa01, c_local_funcs = get_fa01_signatures(candidate_code)
-        b_fa01, b_local_funcs = get_fa01_signatures(baseline_code)
-        
-        c_funcs = {f"{path}::{f}" for f in c_local_funcs}
-        b_funcs = {f"{path}::{f}" for f in b_local_funcs}
+        c_fa01 = get_fa01_signatures(candidate_code)
+        b_fa01 = get_fa01_signatures(baseline_code)
         
         delta = c_fa01 - b_fa01
         for sig, count in delta.items():
@@ -159,7 +145,7 @@ def audit_content(candidate_code: str, baseline_code: str, path: str):
         for sig, count in debt.items():
             debts.append(f"FA-01: {path} -> {sig} ({count} historical instances)")
             
-    # FA-04: Manufactured Green
+    # FA-04
     if path.startswith("scp/") and path.endswith(".py"):
         c_fa04 = get_fa04_signatures(candidate_code)
         b_fa04 = get_fa04_signatures(baseline_code)
@@ -172,10 +158,50 @@ def audit_content(candidate_code: str, baseline_code: str, path: str):
         for sig, count in debt.items():
             debts.append(f"FA-04: {path} -> {sig} ({count} historical instances)")
             
-    return new_violations, debts, c_funcs, b_funcs
+    return new_violations, debts
+
+def parse_nodeids(output: str) -> set:
+    nodeids = set()
+    for line in output.splitlines():
+        line = line.strip()
+        if (line.startswith("tests/") or line.startswith("scp/tests/")) and "::" in line:
+            nodeids.add(line)
+    return nodeids
+
+def get_real_nodeids(cwd: Path) -> set:
+    targets = []
+    if (cwd / "tests").exists(): targets.append("tests/")
+    if (cwd / "scp" / "tests").exists(): targets.append("scp/tests/")
+    if not targets: return set()
+    
+    cmd = [sys.executable, "-m", "pytest"] + targets + ["--collect-only", "-q"]
+    res = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if res.returncode not in (0, 5): # 0 is success, 5 is no tests collected
+        fail_closed(f"Pytest collection failed in {cwd}:\n{res.stdout}\n{res.stderr}")
+    return parse_nodeids(res.stdout)
+
+def get_baseline_nodeids(trusted_base: str) -> set:
+    tmpdir = tempfile.mkdtemp()
+    try:
+        run_git_cmd(["worktree", "add", "-d", tmpdir, trusted_base], check=True)
+        return get_real_nodeids(Path(tmpdir))
+    finally:
+        run_git_cmd(["worktree", "remove", "-f", tmpdir], check=False)
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+def check_real_test_deletion(trusted_base: str):
+    print(f"[T00 Meta-Audit] Collecting baseline pytest nodeids ({trusted_base})...")
+    b_nodeids = get_baseline_nodeids(trusted_base)
+    print(f"[T00 Meta-Audit] Collecting candidate pytest nodeids...")
+    c_nodeids = get_real_nodeids(PROJECT_ROOT)
+    
+    missing = b_nodeids - c_nodeids
+    violations = []
+    for m in sorted(missing):
+        violations.append(f"FA-02: Deleted test nodeid: {m}")
+    return violations
 
 def check_code_owner_violations(policy):
-    """L4: Warn on modification of protected paths."""
     changed_files = run_git_cmd(["diff", "--cached", "--name-only"]).splitlines()
     if not changed_files:
         changed_files = run_git_cmd(["diff", "--name-only"]).splitlines()
@@ -202,6 +228,7 @@ def main():
     print(f"[T00 Meta-Audit] Trusted Base: {trusted_base}")
     print("\n--- SCOPE & LIMITATIONS ---")
     print(" * FA-01 (Semantic Weakening): Partial (skip/xfail checked). Logic weakening requires L4 human review.")
+    print(" * FA-02 (Test Deletion): FULL ENFORCEMENT via real pytest nodeid comparison.")
     print(" * FA-03 (Same-SHA Evidence): NOT ENFORCED by T00 (Requires dedicated evidence tool).")
     print(" * FA-04 (Manufactured Green): Regex-based. Complex AST tracking requires L4 human review.")
     print(" * FA-05 (Self-Granting Auth): NOT ENFORCED by T00 (Requires capability scanner).")
@@ -209,35 +236,27 @@ def main():
     all_new_violations = []
     all_debts = []
     
+    # FA-02 Real nodeid check
+    all_new_violations.extend(check_real_test_deletion(trusted_base))
+    
+    # FA-01 and FA-04
     all_paths = set()
-    # 1. Local files
     for p in PROJECT_ROOT.rglob("*.py"):
-        rel_path = p.relative_to(PROJECT_ROOT).as_posix()
-        if rel_path.startswith("tests/") or rel_path.startswith("scp/"):
-            all_paths.add(rel_path)
+        rel = p.relative_to(PROJECT_ROOT).as_posix()
+        if rel.startswith("tests/") or rel.startswith("scp/"):
+            all_paths.add(rel)
             
-    # 2. Baseline files
     out = run_git_cmd(["ls-tree", "-r", "--name-only", trusted_base])
     for line in out.splitlines():
         if line.endswith(".py") and (line.startswith("tests/") or line.startswith("scp/")):
             all_paths.add(line)
             
-    global_c_funcs = set()
-    global_b_funcs = set()
-    
     for path in all_paths:
         c_code = get_local_content(path)
         b_code = get_git_content(trusted_base, path)
-        new_v, debts, c_funcs, b_funcs = audit_content(c_code, b_code or "", path)
+        new_v, debts = audit_content(c_code, b_code or "", path)
         all_new_violations.extend(new_v)
         all_debts.extend(debts)
-        global_c_funcs.update(c_funcs)
-        global_b_funcs.update(b_funcs)
-        
-    # Check FA-02 Test Deletion (comparing global function sets)
-    deleted_tests = global_b_funcs - global_c_funcs
-    for dt in deleted_tests:
-        all_new_violations.append(f"FA-02: Deleted test function/nodeid: {dt}")
         
     l4_violations = check_code_owner_violations(policy)
     
