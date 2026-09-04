@@ -642,7 +642,7 @@ class TaskKernel:
     def in_flight_count(self) -> int:
         """[CHAIN-AUDIT: backpressure] Số task chưa tới quyết định cuối —
         dùng làm admission control chống ngập kernel dưới tải đồng thời."""
-        row = self.conn.execute("SELECT COUNT(*) AS n FROM tasks WHERE state NOT IN ('COMPLETED','FAILED','CANCELLED','HUMAN_REVIEW')").fetchone()
+        row = self.conn.execute("SELECT COUNT(*) AS n FROM tasks WHERE state NOT IN ('COMPLETED','FAILED','CANCELLED')").fetchone()
         return int(row['n'])
 
     def get_task(self, task_id: str) -> dict[str, Any]:

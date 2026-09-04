@@ -16,6 +16,7 @@ from scp.llm_gateway.zero_cost_guard import (
     ZeroCostGuard,
     ZeroCostRequest,
 )
+from scp.llm_gateway.zero_cost_runtime import _runtime_store_path
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -150,3 +151,22 @@ def test_pricing_proof_survives_restart(tmp_path):
     )[0] is ZeroCostDecision.ALLOW_FREE
     reopened.close()
     evidence.db.close()
+
+
+def test_runtime_proof_store_override_is_test_scoped_and_data_scoped(tmp_path, monkeypatch):
+    data_root = tmp_path / "acceptance-evidence"
+    proof_db = data_root / "foundation" / "zero_cost.sqlite"
+    monkeypatch.setenv("SCP_MODE", "test")
+    monkeypatch.setenv("SCP_DATA_DIR", str(data_root))
+    monkeypatch.setenv("SCP_ZERO_COST_PROOF_DB", str(proof_db))
+
+    assert _runtime_store_path() == proof_db.resolve()
+
+    monkeypatch.setenv("SCP_MODE", "production")
+    with pytest.raises(RuntimeError, match="restricted to SCP_MODE=test"):
+        _runtime_store_path()
+
+    monkeypatch.setenv("SCP_MODE", "test")
+    monkeypatch.setenv("SCP_ZERO_COST_PROOF_DB", str(tmp_path / "outside.sqlite"))
+    with pytest.raises(RuntimeError, match="inside SCP_DATA_DIR"):
+        _runtime_store_path()

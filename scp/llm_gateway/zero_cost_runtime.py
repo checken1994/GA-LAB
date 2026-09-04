@@ -7,6 +7,7 @@ remains installed underneath Z3 so routing bugs still cannot spend money.
 """
 from __future__ import annotations
 
+import os
 import threading
 from pathlib import Path
 from typing import Any
@@ -28,13 +29,32 @@ _store: PricingProofStore | None = None
 _guard: ZeroCostGuard | None = None
 
 
+def _runtime_store_path() -> Path:
+    """Resolve an isolated proof store only inside an explicit test data root."""
+    configured = str(os.environ.get("SCP_ZERO_COST_PROOF_DB", "")).strip()
+    if not configured:
+        return _ROOT / "data" / "foundation" / "zero_cost.sqlite"
+    if str(os.environ.get("SCP_MODE", "")).strip().lower() != "test":
+        raise RuntimeError("SCP_ZERO_COST_PROOF_DB is restricted to SCP_MODE=test")
+    data_root_value = str(os.environ.get("SCP_DATA_DIR", "")).strip()
+    if not data_root_value:
+        raise RuntimeError("SCP_ZERO_COST_PROOF_DB requires SCP_DATA_DIR")
+    data_root = Path(data_root_value).expanduser().resolve()
+    candidate = Path(configured).expanduser().resolve()
+    try:
+        candidate.relative_to(data_root)
+    except ValueError as exc:
+        raise RuntimeError("SCP_ZERO_COST_PROOF_DB must stay inside SCP_DATA_DIR") from exc
+    return candidate
+
+
 def get_runtime_guard() -> ZeroCostGuard:
     global _store, _guard
     if _guard is None:
         with _lock:
             if _guard is None:
                 ZeroCostGuard.validate_free_only_config()
-                _store = PricingProofStore(_ROOT / "data" / "foundation" / "zero_cost.sqlite")
+                _store = PricingProofStore(_runtime_store_path())
                 _guard = ZeroCostGuard(
                     _store,
                     privacy_gate=PrivacyWriteGate(_ROOT / "spec" / "data_policies.yaml"),
