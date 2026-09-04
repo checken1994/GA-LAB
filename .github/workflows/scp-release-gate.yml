@@ -150,8 +150,8 @@ jobs:
         shell: bash
         working-directory: dashboard
         run: |
-          npm ci --ignore-scripts
-          npm audit --omit=dev --audit-level=high
+          npm ci --ignore-scripts --no-audit
+          python ../tools/run_dashboard_audit.py --output "../reports/dashboard_audit_pre_rc_${{ runner.os }}"
           npm run build
 
       - name: Upload pre-RC evidence
@@ -161,6 +161,7 @@ jobs:
           name: scp-pre-rc-${{ runner.os }}-${{ github.sha }}
           path: |
             reports/test_skill_contract_pre_rc.json
+            reports/dashboard_audit_pre_rc_${{ runner.os }}/
             reports/mutation/mutation_report.json
             bandit-prod.json
             bandit-prod-summary.json

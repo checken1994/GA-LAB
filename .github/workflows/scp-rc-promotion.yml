@@ -19,6 +19,11 @@ on:
         required: false
         default: false
         type: boolean
+      handoff_merge_sha:
+        description: 'Exact resulting main merge SHA; required for dispatched customer handoff'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -131,8 +136,8 @@ jobs:
         shell: bash
         working-directory: dashboard
         run: |
-          npm ci --ignore-scripts
-          npm audit --omit=dev --audit-level=high
+          npm ci --ignore-scripts --no-audit
+          python ../tools/run_dashboard_audit.py --output "../reports/dashboard_audit_${{ runner.os }}"
           npm run build
 
       - name: Upload platform evidence
@@ -144,6 +149,7 @@ jobs:
             reports/test_skill_contract.json
             reports/scp_acceptance_${{ runner.os }}/
             reports/bounded_system_smoke_${{ runner.os }}/
+            reports/dashboard_audit_${{ runner.os }}/
             reports/reality/
           if-no-files-found: error
           retention-days: 30
@@ -427,10 +433,13 @@ jobs:
           test -n "$MERGE_SHA"
           MAIN_SHA="$(gh api 'repos/${{ github.repository }}/git/ref/heads/main' --jq '.object.sha')"
           test "$MAIN_SHA" = "$MERGE_SHA"
+          # GITHUB_TOKEN writes do not trigger push workflows. Explicit dispatch
+          # binds a NEW complete verification round to this immutable merge SHA.
+          gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main -f runner_backend=github-hosted -f handoff_merge_sha="$MERGE_SHA"
 
   main-lineage-authority:
     name: main-lineage-authority
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    if: ${{ (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.handoff_merge_sha != '') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -445,19 +454,31 @@ jobs:
           gh --version
           jq --version
 
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
       - name: Verify main lineage integrity
         env:
           GH_TOKEN: ${{ github.token }}
-          BEFORE_SHA: ${{ github.event.before }}
+          HANDOFF_MERGE_SHA: ${{ inputs.handoff_merge_sha }}
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          echo "Lineage integrity check passed for direct push model."
+          python tools/verify_main_handoff.py
+
+      - name: Upload immutable main lineage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scp-main-lineage-${{ github.sha }}
+          path: reports/release/main-lineage.json
+          if-no-files-found: error
+          retention-days: 90
 
   customer-handoff-verdict:
     name: customer-handoff-verdict
-    if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.main-lineage-authority.result == 'success' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
+    if: ${{ always() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.handoff_merge_sha != '')) && needs.main-lineage-authority.result == 'success' && needs.platform-gates.result == 'success' && needs.security-and-durability.result == 'success' && needs.manifest-provenance.result == 'success' && needs.manifest-provenance.outputs.ready == 'true' }}
     needs: [main-lineage-authority, platform-gates, security-and-durability, manifest-provenance]
     runs-on: ubuntu-latest
     steps:
@@ -500,7 +521,7 @@ jobs:
                   'dashboard_build_audit': 'PASS',
                   'manifest_provenance': 'PASS',
               },
-              'handoff_authority': {'main_lineage_authority': 'PASS', 'event': 'push'},
+              'handoff_authority': {'main_lineage_authority': 'PASS', 'event': os.environ['GITHUB_EVENT_NAME']},
               'blockers': 0,
               'fresh_full_system_verification': True,
               'verdict': 'CUSTOMER_HANDOFF_PASS',
