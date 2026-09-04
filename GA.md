@@ -150,8 +150,8 @@ Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó v�
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
 active_sync_branch: integration/experiment-god-split-and-providers -> guarded PR -> main
-work_snapshot_sha: fc272cf
-snapshot_role: strict RC product/harness correction before exact-tree manifest freeze
+work_snapshot_sha: f0ed761511beb3e2e23830fcbdb828cfe9208f82
+snapshot_role: bounded dashboard-audit recovery and immutable post-merge handoff repair; new freeze required
 active_target_revision: 4.0.2
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
 runtime/release_verdict: BLOCKED_PENDING_SAME_SHA_GITHUB_GATES
@@ -257,3 +257,32 @@ Allowed now:
 Forbidden now:
 
 > Candidate/main đã DONE, RC/release-ready, production-ready hoặc customer-handoff hoàn tất trước khi có đúng chuỗi evidence nêu trên.
+
+## B8. RC continuation — 2026-09-04, registry and handoff closure
+
+- Frozen `f2ded72de8a13e92dc28ae06649ed83f3e1d5bad` reached `RC_DONE`, blockers=0
+  in run `33843699788`. The approved promotion run `33845108898` then failed
+  Ubuntu dashboard audit twice, both with npm registry `E503` at the quick-audit
+  endpoint. No PR or main merge occurred. Earlier green evidence is retained,
+  but is not reused for a changed candidate.
+- `f0ed761` repairs the harness with at most three bounded native npm audit
+  attempts, retries only transient registry/network failures, keeps
+  `--omit=dev --audit-level=high`, rejects missing/invalid reports and records
+  command, exits, exact SHA, lockfile hash and Skill/DNA hashes. `npm ci` no longer
+  performs its duplicate best-effort advisory query; the separate mandatory
+  audit and dashboard build both remain blocking.
+- Bot-token writes do not trigger a fresh GitHub push workflow. Promotion now
+  explicitly dispatches the complete handoff on main with `handoff_merge_sha`.
+  The lineage gate requires live main == checkout == dispatched merge SHA,
+  two Git parents and exactly one merged integration PR whose immutable head
+  equals the second parent. Unknown/mismatched lineage blocks handoff.
+- Local non-runtime verification: `python -m pytest -q tests/T11_release --tb=short`
+  returned 59 passed; focused Ruff, py_compile and Skill/DNA contract passed.
+  This is only patch verification, not current-SHA release evidence.
+- Remaining sequence: run GitHub mandatory gates on the new candidate, create a
+  manifest-only child, verify that exact frozen child, guarded PR merge, then
+  fresh full-system handoff on the actual main merge SHA. No SCP service/runtime
+  is to be launched on the user's PC. The user's root checkout is preserved;
+  the existing RC branch is being worked in `scp-rc-promotion-fix` worktree.
+- Rollback is a reviewed Git revert of the scoped harness changes; never remove
+  a mandatory gate or lower a security/mutation threshold as a rollback shortcut.
