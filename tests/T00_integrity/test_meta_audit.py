@@ -292,3 +292,8 @@ def test_fa02_collection_error_fails_closed(mock_run):
     with pytest.raises(SystemExit) as e:
         check_real_test_deletion("origin/main")
     assert e.value.code == 1
+
+@pytest.mark.skip(reason='L4 adversarial probe')
+def test_l4_probe():
+    pass
+
