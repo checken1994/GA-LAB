@@ -24,6 +24,7 @@ import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
@@ -31,6 +32,8 @@ from typing import Any, Callable
 import requests
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 DEFAULT_OUTPUT = ROOT / "reports" / "scp_acceptance_ci"
 
 
@@ -171,6 +174,7 @@ class ProviderFixture:
 class RuntimeHarness:
     def __init__(self, output_dir: Path, port: int, provider_port: int) -> None:
         self.output_dir = output_dir
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         self.port = port
         self.provider_port = provider_port
         self.base = f"http://127.0.0.1:{port}"
@@ -181,9 +185,57 @@ class RuntimeHarness:
         self.trace_path = output_dir / "ask_task_kernel_trace.jsonl"
         self.env_path = output_dir / "empty.env"
         self.env_path.write_text("", encoding="utf-8")
+        # Seed task-scoped zero-cost pricing proofs for both loopback adapters.
+        # These prove only the fixture contract, never live provider pricing.
+        from scp.llm_gateway.zero_cost_guard import PricingProofStore
+        zero_cost_path = output_dir / "foundation" / "zero_cost.sqlite"
+        zero_cost_path.parent.mkdir(parents=True, exist_ok=True)
+        store = PricingProofStore(zero_cost_path)
+        now = datetime.now(timezone.utc)
+        exp = now + timedelta(hours=1)
+        fixture_catalog_hash = "sha256:" + hashlib.sha256(
+            b"scp-acceptance-loopback-pricing-v1"
+        ).hexdigest()
+        try:
+            fixture_models = {
+                "openrouter": (
+                    "acceptance-chat-primary",
+                    "acceptance-chat-fallback",
+                    "acceptance-judge-primary",
+                    "acceptance-judge-fallback",
+                    "acceptance-autofix-fallback",
+                    "openrouter/free",
+                ),
+                "openai_compat": ("acceptance-judge-secondary",),
+            }
+            for provider, models in fixture_models.items():
+                for model in models:
+                    store.record(
+                        provider=provider,
+                        model=model,
+                        prompt_price=0,
+                        completion_price=0,
+                        catalog_hash=fixture_catalog_hash,
+                        observed_at=now.isoformat(),
+                        expires_at=exp.isoformat(),
+                        evidence_id="ev_acceptance_loopback_pricing_v1",
+                        metadata={"scope": "deterministic acceptance fixture only"},
+                    )
+        finally:
+            store.close()
 
     def environment(self) -> dict[str, str]:
         env = os.environ.copy()
+        for key in (
+            "OPENROUTER_API_KEY_2",
+            "OPENROUTER_API_KEY_3",
+            "GROQ_API_KEY",
+            "OPENAI_API_KEY",
+            "OPENAI_BASE_URL",
+            "OPENAI_MODEL",
+            "SCP_LLM_FALLBACK_PROVIDERS",
+        ):
+            env.pop(key, None)
         env.update(
             {
                 "PYTHONPATH": str(ROOT),
@@ -197,6 +249,9 @@ class RuntimeHarness:
                 "SCP_KERNEL_DB_PATH": str(self.db_path),
                 "SCP_KERNEL_TRACE_PATH": str(self.trace_path),
                 "SCP_DATA_DIR": str(self.output_dir),
+                "SCP_ZERO_COST_PROOF_DB": str(
+                    self.output_dir / "foundation" / "zero_cost.sqlite"
+                ),
                 "SCP_REQUEST_RUN_LEDGER_PATH": str(self.output_dir / "request_runs.jsonl"),
                 "SCP_HANDS_LOCAL_ONLY": "1",
                 "SCP_ENV_FILE": str(self.env_path),
@@ -207,9 +262,12 @@ class RuntimeHarness:
                 "OPENROUTER_BASE_URL": f"http://127.0.0.1:{self.provider_port}/v1",
                 "OPENROUTER_MODEL": "acceptance-chat-primary",
                 "OPENROUTER_MODEL_CHAT": "acceptance-chat-fallback",
-                "OPENROUTER_MODEL_JUDGE_PRIMARY": "acceptance-judge-primary",
-                "OPENROUTER_MODEL_JUDGE": "acceptance-judge-fallback",
+                "OPENROUTER_MODEL_JUDGE": "acceptance-judge-primary",
+                "OPENROUTER_MODEL_JUDGE_PRIMARY": "acceptance-judge-fallback",
                 "OPENROUTER_MODEL_AUTOFIX": "acceptance-autofix-fallback",
+                "OPENAI_API_KEY": "acceptance-openai-compat-key",
+                "OPENAI_BASE_URL": f"http://127.0.0.1:{self.provider_port}/v1",
+                "OPENAI_MODEL": "acceptance-judge-secondary",
                 "SCP_LLM_BREAKER_THRESHOLD": "3",
                 "SCP_LLM_BREAKER_COOLDOWN_SEC": "1",
             }
@@ -684,10 +742,33 @@ class AcceptanceSuite:
                         if verification.get("hash_chain_valid") is not True:
                             invalid.append({"task_id": row["task_id"], "state": row["state"], "journal": verification})
                     require(not invalid, f"main acceptance journal contains invalid chains: {invalid}")
-                    require(kernel.in_flight_count() == 0, f"acceptance left in-flight work: {kernel.in_flight_count()}")
+                    expected_review_ids = {
+                        stable_task_id("scp-a04-contradiction"),
+                        stable_task_id("scp-a06-provider-outage"),
+                        stable_task_id("scp-a09-hard-crash"),
+                    }
+                    observed_nonterminal = {
+                        (row["task_id"], row["state"])
+                        for row in rows
+                        if row["state"] not in {"COMPLETED", "FAILED", "CANCELLED"}
+                    }
+                    expected_nonterminal = {
+                        (task_id, "HUMAN_REVIEW") for task_id in expected_review_ids
+                    }
+                    require(
+                        observed_nonterminal == expected_nonterminal,
+                        "acceptance nonterminal set differs from the exact expected "
+                        f"human-review tasks: {observed_nonterminal}",
+                    )
+                    require(
+                        kernel.in_flight_count() == len(expected_review_ids),
+                        "TaskKernel in_flight_count no longer represents every "
+                        "nonterminal task",
+                    )
                     return {
                         "quick_check": integrity.get("quick_check"),
                         "task_count": len(rows),
+                        "expected_human_review_ids": sorted(expected_review_ids),
                         "states": [dict(row) for row in rows],
                     }
                 finally:

@@ -149,95 +149,156 @@ Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó v�
 ```text
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
-active_sync_branch: main
-work_snapshot_sha: 3f6e9725aa2568d4d8affe0d6f6297c0f12c40cc
-snapshot_role: PR #28 squash-merged; CE-X08-01, CE-S10-03, CE-S10-04 elevated to Level C Reality evidence
+active_sync_branch: integration/experiment-god-split-and-providers -> guarded PR -> main
+work_snapshot_sha: f0ed761511beb3e2e23830fcbdb828cfe9208f82
+snapshot_role: bounded dashboard-audit recovery and immutable post-merge handoff repair; new freeze required
 active_target_revision: 4.0.2
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
-runtime/release_verdict: NOT_DERIVED / NOT CLAIMED
+runtime/release_verdict: BLOCKED_PENDING_SAME_SHA_GITHUB_GATES
 ```
 
-Always refresh `main`; other AIs are actively committing to the same branch.
+`work_snapshot_sha` là commit sản phẩm trước commit handoff này; luôn resolve full SHA
+từ live Git trước khi dùng. Không kế thừa SHA, branch state hoặc verdict trong phần
+này nếu chưa refresh GitHub.
 
-## B2. Target / coverage authority at snapshot
+## B2. Release task scope hiện hành
 
 ```text
-target_manifest: spec/scp_future_target_manifest.yaml
-coverage_binding: spec/scp_target_test_coverage.yaml
-coverage_universe: 138 capabilities + 67 edges
-explicit_claims: 47
-TEST_BOUND_CONTRACT: 6
-TEST_BOUND_PARTIAL: 41
-UNPROVEN: 158
-EVIDENCE_VERIFIED: 0
-coverage_proven: false
-current coverage verdict: TRACEABILITY_STRUCTURE_ONLY_NOT_COVERAGE_PROOF / TEST_COVERAGE_UNPROVEN
+1. Sửa lỗi initialization/product/harness được GitHub-hosted runner chứng minh.
+2. Chỉ tạo manifest-only freeze sau khi mandatory gates xanh trên candidate tree.
+3. RC_DONE chỉ hợp lệ khi mọi required gate PASS trên đúng frozen SHA và blockers=0.
+4. Merge integration -> main chỉ qua guarded workflow khi remote head vẫn đúng frozen SHA.
+5. Sau merge, chạy lại full-system customer-handoff trên chính merge SHA của main.
+6. Không khởi động SCP/service/runtime trên PC người dùng trong task này.
 ```
 
-`CE-X08-01`, `CE-S10-03`, `CE-S10-04` đã nâng cấp lên `observed_evidence_level: C` với đầy đủ concrete tests T09/T11. Tuy nhiên, release readiness chỉ được tuyên bố khi toàn bộ required evidence level của profile được thỏa mãn.
+Các claim coverage/architecture trước đây không được dùng thay cho same-SHA release
+evidence. Authority machine-readable vẫn là target manifest, test-skill binding,
+complete reference và protected invariants được nêu trong phần A.
 
-## B3. New commits absorbed since previous monitored snapshot
+## B3. Live lineage đã hấp thụ vào candidate
 
 ```text
-PR #28 (commit 3f6e9725aa2568d4d8affe0d6f6297c0f12c40cc):
-  feat(reality-evidence): elevate CE-X08-01, CE-S10-03, CE-S10-04 to Level C evidence (#28)
-  - Added T09 golden task E2E test suites:
-    * test_golden_world_observation_e2e.py (CE-X08-01: T06 -> T02 -> T09 -> T10 loop)
-    * test_golden_risk_containment_e2e.py (CE-S10-03: RiskClassifier -> ContainmentCoordinator -> Capability revocation)
-    * test_golden_external_alert_routing_e2e.py & test_ce_s10_04_alert_evidence_binding.py (CE-S10-04: EmergencyEvidenceBundle -> AlertRouter fail-closed non-broadcast)
-  - Fixed flaky microsecond tie-break in temporal_authority.py & world_state_projection.py using SQLite rowid.
-  - Updated mutation CI test paths in scripts/run_mutation_ci.py (100% killed mutants).
-  - Remediated Bandit security findings: added timeout=10 to requests.get in issue_parser.py and # nosec B307 in hypothesis_scanner.py (MEDIUM reduced to 8 <= 9).
-  - Fixed workflow paths to scripts/run_reality_tests_portable.py and added oven-sh/setup-bun step for mini-services reality tests.
-  - 100% CI pass across all matrix jobs (p0-baseline + pre-rc-verification on ubuntu-latest & windows-latest).
+origin/main at task refresh: ac68ba9bfb4d8955c9cfa20e574113feb8f0102b
+candidate product snapshot: fc272cf (resolve full SHA live)
+
+candidate contains main plus:
+  b94cba0  close missing authoritative TaskKernel paths and acceptance races
+  f975210  provision Bun in authoritative RC platform/security jobs
+  fc272cf  restore strict TaskKernel HUMAN_REVIEW semantics; isolate acceptance
+             pricing proofs; keep multi-provider crosscheck enabled
 ```
 
-## B4. Independent semantic audit / contradiction repair
-
-Các điểm sửa chữa kỹ thuật và bằng chứng thực tế được thực hiện nghiêm ngặt tại đúng điểm lỗi:
-
-1. `CE-X08-01`: Chuỗi khép kín T06 (EvidenceStore binary blob + SHA-256) -> T02/T09 (bitemporal log, transitive identity link, append-only changes delta) -> T10 (restart/crash recovery parity) được kiểm chứng qua `test_golden_world_observation_e2e.py`. Đã sửa lỗi tie-break ngẫu nhiên trong SQLite khi 2 assertion chèn cùng 1 microsecond bằng cách `ORDER BY system_time, rowid`.
-2. `CE-S10-03`: Kiểm chứng ranh giới an toàn của S10 qua `test_golden_risk_containment_e2e.py`. Xác minh âm tính: RiskClassifier không có method gọi tool trực tiếp; ContainmentCoordinator chỉ hoạt động trong owned scope và thực hiện cô lập task sang HUMAN_REVIEW thông qua thu hồi quyền tại CapabilityAuthority (`CapabilityRevokedError`).
-3. `CE-S10-04`: Kiểm chứng điều phối cảnh báo khẩn cấp qua `test_golden_external_alert_routing_e2e.py` và `test_ce_s10_04_alert_evidence_binding.py`. Khóa chặt mọi hành vi broadcast tự động ra công chúng; kênh yêu cầu phê duyệt trả về `WAITING_APPROVAL`, kênh chưa cấu hình trả về `BUNDLE_ONLY`.
-4. `Harness & CI`: Hoàn toàn loại bỏ mọi phụ thuộc vào self-hosted runner; toàn bộ chạy trên GitHub-hosted standard runner. Sửa đường dẫn mutation CI theo cấu trúc T00-T11, sửa đường dẫn reality runner trong YAML workflows, bổ sung Bun runtime cho mini-services reality tests, và giải quyết triệt để cảnh báo Bandit.
-
-Không có bài kiểm tra nào bị xóa, bỏ qua (skip), hay hạ chuẩn ngưỡng bảo mật.
-
-## B5. Exact-SHA CI at snapshot
-
-Cho PR #28 commit `c31af14` (sáp nhập thành `3f6e972` trên `main`):
+## B4. Root-cause classification và correction
 
 ```text
-GitHub check runs observed: 6/6 SUCCESS
-  - p0-baseline (ubuntu-latest): completed / success
-  - p0-baseline (windows-latest): completed / success
-  - pre-rc-verification (ubuntu-latest): completed / success
-  - pre-rc-verification (windows-latest): completed / success
-same-SHA CI PASS: ESTABLISHED ON PR #28
-EVIDENCE_VERIFIED: 0 (Release evidence gate requires full profile closure)
-release claim: FORBIDDEN
+HARNESS_BROKEN:
+  main RC referenced deleted/non-existent TaskKernel durability test paths.
+  Candidate points the workflow to extant strict durability/recovery tests.
+
+PRODUCT_FAIL / ACCEPTANCE INTEGRATION:
+  main acceptance failed verified completion, provider fallback, duplicate
+  idempotency and parallel durability behavior.
+  Candidate contains the AskKernelAdapter race correction and deterministic
+  loopback provider evidence required to exercise those paths.
+
+REJECTED WEAKENING IN EARLIER CANDIDATE:
+  Do not accept f975210 as RC evidence by itself. Its acceptance harness disabled
+  SCP_MULTI_LLM_CROSSCHECK, wrote fixture proof into shared repository state,
+  swallowed proof errors, and excluded HUMAN_REVIEW from in_flight_count.
+  fc272cf removes those weakenings and adds regression contracts.
 ```
 
-## B6. Current dependency cone
+Không có test nào bị delete/skip/xfail, không hạ threshold, không ignore exit code,
+và không đổi fail-closed thành fail-open để tạo màu xanh.
+
+## B5. Evidence đã quan sát trong task
 
 ```text
-1. Đã hoàn tất:
-   - CE-X08-01, CE-S10-03, CE-S10-04 nâng cấp lên Level C Reality evidence.
-   - Sửa chữa và chuẩn hóa toàn bộ harness CI trên GitHub-hosted runners.
-   - 229 unit/contract tests, 76 portable reality tests, và 100% mutation tests pass.
+main ac68ba9 diagnostic rerun:
+  baseline: PASS
+  authoritative RC: FAIL
+    - TaskKernel durability gate: missing workflow test path
+    - behavioral acceptance: A03/A05/A08/A11 failed
+  conclusion: main is not releasable; runner initialization was not the only issue
 
-2. Trọng tâm tiếp theo theo dependency cone:
-   - Tiếp tục nâng cấp các Cause-Effect edges còn lại (hiện 41 PARTIAL, 158 UNPROVEN).
-   - Nâng cấp các core capabilities trong T03, T04, T05, T06 từ Level B lên Level C/D.
-   - Giữ vững kỷ luật Fail-Closed và Zero Hardcoded Paths.
+candidate fc272cf local non-runtime evidence:
+  py_compile of changed executable/tests: PASS
+  tests/T04_kernel + tests/T05_gateway + tests/T11_release: 85 PASS
+  SCP process/service started on user PC: NO
+
+candidate same-SHA GitHub mandatory gates: PENDING
+manifest-only freeze: PENDING
+RC_DONE/blockers=0: NOT YET DERIVED
+main merge and fresh customer handoff: PENDING
+```
+
+Local PASS chỉ có nghĩa không thấy lỗi trong scope đã nêu; nó không thay thế GitHub
+multi-platform, acceptance, mutation, security, manifest hoặc customer-handoff gate.
+
+## B6. Finite next sequence
+
+```text
+1. Push candidate và fast-forward designated integration branch only after live refresh.
+2. Let GitHub-hosted mandatory gates test the exact candidate SHA.
+3. If a gate fails, classify and repair product/harness at the failure point.
+4. When pre-freeze gates pass, allow workflow to create exactly one manifest-only child.
+5. Verify every mandatory gate and blockers=0 on that frozen child SHA.
+6. Dispatch guarded merge with frozen-head equality check.
+7. Require a fresh full-system customer-handoff PASS on resulting main merge SHA.
 ```
 
 ## B7. Completion language
 
 Allowed now:
 
-> 3 Cause-Effect edges CE-X08-01, CE-S10-03, CE-S10-04 đã được chứng minh và nâng cấp lên Reality Level C với các Golden Task E2E test suites; PR #28 đã squash-merge vào main (commit 3f6e972) với 100% GitHub Actions CI xanh trên standard cloud runners; spec coverage có 47 claims rõ ràng (6 CONTRACT/B, 41 PARTIAL/B/C, 158 UNPROVEN); EVIDENCE_VERIFIED toàn hệ thống vẫn là 0.
+> Candidate strict-correction đã qua 85 unit-contract test local không chạy SCP service; release vẫn BLOCKED cho tới khi toàn bộ mandatory gate PASS trên cùng frozen SHA, blockers=0, guarded merge thành công và customer-handoff mới PASS trên merge SHA của main.
 
 Forbidden now:
 
-> S10/X08 hoàn tất release, SCP hoàn thành 100%, P0 toàn diện đã verify, hoặc tuyên bố release-ready khi chưa qua đủ các cổng T11 toàn cục.
+> Candidate/main đã DONE, RC/release-ready, production-ready hoặc customer-handoff hoàn tất trước khi có đúng chuỗi evidence nêu trên.
+
+## B8. RC continuation — 2026-09-04, registry and handoff closure
+
+- Frozen `f2ded72de8a13e92dc28ae06649ed83f3e1d5bad` reached `RC_DONE`, blockers=0
+  in run `33843699788`. The approved promotion run `33845108898` then failed
+  Ubuntu dashboard audit twice, both with npm registry `E503` at the quick-audit
+  endpoint. No PR or main merge occurred. Earlier green evidence is retained,
+  but is not reused for a changed candidate.
+- `f0ed761` repairs the harness with at most three bounded native npm audit
+  attempts, retries only transient registry/network failures, keeps
+  `--omit=dev --audit-level=high`, rejects missing/invalid reports and records
+  command, exits, exact SHA, lockfile hash and Skill/DNA hashes. `npm ci` no longer
+  performs its duplicate best-effort advisory query; the separate mandatory
+  audit and dashboard build both remain blocking.
+- Bot-token writes do not trigger a fresh GitHub push workflow. Promotion now
+  explicitly dispatches the complete handoff on main with `handoff_merge_sha`.
+  The lineage gate requires live main == checkout == dispatched merge SHA,
+  exactly one merged integration PR and byte-identical Git trees between main
+  and the immutable frozen PR head (including the manifest). Linear squash
+  lineage is supported to preserve the live main ruleset; for a two-parent
+  merge, the PR head must additionally equal the second parent.
+  Unknown/mismatched lineage blocks handoff.
+- Local non-runtime verification: `python -m pytest -q tests/T11_release --tb=short`
+  returned 59 passed; focused Ruff, py_compile and Skill/DNA contract passed.
+  This is only patch verification, not current-SHA release evidence.
+- Remaining sequence: run GitHub mandatory gates on the new candidate, create a
+  manifest-only child, verify that exact frozen child, guarded PR merge, then
+  fresh full-system handoff on the actual main merge SHA. No SCP service/runtime
+  is to be launched on the user's PC. The user's root checkout is preserved;
+  the existing RC branch is being worked in `scp-rc-promotion-fix` worktree.
+- Rollback is a reviewed Git revert of the scoped harness changes; never remove
+  a mandatory gate or lower a security/mutation threshold as a rollback shortcut.
+- Continuation findings: Windows npm can emit registry timeout without
+  `error.code`; the exact observed audit-endpoint messages are now retryable
+  errors, never success. Main requires linear history and the `p0-baseline`
+  check. Use SHA-guarded squash merge without changing that ruleset. After
+  freeze, sync its exact SHA to the existing RC branch to obtain baseline CI;
+  create the integration PR through the authorized user session if bot PR
+  creation is unavailable, then let the guarded workflow find and merge it.
+- Frozen run on `0856490` exposed the legacy npm 10 Quick Audit fallback returning
+  400 from the retired endpoint. The auditor is now pinned to npm 11.19.1 in the
+  GitHub runner's task-local directory (Node 20.20.2 satisfies its ^20.17.0 engine).
+  Its upstream source uses Bulk Advisory only; no 400 response is treated as a
+  pass or generic retry. Response headers/cookies are redacted from new audit
+  artifacts. Ref: https://github.com/npm/cli/blob/v11.19.1/workspaces/arborist/lib/audit-report.js

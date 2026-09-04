@@ -1,32 +1,32 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-01T13:21:44.529434+00:00",
-  "captured_commit": "24a7791841ff60a659c6a175fc9aa0e5fd4a70c9",
-  "captured_parent": "623b485fc80e521a9f19dbe13208f94b4072d6a0",
-  "captured_tree": "faf86e5ca907cb81b9442dc6cc1116f5e0001e7d",
-  "tracked_count": 1482,
-  "inventory_sha256": "c271d1becc9bc002ecbfbddd8a704db310c97c5fc1b3859ab035701c855c2b86",
+  "generated_at_utc": "2026-09-04T10:56:39.887797+00:00",
+  "captured_commit": "64c92579f3c8ea78c5c433920e6c6fece0de7eb7",
+  "captured_parent": "0856490e565efc6ad0d9d93b2e8b0a656f50eb13",
+  "captured_tree": "1740bfb4d7a3e3f61ead853286fd5d83b1621f0b",
+  "tracked_count": 1610,
+  "inventory_sha256": "6a66f08216f71664fe6cc047a176c867af60d455ab03185563caba4110fd6334",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
-      "blob": "12045ecf166eb182d32b8a93cae1f39653eb6dc3",
-      "bytes": 5827,
-      "sha256": "fa5087cb6c3edd5f9bb879fceef68590d5647f4cc032c9c3fc6e20b3c40df5ae"
+      "blob": "9e0475fe95136072de4b712b32e01c5669eda4f4",
+      "bytes": 6431,
+      "sha256": "a6dffac9b2785d41b8022cb153a6775d28cbfaa7b800ea8b16d4b90b263bed12"
     },
     "scp/api_server.py": {
-      "blob": "d6352b248570773c934062a9aa6e49508bea053f",
-      "bytes": 23537,
-      "sha256": "af7f393fb71f7936133bbeee651931c0071552599af6a93c4388f43e828d38ad"
+      "blob": "f307c241b223ab2037e12640aeccb917dcb1885c",
+      "bytes": 23886,
+      "sha256": "85784820929be47e34c0e444d194a0a5244cd201522401cb422d6aada293d418"
     },
     "scp/task_kernel.py": {
-      "blob": "8fcd3acf2ab88591ac26cb6505c47752d7c7e20f",
-      "bytes": 5068,
-      "sha256": "18eeac3dfec538e3da5ea39ae5409610eba8126475b208a762e4057158757aa8"
+      "blob": "7bcf49e4c7dc0984513dae701c2920614b6e3b5d",
+      "bytes": 17620,
+      "sha256": "1236c3f3c80c7057ecc673b27e302dd0a05ccf43997be5f54cc41a52dda698b3"
     },
     "scp/ask_kernel_adapter.py": {
-      "blob": "8c5869d1a27d5e806db420e47605dc2a7f6d7681",
-      "bytes": 22355,
-      "sha256": "725586e643cffe8ea5da2b63154b2c62289eed68d50608524f72e0fe223c72e5"
+      "blob": "367be4dcc0d2123c858cdd6e07a50081d36ffc96",
+      "bytes": 22426,
+      "sha256": "02cc5d3da3e1be9f00f1e185f5f67d6561d6bb804b407b4c44350643f2265d22"
     },
     "scp/autofix/restricted_exec.py": {
       "blob": "11c02942acdbf8be29637f08266b507fbfadf546",
@@ -83,14 +83,26 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e7888fa794c168463538839ca237e906408d7b82",
+      "blob": "9074d5a9edac76d009c4ed02efdc1ef2f7d1bae0",
       "path": ".agents/AGENTS.md"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e7888fa794c168463538839ca237e906408d7b82",
+      "blob": "9074d5a9edac76d009c4ed02efdc1ef2f7d1bae0",
       "path": ".agents/GEMINI.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b61deec1c405b44cc16b3e93ae6be27dc67aff96",
+      "path": ".agents/skill-evals/README.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d09e377de1ce1a7d38ec67264e0ff9d09b2b0597",
+      "path": ".agents/skill-evals/skill_pack_cases.json"
     },
     {
       "mode": "100644",
@@ -149,7 +161,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6478ce81d91d63c46fc2362ed3c530480716676a",
+      "blob": "455f03441b8dc0e07903effe3bbc9f25ea52d89a",
       "path": ".agents/skills/scp-release-evidence-gate/SKILL.md"
     },
     {
@@ -169,6 +181,18 @@
       "type": "blob",
       "blob": "2920726afcecd2da0479dff3db36727f634cf19a",
       "path": ".agents/skills/scp-skill-review/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5273611e4672cfe05d920847bc33e6dbd0994eb9",
+      "path": ".agents/skills/scp-skill-review/evals/evals.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dd5bfc4c0e4f54f6947f29e7efeabd83412f020a",
+      "path": ".agents/skills/scp-skill-review/evals/independent_verifier.md"
     },
     {
       "mode": "100644",
@@ -227,19 +251,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b6929541dc98f72c48d45e9d7b88808f58515087",
+      "blob": "5340341bd946c2fc10ff0e1dbb6f51f59bef4d2b",
       "path": ".github/workflows/scp-rc-promotion.yml"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "70bbf5697f48ad21f41b1a482681b37dc29febea",
+      "blob": "ed7ec63fbd424ebf8eb7e23fb003964bec6b180e",
       "path": ".github/workflows/scp-refactor-freeze.yml"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "12045ecf166eb182d32b8a93cae1f39653eb6dc3",
+      "blob": "9e0475fe95136072de4b712b32e01c5669eda4f4",
       "path": ".github/workflows/scp-release-gate.yml"
     },
     {
@@ -257,7 +281,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "23cbd524340165eb85481a0ea38f97c6871b6b06",
+      "blob": "2076dc3cff19c4547937d0267bc2c34332e974d9",
       "path": "AGENTS.md"
     },
     {
@@ -265,6 +289,12 @@
       "type": "blob",
       "blob": "2fa412d5954f2839bda1d34fcf1c467285dc823e",
       "path": "Dockerfile"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8cd76400660072ed3242e775510abcae4f3151c7",
+      "path": "GA.md"
     },
     {
       "mode": "100644",
@@ -281,7 +311,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f7385c5e5db55a542bf861ca9892416972dfd55b",
+      "blob": "e0830aed8fad952b8fff3c9dae7134d5ce47cf28",
       "path": "README.md"
     },
     {
@@ -457,12 +487,6 @@
       "type": "blob",
       "blob": "310a1605b78ece37cc6490e2027c03af96cec600",
       "path": "archive/skill-scp-zips-20260818/scp-task-kernel-review.zip"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-      "path": "bandit-prod.json"
     },
     {
       "mode": "100644",
@@ -2045,6 +2069,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "ba5541b58bfd0a0d800401303752ae404ea58017",
+      "path": "docs/STEP0_BASELINE_20260902.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "9dba5d8333f87142104eec5f8fa425c96d6819c8",
       "path": "docs/TOP_AGENT_LESSONS_20260826.md"
     },
@@ -2285,6 +2315,24 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "0b6a206de42f1389adffcc79e9d6064ce9a6fd64",
+      "path": "integrations/chatgpt/scp-ga/README.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "06bdd68d84770479bdc60ec464760b183c099ab5",
+      "path": "integrations/chatgpt/scp-ga/SKILL.md"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3f61484322091a03e1156967d2c6dda7472b1c02",
+      "path": "integrations/chatgpt/scp-ga/manifest.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "b85a37a9a59cffad81d4619fa6572a3c2e37c483",
       "path": "launch-scp-desktop.bat"
     },
@@ -2321,14 +2369,26 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4edaf7d63e9b364d79302749e1bf54d278ffdbff",
+      "blob": "157ea62e81bbeb13ed12da1576c11b4d0f928635",
+      "path": "mini-services/llm-bridge/core.ts"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4bccc39dac42e9c2509aa1c52ded8598f48c5220",
       "path": "mini-services/llm-bridge/index.ts"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "62fe39f2e3c2dc77a77ae7661a821f11e6399177",
+      "blob": "5dbd0d1090773bfd2d4f75614d0920edd3dc9e80",
       "path": "mini-services/llm-bridge/package.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4ea7d5aab084787134f73a046e1be3018884198b",
+      "path": "mini-services/llm-bridge/zero_cost_bootstrap.ts"
     },
     {
       "mode": "100644",
@@ -3053,31 +3113,31 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "aaf774a9870a5b04add99f6e0d48a8f233aee3ff",
+      "blob": "30ad63e9596fc7bdbee60c857e8408f8a2a15bcf",
       "path": "reports/system_audit_strict/bounded_smoke_first/evidence.json"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a7d2f1a1da060f332bf6701bddf8cb601d489a56",
+      "blob": "df3b7475018f411c60dd7ee8c2d0c67164559ac3",
       "path": "reports/system_audit_strict/bounded_smoke_first/kernel.sqlite3-shm"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c1611cce7a06b292f3622c8043274893cff0a977",
+      "blob": "2822d30628546d960a8448b0dee4415a232d76d8",
       "path": "reports/system_audit_strict/bounded_smoke_first/kernel.sqlite3-wal"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "726786dccaa270b1aa7a44bf51796ba17d4f7fb6",
+      "blob": "d59e36dac45957e7ef504316baf25475cb7f923b",
       "path": "reports/system_audit_strict/bounded_smoke_first/kernel_trace.jsonl"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "95610c9a27c0f0c0e27b10841e567c4df524e6df",
+      "blob": "103b984d45e0eac095b06a7790180746d32a961a",
       "path": "reports/system_audit_strict/bounded_smoke_first/request_runs.jsonl"
     },
     {
@@ -3095,37 +3155,37 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "92f31fb6f35cc36abd6b7dadc6cf414fe0cb1a9c",
+      "blob": "fcb6b837a9b3fbe5d8acb8d36fc960037e8d09dd",
       "path": "reports/system_audit_strict/bounded_smoke_restart/evidence.json"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4e655dc8f6af504a2d2aa410c8b55dd8db5f260f",
+      "blob": "2ef0881589922d52e6b6fbca1e06612a1417366e",
       "path": "reports/system_audit_strict/bounded_smoke_restart/kernel.sqlite3-shm"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "50ab5eecd9b5fdf35498bf6caa94cb98f4dd8c71",
+      "blob": "a86273601481995f0209f1f1c5e1b34f176f094b",
       "path": "reports/system_audit_strict/bounded_smoke_restart/kernel.sqlite3-wal"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "c5742b133ff2e8fa877be5040b6ea47726297e3a",
+      "blob": "9763a03a8502e94a2b974255a93e1453354dc4af",
       "path": "reports/system_audit_strict/bounded_smoke_restart/kernel_trace.jsonl"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f00366edfa652b6c87f3d97898dbbfe3e46e2df9",
+      "blob": "b291ddc0a01c3b9f9755b11124e42ba6f9d6de94",
       "path": "reports/system_audit_strict/bounded_smoke_restart/request_runs.jsonl"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f47dd2f96ac16f868ece8d332cef661a11743dfb",
+      "blob": "059f839a1e6020ba466384538d519c84df81f796",
       "path": "reports/system_audit_strict/report.json"
     },
     {
@@ -3145,12 +3205,6 @@
       "type": "blob",
       "blob": "d77bfe9afb1982b709d6380f57721834463dd7af",
       "path": "research/continual_learning.ipynb"
-    },
-    {
-      "mode": "100644",
-      "type": "blob",
-      "blob": "1c6a89b713e7ece976a7ab56322645b5aff59cea",
-      "path": "run_reality_tests_portable.py"
     },
     {
       "mode": "100644",
@@ -3203,7 +3257,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6b800cf8d92cc22f291a7da5fc53a6565e30755f",
+      "blob": "e97b71c165626f5a6994762aa18185e319217f0e",
       "path": "scp/api/chat.py"
     },
     {
@@ -3281,7 +3335,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "718482725463139b2b795947f07b69d76c71133a",
+      "blob": "5e2835f29d04246eebde68ebff8caf9eea54422f",
       "path": "scp/api/routes/hands_routes.py"
     },
     {
@@ -3335,7 +3389,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ff02934fcbf6ce283da9166bb4617cad0696d228",
+      "blob": "6ecff731c5449a6cc3fea59977af729f84d4e1e3",
       "path": "scp/api/routes/v104_routes.py"
     },
     {
@@ -3359,7 +3413,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "d6352b248570773c934062a9aa6e49508bea053f",
+      "blob": "f307c241b223ab2037e12640aeccb917dcb1885c",
       "path": "scp/api_server.py"
     },
     {
@@ -3395,7 +3449,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8c5869d1a27d5e806db420e47605dc2a7f6d7681",
+      "blob": "367be4dcc0d2123c858cdd6e07a50081d36ffc96",
       "path": "scp/ask_kernel_adapter.py"
     },
     {
@@ -3575,7 +3629,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ff72c3a08042f64ce2a8e37e70290c7b69a3f587",
+      "blob": "ab9a2eebb675878015c6d7d223f9ab64ca6ba209",
       "path": "scp/autofix/engine.py"
     },
     {
@@ -3587,7 +3641,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "2a9674c352abc4f16d8df77a87d6f9f5b75acf99",
+      "blob": "145f601a6d2afcb2bb820b7337959ec80ad5c90a",
       "path": "scp/autofix/engine_parts/autofix_mixin.py"
     },
     {
@@ -3611,7 +3665,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "de48d578e97df44248962d8b916b59ca014f6003",
+      "blob": "fc19c54c49051dd88fa8bc94f73365d8ac901463",
       "path": "scp/autofix/evidence_replay.py"
     },
     {
@@ -3683,7 +3737,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "07129945022bde7f187c3bbff392324c82eb4656",
+      "blob": "7cd5b7770c12efaa02ad2cc943421a7be974a68b",
       "path": "scp/autofix/llm_fix_parts/_call_openrouter.py"
     },
     {
@@ -3755,7 +3809,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ffb50518771e9101fd59278f79ff27bbdb13e6f3",
+      "blob": "c516090448315461b594c924dbb00a1ad0ae35ee",
       "path": "scp/autofix/property_validator.py"
     },
     {
@@ -3827,6 +3881,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "a0fd01f20d523277db796ec7807ca1d8eaae0c6a",
+      "path": "scp/autofix/runner_phases/evidence_replay.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "bc8bc0ecafceac36a4c7fafca309452a4fe4bc56",
       "path": "scp/autofix/runner_phases/lineage_cross_validation.py"
     },
@@ -3851,13 +3911,19 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "9d8a6a3895b1e648b0e9d11622c2461a8906c8c7",
+      "path": "scp/autofix/runner_phases/reality_test.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "ea53511ed07fb552d1fe495c062d608dba6ca9e1",
       "path": "scp/autofix/runner_phases/report.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "6b66b76653affea626108ba5ea7dad5b44f18f32",
+      "blob": "88ff4ca663775c17f4e41588c9d5e48ae36980ef",
       "path": "scp/autofix/runner_phases/semantic_equiv.py"
     },
     {
@@ -3965,7 +4031,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9261e0e84f6393375cf69f5dfaea9a4be264bc38",
+      "blob": "2f479627b47739fa6b4837a749cbdb0d88a3535a",
       "path": "scp/autofix/scanners/hypothesis_scanner.py"
     },
     {
@@ -4373,6 +4439,30 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "b88fe065235c8cc67d14f4016af0837c92653a01",
+      "path": "scp/calibration/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "59f54df9f4111b1771e2935fe6030ce4c30e4b45",
+      "path": "scp/calibration/ledger.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0d6ecb0f26277ff325d624d1d37f6c45fff06d74",
+      "path": "scp/calibration/legacy_adapter.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6190ce42abef2b972b8fd2765c4dea7126f51f88",
+      "path": "scp/calibration/models.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "9eb33935d7a143e83b3cc7b6af66d7f37a06f11e",
       "path": "scp/capabilities/__init__.py"
     },
@@ -4405,6 +4495,54 @@
       "type": "blob",
       "blob": "bbd9f35df916f9154eec69e24e5067177b786757",
       "path": "scp/consolidator/consolidator.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c7406e2f5954df489f0a0cb5951d4bc8e1723ea4",
+      "path": "scp/contracts/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "44542fd027f1d82cd2316f29973e2d9115f74548",
+      "path": "scp/contracts/data_class.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d3cb5ad8ff06afa09d95b17d77fabd8d1d68e160",
+      "path": "scp/contracts/event_envelope.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d1560b1489a39bc66b8c34a7eefb75165a9812d5",
+      "path": "scp/contracts/evidence_level.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6ff1c99297c1673cd5c1a4edeaa8408465022e84",
+      "path": "scp/contracts/ids.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "56e3eb0e8aae743d7ee17b1c66485870874f6d06",
+      "path": "scp/contracts/maturity.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "16b5dddd318d482f17d2b86076404cc300ca9d8a",
+      "path": "scp/contracts/time.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7ade0b3fed30ea24fa98b37da3267abd224b58b1",
+      "path": "scp/contracts/verdicts.py"
     },
     {
       "mode": "100644",
@@ -4481,6 +4619,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "44867cdcdb3ab98b93f4e122d3a1e1b5bd2485c0",
+      "path": "scp/core/capability.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "6f4b73df2c53e66e67fa647547be7b92a9908f8e",
       "path": "scp/core/capability_token.py"
     },
@@ -4499,7 +4643,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a3da62e7cc9ef2f33c069955135e0c4e8f50dca0",
+      "blob": "b0cdd7be30f55d09c2c1ce3a74884af5e5b0668b",
       "path": "scp/core/code_evolution_agent.py"
     },
     {
@@ -4649,7 +4793,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "062d737f7930d79e806754e26fd9205c1e8b45a0",
+      "blob": "258dd58d40caf78845c01d6145b55e94f3716022",
       "path": "scp/core/fast_learning_engine_parts/fastlearningengine.py"
     },
     {
@@ -4877,6 +5021,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "04968ff653dbebd0a6b3d1cfd92320cd128da641",
+      "path": "scp/core/self_improvement.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "e2e718e95244b1b6cc09c2c3c5fdf3e805e174c3",
       "path": "scp/core/smart_cache.py"
     },
@@ -4901,7 +5051,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bd9e3e61eb9c7c4983513a9a7d9369d8f18548d6",
+      "blob": "9cefda7bd839fef262a308e03e24cbe84c090033",
       "path": "scp/core/startup_optimizer.py"
     },
     {
@@ -4919,7 +5069,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "1d25fbcf2cb65ded41c622c569d4ffd55db26ab6",
+      "blob": "476e78373eebf0f959f494ed2ce0ec94c90b5878",
       "path": "scp/core/top_systems_learning.py"
     },
     {
@@ -5369,6 +5519,36 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "4ea334dde8bda20878921740f11dd6d01a52f126",
+      "path": "scp/epistemic/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "746be821959d0659fc9268868c703e31b1292898",
+      "path": "scp/epistemic/evidence_store.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9bfe999928b8f3827520bee5224236c81d24b094",
+      "path": "scp/epistemic/evidence_writer.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f4a537a361092cda731cbd5ec7beb6b704eecc1f",
+      "path": "scp/epistemic/lineage.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bd0474692e82251c50b95d7469f4aa94bf6a5147",
+      "path": "scp/epistemic/source_identity.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "8c5df0a2a2408ffe4f15175e3dc91f4fd02ab970",
       "path": "scp/experience/__init__.py"
     },
@@ -5423,6 +5603,30 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "8b6860cd4f81ea252e219955df9c333a339424dd",
+      "path": "scp/governance/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "19ab6d21afcba74675395947bb36c4cfcfbab42d",
+      "path": "scp/governance/drift_guard.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a908ce1e4fdd53bca78c9c24afaa6723b3c2b040",
+      "path": "scp/governance/privacy.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c6d9135ebb79dc52df373a6ff2566a40ffec8ce3",
+      "path": "scp/governance/retention.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "432b31413c3dac4734cea50fec15f7257c7cccba",
       "path": "scp/hands/__init__.py"
     },
@@ -5453,7 +5657,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "96e0ba27385ca60af4f2a5a0678f3be9879d76f9",
+      "blob": "f8df5f1c1b0764f5787074743f19e4c76242793d",
       "path": "scp/hands/process_manager.py"
     },
     {
@@ -5465,7 +5669,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7a98ad2664e22093d3d9b3420f369785b9cb05ee",
+      "blob": "314335961c65740190729dc478214d09063300aa",
       "path": "scp/hands/task_kernel_bridge.py"
     },
     {
@@ -5543,8 +5747,26 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "b4d6f21db3ffa06d650c58bc77f0139e778f34ee",
+      "path": "scp/knowledge/benchmark_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "1521639f0ccce139df17aab456e2a3eca0ad1518",
       "path": "scp/knowledge/claim_extractor.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "57c5882f684dd9f82b2901ca17b9806e5734c7f1",
+      "path": "scp/knowledge/cognitive_orchestrator.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6871f5a2d63259f53070c79cc86f83a4e5f47238",
+      "path": "scp/knowledge/contradiction_authority.py"
     },
     {
       "mode": "100644",
@@ -5561,8 +5783,74 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "eddfdaf5668f6c9b27d9a67fdc68aafa905ba47e",
+      "blob": "fbfc74cb160a773005697c532c37ab9d6eba902e",
+      "path": "scp/knowledge/doubt_engine.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "08e16e38fe5caaca41aa8f5266adc2fb0cb2dd80",
+      "path": "scp/knowledge/experiment_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "abeba505d69fbb6636180615a4ed3a1a48d8f346",
+      "path": "scp/knowledge/hypothesis_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fac782bbdb5b8f934dc7eac62c460f3c76ed6497",
       "path": "scp/knowledge/issue_parser.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "56e8cdcb155af004206b8a2630e4c15b1a3bd424",
+      "path": "scp/knowledge/knowledge_control_db.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b0d7ac921072f1fde5ff5aa27c862ded13f073ab",
+      "path": "scp/knowledge/learning_db.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7c69c29e4f53ec14beeda09cdcaae66c34492b90",
+      "path": "scp/knowledge/lesson_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2c9b576dd428874bdcaabe38840eca02503787a3",
+      "path": "scp/knowledge/ontology.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ba43ca242b2c3268ac73f023a66a79c6634aa10e",
+      "path": "scp/knowledge/open_question_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "487ccfb008fa48f0e351f5769b104bc6bb2f6810",
+      "path": "scp/knowledge/promotion_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dbb9d2c45b789680e09a6ac0a331acc99e9eede5",
+      "path": "scp/knowledge/promotion_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6f0ff3456bc328ad411111a00b11e633d26a1a75",
+      "path": "scp/knowledge/revalidation_authority.py"
     },
     {
       "mode": "100644",
@@ -5609,7 +5897,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "cd88fa01fe9982492dad67160d1fac1f51f9e3e0",
+      "blob": "77dadf56c7820c55d8343a71dcd7ea19aac1f001",
       "path": "scp/llm_gateway/__init__.py"
     },
     {
@@ -5633,8 +5921,20 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "1d093044eca63a7c6eab934193724c7998dd08ab",
+      "blob": "cea60eae3cfe6b7ebf66d96f64f80075f44aaea0",
       "path": "scp/llm_gateway/free_catalog.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f894ef3c0a17984d7a40e4ac6c3deba37dfae2e2",
+      "path": "scp/llm_gateway/zero_cost_guard.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "03540dd9e03031eedced1fa8e43a0a433b39ed64",
+      "path": "scp/llm_gateway/zero_cost_runtime.py"
     },
     {
       "mode": "100644",
@@ -5741,6 +6041,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "0fe231096700a733fd60f583a664ef06aefe66c4",
+      "path": "scp/meta/epistemic_boundary.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "826bf5259ec52df8f66548aa5e905651e71c8607",
       "path": "scp/meta/external_trust.py"
     },
@@ -5771,7 +6077,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7aaa24db090307dd30fa2199d1be61119d35498f",
+      "blob": "467ebfc107a7f81d7b1411804068188bca80dec3",
       "path": "scp/meta/logical_auditor.py"
     },
     {
@@ -5795,7 +6101,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "24bfd53ad5fdaa029a5c898c35a3d19d4ddec175",
+      "blob": "58eaf8dfa0d59b1ef9759e240ee07a01c7398e9d",
       "path": "scp/meta/multi_llm_check.py"
     },
     {
@@ -5999,6 +6305,18 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "db5cfb22322eb7045d1a96975a49edb876b2a82a",
+      "path": "scp/persistence/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "824b587af93cc445e3e8014dc6b99f10d946ce01",
+      "path": "scp/persistence/db.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
       "path": "scp/policy/__init__.py"
     },
@@ -6041,6 +6359,18 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "4841b21097fa04537af90f0075050327c5119f60",
+      "path": "scp/release/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7d41bd756a81ba6f9cff443d73469decaaf54c6f",
+      "path": "scp/release/evidence_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "d713905138dee136bc085c5346a2ed1a2abe7989",
       "path": "scp/requirements-dev.txt"
     },
@@ -6059,8 +6389,44 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "fd93b5aceb84a4b9def02f0c591b1a71121fb91e",
+      "blob": "00cb117c860a038cfdff91a02b3f9ebbe2ecf35e",
       "path": "scp/requirements.txt"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9cce504547b9ad9d46856b342540ac71d6ad0f77",
+      "path": "scp/risk_intelligence/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8a14d760d090021ec0c13bc2078fa137c0109825",
+      "path": "scp/risk_intelligence/alert_router.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "df9317caadf20a56b660ef0dda8d39c60b0adb58",
+      "path": "scp/risk_intelligence/containment.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "976daf791d9160a4426089dda0b8ece95567a63c",
+      "path": "scp/risk_intelligence/evidence_bundle.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b35d248571f2712c4005b141f6990a74983bc2cd",
+      "path": "scp/risk_intelligence/incident_state.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fd83bb2c7cd1aac88a52bd7419c6ebb3d758663e",
+      "path": "scp/risk_intelligence/risk_classifier.py"
     },
     {
       "mode": "100644",
@@ -6965,7 +7331,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "8fcd3acf2ab88591ac26cb6505c47752d7c7e20f",
+      "blob": "f006b97a9f0619540d6e4516b13c24ecbef4e68a",
+      "path": "scp/self_model/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d44412f32cef761b29059abc375c82bcb5f5c466",
+      "path": "scp/self_model/capability_map.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7bcf49e4c7dc0984513dae701c2920614b6e3b5d",
       "path": "scp/task_kernel.py"
     },
     {
@@ -7031,7 +7409,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "80cc3f17a60901cd3f729ed0ca648af32500e3e4",
+      "blob": "006a293a3be040ff050d3a6fc4b01b32aabdb08f",
       "path": "scp/tests/test_free_catalog.py"
     },
     {
@@ -7085,6 +7463,30 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "116da0c586c800d872739b3363070fe86361e1f0",
+      "path": "scp/world_state/__init__.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b92e738bf96a94ef282909963016ef9515a0ddf5",
+      "path": "scp/world_state/entity_event_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dec6f73a7e8de8cae9062650229f7f49459ec3d3",
+      "path": "scp/world_state/temporal_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ccddac4a9addd505dc10f9832d7eaa513d2d4470",
+      "path": "scp/world_state/world_state_projection.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "e4d18b3f1c30fec9a3d71e69b5dec894fcac8113",
       "path": "scripts/benchmarks/README.md"
     },
@@ -7109,7 +7511,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "fcf3db418b0115207729a5d039c867dc691e4efd",
+      "blob": "da28ba401b27836f999c68615aeba9c9c87a7bf8",
       "path": "scripts/check_imports_vs_requirements.py"
     },
     {
@@ -7607,7 +8009,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "23efafcefa3a758ced48f6ccbead96c1cff5a6ab",
+      "blob": "29812c04195ad5053b781ab141b868ad40d3ba08",
       "path": "scripts/run_mutation_ci.py"
     },
     {
@@ -7619,7 +8021,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e5881d4fd1e44fa54e7f59ecda3bdf45008df88d",
+      "blob": "db67fe58a604b08b09eb62d59e4f6b94759f0c98",
       "path": "scripts/run_scp_acceptance.py"
     },
     {
@@ -7685,6 +8087,66 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "3be523b80311f5f76b50fddc8c4d1c57cabac501",
+      "path": "spec/complete_scp_reference.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4e1197370d213e2d12daae4a05dcd53277948f3a",
+      "path": "spec/data_policies.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8cbe23c3508be4bfbf2f22cda33f10299f490128",
+      "path": "spec/implementation_bindings.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "abf14e880764190b03dab3d20114227adb4d7618",
+      "path": "spec/knowledge_promotion.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3a18be8e6d7c9422a52fef6df9a3567e26aef792",
+      "path": "spec/llm_outbound_paths.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d5f1c844c3160fef211bbd8a182472e840962c02",
+      "path": "spec/protected_invariants.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "93f0f2a614b8253bea2acdd6fe9983e21f33c44c",
+      "path": "spec/scp_future_cause_effect_matrix.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "04190416ae419773803391b5b361709c18c64661",
+      "path": "spec/scp_future_cause_effect_matrix_v4_0_2.overlay.json"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "87a3438cfa02feadb2ef802e486beae5655499b6",
+      "path": "spec/scp_future_target_manifest.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0caf7c52c23f7510d4751aca3d422aa2ee6014b8",
+      "path": "spec/scp_target_test_coverage.yaml"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "76bec757d90a78e4d25f4c83ca1858bfc5198b7d",
       "path": "start-scp-browser.bat"
     },
@@ -7721,8 +8183,32 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "3edee7c33a4ec5124333989396177b35d25119eb",
+      "blob": "f17dd7ad49e0744f356dc641ed3113229dfa974c",
+      "path": "tests/T00_integrity/test_complete_reference_integrity.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1ece9083ee1ef9347d09caae06211bbd7e110118",
       "path": "tests/T00_integrity/test_meta_audit.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "acd299a99108251c46244d21098a1d7271f5b5a6",
+      "path": "tests/T00_integrity/test_scp_future_target.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0daf495a3234b09d0c1810621e99c81c03358a45",
+      "path": "tests/T00_integrity/test_scp_target_test_coverage.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "87f3e1c4dcbcbc387d22584245e410c47c8051ac",
+      "path": "tests/T00_integrity/test_target_coverage_authority_protected.py"
     },
     {
       "mode": "100644",
@@ -7757,8 +8243,56 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "b49bf70c42ce8b9a3cb09a69035714326caa039f",
+      "path": "tests/T02_contract/test_benchmark_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "99297ff84af85a2ab806a5a66015181da289ba70",
+      "path": "tests/T02_contract/test_cognitive_orchestrator.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "32ba68bd34f2ccd1e2ef1c2da0278f54dbace3ac",
+      "path": "tests/T02_contract/test_complete_reference_schema.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "85c52dd7bfbed140178309dd502e44b650adf90f",
+      "path": "tests/T02_contract/test_contracts_primitives.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "312a9941c84678855e346cf81e75ab04c55ab7c9",
+      "path": "tests/T02_contract/test_contradiction_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "b56aee1fd9f088e08c0826e7baf1c010de8a1a76",
       "path": "tests/T02_contract/test_dashboard_route_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a01252e08030c6373cb77a36a2e2c8cd40c3af3e",
+      "path": "tests/T02_contract/test_doubt_engine.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b6c9b52cc82dc1a0e47571f343806c6b084fa59c",
+      "path": "tests/T02_contract/test_experiment_and_lesson.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a943936464ae166c5d1a8ebd2c165f51c9db46a5",
+      "path": "tests/T02_contract/test_foundation_db.py"
     },
     {
       "mode": "100644",
@@ -7769,20 +8303,98 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "89624a5f002377df48bc73d1ae188ba88abc52cc",
+      "path": "tests/T02_contract/test_hands_reconcile_outcome_schema.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3880282aa17d601780473e78ef506097142a86be",
+      "path": "tests/T02_contract/test_knowledge_control_db.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cf96ff583304f8cfe4a9ee72b792e9122639c5f4",
+      "path": "tests/T02_contract/test_knowledge_ontology.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "76ad412cf71ce0cfb781ffb71fe6321f9d70bac3",
+      "path": "tests/T02_contract/test_knowledge_promotion.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5afb99427733350c691766572b2da6e8e2a33498",
+      "path": "tests/T02_contract/test_open_question_and_hypothesis.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "efef8644a2d5895aeb61ea848759e44f241f4a75",
+      "path": "tests/T02_contract/test_promotion_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8d7866f0d1d894554b832de595858e2ac033d868",
+      "path": "tests/T02_contract/test_revalidation_authority.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f73a6ef8ce2701fc161b3a67d8c20c91c7c54fd6",
+      "path": "tests/T02_contract/test_world_state_temporal_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a92aadf2a3919ee2e5759d113d4f5d1d580f4c59",
+      "path": "tests/T03_capability/test_auth_fail_closed_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "0c0e2d3c028e069e7f77b75a5f06a6a034d50b12",
       "path": "tests/T03_capability/test_auth_request_injection.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "a476913fe80f7509eb30e4d899ea060751f86738",
+      "blob": "0a90e35ba2e7d6db745590a31d676ade398f0c70",
       "path": "tests/T03_capability/test_capability_token_mutation_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6a9eeb22ff518efb08e18420257805df9804d2e5",
+      "path": "tests/T03_capability/test_drift_guard.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b1c7ffc066446b154b5a0ab9ef6c892b1fe764ee",
+      "path": "tests/T03_capability/test_internet_safety_firewall.py"
     },
     {
       "mode": "100644",
       "type": "blob",
       "blob": "247ba078f9ad92911fd31005ed68e313bd9a170c",
       "path": "tests/T03_capability/test_os_sandbox.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9e8b40a009920fb54497cbd1432bc4fe17d7e291",
+      "path": "tests/T03_capability/test_privacy_write_gate.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6f497b1c78156a1034d446dd247757a2f1240038",
+      "path": "tests/T03_capability/test_risk_intelligence_contract.py"
     },
     {
       "mode": "100644",
@@ -7805,20 +8417,44 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "da8b3b0e2c61884b7c8c39b73938df5cf994b721",
+      "path": "tests/T04_kernel/test_kernel_crash_consistency.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "9908efa4168d80f91374c80ddb17016dc1351aa1",
       "path": "tests/T04_kernel/test_kernel_storage.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b13c9d4aa0a4a80c77832a36390f4784d86dae27",
+      "blob": "95978b750f3b780e51adec7ba7aca46cc4886fd9",
+      "path": "tests/T04_kernel/test_lease_fencing_idempotency.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fe435ba012b659edc12872fa1b4e8270b6148724",
       "path": "tests/T04_kernel/test_task_kernel_mutation_contract.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5f5bba97399e55832a92db6c7a5d42ee556acecc",
+      "blob": "d987080e60d1cab4874475070b7bc621dd9a671c",
+      "path": "tests/T04_kernel/test_transition_lease_fencing.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fad47e7d297255a6b9eff1e67c91e0b1de1502b7",
       "path": "tests/T05_gateway/test_429_fallback_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "57513c4a13a64b29db04b5fcfffecafceb4ae936",
+      "path": "tests/T05_gateway/test_budget_routing.py"
     },
     {
       "mode": "100644",
@@ -7835,13 +8471,13 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9074a425cb273864d1736cb7ee95e7f34aa17244",
+      "blob": "fd86e6ab2b5333e82ce8e27e29f8788318e1b657",
       "path": "tests/T05_gateway/test_llm_egress_policy.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "18ffb1af88b13927d2abecc24c2cfc62a2e3446f",
+      "blob": "ec42af1f99c3ebe6f90901f7478f63e3ebcf8d4a",
       "path": "tests/T05_gateway/test_llm_gateway_fallback_contract.py"
     },
     {
@@ -7859,26 +8495,68 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5f5b08ec1eeb7f5e3ba0d53d2dbf05403c85bec8",
+      "blob": "a553be35cc5d94aae1d44114deb6f33f09bc0db9",
       "path": "tests/T05_gateway/test_provider_failover.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ed8a56173d255e0f48c9bf47373b01770b0aaae8",
+      "blob": "5a65cdf83ed84ae789390bf41cf69ab00e043a18",
       "path": "tests/T05_gateway/test_provider_fallback.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "01f2820606b8d9f700616bc0102b068ac167a084",
+      "blob": "7674c1c93cc08983dec7938a317bc3cdbc203528",
       "path": "tests/T05_gateway/test_provider_timeout_recovery.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bf61bfd45ccf8985246869dab1028227c3f808f2",
+      "path": "tests/T05_gateway/test_zero_cost_guard.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b27e95a5ff23bd834233f643fa68acac1b32f5de",
+      "path": "tests/T06_verifier/test_calibration_ledger.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "06a8e280363fc440a56f0ad17614cc755453b3e7",
+      "path": "tests/T06_verifier/test_evidence_store.py"
     },
     {
       "mode": "100644",
       "type": "blob",
       "blob": "d453be54ddf1c8a452fe65033aea1112925be13f",
       "path": "tests/T06_verifier/test_gemini_indictment_hardening.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "48aeed0b396272ae66700f9900472d60d1974178",
+      "path": "tests/T06_verifier/test_privacy_retention.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7682d18503bfec046c055f73d22dc422b3ed47f1",
+      "path": "tests/T06_verifier/test_self_model_capability_map.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bcea2dff1f7c189d12a8233f49d4808764e4837c",
+      "path": "tests/T06_verifier/test_source_identity_lineage.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "aad204ce853d21f765b213029dcb959d9b141303",
+      "path": "tests/T07_learning/test_autofix_behavioral.py"
     },
     {
       "mode": "100644",
@@ -7895,8 +8573,14 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "08469fc6e7561ca9b5d5d77d3bd46b1b8b09c853",
+      "blob": "d0f1616a55dfa4f222f4642a4c615c4b587a5176",
       "path": "tests/T07_learning/test_epistemic_missing_piece.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1613040053f6901ccd5c707eee927aedbbd370a5",
+      "path": "tests/T08_runtime/test_learning_scheduler_benchmark.py"
     },
     {
       "mode": "100644",
@@ -7919,19 +8603,37 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b46a46a247f55a343c095a6e5e87d087a065bd38",
+      "blob": "ce48293a6bab6502d1af0d8249a5006016d8d162",
       "path": "tests/T09_golden_task/test_golden_a_agent_os.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b54575340f0763c7494a9e747f8ed49125ebde6e",
+      "blob": "49d4ef7ccd8b7a3e70b59cb81b8e08634bb649d5",
       "path": "tests/T09_golden_task/test_golden_b_epistemic_loop.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "47afc16aa8723112af4958153786c49a8b679499",
+      "blob": "2cb1cb6169af85083606276a91dd758d11fcf2aa",
+      "path": "tests/T09_golden_task/test_golden_external_alert_routing_e2e.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c51fa391f945ab748c9bc547939829bcc259daf4",
+      "path": "tests/T09_golden_task/test_golden_risk_containment_e2e.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "66826b5293410a4a3bc538ad04a4615c0c9e907d",
+      "path": "tests/T09_golden_task/test_golden_world_observation_e2e.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5e4ca3bd493183bc7b20fef571502066ec1f66ea",
       "path": "tests/T10_recovery/test_adversarial_chaos_matrix.py"
     },
     {
@@ -7943,13 +8645,43 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "c742b91f9c79d3b1f3234acdbc31ddb3935ac313",
+      "path": "tests/T10_recovery/test_reconciliation_outcome_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c1fd02b485f9780d82412b840dce5a2846f24c1d",
+      "path": "tests/T11_release/test_ce_s10_04_alert_evidence_binding.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3a62bdb6ca3a07680a51535e7c52a171c20e5e8b",
+      "path": "tests/T11_release/test_dashboard_audit_retry.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fda2e37542c9157a418757977a4bc2a4f62a65b7",
+      "path": "tests/T11_release/test_main_handoff_dispatch.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3256f2076238af59ea6fc3b5639683d1c2d844af",
+      "path": "tests/T11_release/test_rc_workflow_runtime_contract.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "40fcb4fd4d9b133d4d629efd027f204c7719c365",
       "path": "tests/T11_release/test_release_authority_contract.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "223b60d2892d6e916c0eacc4b68e0a3f285aa4ac",
+      "blob": "ea408069ce8c1aa4ac438fd97c7796207647eeaf",
       "path": "tests/T11_release/test_scp_skill_dna_contract.py"
     },
     {
@@ -7961,7 +8693,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "432a1d84b978c05fd4d992ac97595633f4db4210",
+      "blob": "2b5dcc96d8328ad4a3fd63ab4060b422d2f0bcb3",
       "path": "tests/T11_release/test_sha_evidence_binding.py"
     },
     {
@@ -8339,19 +9071,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "e7df8a92ae31471292f6766a7b5bafa0bad97686",
+      "blob": "da1d38db9e35c4504674c383735ff5ce6575917b",
       "path": "tests/reality-tests/reality_4-d-004.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "ba5ead3bf8fcfc5b611044d000a7bfdb0d2d120d",
+      "blob": "14716f62dc878cd53971929595c6825163034450",
       "path": "tests/reality-tests/reality_4-d-005.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "b74e074e0b3e5c233a18c368d45b88464fb1cd09",
+      "blob": "5b802457bc70dec5a2ea35a55db3b0bd6afbbf1c",
       "path": "tests/reality-tests/reality_4-d-006.py"
     },
     {
@@ -8369,7 +9101,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "7a237ba6009ee4a53d134f26f11903a789aa7635",
+      "blob": "5e82acb8b522fdd7d15434b2913db367146a3213",
       "path": "tests/reality-tests/reality_4-d-009.py"
     },
     {
@@ -8387,7 +9119,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "f10215fe987b0fdbf4fcb58ace42cd3468e604e1",
+      "blob": "c88d674d4a2eb09c6a8a6adadef81292234dae79",
       "path": "tests/reality-tests/reality_4-d-013.py"
     },
     {
@@ -8435,19 +9167,19 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "dfb80126c144b9561be5a2349bad41bedceac648",
+      "blob": "16e6f6afa91fd470e4ab52d6275433ee7f5a136d",
       "path": "tests/reality-tests/reality_4-d-022.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "59367bc957b83d327ad1072a49630c45d71b663f",
+      "blob": "8c3390ec21830de738552b10baecbb28876b7d99",
       "path": "tests/reality-tests/reality_4-d-023.py"
     },
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "4e883d45684d955c5c20639e1285d2d68b1746f9",
+      "blob": "78b0673d57bcccff3f263dc397b5d4316f911158",
       "path": "tests/reality-tests/reality_4-d-024.py"
     },
     {
@@ -8477,7 +9209,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "943f23f1b954de8f527cc5839e6fb53954d9d196",
+      "blob": "d8a218623549e4b29092a8a9616d3f521145e444",
       "path": "tests/reality-tests/reality_4-d-029.py"
     },
     {
@@ -8843,6 +9575,12 @@
     {
       "mode": "100644",
       "type": "blob",
+      "blob": "41c1cbbbde0bdd37f1491b2c45f40a0025866e90",
+      "path": "tools/run_dashboard_audit.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
       "blob": "a2d07653084f812cfe85b802b325ef0e6611cbd0",
       "path": "tools/run_independent_gold_review_v1.py"
     },
@@ -8959,6 +9697,36 @@
       "type": "blob",
       "blob": "ffb6562208a8100005fa05feea7b5ad7324dc115",
       "path": "tools/verify_canonical_root.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cae16d1c3724ff58d28f7d178a2b90786411b41e",
+      "path": "tools/verify_complete_scp_reference.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "701c78f0b456718660d07b47da198fd622703450",
+      "path": "tools/verify_main_handoff.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "692b03053605652de2eea7ac46f794fdbd11965e",
+      "path": "tools/verify_scp_future_target.py"
+    },
+    {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "2969491e5e6d009a0c81527e87b16c76d7d361b2",
+      "path": "tools/verify_scp_skills_pack.py"
+    },
+    {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9cc76a310292d43869d50bd9fbe72b8f73b9a1a0",
+      "path": "tools/verify_scp_target_test_coverage.py"
     },
     {
       "mode": "100644",

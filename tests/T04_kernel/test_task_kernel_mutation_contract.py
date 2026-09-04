@@ -50,3 +50,21 @@ def test_transition_contract_and_happy_lifecycle(tmp_path: Path) -> None:
         assert journal["event_count"] == 8
     finally:
         kernel.close()
+
+
+def test_human_review_remains_nonterminal_and_counted_as_in_flight(tmp_path: Path) -> None:
+    kernel = TaskKernel(tmp_path / "human-review.sqlite3")
+    try:
+        kernel.create_task("review-task", "test", "review")
+        kernel.transition("review-task", "PLANNING")
+        kernel.transition("review-task", "READY")
+        kernel.transition("review-task", "QUEUED")
+        lease = kernel.claim("review-task", "worker", ttl_seconds=30)
+        kernel.start("review-task", lease.lease_id)
+        kernel.transition("review-task", "HUMAN_REVIEW")
+
+        assert kernel.in_flight_count() == 1
+        kernel.transition("review-task", "READY")
+        assert kernel.get_task("review-task")["state"] == "READY"
+    finally:
+        kernel.close()

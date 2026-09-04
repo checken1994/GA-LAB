@@ -186,7 +186,13 @@ def test_customer_handoff_requires_immutable_pr_lineage_and_fresh_main_verificat
     assert "INTEGRATION_SHA=\"$(gh api" not in rc, (
         "post-merge authority must not compare against a mutable integration branch head"
     )
-    assert "gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main" not in rc
+    # A bot-token merge does not trigger push. Its explicit handoff dispatch
+    # must be SHA-bound and independently verify immutable merged-PR lineage.
+    assert "gh workflow run scp-rc-promotion.yml --repo '${{ github.repository }}' --ref main" in rc
+    assert '-f handoff_merge_sha="$MERGE_SHA"' in rc
+    assert 'HANDOFF_MERGE_SHA: ${{ inputs.handoff_merge_sha }}' in rc
+    assert 'python tools/verify_main_handoff.py' in rc
+    assert "inputs.handoff_merge_sha != ''" in rc
 
 
 def test_mandatory_release_paths_execute_skill_and_dna_contract() -> None:

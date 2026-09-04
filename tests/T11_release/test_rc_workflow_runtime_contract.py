@@ -98,3 +98,56 @@ def test_pre_rc_mutation_budget_matches_authoritative_release_gate() -> None:
     for command in (rc_command, pre_rc_command):
         assert "--max-mutants 15" in command
         assert "--min-score 0.40" in command
+
+
+def test_authoritative_workflow_pytest_paths_exist() -> None:
+    import re
+
+    root = Path(__file__).resolve().parents[2]
+    for workflow_path in (RC_WORKFLOW, PRE_RC_WORKFLOW):
+        content = _load(workflow_path)
+        missing: list[str] = []
+        for job_name, job in content.get("jobs", {}).items():
+            for step in job.get("steps", []):
+                cmd = str(step.get("run", ""))
+                for match in re.finditer(r"(tests/[\w/]+\.py)", cmd):
+                    rel_path = match.group(1)
+                    if not (root / rel_path).is_file():
+                        missing.append(f"{workflow_path}:{job_name} -> {rel_path}")
+                for match in re.finditer(r"python\s+((?:tools|scripts)/[\w/]+\.py)", cmd):
+                    rel_path = match.group(1)
+                    if not (root / rel_path).is_file():
+                        missing.append(f"{workflow_path}:{job_name} -> {rel_path}")
+        assert not missing, f"Workflow references non-existent test/script paths: {missing}"
+
+
+def test_acceptance_fixture_does_not_disable_semantic_crosscheck_or_share_state() -> None:
+    source = Path("scripts/run_scp_acceptance.py").read_text(encoding="utf-8")
+
+    assert '"SCP_MULTI_LLM_CROSSCHECK": "0"' not in source
+    assert '"OPENAI_MODEL": "acceptance-judge-secondary"' in source
+    assert '"SCP_ZERO_COST_PROOF_DB"' in source
+    assert 'ROOT / "data" / "foundation" / "zero_cost.sqlite"' not in source
+
+
+def test_acceptance_fixture_seeds_isolated_distinct_family_pricing_proofs(tmp_path: Path) -> None:
+    from scp.llm_gateway.zero_cost_guard import PricingProofStore
+    from scripts.run_scp_acceptance import RuntimeHarness
+
+    output_dir = tmp_path / "acceptance-evidence"
+    harness = RuntimeHarness(output_dir, port=18100, provider_port=18101)
+    env = harness.environment()
+    proof_path = Path(env["SCP_ZERO_COST_PROOF_DB"])
+
+    assert proof_path == output_dir / "foundation" / "zero_cost.sqlite"
+    assert Path(env["SCP_DATA_DIR"]) == output_dir
+    assert env.get("SCP_MULTI_LLM_CROSSCHECK", "1") == "1"
+    assert env["OPENAI_BASE_URL"] == "http://127.0.0.1:18101/v1"
+
+    store = PricingProofStore(proof_path)
+    try:
+        assert store.latest("openrouter", "acceptance-judge-fallback") is not None
+        assert store.latest("openai_compat", "acceptance-judge-secondary") is not None
+    finally:
+        store.close()
+
