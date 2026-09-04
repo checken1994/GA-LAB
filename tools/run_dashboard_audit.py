@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MAX_ATTEMPTS = 3
 ATTEMPT_TIMEOUT = 120
+NPM_AUDIT_VERSION = "11.19.1"
 TRANSIENT_CODES = {"E429", "E500", "E502", "E503", "E504", "ETIMEDOUT", "ECONNRESET", "EAI_AGAIN"}
 NPM_AUDIT_TIMEOUT_MESSAGES = {
     "network timeout at: https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
@@ -60,12 +61,36 @@ def audit_command() -> list[str]:
         raise RuntimeError("Node/npm are required for the mandatory dashboard security gate")
     # Direct Node invocation makes timeout kill the audit process itself,
     # rather than leaving an npm.cmd child running on Windows.
-    candidates = [Path(npm).resolve(), Path(npm).parent / "node_modules/npm/bin/npm-cli.js"]
+    configured = os.environ.get("SCP_AUDIT_NPM_CLI", "")
+    candidates = ([Path(configured)] if configured else
+                  [Path(npm).resolve(), Path(npm).parent / "node_modules/npm/bin/npm-cli.js"])
     cli = next((path for path in candidates if path.name == "npm-cli.js" and path.is_file()), None)
     if cli is None:
         raise RuntimeError("cannot locate npm-cli.js for bounded direct execution")
+    package = json.loads((cli.parent.parent / "package.json").read_text(encoding="utf-8"))
+    if package.get("name") != "npm" or package.get("version") != NPM_AUDIT_VERSION:
+        raise RuntimeError(f"audit requires pinned npm {NPM_AUDIT_VERSION}; legacy quick-audit fallback is unsupported")
     return [node, str(cli), "audit", "--omit=dev", "--audit-level=high", "--json",
             "--fetch-retries=0", "--fetch-timeout=30000"]
+
+
+def sanitized_report(stdout: str) -> str:
+    """Retain the native report without registry response cookies/auth headers."""
+    try:
+        payload = json.loads(stdout)
+    except ValueError:
+        return json.dumps({"unparseable_report": True}) + "\n"
+
+    def scrub(value):
+        if isinstance(value, dict):
+            return {key: "[REDACTED]" if key.lower() in {
+                "headers", "authorization", "cookie", "set-cookie", "token", "password", "_authtoken"
+            } else scrub(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
+        return value
+
+    return json.dumps(scrub(payload), indent=2) + "\n"
 
 
 def run_audit(dashboard: Path, output: Path) -> int:
@@ -79,6 +104,7 @@ def run_audit(dashboard: Path, output: Path) -> int:
         "lock_sha256": hashlib.sha256(lockfile.read_bytes()).hexdigest(),
         "command": command,
         "max_attempts": MAX_ATTEMPTS,
+        "npm_audit_version": NPM_AUDIT_VERSION,
         "attempt_timeout_seconds": ATTEMPT_TIMEOUT,
         "bindings": {
             path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
@@ -100,7 +126,7 @@ def run_audit(dashboard: Path, output: Path) -> int:
                                     timeout=ATTEMPT_TIMEOUT, check=False)
             status = classify(result.returncode, result.stdout)
             # Native JSON is the evidence, not a self-reported PASS string.
-            (output / f"attempt-{attempt}.json").write_text(result.stdout, encoding="utf-8")
+            (output / f"attempt-{attempt}.json").write_text(sanitized_report(result.stdout), encoding="utf-8")
             returncode = result.returncode
         except subprocess.TimeoutExpired:
             status, returncode = "RETRYABLE_REGISTRY_ERROR", 124

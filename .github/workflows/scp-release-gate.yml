@@ -149,7 +149,11 @@ jobs:
       - name: Dashboard install, production audit, and build
         shell: bash
         working-directory: dashboard
+        env:
+          SCP_AUDIT_NPM_CLI: ${{ runner.temp }}/scp-audit-npm/node_modules/npm/bin/npm-cli.js
         run: |
+          npm install --prefix "$RUNNER_TEMP/scp-audit-npm" --ignore-scripts --no-audit --no-fund npm@11.19.1
+          test "$(node "$SCP_AUDIT_NPM_CLI" --version)" = "11.19.1"
           npm ci --ignore-scripts --no-audit
           python ../tools/run_dashboard_audit.py --output "../reports/dashboard_audit_pre_rc_${{ runner.os }}"
           npm run build

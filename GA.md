@@ -296,3 +296,9 @@ Forbidden now:
   freeze, sync its exact SHA to the existing RC branch to obtain baseline CI;
   create the integration PR through the authorized user session if bot PR
   creation is unavailable, then let the guarded workflow find and merge it.
+- Frozen run on `0856490` exposed the legacy npm 10 Quick Audit fallback returning
+  400 from the retired endpoint. The auditor is now pinned to npm 11.19.1 in the
+  GitHub runner's task-local directory (Node 20.20.2 satisfies its ^20.17.0 engine).
+  Its upstream source uses Bulk Advisory only; no 400 response is treated as a
+  pass or generic retry. Response headers/cookies are redacted from new audit
+  artifacts. Ref: https://github.com/npm/cli/blob/v11.19.1/workspaces/arborist/lib/audit-report.js
