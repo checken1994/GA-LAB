@@ -1,0 +1,42 @@
+version: "1.1"
+authority: "T00_Meta_Audit"
+description: "Machine-readable guardrail policy and evidence contract for SCP"
+
+forbidden_actions:
+  FA_01:
+    name: "Test Weakening"
+    rule: "Cannot reduce assertions. Cannot add skip/xfail. Harness fixes are allowed ONLY IF they preserve or increase strictness."
+  FA_02:
+    name: "Test Deletion"
+    rule: "Cannot delete test files without architectural deprecation."
+  FA_03:
+    name: "Unproven Claims"
+    rule: "Cannot claim PASS/DONE without same-SHA terminal output evidence."
+  FA_04:
+    name: "Manufactured Green"
+    rule: "Simulated verification or hardcoded unconditional VERIFIED returns are strictly forbidden."
+  FA_05:
+    name: "Self-Granting Authority"
+    rule: "Execution components cannot self-issue missing capability tokens."
+
+evidence_requirements:
+  same_sha_enforcement: true
+  evidence_target: "T00_Meta_Audit"
+  required_fields:
+    - "tested_sha"
+    - "tree_hash"
+    - "git_clean"
+    - "test_profile_hash"
+    - "exit_code"
+    - "started_at"
+    - "finished_at"
+    - "output_hash"
+
+protected_paths:
+  - "tests/"
+  - "spec/"
+  - "AGENTS.md"
+  - ".agents/"
+  - ".github/"
+  - "tools/t00"
+  - "scp/contracts/"

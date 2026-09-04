@@ -41,3 +41,22 @@ Toàn bộ 13 kỹ năng SCP được quản lý và version-control tại `.age
 9. **GA.md & Live Truth:** Trước mọi task phải đọc `GA.md` trên `main`. Sau đó refresh GitHub live, đọc DNA/Skills/authority mà `GA.md` yêu cầu. `Live repo + Reality/evidence > memory/chat history`. Không dùng hoặc lưu làm authority các trạng thái dễ lỗi thời như SHA, số test, blocker, branch state, roadmap hay next task.
 10. **Session Lifecycle & Handoff:** 1 task SCP lớn = 1 session/chat riêng; cùng root cause thì tiếp tục cùng session. Cuối task lớn: cập nhật handoff trong `GA.md` trên `main` rồi mới chuyển session.
 
+---
+
+## 3. FORBIDDEN ACTIONS — Machine-Enforceable (Vi phạm = Blocker tuyệt đối)
+
+Xem chi tiết đầy đủ tại `.agents/AGENTS.md` § 3.
+
+Tóm tắt FA-01 đến FA-07:
+- **FA-01:** Không loosen test. Test đỏ phải classify. HARNESS_BROKEN → sửa harness nhưng prove strictness preserved/increased. PRODUCT_FAIL → sửa product. PRODUCT_BLOCKED → không manufacture green.
+- **FA-02:** KHÔNG delete/skip/xfail test.
+- **FA-03:** KHÔNG claim Done/Pass khi chưa có full `pytest tests/` terminal output.
+- **FA-04:** KHÔNG tạo simulated/manufactured VERIFIED.
+- **FA-05:** KHÔNG self-grant authority.
+- **FA-06:** KHÔNG sửa code trước baseline reconcile.
+- **FA-07:** KHÔNG claim maturity từ code/test presence.
+
+Enforcement: `tools/t00_meta_audit.py` (pre-commit hook) + `.github/workflows/scp_guardrails.yml` (CI).
+
+Quy trình thực thi: `.agents/EXECUTION_PROTOCOL.md`.
+

@@ -82,4 +82,5 @@ the filesystem if the pack changes; the count is an inventory hint, not evidence
 - **Session boundary:** 1 task SCP lớn = 1 session/chat riêng; cùng root cause thì tiếp tục cùng session.
 - **Handoff:** Cuối task lớn: cập nhật handoff trong `GA.md` trên `main` rồi mới chuyển session.
 - **Kỷ luật test:** Không làm xanh test bằng delete/skip/xfail/hạ chuẩn; sửa đúng PRODUCT/HARNESS tại điểm lỗi.
-
+- **FORBIDDEN ACTIONS (FA-01→FA-07):** Xem chi tiết tại `.agents/AGENTS.md` § 3. Enforcement bằng `tools/t00_meta_audit.py` (pre-commit hook) + `.github/workflows/scp_guardrails.yml` (CI).
+- **Execution Protocol:** Đọc `.agents/EXECUTION_PROTOCOL.md` trước khi bắt đầu bất kỳ Wave nào.
