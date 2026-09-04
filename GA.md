@@ -274,8 +274,11 @@ Forbidden now:
 - Bot-token writes do not trigger a fresh GitHub push workflow. Promotion now
   explicitly dispatches the complete handoff on main with `handoff_merge_sha`.
   The lineage gate requires live main == checkout == dispatched merge SHA,
-  two Git parents and exactly one merged integration PR whose immutable head
-  equals the second parent. Unknown/mismatched lineage blocks handoff.
+  exactly one merged integration PR and byte-identical Git trees between main
+  and the immutable frozen PR head (including the manifest). Linear squash
+  lineage is supported to preserve the live main ruleset; for a two-parent
+  merge, the PR head must additionally equal the second parent.
+  Unknown/mismatched lineage blocks handoff.
 - Local non-runtime verification: `python -m pytest -q tests/T11_release --tb=short`
   returned 59 passed; focused Ruff, py_compile and Skill/DNA contract passed.
   This is only patch verification, not current-SHA release evidence.
@@ -286,3 +289,10 @@ Forbidden now:
   the existing RC branch is being worked in `scp-rc-promotion-fix` worktree.
 - Rollback is a reviewed Git revert of the scoped harness changes; never remove
   a mandatory gate or lower a security/mutation threshold as a rollback shortcut.
+- Continuation findings: Windows npm can emit registry timeout without
+  `error.code`; the exact observed audit-endpoint messages are now retryable
+  errors, never success. Main requires linear history and the `p0-baseline`
+  check. Use SHA-guarded squash merge without changing that ruleset. After
+  freeze, sync its exact SHA to the existing RC branch to obtain baseline CI;
+  create the integration PR through the authorized user session if bot PR
+  creation is unavailable, then let the guarded workflow find and merge it.

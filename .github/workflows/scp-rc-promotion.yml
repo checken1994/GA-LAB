@@ -427,7 +427,9 @@ jobs:
           fi
           PR_HEAD="$(gh pr view "$PR" --repo '${{ github.repository }}' --json headRefOid --jq '.headRefOid')"
           test "$PR_HEAD" = "$FROZEN_SHA"
-          MERGE_JSON="$(gh api --method PUT 'repos/${{ github.repository }}/pulls/'"$PR"'/merge' -f merge_method=merge -f sha="$FROZEN_SHA")"
+          # The main ruleset requires linear history; SHA-guarded squash keeps
+          # that policy intact. Handoff also verifies full frozen/main tree parity.
+          MERGE_JSON="$(gh api --method PUT 'repos/${{ github.repository }}/pulls/'"$PR"'/merge' -f merge_method=squash -f sha="$FROZEN_SHA")"
           test "$(printf '%s' "$MERGE_JSON" | jq -r '.merged')" = "true"
           MERGE_SHA="$(printf '%s' "$MERGE_JSON" | jq -r '.sha')"
           test -n "$MERGE_SHA"

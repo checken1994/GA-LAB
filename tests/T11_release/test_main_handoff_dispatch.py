@@ -9,13 +9,16 @@ import yaml
 from tools.verify_main_handoff import validate_lineage
 
 SHA, FROZEN, BASE = "a" * 40, "b" * 40, "c" * 40
+TREE = "d" * 40
 PR = {"number": 31, "merged_at": "2026-09-04T00:00:00Z", "merge_commit_sha": SHA,
       "base": {"ref": "main"}, "head": {"sha": FROZEN, "ref": "integration/experiment-god-split-and-providers"}}
 
 
 @pytest.mark.parametrize("event,expected", [("push", ""), ("workflow_dispatch", SHA)])
-def test_main_handoff_requires_exact_immutable_merge_lineage(event, expected):
-    evidence = validate_lineage(SHA, expected, SHA, [BASE, FROZEN], [PR], event)
+@pytest.mark.parametrize("parents", [[BASE], [BASE, FROZEN]])
+def test_main_handoff_requires_exact_immutable_merge_lineage(event, expected, parents):
+    evidence = validate_lineage(SHA, expected, SHA, parents, [PR], event,
+                                current_tree=TREE, frozen_trees={FROZEN: TREE})
     assert evidence["main_sha"] == SHA
     assert evidence["frozen_sha"] == FROZEN
     assert evidence["pr"] == 31
@@ -30,7 +33,7 @@ def test_stale_or_unproven_handoff_is_blocked(change):
     if change == "moved_main": remote = BASE
     elif change == "wrong_expected": expected = FROZEN
     elif change == "missing_expected": expected = ""
-    elif change == "nonmerge": parents = [BASE]
+    elif change == "nonmerge": parents = []
     elif change == "wrong_frozen": pulls[0]["head"]["sha"] = BASE
     elif change == "unmerged": pulls[0]["merged_at"] = None
     elif change == "wrong_merge": pulls[0]["merge_commit_sha"] = BASE
@@ -39,7 +42,16 @@ def test_stale_or_unproven_handoff_is_blocked(change):
     elif change == "duplicate_pr": pulls.append(copy.deepcopy(PR))
     elif change == "wrong_event": event = "pull_request"
     with pytest.raises(ValueError):
-        validate_lineage(SHA, expected, remote, parents, pulls, event)
+        validate_lineage(SHA, expected, remote, parents, pulls, event,
+                          current_tree=TREE, frozen_trees={FROZEN: TREE})
+
+
+@pytest.mark.parametrize("parents", [[BASE], [BASE, FROZEN]])
+@pytest.mark.parametrize("trees", [{}, {FROZEN: "e" * 40}])
+def test_even_a_merged_pr_cannot_handoff_missing_or_different_trees(parents, trees):
+    with pytest.raises(ValueError, match="tree"):
+        validate_lineage(SHA, SHA, SHA, parents, [PR], "workflow_dispatch",
+                          current_tree=TREE, frozen_trees=trees)
 
 
 def test_bot_merge_dispatch_does_not_bypass_any_fresh_gate():
@@ -49,6 +61,7 @@ def test_bot_merge_dispatch_does_not_bypass_any_fresh_gate():
     command = promote["steps"][-1]["run"]
     assert command.index('test "$MAIN_SHA" = "$MERGE_SHA"') < command.index("--ref main")
     assert '-f handoff_merge_sha="$MERGE_SHA"' in command
+    assert '-f merge_method=squash -f sha="$FROZEN_SHA"' in command
     assert "inputs.approve_main_merge == true" in promote["if"]
     handoff = jobs["customer-handoff-verdict"]
     for gate in ("main-lineage-authority", "platform-gates", "security-and-durability", "manifest-provenance"):
