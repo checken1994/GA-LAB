@@ -21,10 +21,9 @@ jobs:
         run: pip install PyYAML pytest
       - name: Run T00 Meta-Audit Tripwire
         run: python tools/t00_meta_audit.py
-      - name: Same-SHA Evidence Generator
-        # In a real environment, this runs the tests and outputs evidence hashes
+      - name: Test Inventory / Collection Integrity
+        # This confirms tests are collectable without syntax/import errors, 
+        # but does NOT claim to generate exact-SHA verified evidence.
         run: |
-          echo "Generating Same-SHA Evidence Profile..."
+          echo "Collecting test inventory..."
           pytest tests/ --collect-only
-          # This guarantees that the CI environment has explicitly verified
-          # the current exact SHA.

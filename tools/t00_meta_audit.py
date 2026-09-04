@@ -2,13 +2,11 @@
 """SCP T00 Meta-Audit & Test-Integrity Authority (L2/L3)
 
 This script enforces SCP's test integrity policies by strictly monitoring
-test modifications, skips, deletions, and manufactured evidence.
+test modifications, skips, deletions, and manufactured evidence against
+a trusted baseline (origin/main).
 
-Enforces:
-- FA-01: No test weakening (specifically blocks new skip/xfail via AST).
-- FA-02: No test deletion (via git diff against main).
-- FA-04: No manufactured VERIFIED returns.
-- L4: Warns on touching CODEOWNERS protected paths.
+Violations already existing in the baseline are tracked as BASELINE_DEBT.
+New violations added by the candidate branch are REJECTED.
 """
 import sys
 import yaml
@@ -33,144 +31,176 @@ def run_git_cmd(args):
     except Exception:
         return ""
 
-def check_test_deletion():
-    """FA-02: Prevent test file deletion without architectural approval."""
-    violations = []
-    # Check what files are marked for deletion in the current branch compared to main
-    diff_output = run_git_cmd(["diff", "--name-status", "origin/main...HEAD"])
-    for line in diff_output.splitlines():
-        if line.startswith("D\t") and "tests/" in line:
-            filename = line.split("\t", 1)[1]
-            violations.append(f"FA-02: Test deletion blocked -> {filename}")
-    
-    # Also check staged/unstaged deletions currently in working directory
-    status_output = run_git_cmd(["status", "--short"])
-    for line in status_output.splitlines():
-        if line.startswith(" D ") or line.startswith("D "):
-            filename = line[3:]
-            if filename.startswith("tests/"):
-                violations.append(f"FA-02: Local test deletion blocked -> {filename}")
-                
-    return list(set(violations))
+def get_git_content(ref, path):
+    """Fetch content of a file at a specific git ref."""
+    try:
+        out = subprocess.check_output(
+            ["git", "show", f"{ref}:{path}"], 
+            stderr=subprocess.DEVNULL, cwd=PROJECT_ROOT
+        )
+        return out.decode("utf-8", errors="replace")
+    except subprocess.CalledProcessError:
+        return None
 
-class SkipXfailVisitor(ast.NodeVisitor):
+def get_local_content(path):
+    """Fetch local working tree content."""
+    p = PROJECT_ROOT / path
+    if not p.exists():
+        return None
+    try:
+        return p.read_text(encoding="utf-8")
+    except Exception:
+        return None
+
+class AuditVisitor(ast.NodeVisitor):
     def __init__(self):
-        self.found_skips = []
+        self.skips = 0
         
     def visit_Call(self, node):
-        # Look for pytest.skip()
         if isinstance(node.func, ast.Attribute):
-            if isinstance(node.func.value, ast.Name) and node.func.value.id == "pytest":
-                if node.func.attr == "skip":
-                    self.found_skips.append(node.lineno)
+            if getattr(node.func.value, 'id', '') == 'pytest' and node.func.attr in ('skip', 'xfail'):
+                self.skips += 1
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
-        # Look for @pytest.mark.skip or @pytest.mark.xfail decorators
-        for decorator in node.decorator_list:
-            if isinstance(decorator, ast.Attribute):
-                if decorator.attr in ("skip", "xfail") and isinstance(decorator.value, ast.Attribute) and decorator.value.attr == "mark":
-                    self.found_skips.append(node.lineno)
-            elif isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
-                if decorator.func.attr in ("skip", "xfail"):
-                    self.found_skips.append(node.lineno)
+        for dec in node.decorator_list:
+            if isinstance(dec, ast.Attribute) and dec.attr in ('skip', 'xfail'):
+                self.skips += 1
+            elif isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr in ('skip', 'xfail'):
+                self.skips += 1
         self.generic_visit(node)
 
-def check_test_weakening():
-    """FA-01: No test weakening (Detect skip/xfail via AST)."""
-    violations = []
-    tests_dir = PROJECT_ROOT / "tests"
-    if not tests_dir.exists():
-        return violations
-        
-    for py_file in tests_dir.rglob("test_*.py"):
-        try:
-            content = py_file.read_text(encoding="utf-8")
-            tree = ast.parse(content, filename=str(py_file))
-            visitor = SkipXfailVisitor()
-            visitor.visit(tree)
-            for lineno in visitor.found_skips:
-                violations.append(f"FA-01: skip/xfail found in {py_file.relative_to(PROJECT_ROOT)} at line {lineno}")
-        except SyntaxError:
-            violations.append(f"Syntax error parsing test file: {py_file.relative_to(PROJECT_ROOT)}")
-        except Exception:
-            pass
-            
-    # In a full implementation, we would compare the skip list against origin/main's baseline 
-    # to only alert on *newly added* skips. For now, we alert on all (strict mode).
-    return violations
+def count_fa01_skips(code: str) -> int:
+    """FA-01: Count skip and xfail occurrences using AST."""
+    if not code: return 0
+    try:
+        tree = ast.parse(code)
+        visitor = AuditVisitor()
+        visitor.visit(tree)
+        return visitor.skips
+    except SyntaxError:
+        return 0
 
-def check_manufactured_green():
-    """FA-04: No Manufactured VERIFIED"""
+def count_fa04_manufactured(code: str) -> int:
+    """FA-04: Count manufactured VERIFIED claims using regex."""
+    if not code: return 0
+    count = 0
+    for line in code.splitlines():
+        if re.search(r'["\']simulated\s+verifi(ed|cation)["\']', line, re.IGNORECASE):
+            count += 1
+        if re.search(r'return\s*\{.*["\']status["\'].*["\']VERIFIED["\']', line, re.IGNORECASE):
+            count += 1
+    return count
+
+def audit_content(candidate_code: str, baseline_code: str, path: str):
+    """Compare candidate against baseline for a single file.
+    Returns (new_violations, baseline_debt).
+    """
+    new_violations = []
+    debts = []
+    
+    # FA-01: Test Weakening
+    if path.startswith("tests/") and path.endswith(".py"):
+        c_skips = count_fa01_skips(candidate_code)
+        b_skips = count_fa01_skips(baseline_code)
+        if c_skips > b_skips:
+            new_violations.append(f"FA-01: {path} (+{c_skips - b_skips} new skip/xfail)")
+        elif c_skips > 0 and c_skips <= b_skips:
+            debts.append(f"FA-01: {path} ({c_skips} historical skip/xfail)")
+            
+    # FA-04: Manufactured Green
+    if path.startswith("scp/") and path.endswith(".py"):
+        c_m = count_fa04_manufactured(candidate_code)
+        b_m = count_fa04_manufactured(baseline_code)
+        if c_m > b_m:
+            new_violations.append(f"FA-04: {path} (+{c_m - b_m} new manufactured VERIFIED)")
+        elif c_m > 0 and c_m <= b_m:
+            debts.append(f"FA-04: {path} ({c_m} historical manufactured VERIFIED)")
+            
+    return new_violations, debts
+
+def check_test_deletion(baseline_ref="origin/main"):
+    """FA-02: Prevent test deletion relative to baseline."""
     violations = []
-    scp_dir = PROJECT_ROOT / "scp"
-    if not scp_dir.exists():
-        return violations
-        
-    for path in scp_dir.rglob("*.py"):
-        try:
-            content = path.read_text(encoding="utf-8", errors="replace")
-            for line_num, line in enumerate(content.splitlines(), 1):
-                if re.search(r'["\']simulated\s+verifi(ed|cation)["\']', line, re.IGNORECASE):
-                    violations.append(f"FA-04: {path.relative_to(PROJECT_ROOT)}:{line_num} -> Simulated verification")
-                if re.search(r'return\s*\{.*["\']status["\'].*["\']VERIFIED["\']', line, re.IGNORECASE):
-                    violations.append(f"FA-04: {path.relative_to(PROJECT_ROOT)}:{line_num} -> Hardcoded VERIFIED return")
-        except Exception:
-            pass
+    # Use ls-tree to get all tests in baseline
+    out = run_git_cmd(["ls-tree", "-r", "--name-only", baseline_ref, "tests/"])
+    baseline_tests = [line for line in out.splitlines() if line.endswith('.py')]
+    
+    for test in baseline_tests:
+        if not (PROJECT_ROOT / test).exists():
+            violations.append(f"FA-02: Deleted test file {test}")
+            
     return violations
 
 def check_code_owner_violations(policy):
-    """L4 Enforcer: Check if AI is modifying protected paths autonomously."""
+    """L4: Warn on modification of protected paths."""
     changed_files = run_git_cmd(["diff", "--cached", "--name-only"]).splitlines()
     if not changed_files:
         changed_files = run_git_cmd(["diff", "--name-only"]).splitlines()
         
     protected = policy.get("protected_paths", []) if policy else []
     violations = []
-    
     for f in changed_files:
         if not f: continue
         for p in protected:
             if f.startswith(p.strip('/')):
-                violations.append(f"Protected Path Modified: {f} (Requires L4 CodeOwner Review)")
+                violations.append(f"L4 Protected Path Modified: {f}")
                 break
     return violations
 
 def main():
-    print("[T00 Meta-Audit] Starting Test-Integrity Verification...")
-    
     policy = load_policy()
-    if not policy:
-        print("[WARNING] Could not load spec/guardrail_policy.yaml")
+    trusted_base = "origin/main"
+    if policy and "enforcement_context" in policy:
+        trusted_base = policy["enforcement_context"].get("trusted_base", "origin/main")
         
-    violations = []
+    print(f"[T00 Meta-Audit] Starting Test-Integrity Regression Authority...")
+    print(f"[T00 Meta-Audit] Trusted Base: {trusted_base}")
     
-    # 1. FA-02 Test Deletion
-    violations.extend(check_test_deletion())
+    all_new_violations = []
+    all_debts = []
     
-    # 2. FA-01 Test Weakening (Skips/Xfails)
-    violations.extend(check_test_weakening())
+    # Check FA-02 Test Deletion
+    all_new_violations.extend(check_test_deletion(trusted_base))
     
-    # 3. FA-04 Manufactured Green
-    violations.extend(check_manufactured_green())
+    # Get all python files in tests/ and scp/ for FA-01 and FA-04
+    local_files = []
+    for p in PROJECT_ROOT.rglob("*.py"):
+        rel_path = p.relative_to(PROJECT_ROOT).as_posix()
+        if rel_path.startswith("tests/") or rel_path.startswith("scp/"):
+            local_files.append(rel_path)
+            
+    for path in local_files:
+        c_code = get_local_content(path)
+        b_code = get_git_content(trusted_base, path)
+        new_v, debts = audit_content(c_code, b_code or "", path)
+        all_new_violations.extend(new_v)
+        all_debts.extend(debts)
         
-    # 4. L4 Protected Paths (Tripwire)
+    # Check L4 
     l4_violations = check_code_owner_violations(policy)
+    
+    if all_debts:
+        print("\n--- BASELINE_DEBT (Tracked, Not Blocking) ---")
+        for debt in all_debts:
+            print(f" ⚠️  {debt}")
+            
     if l4_violations:
-        print("\n[WARNING] You are modifying L4 Protected Paths. These require manual review to merge.")
+        print("\n--- L4 CODEOWNERS (Warning) ---")
         for v in l4_violations:
-            print(f" ⚠️ {v}")
-        
-    if violations:
+            print(f" 🛡️  {v}")
+        print("Note: L4 is VERIFIED only by GitHub Server-Side Ruleset. This is a local warning.")
+
+    if all_new_violations:
         print("\n" + "="*60)
-        print("T00 META-AUDIT FAILED - GUARDRAIL VIOLATIONS DETECTED")
+        print("T00 META-AUDIT FAILED - NEW REGRESSIONS DETECTED")
         print("="*60)
-        for v in violations:
+        for v in all_new_violations:
             print(f" ❌ {v}")
         print("\nFix violations before proceeding.")
         sys.exit(1)
         
-    print("[T00 Meta-Audit] All integrity checks passed. ✓")
+    print("\n[T00 Meta-Audit] All integrity checks passed (0 new regressions). ✓")
     sys.exit(0)
 
 if __name__ == "__main__":

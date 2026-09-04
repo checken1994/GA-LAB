@@ -1,11 +1,16 @@
-version: "1.1"
+version: "1.2"
 authority: "T00_Meta_Audit"
 description: "Machine-readable guardrail policy and evidence contract for SCP"
+
+enforcement_context:
+  trusted_base: "origin/main"
+  existing_violation_policy: "TRACK_DEBT"
+  new_violation_policy: "DENY"
 
 forbidden_actions:
   FA_01:
     name: "Test Weakening"
-    rule: "Cannot reduce assertions. Cannot add skip/xfail. Harness fixes are allowed ONLY IF they preserve or increase strictness."
+    rule: "Cannot reduce assertions. Cannot add new skip/xfail. Harness fixes are allowed ONLY IF they preserve or increase strictness."
   FA_02:
     name: "Test Deletion"
     rule: "Cannot delete test files without architectural deprecation."

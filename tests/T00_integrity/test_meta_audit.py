@@ -149,3 +149,59 @@ def test_meta_audit_t05_no_forbidden_semantic_patterns():
             for pattern in forbidden:
                 if pattern.lower() in content:
                     assert False, f"Test {filepath} contains forbidden semantic pattern: {pattern}"
+
+from tools.t00_meta_audit import audit_content
+
+def test_t00_fa01_historical_skip_unchanged_passes_as_debt():
+    baseline = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
+    candidate = baseline
+    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    assert len(new_v) == 0, "Historical skip should not be a new violation"
+    assert len(debt) == 1
+    assert "FA-01" in debt[0]
+
+def test_t00_fa01_newly_added_skip_fails():
+    baseline = "def test_a(): pass"
+    candidate = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
+    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    assert len(new_v) == 1, "New skip must be flagged as new violation"
+    assert "FA-01" in new_v[0]
+    assert len(debt) == 0
+
+def test_t00_fa01_newly_added_xfail_fails():
+    baseline = "def test_a(): pass"
+    candidate = "import pytest\n@pytest.mark.xfail\ndef test_a(): pass"
+    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    assert len(new_v) == 1
+    assert "FA-01" in new_v[0]
+    
+def test_t00_fa01_pytest_skip_call_fails():
+    baseline = "def test_a(): pass"
+    candidate = "import pytest\ndef test_a(): pytest.skip('reason')"
+    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    assert len(new_v) == 1
+    assert "FA-01" in new_v[0]
+
+def test_t00_fa04_historical_manufactured_green_passes_as_debt():
+    baseline = 'def do():\n    return {"status": "VERIFIED"}'
+    candidate = baseline
+    new_v, debt = audit_content(candidate, baseline, "scp/engine.py")
+    assert len(new_v) == 0
+    assert len(debt) == 1
+    assert "FA-04" in debt[0]
+
+def test_t00_fa04_new_manufactured_green_fails():
+    baseline = 'def do():\n    return {"status": "PENDING"}'
+    candidate = 'def do():\n    return {"status": "VERIFIED"}'
+    new_v, debt = audit_content(candidate, baseline, "scp/engine.py")
+    assert len(new_v) == 1
+    assert "FA-04" in new_v[0]
+    assert len(debt) == 0
+
+def test_t00_removal_of_historical_violation_passes():
+    baseline = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
+    candidate = "def test_a(): pass"
+    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    assert len(new_v) == 0, "Removing a violation should pass"
+    assert len(debt) == 0, "Debt should be cleared"
+
