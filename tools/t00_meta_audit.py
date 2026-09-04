@@ -228,7 +228,7 @@ def main():
     print(f"[T00 Meta-Audit] Trusted Base: {trusted_base}")
     print("\n--- SCOPE & LIMITATIONS ---")
     print(" * FA-01 (Semantic Weakening): Partial (skip/xfail checked). Logic weakening requires L4 human review.")
-    print(" * FA-02 (Test Deletion): FULL ENFORCEMENT via real pytest nodeid comparison.")
+    print(" * FA-02: ENFORCED for regressions in collected pytest nodeids")
     print(" * FA-03 (Same-SHA Evidence): NOT ENFORCED by T00 (Requires dedicated evidence tool).")
     print(" * FA-04 (Manufactured Green): Regex-based. Complex AST tracking requires L4 human review.")
     print(" * FA-05 (Self-Granting Auth): NOT ENFORCED by T00 (Requires capability scanner).")
