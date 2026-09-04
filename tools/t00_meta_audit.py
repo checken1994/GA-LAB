@@ -183,12 +183,12 @@ def main():
     if all_debts:
         print("\n--- BASELINE_DEBT (Tracked, Not Blocking) ---")
         for debt in all_debts:
-            print(f" ⚠️  {debt}")
+            print(f" [DEBT] {debt}")
             
     if l4_violations:
         print("\n--- L4 CODEOWNERS (Warning) ---")
         for v in l4_violations:
-            print(f" 🛡️  {v}")
+            print(f" [L4] {v}")
         print("Note: L4 is VERIFIED only by GitHub Server-Side Ruleset. This is a local warning.")
 
     if all_new_violations:
@@ -196,11 +196,11 @@ def main():
         print("T00 META-AUDIT FAILED - NEW REGRESSIONS DETECTED")
         print("="*60)
         for v in all_new_violations:
-            print(f" ❌ {v}")
+            print(f" [FAIL] {v}")
         print("\nFix violations before proceeding.")
         sys.exit(1)
         
-    print("\n[T00 Meta-Audit] All integrity checks passed (0 new regressions). ✓")
+    print("\n[T00 Meta-Audit] All integrity checks passed (0 new regressions).")
     sys.exit(0)
 
 if __name__ == "__main__":
