@@ -64,8 +64,8 @@ CYCLE_RESET_SECONDS = 3600        # Reset _fixes_this_cycle every 1 hour
 # sau 1h theo Guard 2).
 #   5. Backup file truoc khi apply (.tier3bak)
 #   6. Cooldown 1h cho cung bug (dung _recent_fixes chung)
-MAX_TIER3_AUTO_PER_HOUR = 5            # Hard cap: 5 logic-bug auto-fixes/hour
-TIER3_AUTO_TIMEOUT_SECONDS = 3600
+MAX_TIER3_AUTO_PER_HOUR = int(os.environ.get("SCP_TIER3_MAX_PER_HOUR", "5"))
+TIER3_AUTO_TIMEOUT_SECONDS = int(os.environ.get("SCP_TIER3_TIMEOUT_SECONDS", "3600"))
 
 
 # ============================================================
@@ -495,7 +495,7 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
         if not getattr(self, "_tier3_auto_expired", False):
             if self._tier3_auto_enabled_at == 0.0:
                 self._tier3_auto_enabled_at = now  # first call starts the clock
-            elif now - self._tier3_auto_enabled_at > TIER3_AUTO_TIMEOUT_SECONDS:
+            elif TIER3_AUTO_TIMEOUT_SECONDS > 0 and now - self._tier3_auto_enabled_at > TIER3_AUTO_TIMEOUT_SECONDS:
                 logger.warning(
                     f"[TIER3-AUTO] Timed out after {TIER3_AUTO_TIMEOUT_SECONDS}s -- "
                     f"re-enable by UNSETTING + re-SETTING SCP_AUTO_APPROVE_TIER3=1 "
