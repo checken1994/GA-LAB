@@ -156,7 +156,7 @@ from tools.t00_meta_audit import audit_content, main
 def test_t00_fa01_historical_skip_unchanged_passes_as_debt():
     baseline = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
     candidate = baseline
-    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "tests/test_a.py")
     assert len(new_v) == 0, "Historical skip should not be a new violation"
     assert len(debt) == 1
     assert "FA-01" in debt[0]
@@ -164,7 +164,7 @@ def test_t00_fa01_historical_skip_unchanged_passes_as_debt():
 def test_t00_fa01_newly_added_skip_fails():
     baseline = "def test_a(): pass"
     candidate = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
-    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "tests/test_a.py")
     assert len(new_v) == 1, "New skip must be flagged as new violation"
     assert "FA-01" in new_v[0]
     assert len(debt) == 0
@@ -172,21 +172,21 @@ def test_t00_fa01_newly_added_skip_fails():
 def test_t00_fa01_newly_added_xfail_fails():
     baseline = "def test_a(): pass"
     candidate = "import pytest\n@pytest.mark.xfail\ndef test_a(): pass"
-    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "tests/test_a.py")
     assert len(new_v) == 1
     assert "FA-01" in new_v[0]
     
 def test_t00_fa01_pytest_skip_call_fails():
     baseline = "def test_a(): pass"
     candidate = "import pytest\ndef test_a(): pytest.skip('reason')"
-    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "tests/test_a.py")
     assert len(new_v) == 1
     assert "FA-01" in new_v[0]
 
 def test_t00_fa04_historical_manufactured_green_passes_as_debt():
     baseline = 'def do():\n    return {"status": "VERIFIED"}'
     candidate = baseline
-    new_v, debt = audit_content(candidate, baseline, "scp/engine.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "scp/engine.py")
     assert len(new_v) == 0
     assert len(debt) == 1
     assert "FA-04" in debt[0]
@@ -194,7 +194,7 @@ def test_t00_fa04_historical_manufactured_green_passes_as_debt():
 def test_t00_fa04_new_manufactured_green_fails():
     baseline = 'def do():\n    return {"status": "PENDING"}'
     candidate = 'def do():\n    return {"status": "VERIFIED"}'
-    new_v, debt = audit_content(candidate, baseline, "scp/engine.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "scp/engine.py")
     assert len(new_v) == 1
     assert "FA-04" in new_v[0]
     assert len(debt) == 0
@@ -202,16 +202,15 @@ def test_t00_fa04_new_manufactured_green_fails():
 def test_t00_removal_of_historical_violation_passes():
     baseline = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
     candidate = "def test_a(): pass"
-    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "tests/test_a.py")
     assert len(new_v) == 0, "Removing a violation should pass"
     assert len(debt) == 0, "Debt should be cleared"
 
 def test_t00_set_delta_swap_skip():
-    # Adding one skip and removing another in the same file should STILL flag as a new violation
     baseline = "import pytest\n@pytest.mark.skip\ndef test_a(): pass\n\ndef test_b(): pass"
     candidate = "import pytest\ndef test_a(): pass\n\n@pytest.mark.skip\ndef test_b(): pass"
     
-    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "tests/test_a.py")
     assert len(new_v) == 1, "The new skip on test_b should be flagged"
     assert "test_b" in new_v[0]
     assert len(debt) == 0, "test_a skip is gone, so 0 debt"
@@ -219,16 +218,31 @@ def test_t00_set_delta_swap_skip():
 def test_scp_tests_is_protected():
     baseline = "def test_a(): pass"
     candidate = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
-    # Should flag in scp/tests/
-    new_v, debt = audit_content(candidate, baseline, "scp/tests/test_a.py")
+    new_v, debt, _, _ = audit_content(candidate, baseline, "scp/tests/test_a.py")
     assert len(new_v) == 1, "Must protect scp/tests/ as well"
 
 @patch('tools.t00_meta_audit.POLICY_FILE')
 def test_missing_policy_fails_closed(mock_policy_file):
     mock_policy_file.exists.return_value = False
-    
-    # Check that sys.exit(1) is called
     with pytest.raises(SystemExit) as e:
         main()
     assert e.value.code == 1
+
+def test_fa02_nodeid_deletion_tracked():
+    # Simulate a file where one function is deleted
+    baseline = "def test_a(): pass\ndef test_b(): pass"
+    candidate = "def test_a(): pass"
+    new_v, debt, c_funcs, b_funcs = audit_content(candidate, baseline, "tests/test_a.py")
+    
+    assert "tests/test_a.py::test_b" in b_funcs
+    assert "tests/test_a.py::test_b" not in c_funcs
+
+def test_fa01_skipif_importorskip_asyncdef():
+    baseline = ""
+    candidate = "import pytest\n@pytest.mark.skipif(True, reason='foo')\nasync def test_async_a():\n    pytest.importorskip('os')"
+    new_v, debt, c_funcs, b_funcs = audit_content(candidate, baseline, "tests/test_a.py")
+    
+    assert "tests/test_a.py::test_async_a" in c_funcs
+    assert any("skipif in test_async_a" in v for v in new_v)
+    assert any("importorskip() in test_async_a" in v for v in new_v)
 

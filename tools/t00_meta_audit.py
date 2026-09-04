@@ -75,34 +75,52 @@ class AuditVisitor(ast.NodeVisitor):
     def __init__(self):
         self.findings = Counter()
         self.current_func = "<module>"
+        self.test_funcs = set()
         
     def visit_FunctionDef(self, node):
+        self._handle_function(node)
+
+    def visit_AsyncFunctionDef(self, node):
+        self._handle_function(node)
+
+    def _handle_function(self, node):
         old = self.current_func
         self.current_func = node.name
+        if node.name.startswith("test_"):
+            self.test_funcs.add(node.name)
+            
         for dec in node.decorator_list:
-            if isinstance(dec, ast.Attribute) and dec.attr in ('skip', 'xfail'):
-                self.findings[f"{dec.attr} in {self.current_func}"] += 1
-            elif isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr in ('skip', 'xfail'):
-                self.findings[f"{dec.func.attr} in {self.current_func}"] += 1
+            attr_name = None
+            if isinstance(dec, ast.Attribute):
+                attr_name = dec.attr
+            elif isinstance(dec, ast.Call):
+                if isinstance(dec.func, ast.Attribute):
+                    attr_name = dec.func.attr
+                elif isinstance(dec.func, ast.Name):
+                    attr_name = dec.func.id
+                    
+            if attr_name in ('skip', 'xfail', 'skipif'):
+                self.findings[f"{attr_name} in {self.current_func}"] += 1
+                
         self.generic_visit(node)
         self.current_func = old
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Attribute):
-            if getattr(node.func.value, 'id', '') == 'pytest' and node.func.attr in ('skip', 'xfail'):
+            if getattr(node.func.value, 'id', '') == 'pytest' and node.func.attr in ('skip', 'xfail', 'importorskip'):
                 self.findings[f"pytest.{node.func.attr}() in {self.current_func}"] += 1
         self.generic_visit(node)
 
-def get_fa01_signatures(code: str) -> Counter:
-    """FA-01: Collect skip and xfail occurrences using AST."""
-    if not code: return Counter()
+def get_fa01_signatures(code: str):
+    """FA-01: Collect skip, xfail, skipif, importorskip occurrences using AST."""
+    if not code: return Counter(), set()
     try:
         tree = ast.parse(code)
         visitor = AuditVisitor()
         visitor.visit(tree)
-        return visitor.findings
+        return visitor.findings, visitor.test_funcs
     except SyntaxError:
-        return Counter()
+        return Counter(), set()
 
 def get_fa04_signatures(code: str) -> Counter:
     """FA-04: Collect manufactured VERIFIED claims using regex."""
@@ -118,15 +136,20 @@ def get_fa04_signatures(code: str) -> Counter:
 
 def audit_content(candidate_code: str, baseline_code: str, path: str):
     """Compare candidate against baseline for a single file using Counter delta.
-    Returns (new_violations, baseline_debt).
+    Returns (new_violations, baseline_debt, c_funcs, b_funcs).
     """
     new_violations = []
     debts = []
+    c_funcs = set()
+    b_funcs = set()
     
-    # FA-01: Test Weakening
+    # FA-01 and FA-02 (Test Weakening and Test Function Tracking)
     if (path.startswith("tests/") or path.startswith("scp/tests/")) and path.endswith(".py"):
-        c_fa01 = get_fa01_signatures(candidate_code)
-        b_fa01 = get_fa01_signatures(baseline_code)
+        c_fa01, c_local_funcs = get_fa01_signatures(candidate_code)
+        b_fa01, b_local_funcs = get_fa01_signatures(baseline_code)
+        
+        c_funcs = {f"{path}::{f}" for f in c_local_funcs}
+        b_funcs = {f"{path}::{f}" for f in b_local_funcs}
         
         delta = c_fa01 - b_fa01
         for sig, count in delta.items():
@@ -149,20 +172,7 @@ def audit_content(candidate_code: str, baseline_code: str, path: str):
         for sig, count in debt.items():
             debts.append(f"FA-04: {path} -> {sig} ({count} historical instances)")
             
-    return new_violations, debts
-
-def check_test_deletion(baseline_ref="origin/main"):
-    """FA-02: Prevent test deletion relative to baseline."""
-    violations = []
-    out = run_git_cmd(["ls-tree", "-r", "--name-only", baseline_ref], check=True)
-    baseline_files = [line for line in out.splitlines() if line.endswith('.py')]
-    
-    for f in baseline_files:
-        if f.startswith("tests/") or f.startswith("scp/tests/"):
-            if not (PROJECT_ROOT / f).exists():
-                violations.append(f"FA-02: Deleted test file {f}")
-            
-    return violations
+    return new_violations, debts, c_funcs, b_funcs
 
 def check_code_owner_violations(policy):
     """L4: Warn on modification of protected paths."""
@@ -184,7 +194,6 @@ def main():
     policy = load_policy()
     trusted_base = policy["enforcement_context"].get("trusted_base", "origin/main")
     
-    # Ensure trusted_base exists/is fetchable
     res = run_git_cmd(["rev-parse", "--verify", trusted_base])
     if not res:
         fail_closed(f"Trusted base '{trusted_base}' is invalid or missing. Run 'git fetch'.")
@@ -194,33 +203,47 @@ def main():
     print("\n--- SCOPE & LIMITATIONS ---")
     print(" * FA-01 (Semantic Weakening): Partial (skip/xfail checked). Logic weakening requires L4 human review.")
     print(" * FA-03 (Same-SHA Evidence): NOT ENFORCED by T00 (Requires dedicated evidence tool).")
+    print(" * FA-04 (Manufactured Green): Regex-based. Complex AST tracking requires L4 human review.")
     print(" * FA-05 (Self-Granting Auth): NOT ENFORCED by T00 (Requires capability scanner).")
     
     all_new_violations = []
     all_debts = []
     
-    # Check FA-02 Test Deletion
-    all_new_violations.extend(check_test_deletion(trusted_base))
-    
-    # Check FA-01 and FA-04
-    local_files = []
+    all_paths = set()
+    # 1. Local files
     for p in PROJECT_ROOT.rglob("*.py"):
         rel_path = p.relative_to(PROJECT_ROOT).as_posix()
         if rel_path.startswith("tests/") or rel_path.startswith("scp/"):
-            local_files.append(rel_path)
+            all_paths.add(rel_path)
             
-    for path in local_files:
+    # 2. Baseline files
+    out = run_git_cmd(["ls-tree", "-r", "--name-only", trusted_base])
+    for line in out.splitlines():
+        if line.endswith(".py") and (line.startswith("tests/") or line.startswith("scp/")):
+            all_paths.add(line)
+            
+    global_c_funcs = set()
+    global_b_funcs = set()
+    
+    for path in all_paths:
         c_code = get_local_content(path)
         b_code = get_git_content(trusted_base, path)
-        new_v, debts = audit_content(c_code, b_code or "", path)
+        new_v, debts, c_funcs, b_funcs = audit_content(c_code, b_code or "", path)
         all_new_violations.extend(new_v)
         all_debts.extend(debts)
+        global_c_funcs.update(c_funcs)
+        global_b_funcs.update(b_funcs)
+        
+    # Check FA-02 Test Deletion (comparing global function sets)
+    deleted_tests = global_b_funcs - global_c_funcs
+    for dt in deleted_tests:
+        all_new_violations.append(f"FA-02: Deleted test function/nodeid: {dt}")
         
     l4_violations = check_code_owner_violations(policy)
     
     if all_debts:
         print("\n--- BASELINE_DEBT (Tracked, Not Blocking) ---")
-        for debt in all_debts:
+        for debt in sorted(all_debts):
             print(f" [DEBT] {debt}")
             
     if l4_violations:
@@ -233,7 +256,7 @@ def main():
         print("\n" + "="*60)
         print("T00 META-AUDIT FAILED - NEW REGRESSIONS DETECTED")
         print("="*60)
-        for v in all_new_violations:
+        for v in sorted(all_new_violations):
             print(f" [FAIL] {v}")
         print("\nFix violations before proceeding.")
         sys.exit(1)

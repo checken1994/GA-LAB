@@ -23,7 +23,7 @@ forbidden_actions:
   FA_04:
     name: "Manufactured Green"
     rule: "Simulated verification or hardcoded unconditional VERIFIED returns are strictly forbidden."
-    status: "ENFORCED"
+    status: "PARTIALLY_ENFORCED (Regex based. AST tracking requires L4 human review)"
   FA_05:
     name: "Self-Granting Authority"
     rule: "Execution components cannot self-issue missing capability tokens."
