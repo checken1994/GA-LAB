@@ -41,3 +41,57 @@ Toàn bộ 13 kỹ năng SCP được quản lý và version-control tại `.age
 9. **GA.md & Live Truth:** Trước mọi task phải đọc `GA.md` trên `main`. Sau đó refresh GitHub live, đọc DNA/Skills/authority mà `GA.md` yêu cầu. `Live repo + Reality/evidence > memory/chat history`. Không dùng hoặc lưu làm authority các trạng thái dễ lỗi thời như SHA, số test, blocker, branch state, roadmap hay next task.
 10. **Session Lifecycle & Handoff:** 1 task SCP lớn = 1 session/chat riêng; cùng root cause thì tiếp tục cùng session. Cuối task lớn: cập nhật handoff trong `GA.md` trên `main` rồi mới chuyển session.
 
+---
+
+## 3. FORBIDDEN ACTIONS — Machine-Enforceable (Vi phạm = Blocker tuyệt đối)
+
+Mọi AI agent làm việc với SCP đều BỊ CẤM thực hiện các hành động sau.
+Vi phạm bất kỳ điều nào là blocker — commit sẽ bị chặn bởi T00 Meta-Audit
+và CI workflow `scp_guardrails.yml`.
+
+**FA-01: KHÔNG loosen assertion.**
+Không thay đổi assertion trong `tests/` theo hướng chấp nhận thêm giá trị,
+giảm độ chính xác, thêm `any()` / `or` / fallback condition quanh assert.
+TEST RED ↓ classify
+├─ HARNESS_BROKEN → sửa harness, prove strictness preserved/increased
+├─ PRODUCT_BLOCKED → capability/evidence chưa đủ → không manufacture green
+└─ PRODUCT_FAIL → sửa product
+
+**FA-02: KHÔNG delete/skip/xfail test.**
+Không xóa test file, thêm `@pytest.mark.skip`, `@pytest.mark.xfail`,
+`pytest.skip()`, hoặc comment out assertion để test pass.
+
+**FA-03: KHÔNG tuyên bố "PASS/Done/Fixed" khi chưa có evidence.**
+Mọi tuyên bố test xanh phải kèm terminal output thực tế
+của `pytest tests/` trên exact SHA đang làm việc.
+Không chấp nhận kết quả từ subset test làm bằng chứng toàn bộ.
+
+**FA-04: KHÔNG tạo simulated/manufactured VERIFIED.**
+Không trả `VERIFIED` từ stub, mock, hoặc hardcoded return.
+`VERIFIED` chỉ được phép khi có Reality observation thật.
+
+**FA-05: KHÔNG self-grant authority.**
+Executor không tự issue token. Caller phải cung cấp token
+đã được cấp bởi authority riêng biệt.
+
+**FA-06: KHÔNG sửa production code trước baseline reconcile.**
+Mọi session mới phải xác định exact HEAD SHA, đọc `GA.md`,
+và tạo candidate branch trước khi mutation bất kỳ file nào.
+
+**FA-07: KHÔNG claim maturity từ code/test presence.**
+M4 cần C-level Reality evidence trên exact SHA.
+M5 cần D-level recovery evidence.
+Có class/test file không đồng nghĩa đạt maturity.
+
+---
+
+## 4. Enforcement Infrastructure
+
+| Tầng | Cơ chế | File |
+|---|---|---|
+| Tier 1 | Git pre-commit hook | `tools/install_git_hooks.py`, `tools/t00_meta_audit.py` |
+| Tier 2 | Agent instruction files (auto-loaded) | `.agents/AGENTS.md`, `.agents/GEMINI.md`, `.agents/EXECUTION_PROTOCOL.md` |
+| Tier 3 | GitHub Actions CI (độc lập khỏi AI) | `.github/workflows/scp_guardrails.yml` |
+
+Cài đặt hook: `python tools/install_git_hooks.py`
+
