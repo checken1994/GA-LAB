@@ -11,21 +11,26 @@ forbidden_actions:
   FA_01:
     name: "Test Weakening"
     rule: "Cannot reduce assertions. Cannot add new skip/xfail. Harness fixes are allowed ONLY IF they preserve or increase strictness."
+    status: "PARTIALLY_ENFORCED (Skip/Xfail is enforced. Semantic weakening requires L4 human review)"
   FA_02:
     name: "Test Deletion"
     rule: "Cannot delete test files without architectural deprecation."
+    status: "ENFORCED"
   FA_03:
     name: "Unproven Claims"
     rule: "Cannot claim PASS/DONE without same-SHA terminal output evidence."
+    status: "PENDING_IMPLEMENTATION (Not enforced by T00)"
   FA_04:
     name: "Manufactured Green"
     rule: "Simulated verification or hardcoded unconditional VERIFIED returns are strictly forbidden."
+    status: "ENFORCED"
   FA_05:
     name: "Self-Granting Authority"
     rule: "Execution components cannot self-issue missing capability tokens."
+    status: "PENDING_IMPLEMENTATION (Not enforced by T00)"
 
 evidence_requirements:
-  same_sha_enforcement: true
+  same_sha_enforcement: false # Changed: Pending real validator
   evidence_target: "T00_Meta_Audit"
   required_fields:
     - "tested_sha"
@@ -39,6 +44,7 @@ evidence_requirements:
 
 protected_paths:
   - "tests/"
+  - "scp/tests/"
   - "spec/"
   - "AGENTS.md"
   - ".agents/"

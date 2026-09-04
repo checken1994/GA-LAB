@@ -150,7 +150,8 @@ def test_meta_audit_t05_no_forbidden_semantic_patterns():
                 if pattern.lower() in content:
                     assert False, f"Test {filepath} contains forbidden semantic pattern: {pattern}"
 
-from tools.t00_meta_audit import audit_content
+from unittest.mock import patch
+from tools.t00_meta_audit import audit_content, main
 
 def test_t00_fa01_historical_skip_unchanged_passes_as_debt():
     baseline = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
@@ -204,4 +205,30 @@ def test_t00_removal_of_historical_violation_passes():
     new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
     assert len(new_v) == 0, "Removing a violation should pass"
     assert len(debt) == 0, "Debt should be cleared"
+
+def test_t00_set_delta_swap_skip():
+    # Adding one skip and removing another in the same file should STILL flag as a new violation
+    baseline = "import pytest\n@pytest.mark.skip\ndef test_a(): pass\n\ndef test_b(): pass"
+    candidate = "import pytest\ndef test_a(): pass\n\n@pytest.mark.skip\ndef test_b(): pass"
+    
+    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    assert len(new_v) == 1, "The new skip on test_b should be flagged"
+    assert "test_b" in new_v[0]
+    assert len(debt) == 0, "test_a skip is gone, so 0 debt"
+
+def test_scp_tests_is_protected():
+    baseline = "def test_a(): pass"
+    candidate = "import pytest\n@pytest.mark.skip\ndef test_a(): pass"
+    # Should flag in scp/tests/
+    new_v, debt = audit_content(candidate, baseline, "scp/tests/test_a.py")
+    assert len(new_v) == 1, "Must protect scp/tests/ as well"
+
+@patch('tools.t00_meta_audit.POLICY_FILE')
+def test_missing_policy_fails_closed(mock_policy_file):
+    mock_policy_file.exists.return_value = False
+    
+    # Check that sys.exit(1) is called
+    with pytest.raises(SystemExit) as e:
+        main()
+    assert e.value.code == 1
 

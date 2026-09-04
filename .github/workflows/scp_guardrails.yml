@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install PyYAML pytest
+        run: pip install -r scp/requirements-dev.txt
       - name: Run T00 Meta-Audit Tripwire
         run: python tools/t00_meta_audit.py
       - name: Test Inventory / Collection Integrity

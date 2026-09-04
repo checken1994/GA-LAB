@@ -3,10 +3,12 @@
 
 This script enforces SCP's test integrity policies by strictly monitoring
 test modifications, skips, deletions, and manufactured evidence against
-a trusted baseline (origin/main).
+a trusted baseline.
 
 Violations already existing in the baseline are tracked as BASELINE_DEBT.
 New violations added by the candidate branch are REJECTED.
+Delta is computed using a finding-set (Counter) to prevent spoofing
+by adding a violation and removing another.
 """
 import sys
 import yaml
@@ -14,21 +16,38 @@ import subprocess
 import ast
 import re
 from pathlib import Path
+from collections import Counter
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 POLICY_FILE = PROJECT_ROOT / "spec" / "guardrail_policy.yaml"
 
+def fail_closed(msg):
+    print(f"\n[T00 FAIL-CLOSED] {msg}")
+    sys.exit(1)
+
 def load_policy():
     if not POLICY_FILE.exists():
-        return None
-    with open(POLICY_FILE, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        fail_closed("Policy file spec/guardrail_policy.yaml is missing.")
+    try:
+        with open(POLICY_FILE, "r", encoding="utf-8") as f:
+            policy = yaml.safe_load(f)
+            if not policy:
+                fail_closed("Policy file is empty or invalid YAML.")
+            if "enforcement_context" not in policy:
+                fail_closed("Policy missing 'enforcement_context'.")
+            return policy
+    except Exception as e:
+        fail_closed(f"Failed to parse policy: {e}")
 
-def run_git_cmd(args):
+def run_git_cmd(args, check=False):
     try:
         res = subprocess.run(["git"] + args, capture_output=True, text=True, cwd=PROJECT_ROOT)
+        if check and res.returncode != 0:
+            fail_closed(f"Git command failed: {' '.join(args)}\n{res.stderr}")
         return res.stdout.strip()
-    except Exception:
+    except Exception as e:
+        if check:
+            fail_closed(f"Git execution error: {e}")
         return ""
 
 def get_git_content(ref, path):
@@ -54,81 +73,94 @@ def get_local_content(path):
 
 class AuditVisitor(ast.NodeVisitor):
     def __init__(self):
-        self.skips = 0
+        self.findings = Counter()
+        self.current_func = "<module>"
         
+    def visit_FunctionDef(self, node):
+        old = self.current_func
+        self.current_func = node.name
+        for dec in node.decorator_list:
+            if isinstance(dec, ast.Attribute) and dec.attr in ('skip', 'xfail'):
+                self.findings[f"{dec.attr} in {self.current_func}"] += 1
+            elif isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr in ('skip', 'xfail'):
+                self.findings[f"{dec.func.attr} in {self.current_func}"] += 1
+        self.generic_visit(node)
+        self.current_func = old
+
     def visit_Call(self, node):
         if isinstance(node.func, ast.Attribute):
             if getattr(node.func.value, 'id', '') == 'pytest' and node.func.attr in ('skip', 'xfail'):
-                self.skips += 1
+                self.findings[f"pytest.{node.func.attr}() in {self.current_func}"] += 1
         self.generic_visit(node)
 
-    def visit_FunctionDef(self, node):
-        for dec in node.decorator_list:
-            if isinstance(dec, ast.Attribute) and dec.attr in ('skip', 'xfail'):
-                self.skips += 1
-            elif isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr in ('skip', 'xfail'):
-                self.skips += 1
-        self.generic_visit(node)
-
-def count_fa01_skips(code: str) -> int:
-    """FA-01: Count skip and xfail occurrences using AST."""
-    if not code: return 0
+def get_fa01_signatures(code: str) -> Counter:
+    """FA-01: Collect skip and xfail occurrences using AST."""
+    if not code: return Counter()
     try:
         tree = ast.parse(code)
         visitor = AuditVisitor()
         visitor.visit(tree)
-        return visitor.skips
+        return visitor.findings
     except SyntaxError:
-        return 0
+        return Counter()
 
-def count_fa04_manufactured(code: str) -> int:
-    """FA-04: Count manufactured VERIFIED claims using regex."""
-    if not code: return 0
-    count = 0
-    for line in code.splitlines():
-        if re.search(r'["\']simulated\s+verifi(ed|cation)["\']', line, re.IGNORECASE):
-            count += 1
-        if re.search(r'return\s*\{.*["\']status["\'].*["\']VERIFIED["\']', line, re.IGNORECASE):
-            count += 1
-    return count
+def get_fa04_signatures(code: str) -> Counter:
+    """FA-04: Collect manufactured VERIFIED claims using regex."""
+    findings = Counter()
+    if not code: return findings
+    for i, line in enumerate(code.splitlines()):
+        content = line.strip()
+        if re.search(r'["\']simulated\s+verifi(ed|cation)["\']', content, re.IGNORECASE):
+            findings[f"simulated verification: {content}"] += 1
+        if re.search(r'return\s*\{.*["\']status["\'].*["\']VERIFIED["\']', content, re.IGNORECASE):
+            findings[f"hardcoded VERIFIED: {content}"] += 1
+    return findings
 
 def audit_content(candidate_code: str, baseline_code: str, path: str):
-    """Compare candidate against baseline for a single file.
+    """Compare candidate against baseline for a single file using Counter delta.
     Returns (new_violations, baseline_debt).
     """
     new_violations = []
     debts = []
     
     # FA-01: Test Weakening
-    if path.startswith("tests/") and path.endswith(".py"):
-        c_skips = count_fa01_skips(candidate_code)
-        b_skips = count_fa01_skips(baseline_code)
-        if c_skips > b_skips:
-            new_violations.append(f"FA-01: {path} (+{c_skips - b_skips} new skip/xfail)")
-        elif c_skips > 0 and c_skips <= b_skips:
-            debts.append(f"FA-01: {path} ({c_skips} historical skip/xfail)")
+    if (path.startswith("tests/") or path.startswith("scp/tests/")) and path.endswith(".py"):
+        c_fa01 = get_fa01_signatures(candidate_code)
+        b_fa01 = get_fa01_signatures(baseline_code)
+        
+        delta = c_fa01 - b_fa01
+        for sig, count in delta.items():
+            new_violations.append(f"FA-01: {path} -> {sig} ({count} new instances)")
+            
+        debt = c_fa01 & b_fa01
+        for sig, count in debt.items():
+            debts.append(f"FA-01: {path} -> {sig} ({count} historical instances)")
             
     # FA-04: Manufactured Green
     if path.startswith("scp/") and path.endswith(".py"):
-        c_m = count_fa04_manufactured(candidate_code)
-        b_m = count_fa04_manufactured(baseline_code)
-        if c_m > b_m:
-            new_violations.append(f"FA-04: {path} (+{c_m - b_m} new manufactured VERIFIED)")
-        elif c_m > 0 and c_m <= b_m:
-            debts.append(f"FA-04: {path} ({c_m} historical manufactured VERIFIED)")
+        c_fa04 = get_fa04_signatures(candidate_code)
+        b_fa04 = get_fa04_signatures(baseline_code)
+        
+        delta = c_fa04 - b_fa04
+        for sig, count in delta.items():
+            new_violations.append(f"FA-04: {path} -> {sig} ({count} new instances)")
+            
+        debt = c_fa04 & b_fa04
+        for sig, count in debt.items():
+            debts.append(f"FA-04: {path} -> {sig} ({count} historical instances)")
             
     return new_violations, debts
 
 def check_test_deletion(baseline_ref="origin/main"):
     """FA-02: Prevent test deletion relative to baseline."""
     violations = []
-    # Use ls-tree to get all tests in baseline
-    out = run_git_cmd(["ls-tree", "-r", "--name-only", baseline_ref, "tests/"])
-    baseline_tests = [line for line in out.splitlines() if line.endswith('.py')]
+    out = run_git_cmd(["ls-tree", "-r", "--name-only", baseline_ref], check=True)
+    baseline_files = [line for line in out.splitlines() if line.endswith('.py')]
     
-    for test in baseline_tests:
-        if not (PROJECT_ROOT / test).exists():
-            violations.append(f"FA-02: Deleted test file {test}")
+    for f in baseline_files:
+        if f.startswith("tests/") or f.startswith("scp/tests/"):
+            if not (PROJECT_ROOT / f).exists():
+                violations.append(f"FA-02: Deleted test file {f}")
             
     return violations
 
@@ -138,7 +170,7 @@ def check_code_owner_violations(policy):
     if not changed_files:
         changed_files = run_git_cmd(["diff", "--name-only"]).splitlines()
         
-    protected = policy.get("protected_paths", []) if policy else []
+    protected = policy.get("protected_paths", [])
     violations = []
     for f in changed_files:
         if not f: continue
@@ -150,12 +182,19 @@ def check_code_owner_violations(policy):
 
 def main():
     policy = load_policy()
-    trusted_base = "origin/main"
-    if policy and "enforcement_context" in policy:
-        trusted_base = policy["enforcement_context"].get("trusted_base", "origin/main")
+    trusted_base = policy["enforcement_context"].get("trusted_base", "origin/main")
+    
+    # Ensure trusted_base exists/is fetchable
+    res = run_git_cmd(["rev-parse", "--verify", trusted_base])
+    if not res:
+        fail_closed(f"Trusted base '{trusted_base}' is invalid or missing. Run 'git fetch'.")
         
     print(f"[T00 Meta-Audit] Starting Test-Integrity Regression Authority...")
     print(f"[T00 Meta-Audit] Trusted Base: {trusted_base}")
+    print("\n--- SCOPE & LIMITATIONS ---")
+    print(" * FA-01 (Semantic Weakening): Partial (skip/xfail checked). Logic weakening requires L4 human review.")
+    print(" * FA-03 (Same-SHA Evidence): NOT ENFORCED by T00 (Requires dedicated evidence tool).")
+    print(" * FA-05 (Self-Granting Auth): NOT ENFORCED by T00 (Requires capability scanner).")
     
     all_new_violations = []
     all_debts = []
@@ -163,7 +202,7 @@ def main():
     # Check FA-02 Test Deletion
     all_new_violations.extend(check_test_deletion(trusted_base))
     
-    # Get all python files in tests/ and scp/ for FA-01 and FA-04
+    # Check FA-01 and FA-04
     local_files = []
     for p in PROJECT_ROOT.rglob("*.py"):
         rel_path = p.relative_to(PROJECT_ROOT).as_posix()
@@ -177,7 +216,6 @@ def main():
         all_new_violations.extend(new_v)
         all_debts.extend(debts)
         
-    # Check L4 
     l4_violations = check_code_owner_violations(policy)
     
     if all_debts:
