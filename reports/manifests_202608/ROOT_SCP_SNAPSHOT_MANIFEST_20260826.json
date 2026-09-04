@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-04T10:37:02.647665+00:00",
-  "captured_commit": "96f4081c60636d712f0e6e4aa6b6c0182de7f364",
-  "captured_parent": "3065b1dd81f9b9b73d39fcbfbacbed02a8df1aa8",
-  "captured_tree": "a71e28a78d73d95c4f504ad9d40d98f662c59a19",
+  "generated_at_utc": "2026-09-04T10:56:39.887797+00:00",
+  "captured_commit": "64c92579f3c8ea78c5c433920e6c6fece0de7eb7",
+  "captured_parent": "0856490e565efc6ad0d9d93b2e8b0a656f50eb13",
+  "captured_tree": "1740bfb4d7a3e3f61ead853286fd5d83b1621f0b",
   "tracked_count": 1610,
-  "inventory_sha256": "a4785d00e17d6690eea104e3886fe6194748289a5134c7ddf4b1d1dbba6fa6cd",
+  "inventory_sha256": "6a66f08216f71664fe6cc047a176c867af60d455ab03185563caba4110fd6334",
   "scope": "recursive tracked Git tree at captured_commit; ignored/untracked files are outside this manifest",
   "required_paths": {
     ".github/workflows/scp-release-gate.yml": {
-      "blob": "5f2b746ca94c64880dd31d0eea764246163bb4db",
-      "bytes": 6146,
-      "sha256": "e0864b07c0209680dbcd6f17d8f7976fbb21839efd4fbc488cfb89ab0608890c"
+      "blob": "9e0475fe95136072de4b712b32e01c5669eda4f4",
+      "bytes": 6431,
+      "sha256": "a6dffac9b2785d41b8022cb153a6775d28cbfaa7b800ea8b16d4b90b263bed12"
     },
     "scp/api_server.py": {
       "blob": "f307c241b223ab2037e12640aeccb917dcb1885c",
@@ -251,7 +251,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "fbd3b822a9fd5d0667396750a9928aea20619d60",
+      "blob": "5340341bd946c2fc10ff0e1dbb6f51f59bef4d2b",
       "path": ".github/workflows/scp-rc-promotion.yml"
     },
     {
@@ -263,7 +263,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "5f2b746ca94c64880dd31d0eea764246163bb4db",
+      "blob": "9e0475fe95136072de4b712b32e01c5669eda4f4",
       "path": ".github/workflows/scp-release-gate.yml"
     },
     {
@@ -293,7 +293,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "9840d197bb252d38da2407dfb352f3b8a41a7d31",
+      "blob": "8cd76400660072ed3242e775510abcae4f3151c7",
       "path": "GA.md"
     },
     {
@@ -8657,7 +8657,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "bd89d37a0455e33a76c7622fc413eaf3d8cfb6c8",
+      "blob": "3a62bdb6ca3a07680a51535e7c52a171c20e5e8b",
       "path": "tests/T11_release/test_dashboard_audit_retry.py"
     },
     {
@@ -9575,7 +9575,7 @@
     {
       "mode": "100644",
       "type": "blob",
-      "blob": "569a110c834831ad4b6fdb9ce0c5815319fffecb",
+      "blob": "41c1cbbbde0bdd37f1491b2c45f40a0025866e90",
       "path": "tools/run_dashboard_audit.py"
     },
     {
