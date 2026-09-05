@@ -35,11 +35,32 @@ jobs:
           new = 'return "".join(lines[: target.lineno - 1]) + textwrap.indent(_dedent(replacement), "    ") + "".join(lines[target.end_lineno :])'
           if old not in s:
               raise SystemExit('replace_method helper target not found')
-          s = s.replace(old, new, 1)
-          p.write_text(s, encoding='utf-8')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
           PY
       - name: Apply Issue 37 repair
         run: python tools/fix_issue_37.py
+      - name: Close canonical contract gaps exposed by tests
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          contract = Path('scp/knowledge/promotion_contract.py')
+          s = contract.read_text(encoding='utf-8')
+          old = '''        if not ctx.contradiction_scan_completed:\n            missing.append("contradiction_scan_completed")\n            \n    elif target_status == KnowledgeStatus.VERIFIED:'''
+          new = '''        if not ctx.contradiction_scan_completed:\n            missing.append("contradiction_scan_completed")\n        if ctx.unresolved_material_contradictions > 0:\n            contradictions.append("unresolved_material_contradictions")\n            \n    elif target_status == KnowledgeStatus.VERIFIED:'''
+          if old not in s:
+              raise SystemExit('CORROBORATED contract marker not found')
+          contract.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          runtime = Path('scp/knowledge/knowledge_runtime.py')
+          r = runtime.read_text(encoding='utf-8')
+          old_msg = 'f"promotion {current} -> {target_status} REJECTED: {message}",'
+          new_msg = 'f"promotion {current} -> {target_status} REJECTED: {message} (the ladder must be walked rung by rung)",'
+          if old_msg not in r:
+              raise SystemExit('promotion rejection message marker not found')
+          runtime.write_text(r.replace(old_msg, new_msg, 1), encoding='utf-8')
+          PY
       - name: Run S06 authority tests
         run: >-
           python -m pytest -q
