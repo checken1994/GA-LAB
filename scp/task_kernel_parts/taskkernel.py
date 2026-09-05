@@ -309,7 +309,14 @@ class TaskKernel:
             cp_id = 'cp_' + secrets.token_hex(10)
             payload_hash = stable_hash(payload)
             self.conn.execute('INSERT INTO checkpoints(checkpoint_id,task_id,attempt_id,step_id,state,planned_action_hash,capability_epoch,idempotency_key,pre_observation_ref,post_observation_ref,tool_result_json,verifier_verdict,payload_hash,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (cp_id, task_id, lease['attempt_id'], step_id, state, stable_hash(planned_action), capability_epoch, idempotency_key, pre_observation_ref, post_observation_ref, json.dumps(tool_result, ensure_ascii=False, sort_keys=True) if tool_result is not None else None, verifier_verdict, payload_hash, now_iso()))
-            self._append_event(task_id, 'CHECKPOINT_WRITTEN', None, state, 'kernel', 'checkpoint_written', {'checkpoint_id': cp_id, 'payload_hash': payload_hash, 'idempotency_key': idempotency_key})
+            # [P1 FIX 2026-09-05] A checkpoint is a snapshot, not a state
+            # transition: to_state must stay NULL. rebuild_projection derives
+            # the task state from the last non-null to_state, so a non-NULL
+            # value here would project the checkpoint snapshot state (e.g.
+            # WAITING_TOOL) after a crash even though the tasks table never
+            # transitioned there. The authoritative checkpoint state lives in
+            # the checkpoints row ('state' column), not in the projection.
+            self._append_event(task_id, 'CHECKPOINT_WRITTEN', None, None, 'kernel', 'checkpoint_written', {'checkpoint_id': cp_id, 'payload_hash': payload_hash, 'idempotency_key': idempotency_key})
             self._commit()
             return cp_id
         except Exception:
@@ -544,20 +551,76 @@ class TaskKernel:
             self._rollback()
             raise
 
-    def auto_reconcile_orphans(self, actor: str='kernel_watchdog') -> list[str]:
-        """Tự động rà soát các task bị mồ côi (chết do crash, mất kết nối) và đưa vào RECONCILING"""
-        orphans = []
+    def auto_reconcile_orphans(self, actor: str='kernel_watchdog', stale_seconds: float=60.0, now: float | None=None) -> list[str]:
+        """Tự động rà soát các task bị mồ côi (chết do crash, mất kết nối) và đưa vào RECONCILING.
+
+        [P1 FIX 2026-09-05] Watchdog phải tôn trọng lease authority:
+        - Gate trên lease còn hạn (leases.expires_at do heartbeat refresh cùng
+          heartbeat_at), KHÔNG gate trên tasks.updated_at — worker sống có thể
+          ở lại RUNNING lâu mà không đổi state; heartbeat không đụng vào
+          tasks.updated_at nên cờ cũ từng bắt worker hợp lệ thành mồ côi.
+        - Chuyển state chỉ qua ALLOWED_TRANSITIONS + version increment
+          (LEASED/RUNNING -> RECOVERING -> RECONCILING); cựu bản ghi raw
+          'UPDATE ... state=UNKNOWN' từng ghi transition ngoài luật vào journal.
+        """
+        orphans: list[str] = []
+        now = time.time() if now is None else float(now)
+        cutoff = int(now - float(stale_seconds))
         try:
             self._begin()
-            rows = self.conn.execute("\n                SELECT task_id, state \n                FROM tasks \n                WHERE state IN ('LEASED', 'RUNNING')\n                  AND (strftime('%s', 'now') - strftime('%s', updated_at)) > 60\n            ").fetchall()
+            rows = self.conn.execute(
+                "SELECT task_id, state FROM tasks "
+                "WHERE state IN ('LEASED', 'RUNNING') "
+                "AND CAST(strftime('%s', updated_at) AS INTEGER) < ?",
+                (cutoff,),
+            ).fetchall()
             for r in rows:
                 tid = r['task_id']
-                self.conn.execute("UPDATE tasks SET state='UNKNOWN', updated_at=datetime('now') WHERE task_id=?", (tid,))
-                self._append_event(tid, 'STATE_TRANSITION', r['state'], 'UNKNOWN', actor, 'ORPHAN_TIMEOUT', {})
+                # Lease authority gate: an unreleased lease with expires_at in
+                # the future still belongs to a live worker (heartbeat refreshes
+                # heartbeat_at/expires_at together) — the watchdog must not
+                # hijack it, fail-closed instead.
+                lease = self.conn.execute(
+                    'SELECT * FROM leases WHERE task_id=? AND released=0 ORDER BY fencing_token DESC LIMIT 1',
+                    (tid,),
+                ).fetchone()
+                if lease is not None and float(lease['expires_at']) > now:
+                    continue
+                task = self._task(tid)
+                # LOST_RESPONSE with action_dispatched=True is the fail-closed
+                # assumption for an orphan: route through the reconcile path.
                 decision = self.recovery_decision('LOST_RESPONSE', True, 'UNKNOWN')
+                plan = [('RECOVERING', 'ORPHAN_TIMEOUT')]
                 if decision.next_state == 'RECONCILING':
-                    self.conn.execute("UPDATE tasks SET state='RECONCILING', updated_at=datetime('now') WHERE task_id=?", (tid,))
-                    self._append_event(tid, 'STATE_TRANSITION', 'UNKNOWN', 'RECONCILING', actor, 'AUTO_RECONCILE_INITIATED', {})
+                    plan.append(('RECONCILING', 'AUTO_RECONCILE_INITIATED'))
+                payload = {
+                    'lease_id': lease['lease_id'] if lease is not None else None,
+                    'heartbeat_at': float(lease['heartbeat_at']) if lease is not None else None,
+                    'expires_at': float(lease['expires_at']) if lease is not None else None,
+                    'watchdog_now': now,
+                    'stale_seconds': float(stale_seconds),
+                }
+                current = task['state']
+                moved = False
+                for target, reason in plan:
+                    # Never write a transition outside the map (no free-form state).
+                    if target not in ALLOWED_TRANSITIONS.get(current, set()):
+                        break
+                    self.conn.execute(
+                        'UPDATE tasks SET state=?,version=version+1,updated_at=? WHERE task_id=?',
+                        (target, now_iso(), tid),
+                    )
+                    self._append_event(tid, 'STATE_TRANSITION', current, target, actor, reason, dict(payload))
+                    current = target
+                    moved = True
+                if not moved:
+                    continue
+                if lease is not None:
+                    self.conn.execute('UPDATE leases SET released=1 WHERE lease_id=?', (lease['lease_id'],))
+                self.conn.execute(
+                    'UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?',
+                    (task['owner'],),
+                )
                 orphans.append(tid)
             self._commit()
         except Exception:
