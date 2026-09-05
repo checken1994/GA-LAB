@@ -22,7 +22,6 @@ import asyncio
 import itertools
 
 import httpx
-import pytest
 
 
 class FakeResponse:
@@ -202,6 +201,7 @@ def test_env_compat_placeholder_key_is_disabled(monkeypatch):
 
     monkeypatch.setenv("FAKE_KEY", "changeme")
     provider = EnvCompatProvider("fake", "chat", "FAKE_KEY", "FAKE_URL", "FAKE_MODEL")
+    assert provider.enabled is False
     monkeypatch.setenv("FAKE_URL", "https://api.fake.ai/v1")
     monkeypatch.setenv("FAKE_MODEL", "fake-1")
     provider2 = EnvCompatProvider("fake", "chat", "FAKE_KEY", "FAKE_URL", "FAKE_MODEL")

@@ -5,6 +5,7 @@ Z3 replaces the legacy paid-primary provider chat semantics with candidate
 filtering that only attempts models carrying a fresh exact-$0 proof. The PEP
 remains installed underneath Z3 so routing bugs still cannot spend money.
 """
+
 from __future__ import annotations
 
 import os
@@ -87,9 +88,8 @@ def authorize_outbound(
 ):
     """Authorize one outbound model call at the transport boundary.
 
-    OpenRouter UNKNOWN/STALE proof gets exactly one bounded catalog refresh.
-    PAID and DATA_CLASS denials are never retried. A failed refresh still ends
-    in the second authoritative fail-closed decision.
+    Dispatch never refreshes pricing. Discovery is an independent scheduled
+    concern: missing/stale/partial proof must deny before any provider call.
     """
     request = _request(
         provider=provider,
@@ -98,23 +98,8 @@ def authorize_outbound(
         data_class=data_class,
     )
     guard = get_runtime_guard()
-    try:
-        proof = guard.authorize(request)
-        return request, proof
-    except ZeroCostDenied as first:
-        if request.provider != "openrouter" or first.decision not in {
-            ZeroCostDecision.DENY_UNKNOWN_PRICE,
-            ZeroCostDecision.DENY_STALE_PRICE,
-        }:
-            raise
-        try:
-            from scp.llm_gateway.free_catalog import refresh_free_catalog
-
-            refresh_free_catalog(force=True)
-        except Exception:
-            pass
-        proof = guard.authorize(request)
-        return request, proof
+    proof = guard.authorize(request)
+    return request, proof
 
 
 def record_outbound_sent(request: ZeroCostRequest, proof: PricingProof | None) -> str:
@@ -140,7 +125,10 @@ def install_openai_compatible_provider_pep(provider_cls: type) -> bool:
         except ZeroCostDenied as exc:
             return None, f"zero_cost_denied:{exc.decision.value}"
         answer, error = await original(self, model, messages, api_key)
-        record_outbound_sent(request, proof)
+        # The egress PEP is installed below this PEP and can still deny before
+        # transport. Do not manufacture an actual_sent event in that case.
+        if error != "egress_denied":
+            record_outbound_sent(request, proof)
         return answer, error
 
     provider_cls._scp_zero_cost_original_call_model_once = original

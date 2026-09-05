@@ -248,7 +248,6 @@ class OpenRouterProvider:
     def _next_key(cls) -> str:
         """Get next API key (round-robin). Returns '' if no keys configured."""
         cls._init_keys()
-        cls._init_dynamic_models()
         with cls._key_lock:
             if cls._key_cycle is None:
                 return ""
@@ -289,13 +288,11 @@ class OpenRouterProvider:
     def enabled(self) -> bool:
         """True if at least one non-placeholder API key is configured."""
         self._init_keys()
-        self._init_dynamic_models()
         return len(self._API_KEYS) > 0
 
     def _key_count(self) -> int:
         """Số key khả dụng — subclass có key-instance override chỗ này."""
         self._init_keys()
-        self._init_dynamic_models()
         return len(self._API_KEYS)
 
     async def _call_model(self, model: str, messages: list[dict], api_key: str) -> tuple[str | None, str | None]:
@@ -315,7 +312,7 @@ class OpenRouterProvider:
             if answer is not None:
                 self._breaker.record_success()  # thành công thật: reset chuỗi lỗi
                 return answer, err
-            if err == "egress_denied":
+            if err == "egress_denied" or (err and err.startswith("zero_cost_denied:")):
                 return None, err
             if err and ("429" in err or "402" in err):
                 return None, err  # quota/rate-limit: failover, không retry tại chỗ
@@ -428,7 +425,6 @@ class OpenRouterProvider:
 
     def stats(self) -> dict:
         self._init_keys()
-        self._init_dynamic_models()
         return {
             "configured": self.enabled,
             "num_keys": len(self._API_KEYS),

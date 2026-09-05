@@ -43,6 +43,8 @@ def isolated_gateway_state(tmp_path, monkeypatch):
         "SCP_LLM_PROVIDER_MODE": "openrouter",
         "OPENROUTER_MODEL": "unverified-primary",
         "OPENROUTER_MODEL_CHAT": "unverified-chat",
+        "OPENROUTER_MODEL_JUDGE": "t05-judge-free-fixture",
+        "OPENROUTER_MODEL_JUDGE_PRIMARY": "t05-judge-paid-fixture",
         "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
         "SCP_BUDGET_ROUTING": "0",
     }
