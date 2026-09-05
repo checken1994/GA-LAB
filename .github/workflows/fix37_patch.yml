@@ -1,0 +1,1053 @@
+name: Temporary Fix 37 Patch
+
+on:
+  push:
+    branches:
+      - experts-4.0.3-434green
+    paths:
+      - .github/workflows/fix37_patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install focused test dependency
+        run: python -m pip install pytest
+      - name: Apply deterministic authority repair
+        shell: bash
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import ast
+          from pathlib import Path
+
+          ROOT = Path('.')
+          runtime_path = ROOT / 'scp/knowledge/knowledge_runtime.py'
+          tests_path = ROOT / 'tests/T02_contract/test_knowledge_runtime.py'
+          authority_path = ROOT / 'scp/knowledge/promotion_authority.py'
+          adversarial_path = ROOT / 'tests/T02_contract/test_knowledge_runtime_authority.py'
+
+          def replace_method(text: str, class_name: str, method_name: str, replacement: str) -> str:
+              tree = ast.parse(text)
+              target = None
+              for node in tree.body:
+                  if isinstance(node, ast.ClassDef) and node.name == class_name:
+                      for child in node.body:
+                          if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) and child.name == method_name:
+                              target = child
+                              break
+              if target is None:
+                  raise RuntimeError(f'method not found: {class_name}.{method_name}')
+              lines = text.splitlines(keepends=True)
+              return ''.join(lines[: target.lineno - 1]) + replacement.rstrip() + '\n' + ''.join(lines[target.end_lineno :])
+
+          def replace_function(text: str, function_name: str, replacement: str) -> str:
+              tree = ast.parse(text)
+              target = next(
+                  (n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == function_name),
+                  None,
+              )
+              if target is None:
+                  raise RuntimeError(f'function not found: {function_name}')
+              lines = text.splitlines(keepends=True)
+              return ''.join(lines[: target.lineno - 1]) + replacement.rstrip() + '\n' + ''.join(lines[target.end_lineno :])
+
+          authority_path.write_text(r'''"""Canonical promotion authority for S06 Knowledge Runtime.
+
+          This module deliberately derives promotion facts from P0 authorities instead of
+          trusting caller-supplied counts or opaque ids. EvidenceStore is the occurrence
+          and integrity authority; LineageStore is the independence authority. Reality
+          evidence is recognized only when immutable EvidenceStore metadata binds the
+          evidence to the exact knowledge object/scope and carries a VERIFIED verdict.
+          """
+          from __future__ import annotations
+
+          import json
+          from dataclasses import dataclass
+          from typing import Sequence
+
+          from scp.epistemic.evidence_store import EvidenceIntegrityError, EvidenceStore
+          from scp.epistemic.lineage import LineageStore
+
+
+          class PromotionAuthorityError(RuntimeError):
+              """Promotion authority is missing, invalid, or insufficient (fail closed)."""
+
+
+          @dataclass(frozen=True)
+          class IndependentSupport:
+              evidence_refs: tuple[str, ...]
+              source_ids: tuple[str, ...]
+              known_independent_lineages: int
+              unknown_pairs: int
+              shared_lineage_pairs: int
+
+
+          class PromotionAuthority:
+              """Derive Knowledge maturity facts from canonical epistemic authorities."""
+
+              REALITY_KINDS = frozenset({"TEST_RESULT", "RUNTIME_OBSERVATION", "HUMAN_ATTESTATION"})
+
+              def __init__(self, evidence_store: EvidenceStore, lineage_store: LineageStore) -> None:
+                  self.evidence_store = evidence_store
+                  self.lineage_store = lineage_store
+
+              @staticmethod
+              def _refs(refs: Sequence[str]) -> list[str]:
+                  return list(dict.fromkeys(str(ref).strip() for ref in refs if str(ref).strip()))
+
+              @staticmethod
+              def _metadata(record: dict) -> dict:
+                  raw = record.get("metadata_json") or "{}"
+                  try:
+                      value = json.loads(raw)
+                  except (TypeError, json.JSONDecodeError) as exc:
+                      raise PromotionAuthorityError("evidence metadata is not valid JSON") from exc
+                  if not isinstance(value, dict):
+                      raise PromotionAuthorityError("evidence metadata must be a JSON object")
+                  return value
+
+              def _load(self, refs: Sequence[str]) -> list[dict]:
+                  normalized = self._refs(refs)
+                  if not normalized:
+                      raise PromotionAuthorityError("at least one canonical evidence ref is required")
+                  records: list[dict] = []
+                  for ref in normalized:
+                      try:
+                          record = self.evidence_store.get(ref)
+                      except (KeyError, EvidenceIntegrityError) as exc:
+                          raise PromotionAuthorityError(
+                              f"evidence ref {ref!r} is missing or failed EvidenceStore integrity"
+                          ) from exc
+                      records.append(record)
+                  return records
+
+              def require_support(self, refs: Sequence[str]) -> tuple[dict, ...]:
+                  """All support refs must exist and pass canonical EvidenceStore integrity."""
+                  return tuple(self._load(refs))
+
+              def assess_independent_support(self, refs: Sequence[str]) -> IndependentSupport:
+                  records = self._load(refs)
+                  source_ids: list[str] = []
+                  for record in records:
+                      source_id = str(record.get("source_id") or "").strip()
+                      if not source_id:
+                          raise PromotionAuthorityError(
+                              f"evidence {record['evidence_id']} has no source_id; independence is UNKNOWN"
+                          )
+                      source_ids.append(source_id)
+                  assessment = self.lineage_store.assess_independent_support(source_ids)
+                  return IndependentSupport(
+                      evidence_refs=tuple(record["evidence_id"] for record in records),
+                      source_ids=tuple(sorted(set(source_ids))),
+                      known_independent_lineages=int(assessment["known_independent_lineages"]),
+                      unknown_pairs=int(assessment["unknown_pairs"]),
+                      shared_lineage_pairs=int(assessment["shared_lineage_pairs"]),
+                  )
+
+              @staticmethod
+              def _matches_reality_binding(record: dict, metadata: dict, knowledge_id: str, scope: dict) -> bool:
+                  return (
+                      str(record.get("kind") or "").upper() in PromotionAuthority.REALITY_KINDS
+                      and str(metadata.get("scp_authority") or "").upper() == "REALITY"
+                      and str(metadata.get("verification_verdict") or "").upper() == "VERIFIED"
+                      and str(metadata.get("knowledge_id") or "") == str(knowledge_id)
+                      and metadata.get("knowledge_scope") == scope
+                  )
+
+              def require_verification(
+                  self,
+                  refs: Sequence[str],
+                  *,
+                  knowledge_id: str,
+                  scope: dict,
+              ) -> tuple[dict, ...]:
+                  records = self._load(refs)
+                  for record in records:
+                      metadata = self._metadata(record)
+                      if not self._matches_reality_binding(record, metadata, knowledge_id, scope):
+                          raise PromotionAuthorityError(
+                              f"evidence {record['evidence_id']} is not authority-recognized Reality verification "
+                              "for this knowledge_id/scope"
+                          )
+                  return tuple(records)
+
+              def verified_success_episodes(
+                  self,
+                  refs: Sequence[str],
+                  *,
+                  knowledge_id: str,
+                  scope: dict,
+              ) -> tuple[str, ...]:
+                  """Return durable distinct successful Reality episode ids.
+
+                  Caller-provided scalar counts are intentionally irrelevant. Only immutable,
+                  integrity-checked evidence with exact claim/scope binding can contribute.
+                  """
+                  records = self._load(refs)
+                  episodes: dict[str, str] = {}
+                  for record in records:
+                      metadata = self._metadata(record)
+                      if not self._matches_reality_binding(record, metadata, knowledge_id, scope):
+                          continue
+                      if str(metadata.get("outcome") or "").upper() != "SUCCESS":
+                          continue
+                      episode_id = str(metadata.get("episode_id") or record.get("attempt_id") or "").strip()
+                      if not episode_id:
+                          continue
+                      episodes.setdefault(episode_id, record["evidence_id"])
+                  return tuple(sorted(episodes))
+          ''', encoding='utf-8')
+
+          runtime = runtime_path.read_text(encoding='utf-8')
+          marker = ')\n\n# Promotable ladder in strict order; GOLD is the top of the ladder.'
+          if 'from scp.knowledge.promotion_authority import PromotionAuthority, PromotionAuthorityError' not in runtime:
+              if marker not in runtime:
+                  raise RuntimeError('runtime import marker not found')
+              runtime = runtime.replace(
+                  marker,
+                  ')\nfrom scp.knowledge.promotion_authority import PromotionAuthority, PromotionAuthorityError\n\n# Promotable ladder in strict order; GOLD is the top of the ladder.',
+                  1,
+              )
+
+          schema_start = runtime.index('-- CE-S06-01 must_not direct_status_mutation')
+          schema_end = runtime.index('-- CE-S06-02 must_not history_overwrite')
+          new_guard = r'''-- CE-S06-01 must_not direct_status_mutation: status-changing UPDATEs are
+          -- authorized by a connection-scoped, operation-scoped capability. Historical
+          -- status events are audit evidence only and can never be replayed as authority.
+          DROP TRIGGER IF EXISTS trg_kobjects_no_direct_status_mutation;
+          CREATE TRIGGER trg_kobjects_no_direct_status_mutation
+          BEFORE UPDATE ON knowledge_objects
+          WHEN OLD.status <> NEW.status
+          BEGIN
+              SELECT CASE
+                  WHEN scp_transition_authorized(NEW.knowledge_id, OLD.status, NEW.status) = 1 THEN NULL
+                  ELSE RAISE(ABORT, 'direct status mutation forbidden: use GoldLifecycle (CE-S06-01)')
+              END;
+          END;
+
+          -- New objects enter at RAW only. Importing a pre-promoted row would bypass the
+          -- lifecycle authority, so storage rejects it even when payload_json claims it.
+          CREATE TRIGGER IF NOT EXISTS trg_kobjects_raw_insert_only
+          BEFORE INSERT ON knowledge_objects
+          WHEN NEW.status <> 'RAW'
+          BEGIN
+              SELECT RAISE(ABORT, 'non-RAW knowledge insert forbidden: use GoldLifecycle');
+          END;
+
+          -- REPLACE is DELETE+INSERT semantics and must not become a hidden lifecycle door.
+          CREATE TRIGGER IF NOT EXISTS trg_kobjects_no_duplicate_insert
+          BEFORE INSERT ON knowledge_objects
+          WHEN EXISTS (SELECT 1 FROM knowledge_objects WHERE knowledge_id = NEW.knowledge_id)
+          BEGIN
+              SELECT RAISE(ABORT, 'duplicate knowledge insert/replace forbidden: use explicit update');
+          END;
+
+          CREATE TRIGGER IF NOT EXISTS trg_kobjects_no_delete
+          BEFORE DELETE ON knowledge_objects
+          BEGIN
+              SELECT RAISE(ABORT, 'knowledge objects are lifecycle-managed; direct delete forbidden');
+          END;
+
+          '''
+          runtime = runtime[:schema_start] + new_guard + runtime[schema_end:]
+
+          runtime = replace_method(runtime, 'KnowledgeStore', '__init__', r'''    def __init__(self, db_path: str | Path) -> None:
+              self.db_path = Path(db_path)
+              self.db_path.parent.mkdir(parents=True, exist_ok=True)
+              self._conn = sqlite3.connect(str(self.db_path))
+              self._conn.row_factory = sqlite3.Row
+              self._active_transition: tuple[str, str, str] | None = None
+              self._conn.create_function(
+                  "scp_transition_authorized",
+                  3,
+                  lambda knowledge_id, from_status, to_status: int(
+                      self._active_transition
+                      == (str(knowledge_id), str(from_status), str(to_status))
+                  ),
+              )
+              self._conn.executescript(_SCHEMA)
+              self._index: "RetrievalIndex | None" = None
+              self._conn.commit()
+          ''')
+
+          runtime = replace_method(runtime, 'KnowledgeStore', 'transition', r'''    def transition(
+              self,
+              obj: KnowledgeObject,
+              to_status: str | KnowledgeStatus,
+              *,
+              decision: str,
+              reason_codes: Sequence[str],
+              evidence_refs: Sequence[str] = (),
+              actor: str = "system",
+          ) -> LifecycleResult:
+              """Validate + persist one status change with non-replayable authority.
+
+              The connection-scoped capability is live only around the exact UPDATE. The
+              append-only event is audit evidence; its historical existence never grants
+              permission to a later write, including from another SQLite connection.
+              """
+              from_status = parse_status_value(obj.status)
+              target = parse_status_value(to_status)
+              try:
+                  validate_transition(from_status, target)
+              except ValueError as exc:
+                  raise KnowledgeTransitionRejected(
+                      f"transition {from_status} -> {target} rejected by ontology: {exc}",
+                      reason_codes=["INVALID_TRANSITION"],
+                  ) from exc
+              obj.status = target
+              obj.updated_at = now_utc_iso()
+              try:
+                  validate_object(obj)
+              except ValueError as exc:
+                  obj.status = from_status
+                  raise KnowledgeTransitionRejected(
+                      f"transition {from_status} -> {target} rejected by ontology validation: {exc}",
+                      reason_codes=["ONTOLOGY_VALIDATION_FAILED"],
+                  ) from exc
+
+              refs = [str(r) for r in evidence_refs]
+              event_id = new_id("kse")
+              ts = obj.updated_at
+              try:
+                  self._conn.execute(
+                      """
+                      INSERT INTO knowledge_status_events (
+                          event_id, knowledge_id, from_status, to_status, decision,
+                          reason_codes_json, evidence_refs_json, actor, timestamp
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      """,
+                      (
+                          event_id,
+                          obj.knowledge_id,
+                          from_status,
+                          target,
+                          decision,
+                          json.dumps(list(reason_codes), ensure_ascii=False),
+                          json.dumps(refs, ensure_ascii=False),
+                          actor,
+                          ts,
+                      ),
+                  )
+                  self._active_transition = (obj.knowledge_id, from_status, target)
+                  try:
+                      self._persist(obj)
+                  finally:
+                      self._active_transition = None
+                  self._conn.commit()
+              except Exception:
+                  self._active_transition = None
+                  self._conn.rollback()
+                  obj.status = from_status
+                  raise
+              return LifecycleResult(
+                  knowledge_id=obj.knowledge_id,
+                  action=decision,
+                  from_status=from_status,
+                  to_status=target,
+                  reason_codes=list(reason_codes),
+                  evidence_refs=refs,
+                  event_id=event_id,
+                  timestamp=ts,
+              )
+          ''')
+
+          runtime = replace_method(runtime, 'KnowledgeStore', '_persist', r'''    def _persist(self, obj: KnowledgeObject) -> None:
+              validity = obj.validity if isinstance(obj.validity, dict) else {}
+              values = (
+                  obj.knowledge_id,
+                  parse_type_value(obj.type),
+                  parse_status_value(obj.status),
+                  obj.title,
+                  parse_data_class_value(obj.data_class),
+                  to_payload_json(obj),
+                  int(obj.independent_lineages),
+                  len(obj.evidence_refs),
+                  validity.get("volatility"),
+                  validity.get("last_validated_at"),
+                  validity.get("review_after"),
+                  obj.created_at,
+                  obj.updated_at,
+              )
+              exists = self._conn.execute(
+                  "SELECT 1 FROM knowledge_objects WHERE knowledge_id = ?",
+                  (obj.knowledge_id,),
+              ).fetchone()
+              if exists is None:
+                  self._conn.execute(
+                      """
+                      INSERT INTO knowledge_objects (
+                          knowledge_id, type, status, title, data_class, payload_json,
+                          independent_lineages, evidence_count, volatility,
+                          last_validated_at, review_after, created_at, updated_at
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      """,
+                      values,
+                  )
+              else:
+                  self._conn.execute(
+                      """
+                      UPDATE knowledge_objects SET
+                          type = ?, status = ?, title = ?, data_class = ?, payload_json = ?,
+                          independent_lineages = ?, evidence_count = ?, volatility = ?,
+                          last_validated_at = ?, review_after = ?, created_at = ?, updated_at = ?
+                      WHERE knowledge_id = ?
+                      """,
+                      values[1:] + (obj.knowledge_id,),
+                  )
+              if self._index is not None:
+                  self._index.sync_object(obj)
+          ''')
+
+          runtime = replace_method(runtime, 'GoldLifecycle', '__init__', r'''    def __init__(
+              self,
+              store: KnowledgeStore,
+              *,
+              min_independent_lineages: int = 2,
+              min_success_observations: int = 2,
+              gold_review_after_seconds: int = 90 * 86400,
+              actor: str = "gold_lifecycle",
+              promotion_authority: PromotionAuthority | None = None,
+          ) -> None:
+              self.store = store
+              self.min_independent_lineages = int(min_independent_lineages)
+              self.min_success_observations = int(min_success_observations)
+              self.gold_review_after_seconds = int(gold_review_after_seconds)
+              self.actor = actor
+              self.promotion_authority = promotion_authority
+          ''')
+
+          runtime = replace_method(runtime, 'GoldLifecycle', 'promote', r'''    def promote(
+              self,
+              knowledge_id: str,
+              *,
+              target: str | KnowledgeStatus | None = None,
+              evidence_refs: Sequence[str] | None = None,
+              verification_evidence_refs: Sequence[str] | None = None,
+              independent_lineages: int | None = None,
+              success_observations: int | None = None,
+              success_evidence_refs: Sequence[str] | None = None,
+              actor: str | None = None,
+              now: str | datetime | None = None,
+          ) -> LifecycleResult:
+              """Promote ONE rung; caller assertions never grant epistemic maturity.
+
+              ``independent_lineages`` and ``success_observations`` remain accepted for API
+              compatibility but are advisory only. Canonical authorities derive the values.
+              """
+              obj = self.store.get(knowledge_id)
+              current = parse_status_value(obj.status)
+              if target is None:
+                  if current not in _PROMOTION_LADDER or current == KnowledgeStatus.GOLD.value:
+                      raise KnowledgeTransitionRejected(
+                          f"no default promotion rung from status {current}; pass target explicitly",
+                          reason_codes=["NO_PROMOTION_RUNG"],
+                      )
+                  idx = _PROMOTION_LADDER.index(current)
+                  target_status = _PROMOTION_LADDER[idx + 1]
+              else:
+                  target_status = parse_status_value(target)
+
+              gate = self._gate(
+                  obj,
+                  target_status,
+                  evidence_refs=evidence_refs,
+                  verification_evidence_refs=verification_evidence_refs,
+                  independent_lineages=independent_lineages,
+                  success_observations=success_observations,
+                  success_evidence_refs=success_evidence_refs,
+                  now=now,
+              )
+              if gate is not None:
+                  message, reason_codes, missing = gate
+                  raise KnowledgeTransitionRejected(
+                      f"promotion {current} -> {target_status} REJECTED: {message} "
+                      f"(the ladder must be walked rung by rung)",
+                      reason_codes=reason_codes,
+                      missing_pieces=missing,
+                  )
+
+              refs = [str(r) for r in (evidence_refs or []) if str(r).strip()]
+              for ref in refs:
+                  if ref not in obj.evidence_refs:
+                      obj.evidence_refs.append(ref)
+              now_dt = _as_utc_datetime(now)
+              authority = self.promotion_authority
+
+              if target_status == KnowledgeStatus.CURATED.value:
+                  obj.validity["provenance_refs"] = sorted(set(obj.evidence_refs))
+              elif target_status == KnowledgeStatus.CORROBORATED.value:
+                  assert authority is not None
+                  assessment = authority.assess_independent_support(obj.evidence_refs)
+                  obj.independent_lineages = assessment.known_independent_lineages
+                  obj.validity["lineage_sources"] = list(assessment.source_ids)
+                  obj.validity["lineage_unknown_pairs"] = assessment.unknown_pairs
+              elif target_status == KnowledgeStatus.VERIFIED.value:
+                  ver_refs = [str(r) for r in (verification_evidence_refs or []) if str(r).strip()]
+                  for ref in ver_refs:
+                      if ref not in obj.evidence_refs:
+                          obj.evidence_refs.append(ref)
+                  obj.validity["last_validated_at"] = _iso(now_dt)
+                  obj.validity["verification_refs"] = sorted(set(ver_refs))
+              elif target_status == KnowledgeStatus.GOLD.value:
+                  success_refs = [str(r) for r in (success_evidence_refs or []) if str(r).strip()]
+                  for ref in success_refs:
+                      if ref not in obj.evidence_refs:
+                          obj.evidence_refs.append(ref)
+                  assert authority is not None
+                  episodes = authority.verified_success_episodes(
+                      obj.evidence_refs,
+                      knowledge_id=obj.knowledge_id,
+                      scope=obj.scope,
+                  )
+                  obj.validity["repeated_success_observations"] = len(episodes)
+                  obj.validity["verified_success_episode_ids"] = list(episodes)
+                  seconds = self._gold_review_after_seconds(obj)
+                  obj.validity["review_after"] = _iso(now_dt + timedelta(seconds=seconds))
+                  obj.validity["gold_review_after_seconds"] = seconds
+
+              return self.store.transition(
+                  obj,
+                  target_status,
+                  decision="PROMOTE",
+                  reason_codes=[f"GATE_PASSED_{current}_TO_{target_status}"],
+                  evidence_refs=obj.evidence_refs,
+                  actor=actor or self.actor,
+              )
+          ''')
+
+          runtime = replace_method(runtime, 'GoldLifecycle', '_gate', r'''    def _gate(
+              self,
+              obj: KnowledgeObject,
+              target_status: str,
+              *,
+              evidence_refs: Sequence[str] | None,
+              verification_evidence_refs: Sequence[str] | None,
+              independent_lineages: int | None,
+              success_observations: int | None,
+              success_evidence_refs: Sequence[str] | None,
+              now: str | datetime | None,
+          ) -> tuple[str, list[str], list[str]] | None:
+              """Return rejection details, deriving every authority-bearing fact."""
+              current = parse_status_value(obj.status)
+              try:
+                  validate_transition(current, target_status)
+              except ValueError as exc:
+                  return (str(exc), ["INVALID_TRANSITION"], [])
+
+              missing: list[str] = []
+              reasons: list[str] = ["GATE_REQUIREMENTS_NOT_MET"]
+              authority = self.promotion_authority
+
+              if target_status == KnowledgeStatus.CURATED.value:
+                  refs = [str(r) for r in (evidence_refs or []) if str(r).strip()]
+                  if not refs:
+                      missing.append("provenance_present: canonical evidence_refs required for RAW->CURATED")
+                  elif authority is None:
+                      missing.append("canonical PromotionAuthority/EvidenceStore is required")
+                  else:
+                      try:
+                          authority.require_support(refs)
+                      except PromotionAuthorityError as exc:
+                          missing.append(str(exc))
+                  if not obj.scope:
+                      missing.append("scope_defined: scope required before curation")
+
+              elif target_status == KnowledgeStatus.CORROBORATED.value:
+                  merged = list(dict.fromkeys([*obj.evidence_refs, *[str(r) for r in (evidence_refs or []) if str(r).strip()]]))
+                  if len(merged) < 2:
+                      missing.append("evidence_count >= 2 across CURATED+CORROBORATED")
+                  if authority is None:
+                      missing.append("canonical PromotionAuthority/LineageStore is required")
+                  else:
+                      try:
+                          assessment = authority.assess_independent_support(merged)
+                      except PromotionAuthorityError as exc:
+                          missing.append(str(exc))
+                      else:
+                          if assessment.known_independent_lineages < self.min_independent_lineages:
+                              missing.append(
+                                  f"derived independent_lineages >= {self.min_independent_lineages} "
+                                  f"(got {assessment.known_independent_lineages}; UNKNOWN contributes zero)"
+                              )
+                  if self.store.open_contradiction_count(obj.knowledge_id) > 0:
+                      missing.append("no OPEN material contradiction may exist")
+
+              elif target_status == KnowledgeStatus.VERIFIED.value:
+                  ver_refs = [str(r) for r in (verification_evidence_refs or []) if str(r).strip()]
+                  if not ver_refs:
+                      missing.append("authority-recognized Reality verification evidence required")
+                  elif authority is None:
+                      missing.append("canonical PromotionAuthority/EvidenceStore is required")
+                  else:
+                      try:
+                          authority.require_verification(
+                              ver_refs,
+                              knowledge_id=obj.knowledge_id,
+                              scope=obj.scope,
+                          )
+                      except PromotionAuthorityError as exc:
+                          missing.append(str(exc))
+
+              elif target_status == KnowledgeStatus.GOLD.value:
+                  merged = list(dict.fromkeys([*obj.evidence_refs, *[str(r) for r in (success_evidence_refs or []) if str(r).strip()]]))
+                  if authority is None:
+                      missing.append("canonical PromotionAuthority/EvidenceStore is required")
+                  elif not merged:
+                      missing.append("GOLD requires canonical evidence_refs")
+                  else:
+                      try:
+                          episodes = authority.verified_success_episodes(
+                              merged,
+                              knowledge_id=obj.knowledge_id,
+                              scope=obj.scope,
+                          )
+                      except PromotionAuthorityError as exc:
+                          missing.append(str(exc))
+                      else:
+                          if len(episodes) < self.min_success_observations:
+                              missing.append(
+                                  f"durable verified success episodes >= {self.min_success_observations} "
+                                  f"(got {len(episodes)}); scalar success_observations cannot grant GOLD"
+                              )
+                  if self.store.open_contradiction_count(obj.knowledge_id) > 0:
+                      missing.append("no OPEN material contradiction may exist")
+
+              if missing:
+                  return ("requirements not met", reasons, missing)
+              return None
+          ''')
+
+          ast.parse(runtime)
+          runtime_path.write_text(runtime, encoding='utf-8')
+
+          tests = tests_path.read_text(encoding='utf-8')
+          import_marker = 'from scp.knowledge.ontology import KnowledgeObject, KnowledgeStatus\n'
+          extra_imports = (
+              'from scp.epistemic.evidence_store import EvidenceStore\n'
+              'from scp.epistemic.lineage import IndependenceStatus, LineageStore\n'
+              'from scp.knowledge.promotion_authority import PromotionAuthority\n'
+          )
+          if extra_imports not in tests:
+              tests = tests.replace(import_marker, import_marker + extra_imports, 1)
+
+          tests = replace_function(tests, 'make_store', r'''def make_store(tmp_path) -> tuple[KnowledgeStore, RetrievalIndex, GoldLifecycle, TemporalRevalidation]:
+              store = KnowledgeStore(tmp_path / "knowledge_runtime.db")
+              index = store.attach_index(RetrievalIndex(store))
+              evidence = EvidenceStore(tmp_path / "epistemic.db", tmp_path / "evidence_objects")
+              lineage = LineageStore(tmp_path / "epistemic.db")
+              authority = PromotionAuthority(evidence, lineage)
+              lifecycle = GoldLifecycle(store, promotion_authority=authority)
+              revalidation = TemporalRevalidation(store)
+              return store, index, lifecycle, revalidation
+          ''')
+
+          tests = replace_function(tests, 'walk_to_gold', r'''def _observe(
+              lifecycle: GoldLifecycle,
+              knowledge_id: str,
+              *,
+              source_id: str,
+              kind: str = "RUNTIME_OBSERVATION",
+              reality: bool = False,
+              outcome: str | None = None,
+              episode_id: str | None = None,
+          ) -> str:
+              authority = lifecycle.promotion_authority
+              assert authority is not None
+              obj = lifecycle.store.get(knowledge_id)
+              metadata = {}
+              if reality:
+                  metadata = {
+                      "scp_authority": "REALITY",
+                      "verification_verdict": "VERIFIED",
+                      "knowledge_id": knowledge_id,
+                      "knowledge_scope": obj.scope,
+                  }
+                  if outcome is not None:
+                      metadata["outcome"] = outcome
+                  if episode_id is not None:
+                      metadata["episode_id"] = episode_id
+              record = authority.evidence_store.observe(
+                  kind=kind,
+                  content=f"{knowledge_id}:{source_id}:{kind}:{episode_id or 'support'}".encode(),
+                  collector_id="t02_knowledge_runtime",
+                  collector_version="1",
+                  source_id=source_id,
+                  attempt_id=episode_id,
+                  metadata=metadata,
+              )
+              return record["evidence_id"]
+
+
+def _independent_pair(lifecycle: GoldLifecycle, source_a: str, source_b: str, refs: list[str]) -> None:
+              authority = lifecycle.promotion_authority
+              assert authority is not None
+              authority.lineage_store.record_relation(
+                  source_a,
+                  source_b,
+                  status=IndependenceStatus.INDEPENDENT,
+                  basis=[{"type": "independent_runtime_observation"}],
+                  evidence_refs=refs,
+              )
+
+
+def walk_to_gold(lifecycle: GoldLifecycle, knowledge_id: str) -> None:
+              ev_a = _observe(lifecycle, knowledge_id, source_id="source-a")
+              lifecycle.promote(knowledge_id, evidence_refs=[ev_a])
+              ev_b = _observe(lifecycle, knowledge_id, source_id="source-b")
+              _independent_pair(lifecycle, "source-a", "source-b", [ev_a, ev_b])
+              lifecycle.promote(knowledge_id, evidence_refs=[ev_b])
+              verification = _observe(
+                  lifecycle,
+                  knowledge_id,
+                  source_id="reality-verifier",
+                  kind="TEST_RESULT",
+                  reality=True,
+              )
+              lifecycle.promote(knowledge_id, verification_evidence_refs=[verification])
+              success_1 = _observe(
+                  lifecycle,
+                  knowledge_id,
+                  source_id="reality-runner",
+                  kind="TEST_RESULT",
+                  reality=True,
+                  outcome="SUCCESS",
+                  episode_id="episode-1",
+              )
+              success_2 = _observe(
+                  lifecycle,
+                  knowledge_id,
+                  source_id="reality-runner",
+                  kind="TEST_RESULT",
+                  reality=True,
+                  outcome="SUCCESS",
+                  episode_id="episode-2",
+              )
+              lifecycle.promote(knowledge_id, success_evidence_refs=[success_1, success_2])
+          ''')
+
+          tests = replace_function(tests, 'test_promote_walk_raw_to_gold_all_valid_transitions_pass', r'''def test_promote_walk_raw_to_gold_all_valid_transitions_pass(tmp_path):
+              store, _, lifecycle, _ = make_store(tmp_path)
+              obj = make_fact()
+              store.upsert(obj)
+
+              ev_a = _observe(lifecycle, obj.knowledge_id, source_id="source-a")
+              walk = lifecycle.promote(obj.knowledge_id, evidence_refs=[ev_a])
+              assert (walk.from_status, walk.to_status) == ("RAW", "CURATED")
+
+              ev_b = _observe(lifecycle, obj.knowledge_id, source_id="source-b")
+              _independent_pair(lifecycle, "source-a", "source-b", [ev_a, ev_b])
+              walk = lifecycle.promote(obj.knowledge_id, evidence_refs=[ev_b])
+              assert (walk.from_status, walk.to_status) == ("CURATED", "CORROBORATED")
+
+              verification = _observe(
+                  lifecycle, obj.knowledge_id, source_id="reality-verifier", kind="TEST_RESULT", reality=True
+              )
+              walk = lifecycle.promote(obj.knowledge_id, verification_evidence_refs=[verification])
+              assert (walk.from_status, walk.to_status) == ("CORROBORATED", "VERIFIED")
+
+              success_1 = _observe(
+                  lifecycle, obj.knowledge_id, source_id="runner", kind="TEST_RESULT",
+                  reality=True, outcome="SUCCESS", episode_id="episode-1",
+              )
+              success_2 = _observe(
+                  lifecycle, obj.knowledge_id, source_id="runner", kind="TEST_RESULT",
+                  reality=True, outcome="SUCCESS", episode_id="episode-2",
+              )
+              walk = lifecycle.promote(obj.knowledge_id, success_evidence_refs=[success_1, success_2])
+              assert (walk.from_status, walk.to_status) == ("VERIFIED", "GOLD")
+
+              gold = store.get(obj.knowledge_id)
+              assert gold.status is KnowledgeStatus.GOLD
+              assert len(gold.evidence_refs) == 5
+              assert gold.independent_lineages == 2
+              assert gold.validity["last_validated_at"]
+              assert gold.validity["review_after"]
+              assert gold.validity["repeated_success_observations"] == 2
+              assert [event["to_status"] for event in store.history(obj.knowledge_id)] == [
+                  "CURATED", "CORROBORATED", "VERIFIED", "GOLD",
+              ]
+          ''')
+
+          tests = replace_function(tests, 'test_gold_without_evidence_refs_rejected', r'''def test_gold_without_evidence_refs_rejected(tmp_path):
+              with pytest.raises(ValueError):
+                  KnowledgeObject(type="FACT", title="gold", content={"k": "v"}, status="GOLD")
+
+              store, _, _, _ = make_store(tmp_path)
+              forged = KnowledgeObject(
+                  type="FACT", title="forged verified", content={"k": "v"},
+                  status="VERIFIED", scope={"domain": "d"},
+              )
+              with pytest.raises(sqlite3.IntegrityError, match="non-RAW knowledge insert forbidden"):
+                  store.upsert(forged)
+              assert store.find(forged.knowledge_id) is None
+          ''')
+
+          tests = replace_function(tests, 'test_corroboration_requires_independent_lineage_threshold', r'''def test_corroboration_requires_independent_lineage_threshold(tmp_path):
+              store, _, lifecycle, _ = make_store(tmp_path)
+              obj = make_fact()
+              store.upsert(obj)
+              ev_a = _observe(lifecycle, obj.knowledge_id, source_id="source-a")
+              lifecycle.promote(obj.knowledge_id, evidence_refs=[ev_a])
+              ev_b = _observe(lifecycle, obj.knowledge_id, source_id="source-b")
+
+              with pytest.raises(KnowledgeTransitionRejected) as excinfo:
+                  lifecycle.promote(
+                      obj.knowledge_id,
+                      evidence_refs=[ev_b],
+                      independent_lineages=999,
+                  )
+              assert any("derived independent_lineages" in piece for piece in excinfo.value.missing_pieces)
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.CURATED
+
+              _independent_pair(lifecycle, "source-a", "source-b", [ev_a, ev_b])
+              result = lifecycle.promote(obj.knowledge_id, evidence_refs=[ev_b])
+              assert result.to_status == "CORROBORATED"
+              assert store.get(obj.knowledge_id).independent_lineages == 2
+          ''')
+
+          tests = replace_function(tests, 'test_curated_with_open_contradiction_cannot_corroborate', r'''def test_curated_with_open_contradiction_cannot_corroborate(tmp_path):
+              store, _, lifecycle, _ = make_store(tmp_path)
+              obj = make_fact()
+              store.upsert(obj)
+              ev_a = _observe(lifecycle, obj.knowledge_id, source_id="source-a")
+              lifecycle.promote(obj.knowledge_id, evidence_refs=[ev_a])
+              ev_b = _observe(lifecycle, obj.knowledge_id, source_id="source-b")
+              _independent_pair(lifecycle, "source-a", "source-b", [ev_a, ev_b])
+              lifecycle.report_contradiction(
+                  obj.knowledge_id,
+                  evidence_ref=ev_b,
+                  description="unit price contradicts other sources",
+              )
+              with pytest.raises(KnowledgeTransitionRejected) as excinfo:
+                  lifecycle.promote(obj.knowledge_id, evidence_refs=[ev_b])
+              assert any("contradiction" in piece for piece in excinfo.value.missing_pieces)
+          ''')
+
+          tests = replace_function(tests, 'test_direct_status_mutation_blocked_at_storage_layer', r'''def test_direct_status_mutation_blocked_at_storage_layer(tmp_path):
+              store, index, lifecycle, _ = make_store(tmp_path)
+              obj = make_fact()
+              store.upsert(obj)
+              ev = _observe(lifecycle, obj.knowledge_id, source_id="source-a")
+              lifecycle.promote(obj.knowledge_id, evidence_refs=[ev])
+
+              foreign = sqlite3.connect(store.db_path)
+              with pytest.raises(sqlite3.Error) as excinfo:
+                  foreign.execute(
+                      "UPDATE knowledge_objects SET status = 'GOLD' WHERE knowledge_id = ?",
+                      (obj.knowledge_id,),
+                  )
+              assert "scp_transition_authorized" in str(excinfo.value) or "direct status mutation forbidden" in str(excinfo.value)
+              foreign.close()
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.CURATED
+              assert len(store.history(obj.knowledge_id)) == 1
+          ''')
+
+          ast.parse(tests)
+          tests_path.write_text(tests, encoding='utf-8')
+
+          adversarial_path.write_text(r'''"""Adversarial authority regressions for Issue #37 (S06/M8)."""
+          from __future__ import annotations
+
+          import sqlite3
+          from datetime import datetime, timedelta, timezone
+
+          import pytest
+
+          from scp.epistemic.evidence_store import EvidenceStore
+          from scp.epistemic.lineage import IndependenceStatus, LineageStore
+          from scp.knowledge.knowledge_runtime import (
+              GoldLifecycle,
+              KnowledgeStore,
+              KnowledgeTransitionRejected,
+              TemporalRevalidation,
+          )
+          from scp.knowledge.ontology import KnowledgeObject, KnowledgeStatus
+          from scp.knowledge.promotion_authority import PromotionAuthority
+
+
+          def runtime(tmp_path):
+              store = KnowledgeStore(tmp_path / "knowledge.db")
+              evidence = EvidenceStore(tmp_path / "epistemic.db", tmp_path / "objects")
+              lineage = LineageStore(tmp_path / "epistemic.db")
+              authority = PromotionAuthority(evidence, lineage)
+              lifecycle = GoldLifecycle(store, promotion_authority=authority)
+              obj = KnowledgeObject(
+                  type="FACT",
+                  title="authority-bound fact",
+                  content={"subject": "svc", "predicate": "state", "object": "ok"},
+                  scope={"domain": "authority-test"},
+              )
+              store.upsert(obj)
+              return store, evidence, lineage, lifecycle, obj
+
+
+          def observe(evidence, obj, source, *, reality=False, outcome=None, episode=None):
+              metadata = {}
+              if reality:
+                  metadata = {
+                      "scp_authority": "REALITY",
+                      "verification_verdict": "VERIFIED",
+                      "knowledge_id": obj.knowledge_id,
+                      "knowledge_scope": obj.scope,
+                  }
+                  if outcome is not None:
+                      metadata["outcome"] = outcome
+                  if episode is not None:
+                      metadata["episode_id"] = episode
+              return evidence.observe(
+                  kind="TEST_RESULT" if reality else "RUNTIME_OBSERVATION",
+                  content=f"{source}:{episode or 'obs'}".encode(),
+                  collector_id="issue37",
+                  collector_version="1",
+                  source_id=source,
+                  attempt_id=episode,
+                  metadata=metadata,
+              )["evidence_id"]
+
+
+          def to_corroborated(store, evidence, lineage, lifecycle, obj):
+              a = observe(evidence, obj, "source-a")
+              b = observe(evidence, obj, "source-b")
+              lifecycle.promote(obj.knowledge_id, evidence_refs=[a])
+              lineage.record_relation(
+                  "source-a", "source-b",
+                  status=IndependenceStatus.INDEPENDENT,
+                  basis=[{"type": "independent_runtime_observation"}],
+                  evidence_refs=[a, b],
+              )
+              lifecycle.promote(obj.knowledge_id, evidence_refs=[b])
+              return a, b
+
+
+          def to_verified(store, evidence, lineage, lifecycle, obj):
+              to_corroborated(store, evidence, lineage, lifecycle, obj)
+              verification = observe(evidence, obj, "reality-verifier", reality=True)
+              lifecycle.promote(obj.knowledge_id, verification_evidence_refs=[verification])
+              return verification
+
+
+          def to_gold(store, evidence, lineage, lifecycle, obj):
+              to_verified(store, evidence, lineage, lifecycle, obj)
+              s1 = observe(evidence, obj, "runner", reality=True, outcome="SUCCESS", episode="e1")
+              s2 = observe(evidence, obj, "runner", reality=True, outcome="SUCCESS", episode="e2")
+              lifecycle.promote(obj.knowledge_id, success_evidence_refs=[s1, s2])
+              return s1, s2
+
+
+          def test_fake_evidence_id_cannot_curate(tmp_path):
+              store, evidence, lineage, lifecycle, obj = runtime(tmp_path)
+              with pytest.raises(KnowledgeTransitionRejected) as excinfo:
+                  lifecycle.promote(obj.knowledge_id, evidence_refs=["ev_nonexistent_issue37"])
+              assert any("missing or failed EvidenceStore integrity" in p for p in excinfo.value.missing_pieces)
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.RAW
+
+
+          def test_forged_independent_lineage_scalar_cannot_corroborate(tmp_path):
+              store, evidence, lineage, lifecycle, obj = runtime(tmp_path)
+              a = observe(evidence, obj, "source-a")
+              b = observe(evidence, obj, "source-b")
+              lifecycle.promote(obj.knowledge_id, evidence_refs=[a])
+              with pytest.raises(KnowledgeTransitionRejected) as excinfo:
+                  lifecycle.promote(obj.knowledge_id, evidence_refs=[b], independent_lineages=999)
+              assert any("UNKNOWN contributes zero" in p for p in excinfo.value.missing_pieces)
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.CURATED
+
+
+          def test_arbitrary_verification_id_cannot_grant_verified(tmp_path):
+              store, evidence, lineage, lifecycle, obj = runtime(tmp_path)
+              to_corroborated(store, evidence, lineage, lifecycle, obj)
+              arbitrary = observe(evidence, obj, "untrusted-verifier", reality=False)
+              with pytest.raises(KnowledgeTransitionRejected) as excinfo:
+                  lifecycle.promote(obj.knowledge_id, verification_evidence_refs=[arbitrary])
+              assert any("authority-recognized Reality verification" in p for p in excinfo.value.missing_pieces)
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.CORROBORATED
+
+
+          def test_scalar_success_observations_cannot_grant_gold(tmp_path):
+              store, evidence, lineage, lifecycle, obj = runtime(tmp_path)
+              to_verified(store, evidence, lineage, lifecycle, obj)
+              with pytest.raises(KnowledgeTransitionRejected) as excinfo:
+                  lifecycle.promote(obj.knowledge_id, success_observations=999999)
+              assert any("scalar success_observations cannot grant GOLD" in p for p in excinfo.value.missing_pieces)
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.VERIFIED
+
+
+          def test_historical_event_cannot_authorize_later_raw_status_update(tmp_path):
+              store, evidence, lineage, lifecycle, obj = runtime(tmp_path)
+              ev = observe(evidence, obj, "source-a")
+              lifecycle.promote(obj.knowledge_id, evidence_refs=[ev])
+
+              scheduler = TemporalRevalidation(store, review_after_seconds={"STABLE": 1})
+              past = datetime.now(timezone.utc) - timedelta(seconds=10)
+              scheduler.assign(obj.knowledge_id, "STABLE", now=past)
+              outcomes = scheduler.sweep(now=datetime.now(timezone.utc))
+              assert outcomes and outcomes[0].to_status == "UNDER_REVIEW"
+
+              lifecycle.promote(
+                  obj.knowledge_id,
+                  target=KnowledgeStatus.CURATED,
+                  evidence_refs=[ev],
+              )
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.CURATED
+              assert any(
+                  e["from_status"] == "CURATED" and e["to_status"] == "UNDER_REVIEW"
+                  for e in store.history(obj.knowledge_id)
+              )
+
+              foreign = sqlite3.connect(store.db_path)
+              with pytest.raises(sqlite3.Error):
+                  foreign.execute(
+                      "UPDATE knowledge_objects SET status='UNDER_REVIEW' WHERE knowledge_id=?",
+                      (obj.knowledge_id,),
+                  )
+              foreign.close()
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.CURATED
+
+
+          def test_insert_or_replace_cannot_bypass_lifecycle(tmp_path):
+              store, evidence, lineage, lifecycle, obj = runtime(tmp_path)
+              foreign = sqlite3.connect(store.db_path)
+              with pytest.raises(sqlite3.IntegrityError):
+                  foreign.execute(
+                      """
+                      INSERT OR REPLACE INTO knowledge_objects (
+                          knowledge_id, type, status, title, data_class, payload_json,
+                          independent_lineages, evidence_count, volatility,
+                          last_validated_at, review_after, created_at, updated_at
+                      )
+                      SELECT knowledge_id, type, 'GOLD', title, data_class, payload_json,
+                             999, 999, volatility, last_validated_at, review_after, created_at, updated_at
+                      FROM knowledge_objects WHERE knowledge_id=?
+                      """,
+                      (obj.knowledge_id,),
+                  )
+              foreign.close()
+              assert store.get(obj.knowledge_id).status is KnowledgeStatus.RAW
+          ''', encoding='utf-8')
+
+          ast.parse(authority_path.read_text(encoding='utf-8'))
+          ast.parse(adversarial_path.read_text(encoding='utf-8'))
+          PY
+      - name: Run focused S06 authority suite
+        run: python -m pytest -q tests/T02_contract/test_knowledge_runtime.py tests/T02_contract/test_knowledge_runtime_authority.py
+      - name: Commit verified repair
+        shell: bash
+        run: |
+          git config user.name "scp-fix37-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scp/knowledge/knowledge_runtime.py scp/knowledge/promotion_authority.py tests/T02_contract/test_knowledge_runtime.py tests/T02_contract/test_knowledge_runtime_authority.py
+          git diff --cached --check
+          git commit -s -m "fix(M8): derive knowledge promotion authority (#37)"
+          git push origin HEAD:experts-4.0.3-434green
