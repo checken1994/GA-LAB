@@ -104,6 +104,16 @@ DEFAULT_MAX_CANARY_TESTS = 50          # cap tests per canary run
 DEFAULT_CANARY_TIMEOUT_SECONDS = 5.0   # cap total canary runtime
 DEFAULT_SHADOW_DIR = "data/shadow"     # temp files for shadow apply
 
+# [M1] Bug classes whose fix INTENTIONALLY changes the exception surface:
+# BareExceptPass swallows EVERY exception — a correct fix lets previously
+# swallowed exceptions propagate (e.g. TypeError on a hostile input). For
+# these classes, a NEW exception inside the fix's TARGET functions is the
+# intended effect of the fix, not a regression; a new exception anywhere
+# else (or for any other bug class) stays a blocking regression. The canary
+# exists to catch UNINTENDED collateral damage, not to make a bug class
+# unfixable (no correct BareExceptPass fix can keep swallow-behavior).
+EXCEPTION_SURFACE_BUG_TYPES = frozenset({"BareExceptPass"})
+
 
 # ============================================================
 # Dataclasses.
@@ -124,6 +134,12 @@ class ShadowFix:
     patched_source: str
     fix_id: str = ""
     bug_location: tuple[str, int, int] | None = None
+    # [M1] Intent context for the canary comparison (optional). bug_type is
+    # the bug class being fixed; target_functions are the functions the fix
+    # touches (def names from the SEARCH/REPLACE blocks). Used ONLY to scope
+    # the documented exception-surface allowance in _detect_exception_regression.
+    bug_type: str = ""
+    target_functions: tuple[str, ...] = ()
 
 
 @dataclass
@@ -477,14 +493,25 @@ def _cleanup_shadow(shadow_path: str) -> None:
         logger.debug(f"[IMP-23] shadow cleanup error: {e}")
 
 
-def _detect_exception_regression(orig_output: Any, shadow_output: Any) -> bool:
+def _detect_exception_regression(
+    orig_output: Any,
+    shadow_output: Any,
+    intended_new_exception_functions: frozenset = frozenset(),
+) -> bool:
     """True if shadow raises an exception where original didn't.
 
     Both outputs are dicts with an "exceptions" key (list of
     [fname, input_repr, exc_class] tuples). exc_class == "" means no exception.
 
+    [M1] `intended_new_exception_functions` scopes the documented allowance
+    for exception-surface bug classes (EXCEPTION_SURFACE_BUG_TYPES): for a
+    (fname, input) pair whose fname is in that set, a new exception is the
+    INTENDED effect of the fix (e.g. BareExceptPass swallow→raise) and does
+    NOT count as a regression — the caller still records it as a non-blocking
+    OUTPUT_DIFF with flagged_for_review=True (DNA #11 fail-loudly).
+
     Returns True if for any (fname, input) pair, orig has "" and shadow has
-    a non-empty exception class.
+    a non-empty exception class outside the intended set.
     """
     try:
         if not isinstance(orig_output, dict) or not isinstance(shadow_output, dict):
@@ -504,6 +531,8 @@ def _detect_exception_regression(orig_output: Any, shadow_output: Any) -> bool:
                 orig_exc = orig_map.get(key, "")
                 shadow_exc = entry[2]
                 if not orig_exc and shadow_exc:
+                    if entry[0] in intended_new_exception_functions:
+                        continue  # intended effect of an exception-surface fix
                     return True   # shadow raises where original didn't
         return False
     except Exception:  # noqa: BLE001
@@ -519,6 +548,61 @@ def _short_output(output: Any, max_len: int = 100) -> str:
         return s
     except Exception:  # noqa: BLE001
         return "<output-repr-error>"
+
+
+def fix_target_functions(
+    original_source: str,
+    patched_source: str,
+    suggested_fix: str = "",
+) -> tuple[str, ...]:
+    """[M1] Derive the functions a fix touches (best-effort, order-preserving).
+
+    Primary signal: line-level diff between original + patched source, mapped
+    to enclosing function spans via the PATCHED source AST (covers SEARCH/
+    REPLACE blocks that edit a function body WITHOUT naming it — e.g. patching
+    an `except:` clause). Fallback signal: `def <name>(` occurrences in the
+    suggested_fix text. Returns () only when nothing can be derived.
+    """
+    names: list[str] = []
+
+    # --- primary: changed lines → enclosing function (patched AST) ---
+    try:
+        import difflib
+        orig_lines = (original_source or "").splitlines()
+        patched_lines = (patched_source or "").splitlines()
+        changed: set[int] = set()  # 1-based line numbers in PATCHED source
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(
+            None, orig_lines, patched_lines
+        ).get_opcodes():
+            if tag == "equal":
+                continue
+            # Region in the patched text affected by this change. For pure
+            # deletions (j1 == j2) the change sits AT line j1+1.
+            for ln in range(j1 + 1, max(j2, j1 + 1) + 1):
+                if ln <= len(patched_lines):
+                    changed.add(ln)
+        if changed:
+            tree = ast.parse(patched_source or "")
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    end = getattr(node, "end_lineno", None) or node.lineno
+                    if any(node.lineno <= ln <= end for ln in changed):
+                        if node.name not in names:
+                            names.append(node.name)
+    except Exception as e:  # noqa: BLE001 — best-effort scoping only
+        logger.debug(f"[IMP-23] target-function diff mapping failed: {e}")
+
+    # --- fallback: def names in the suggested fix text ---
+    if not names and suggested_fix:
+        try:
+            import re
+            for m in re.finditer(r"def\s+(\w+)\s*\(", suggested_fix):
+                if m.group(1) not in names:
+                    names.append(m.group(1))
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"[IMP-23] target-function regex fallback failed: {e}")
+
+    return tuple(names)
 
 
 # ============================================================
@@ -654,9 +738,20 @@ def shadow_apply_and_compare(
                     if orig_out.output is not None and shadow_out.output is not None:
                         if orig_out.output != shadow_out.output:
                             # Detect exception-signature regression: shadow
-                            # raises where original didn't.
+                            # raises where original didn't. [M1] Intent-aware:
+                            # for exception-surface bug classes
+                            # (EXCEPTION_SURFACE_BUG_TYPES), new exceptions
+                            # inside the fix's target functions are the
+                            # intended fix effect — scope the allowance to
+                            # exactly those functions.
+                            _v4_intended: frozenset = frozenset()
+                            if getattr(fix, "bug_type", "") in EXCEPTION_SURFACE_BUG_TYPES:
+                                _v4_intended = frozenset(
+                                    getattr(fix, "target_functions", ()) or ()
+                                )
                             is_regression = _detect_exception_regression(
                                 orig_out.output, shadow_out.output,
+                                intended_new_exception_functions=_v4_intended,
                             )
                             if is_regression:
                                 diff = (
