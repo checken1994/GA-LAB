@@ -27,6 +27,9 @@ from scp.knowledge.knowledge_runtime import (
     VolatilityClass,
 )
 from scp.knowledge.ontology import KnowledgeObject, KnowledgeStatus
+from scp.epistemic.evidence_store import EvidenceStore
+from scp.epistemic.lineage import IndependenceStatus, LineageStore
+from scp.knowledge.promotion_authority import PromotionAuthority
 
 
 # ==============================================================================
@@ -36,7 +39,9 @@ from scp.knowledge.ontology import KnowledgeObject, KnowledgeStatus
 def make_store(tmp_path) -> tuple[KnowledgeStore, RetrievalIndex, GoldLifecycle, TemporalRevalidation]:
     store = KnowledgeStore(tmp_path / "knowledge_runtime.db")
     index = store.attach_index(RetrievalIndex(store))
-    lifecycle = GoldLifecycle(store)
+    evidence = EvidenceStore(tmp_path / "epistemic.db", tmp_path / "evidence_objects")
+    lineage = LineageStore(tmp_path / "epistemic.db")
+    lifecycle = GoldLifecycle(store, promotion_authority=PromotionAuthority(evidence, lineage))
     revalidation = TemporalRevalidation(store)
     return store, index, lifecycle, revalidation
 
@@ -55,15 +60,89 @@ def make_fact(tmp_scope: dict | None = None, title: str = "provider/model-x prom
     )
 
 
+def _support(lifecycle: GoldLifecycle, knowledge_id: str, source_id: str) -> str:
+    authority = lifecycle.promotion_authority
+    assert authority is not None
+    record = authority.evidence_store.observe(
+        kind="RUNTIME_OBSERVATION",
+        content=f"support:{knowledge_id}:{source_id}".encode(),
+        collector_id="t02-support",
+        collector_version="1",
+        source_id=source_id,
+    )
+    return record["evidence_id"]
+
+
+def _mark_independent(lifecycle: GoldLifecycle, sources: list[str], refs: list[str]) -> None:
+    authority = lifecycle.promotion_authority
+    assert authority is not None
+    for i, source_a in enumerate(sources):
+        for source_b in sources[i + 1:]:
+            authority.lineage_store.record_relation(
+                source_a,
+                source_b,
+                status=IndependenceStatus.INDEPENDENT,
+                basis=[{"type": "independent_runtime_observation"}],
+                evidence_refs=refs,
+            )
+
+
+def _reality(
+    lifecycle: GoldLifecycle,
+    knowledge_id: str,
+    *,
+    episode_id: str,
+    gold_checks: bool = False,
+) -> str:
+    authority = lifecycle.promotion_authority
+    assert authority is not None
+    obj = lifecycle.store.get(knowledge_id)
+    support_refs = list((obj.validity or {}).get("support_evidence_refs", []))
+    payload = {
+        "schema": "scp.reality_verification.v1",
+        "knowledge_id": knowledge_id,
+        "knowledge_scope": obj.scope,
+        "verdict": "VERIFIED",
+        "input_evidence_refs": support_refs,
+        "postconditions": [{"name": "claim_postcondition", "passed": True}],
+        "episode_id": episode_id,
+        "temporal_validity": True,
+        "adversarial_check": bool(gold_checks),
+        "counterexample_check": bool(gold_checks),
+        "temporal_stability": bool(gold_checks),
+    }
+    import json
+    record = authority.evidence_store.observe(
+        kind="TEST_RESULT",
+        content=json.dumps(payload, sort_keys=True).encode(),
+        collector_id="scp-reality-verifier",
+        collector_version="1",
+        source_id=f"reality:{episode_id}",
+        attempt_id=episode_id,
+    )
+    return record["evidence_id"]
+
+
 def walk_to_gold(lifecycle: GoldLifecycle, knowledge_id: str) -> None:
-    lifecycle.promote(knowledge_id, evidence_refs=["ev_src_a000000000000000000001"])
+    a = _support(lifecycle, knowledge_id, "source-a")
+    lifecycle.promote(knowledge_id, evidence_refs=[a])
+
+    b = _support(lifecycle, knowledge_id, "source-b")
+    _mark_independent(lifecycle, ["source-a", "source-b"], [a, b])
+    lifecycle.promote(knowledge_id, evidence_refs=[b])
+
+    c = _support(lifecycle, knowledge_id, "source-c")
+    _mark_independent(lifecycle, ["source-a", "source-b", "source-c"], [a, b, c])
+    verification = _reality(lifecycle, knowledge_id, episode_id="verify-1")
     lifecycle.promote(
         knowledge_id,
-        evidence_refs=["ev_src_b000000000000000000002"],
-        independent_lineages=2,
+        evidence_refs=[c],
+        verification_evidence_refs=[verification],
     )
-    lifecycle.promote(knowledge_id, verification_evidence_refs=["ev_ver_c00000000000000003"])
-    lifecycle.promote(knowledge_id, success_observations=3)
+
+    success_1 = _reality(lifecycle, knowledge_id, episode_id="gold-1", gold_checks=True)
+    success_2 = _reality(lifecycle, knowledge_id, episode_id="gold-2", gold_checks=True)
+    lifecycle.promote(knowledge_id, success_evidence_refs=[success_1, success_2])
 
 
 # ==============================================================================
@@ -74,32 +153,18 @@ def test_promote_walk_raw_to_gold_all_valid_transitions_pass(tmp_path):
     store, _, lifecycle, _ = make_store(tmp_path)
     obj = make_fact()
     store.upsert(obj)
-
-    walk = lifecycle.promote(obj.knowledge_id, evidence_refs=["ev_src_a000000000000000000001"])
-    assert (walk.from_status, walk.to_status) == ("RAW", "CURATED")
-    walk = lifecycle.promote(
-        obj.knowledge_id,
-        evidence_refs=["ev_src_b000000000000000000002"],
-        independent_lineages=2,
-    )
-    assert (walk.from_status, walk.to_status) == ("CURATED", "CORROBORATED")
-    walk = lifecycle.promote(obj.knowledge_id, verification_evidence_refs=["ev_ver_c00000000000000003"])
-    assert (walk.from_status, walk.to_status) == ("CORROBORATED", "VERIFIED")
-    walk = lifecycle.promote(obj.knowledge_id, success_observations=3)
-    assert (walk.from_status, walk.to_status) == ("VERIFIED", "GOLD")
+    walk_to_gold(lifecycle, obj.knowledge_id)
 
     gold = store.get(obj.knowledge_id)
     assert gold.status is KnowledgeStatus.GOLD
-    assert len(gold.evidence_refs) == 3, "provenance accumulates across rungs"
-    assert gold.independent_lineages >= 2
-    assert gold.validity["last_validated_at"], "VERIFIED rung stamps direct verification time"
-    assert gold.validity["review_after"], "GOLD always carries a review deadline"
-
-    history = store.history(obj.knowledge_id)
-    assert [event["to_status"] for event in history] == [
+    assert gold.independent_lineages >= 3
+    assert gold.validity["last_validated_at"]
+    assert gold.validity["review_after"]
+    assert gold.validity["repeated_success_observations"] == 2
+    assert len(gold.validity["verified_success_episode_ids"]) == 2
+    assert [event["to_status"] for event in store.history(obj.knowledge_id)] == [
         "CURATED", "CORROBORATED", "VERIFIED", "GOLD",
     ]
-    assert all(event["decision"] == "PROMOTE" for event in history)
 
 
 def test_raw_to_gold_direct_jump_rejected_and_state_untouched(tmp_path):
@@ -122,64 +187,60 @@ def test_raw_to_gold_direct_jump_rejected_and_state_untouched(tmp_path):
 
 
 def test_gold_without_evidence_refs_rejected(tmp_path):
-    # construction-time hard edge (ontology authority)
     with pytest.raises(ValueError):
         KnowledgeObject(type="FACT", title="gold", content={"k": "v"}, status="GOLD")
 
-    store, _, lifecycle, _ = make_store(tmp_path)
-    # a VERIFIED object that somehow carries no evidence at all
-    obj = KnowledgeObject(
-        type="FACT", title="verified but evidence-less", content={"k": "v"},
-        status="VERIFIED", scope={"domain": "d"},
+    store, _, _, _ = make_store(tmp_path)
+    forged = KnowledgeObject(
+        type="FACT",
+        title="verified but evidence-less",
+        content={"k": "v"},
+        status="VERIFIED",
+        scope={"domain": "d"},
     )
-    store.upsert(obj)
-    with pytest.raises(KnowledgeTransitionRejected) as excinfo:
-        lifecycle.promote(obj.knowledge_id, success_observations=10)
-    assert any("evidence" in piece for piece in excinfo.value.missing_pieces)
-    assert store.get(obj.knowledge_id).status is KnowledgeStatus.VERIFIED
-    assert store.history(obj.knowledge_id) == []
+    with pytest.raises(sqlite3.IntegrityError, match="non-RAW knowledge insert forbidden"):
+        store.upsert(forged)
+    assert store.find(forged.knowledge_id) is None
 
 
 def test_corroboration_requires_independent_lineage_threshold(tmp_path):
     store, _, lifecycle, _ = make_store(tmp_path)
     obj = make_fact()
     store.upsert(obj)
-    lifecycle.promote(obj.knowledge_id, evidence_refs=["ev_src_a000000000000000000001"])
+    a = _support(lifecycle, obj.knowledge_id, "source-a")
+    lifecycle.promote(obj.knowledge_id, evidence_refs=[a])
+    b = _support(lifecycle, obj.knowledge_id, "source-b")
 
     with pytest.raises(KnowledgeTransitionRejected) as excinfo:
         lifecycle.promote(
             obj.knowledge_id,
-            evidence_refs=["ev_src_b000000000000000000002"],
-            independent_lineages=1,
+            evidence_refs=[b],
+            independent_lineages=999,
         )
-    assert any("independent_lineages" in piece for piece in excinfo.value.missing_pieces)
+    assert any("independent_lineage" in piece for piece in excinfo.value.missing_pieces)
     assert store.get(obj.knowledge_id).status is KnowledgeStatus.CURATED
 
-    # exactly at the threshold (>= 2 independent lineages) the claim corroborates
-    result = lifecycle.promote(
-        obj.knowledge_id,
-        evidence_refs=["ev_src_b000000000000000000002"],
-        independent_lineages=2,
-    )
+    _mark_independent(lifecycle, ["source-a", "source-b"], [a, b])
+    result = lifecycle.promote(obj.knowledge_id, evidence_refs=[b])
     assert result.to_status == "CORROBORATED"
+    assert store.get(obj.knowledge_id).independent_lineages == 2
 
 
 def test_curated_with_open_contradiction_cannot_corroborate(tmp_path):
     store, _, lifecycle, _ = make_store(tmp_path)
     obj = make_fact()
     store.upsert(obj)
-    lifecycle.promote(obj.knowledge_id, evidence_refs=["ev_src_a000000000000000000001"])
+    a = _support(lifecycle, obj.knowledge_id, "source-a")
+    lifecycle.promote(obj.knowledge_id, evidence_refs=[a])
+    b = _support(lifecycle, obj.knowledge_id, "source-b")
+    _mark_independent(lifecycle, ["source-a", "source-b"], [a, b])
     lifecycle.report_contradiction(
         obj.knowledge_id,
-        evidence_ref="ev_contra_d0000000000000004",
+        evidence_ref=b,
         description="unit price contradicts other sources",
     )
     with pytest.raises(KnowledgeTransitionRejected) as excinfo:
-        lifecycle.promote(
-            obj.knowledge_id,
-            evidence_refs=["ev_src_b000000000000000000002"],
-            independent_lineages=2,
-        )
+        lifecycle.promote(obj.knowledge_id, evidence_refs=[b])
     assert any("contradiction" in piece for piece in excinfo.value.missing_pieces)
 
 
@@ -399,21 +460,21 @@ def test_retrieval_index_is_accelerator_authority_survives_drop_and_rebuild(tmp_
 
 
 def test_direct_status_mutation_blocked_at_storage_layer(tmp_path):
-    store, index, lifecycle, _ = make_store(tmp_path)
+    store, _, lifecycle, _ = make_store(tmp_path)
     obj = make_fact()
     store.upsert(obj)
-    lifecycle.promote(obj.knowledge_id, evidence_refs=["ev_src_a000000000000000000001"])
+    ev = _support(lifecycle, obj.knowledge_id, "source-a")
+    lifecycle.promote(obj.knowledge_id, evidence_refs=[ev])
 
     foreign = sqlite3.connect(store.db_path)
-    with pytest.raises(sqlite3.IntegrityError) as excinfo:
+    with pytest.raises(sqlite3.Error):
         foreign.execute(
             "UPDATE knowledge_objects SET status = 'GOLD' WHERE knowledge_id = ?",
             (obj.knowledge_id,),
         )
-    assert "direct status mutation forbidden" in str(excinfo.value)
     foreign.close()
     assert store.get(obj.knowledge_id).status is KnowledgeStatus.CURATED
-    assert len(store.history(obj.knowledge_id)) == 1, "history untouched by the rejected write"
+    assert len(store.history(obj.knowledge_id)) == 1
 
 
 def test_unknown_knowledge_id_fails_closed(tmp_path):

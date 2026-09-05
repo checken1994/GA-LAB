@@ -98,6 +98,7 @@ def test_verified_to_gold():
         independent_lineage_count=3,
         temporal_stability=True,
         adversarial_check_passed=True,
+        counterexample_check_passed=True,
         provenance_present=True
     )
     decision = evaluate_promotion(obj, KnowledgeStatus.GOLD, ctx)

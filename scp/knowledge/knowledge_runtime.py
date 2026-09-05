@@ -45,6 +45,8 @@ from scp.knowledge.ontology import (
     validate_object,
     validate_transition,
 )
+from scp.knowledge.promotion_authority import PromotionAuthority, PromotionAuthorityError
+from scp.knowledge.promotion_contract import DecisionAction, PromotionContext, evaluate_promotion
 
 # Promotable ladder in strict order; GOLD is the top of the ladder.
 _PROMOTION_LADDER: tuple[str, ...] = (
@@ -147,23 +149,28 @@ CREATE TABLE IF NOT EXISTS knowledge_objects (
     updated_at           TEXT NOT NULL
 );
 
--- CE-S06-01 must_not direct_status_mutation: a status-changing UPDATE only
--- succeeds when a matching append-only status event (OLD.status -> NEW.status)
--- already exists in the SAME transaction. The lifecycle writes the event first;
--- any direct UPDATE of status without its history event is aborted.
-CREATE TRIGGER IF NOT EXISTS trg_kobjects_no_direct_status_mutation
+-- CE-S06-01 must_not direct_status_mutation.  Audit history is never
+-- write authority: a status-changing UPDATE needs a connection-scoped,
+-- operation-scoped capability that exists only inside transition().
+DROP TRIGGER IF EXISTS trg_kobjects_no_direct_status_mutation;
+CREATE TRIGGER trg_kobjects_no_direct_status_mutation
 BEFORE UPDATE ON knowledge_objects
 WHEN OLD.status <> NEW.status
-     AND NOT EXISTS (
-         SELECT 1 FROM knowledge_status_events
-         WHERE knowledge_id = NEW.knowledge_id
-           AND from_status = OLD.status
-           AND to_status = NEW.status
-     )
 BEGIN
-    SELECT RAISE(ABORT, 'direct status mutation forbidden: use GoldLifecycle (CE-S06-01)');
+    SELECT CASE
+        WHEN scp_transition_authorized(NEW.knowledge_id, OLD.status, NEW.status) = 1 THEN NULL
+        ELSE RAISE(ABORT, 'direct status mutation forbidden: use GoldLifecycle (CE-S06-01)')
+    END;
 END;
 
+-- New authority rows enter at RAW.  This also closes INSERT OR REPLACE
+-- as a way to import a pre-promoted VERIFIED/GOLD object.
+CREATE TRIGGER IF NOT EXISTS trg_kobjects_raw_insert_only
+BEFORE INSERT ON knowledge_objects
+WHEN NEW.status <> 'RAW'
+BEGIN
+    SELECT RAISE(ABORT, 'non-RAW knowledge insert forbidden: use GoldLifecycle');
+END;
 -- CE-S06-02 must_not history_overwrite: status history is append-only.
 CREATE TABLE IF NOT EXISTS knowledge_status_events (
     event_id            TEXT PRIMARY KEY,
@@ -231,6 +238,15 @@ class KnowledgeStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.row_factory = sqlite3.Row
+        self._active_transition: tuple[str, str, str] | None = None
+        self._conn.create_function(
+            "scp_transition_authorized",
+            3,
+            lambda knowledge_id, from_status, to_status: int(
+                self._active_transition
+                == (str(knowledge_id), str(from_status), str(to_status))
+            ),
+        )
         self._conn.executescript(_SCHEMA)
         self._index: "RetrievalIndex | None" = None
         self._conn.commit()
@@ -338,15 +354,11 @@ class KnowledgeStore:
         evidence_refs: Sequence[str] = (),
         actor: str = "system",
     ) -> LifecycleResult:
-        """Validate + persist a status change and append the immutable event.
-
-        Only GoldLifecycle/TemporalRevalidation call this; the DB trigger makes
-        the status UPDATE impossible without the lifecycle session flag.
-        """
+        """Persist one ontology-valid transition with non-replayable authority."""
         from_status = parse_status_value(obj.status)
         target = parse_status_value(to_status)
         try:
-            validate_transition(from_status, target)  # ontology authority, fail-closed
+            validate_transition(from_status, target)
         except ValueError as exc:
             raise KnowledgeTransitionRejected(
                 f"transition {from_status} -> {target} rejected by ontology: {exc}",
@@ -355,20 +367,18 @@ class KnowledgeStore:
         obj.status = target
         obj.updated_at = now_utc_iso()
         try:
-            validate_object(obj)  # e.g. GOLD without evidence_refs -> hard reject
+            validate_object(obj)
         except ValueError as exc:
-            obj.status = from_status  # leave the in-memory object as it was
+            obj.status = from_status
             raise KnowledgeTransitionRejected(
                 f"transition {from_status} -> {target} rejected by ontology validation: {exc}",
                 reason_codes=["ONTOLOGY_VALIDATION_FAILED"],
             ) from exc
 
-        refs = [str(r) for r in evidence_refs]
+        refs = [str(ref) for ref in evidence_refs]
         event_id = new_id("kse")
         ts = obj.updated_at
         try:
-            # Event FIRST: the status-guard trigger only lets an UPDATE through
-            # when its append-only history event already exists (same tx).
             self._conn.execute(
                 """
                 INSERT INTO knowledge_status_events (
@@ -388,10 +398,16 @@ class KnowledgeStore:
                     ts,
                 ),
             )
-            self._persist(obj)
+            self._active_transition = (obj.knowledge_id, from_status, target)
+            try:
+                self._persist(obj)
+            finally:
+                self._active_transition = None
             self._conn.commit()
         except Exception:
+            self._active_transition = None
             self._conn.rollback()
+            obj.status = from_status
             raise
         return LifecycleResult(
             knowledge_id=obj.knowledge_id,
@@ -465,33 +481,47 @@ class KnowledgeStore:
     # -- internals -------------------------------------------------------------
     def _persist(self, obj: KnowledgeObject) -> None:
         validity = obj.validity if isinstance(obj.validity, dict) else {}
-        self._conn.execute(
-            """
-            INSERT OR REPLACE INTO knowledge_objects (
-                knowledge_id, type, status, title, data_class, payload_json,
-                independent_lineages, evidence_count, volatility,
-                last_validated_at, review_after, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                obj.knowledge_id,
-                parse_type_value(obj.type),
-                parse_status_value(obj.status),
-                obj.title,
-                parse_data_class_value(obj.data_class),
-                to_payload_json(obj),
-                int(obj.independent_lineages),
-                len(obj.evidence_refs),
-                validity.get("volatility"),
-                validity.get("last_validated_at"),
-                validity.get("review_after"),
-                obj.created_at,
-                obj.updated_at,
-            ),
+        row = (
+            obj.knowledge_id,
+            parse_type_value(obj.type),
+            parse_status_value(obj.status),
+            obj.title,
+            parse_data_class_value(obj.data_class),
+            to_payload_json(obj),
+            int(obj.independent_lineages),
+            len(obj.evidence_refs),
+            validity.get("volatility"),
+            validity.get("last_validated_at"),
+            validity.get("review_after"),
+            obj.created_at,
+            obj.updated_at,
         )
-        # Keep the accelerator in sync INSIDE the same transaction. If the FTS
-        # table was dropped, the authority write MUST still succeed (index is
-        # not the authority) — the index marks itself degraded instead.
+        exists = self._conn.execute(
+            "SELECT 1 FROM knowledge_objects WHERE knowledge_id = ?",
+            (obj.knowledge_id,),
+        ).fetchone()
+        if exists is None:
+            self._conn.execute(
+                """
+                INSERT INTO knowledge_objects (
+                    knowledge_id, type, status, title, data_class, payload_json,
+                    independent_lineages, evidence_count, volatility,
+                    last_validated_at, review_after, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                row,
+            )
+        else:
+            self._conn.execute(
+                """
+                UPDATE knowledge_objects SET
+                    type=?, status=?, title=?, data_class=?, payload_json=?,
+                    independent_lineages=?, evidence_count=?, volatility=?,
+                    last_validated_at=?, review_after=?, created_at=?, updated_at=?
+                WHERE knowledge_id=?
+                """,
+                row[1:] + (obj.knowledge_id,),
+            )
         if self._index is not None:
             self._index.sync_object(obj)
 
@@ -754,12 +784,14 @@ class GoldLifecycle:
         min_success_observations: int = 2,
         gold_review_after_seconds: int = 90 * 86400,
         actor: str = "gold_lifecycle",
+        promotion_authority: PromotionAuthority | None = None,
     ) -> None:
         self.store = store
         self.min_independent_lineages = int(min_independent_lineages)
         self.min_success_observations = int(min_success_observations)
         self.gold_review_after_seconds = int(gold_review_after_seconds)
         self.actor = actor
+        self.promotion_authority = promotion_authority
 
     # -- promotion -------------------------------------------------------------
     def promote(
@@ -771,13 +803,14 @@ class GoldLifecycle:
         verification_evidence_refs: Sequence[str] | None = None,
         independent_lineages: int | None = None,
         success_observations: int | None = None,
+        success_evidence_refs: Sequence[str] | None = None,
         actor: str | None = None,
         now: str | datetime | None = None,
     ) -> LifecycleResult:
-        """Promote ONE rung of the ladder. Rejects (fail-closed) any jump.
+        """Promote one rung using derived authority, never caller assertions.
 
-        `target` is only needed for re-entry from UNDER_REVIEW; by default the
-        next ladder rung is used, so RAW→GOLD direct is structurally impossible.
+        ``independent_lineages`` and ``success_observations`` remain accepted
+        for compatibility but intentionally carry zero promotion authority.
         """
         obj = self.store.get(knowledge_id)
         current = parse_status_value(obj.status)
@@ -787,56 +820,68 @@ class GoldLifecycle:
                     f"no default promotion rung from status {current}; pass target explicitly",
                     reason_codes=["NO_PROMOTION_RUNG"],
                 )
-            idx = _PROMOTION_LADDER.index(current)
-            target_status = _PROMOTION_LADDER[idx + 1]
+            target_status = _PROMOTION_LADDER[_PROMOTION_LADDER.index(current) + 1]
         else:
             target_status = parse_status_value(target)
+
+        support_refs = list(dict.fromkeys(
+            [str(ref) for ref in (obj.validity or {}).get("support_evidence_refs", []) if str(ref).strip()]
+            + [str(ref) for ref in (evidence_refs or []) if str(ref).strip()]
+        ))
+        verify_refs = [str(ref) for ref in (verification_evidence_refs or []) if str(ref).strip()]
+        success_refs = [str(ref) for ref in (success_evidence_refs or []) if str(ref).strip()]
 
         gate = self._gate(
             obj,
             target_status,
-            evidence_refs=evidence_refs,
-            verification_evidence_refs=verification_evidence_refs,
-            independent_lineages=independent_lineages,
-            success_observations=success_observations,
+            support_refs=support_refs,
+            verification_evidence_refs=verify_refs,
+            success_evidence_refs=success_refs,
             now=now,
         )
         if gate is not None:
             message, reason_codes, missing = gate
             raise KnowledgeTransitionRejected(
-                f"promotion {current} -> {target_status} REJECTED: {message} "
-                f"(the ladder must be walked rung by rung)",
+                f"promotion {current} -> {target_status} REJECTED: {message} (the ladder must be walked rung by rung)",
                 reason_codes=reason_codes,
                 missing_pieces=missing,
             )
 
-        # Apply step-specific evidence/lineage updates before the transition.
-        refs = [str(r) for r in (evidence_refs or []) if str(r).strip()]
-        for ref in refs:
+        authority = self.promotion_authority
+        assert authority is not None
+        now_dt = _as_utc_datetime(now)
+        for ref in support_refs + verify_refs + success_refs:
             if ref not in obj.evidence_refs:
                 obj.evidence_refs.append(ref)
-        if independent_lineages is not None:
-            obj.independent_lineages = max(obj.independent_lineages, int(independent_lineages))
-        now_dt = _as_utc_datetime(now)
+        obj.validity["support_evidence_refs"] = support_refs
+
+        if support_refs:
+            support = authority.assess_independent_support(support_refs)
+            obj.independent_lineages = support.known_independent_lineages
+            obj.validity["lineage_sources"] = list(support.source_ids)
+            obj.validity["lineage_unknown_pairs"] = support.unknown_pairs
 
         if target_status == KnowledgeStatus.CURATED.value:
-            obj.validity["provenance_refs"] = sorted(set(obj.evidence_refs))
+            obj.validity["provenance_refs"] = sorted(set(support_refs))
         elif target_status == KnowledgeStatus.VERIFIED.value:
-            ver_refs = [str(r) for r in (verification_evidence_refs or []) if str(r).strip()]
-            for ref in ver_refs:
-                if ref not in obj.evidence_refs:
-                    obj.evidence_refs.append(ref)
+            obj.validity["verification_evidence_refs"] = verify_refs
             obj.validity["last_validated_at"] = _iso(now_dt)
         elif target_status == KnowledgeStatus.GOLD.value:
-            obj.validity["repeated_success_observations"] = int(
-                success_observations or self.min_success_observations
+            gold = authority.assess_gold(
+                success_refs,
+                knowledge_id=obj.knowledge_id,
+                scope=obj.scope,
+                support_refs=support_refs,
+                min_episodes=self.min_success_observations,
             )
-            # GOLD always carries a review deadline (stale gold retires).
+            obj.validity["gold_verification_evidence_refs"] = success_refs
+            obj.validity["verified_success_episode_ids"] = list(gold.episode_ids)
+            obj.validity["repeated_success_observations"] = len(gold.episode_ids)
             seconds = self._gold_review_after_seconds(obj)
             obj.validity["review_after"] = _iso(now_dt + timedelta(seconds=seconds))
             obj.validity["gold_review_after_seconds"] = seconds
 
-        result = self.store.transition(
+        return self.store.transition(
             obj,
             target_status,
             decision="PROMOTE",
@@ -844,74 +889,89 @@ class GoldLifecycle:
             evidence_refs=obj.evidence_refs,
             actor=actor or self.actor,
         )
-        return result
 
     def _gate(
         self,
         obj: KnowledgeObject,
         target_status: str,
         *,
-        evidence_refs: Sequence[str] | None,
-        verification_evidence_refs: Sequence[str] | None,
-        independent_lineages: int | None,
-        success_observations: int | None,
+        support_refs: Sequence[str],
+        verification_evidence_refs: Sequence[str],
+        success_evidence_refs: Sequence[str],
         now: str | datetime | None,
     ) -> tuple[str, list[str], list[str]] | None:
-        """Return (message, reason_codes, missing_pieces) when the gate REJECTS,
-        or None when the step may proceed."""
-        current = parse_status_value(obj.status)
+        """Derive PromotionContext and delegate policy to canonical contract."""
+        import copy
 
-        # Ontology is the first authority: any transition it forbids is dead.
+        current = parse_status_value(obj.status)
         try:
             validate_transition(current, target_status)
         except ValueError as exc:
-            return (str(exc), ["INVALID_TRANSITION"], [])
+            return (str(exc), ["INVALID_TRANSITION"], [str(exc)])
 
-        missing: list[str] = []
-        reasons: list[str] = ["GATE_REQUIREMENTS_NOT_MET"]
-
-        if target_status == KnowledgeStatus.CURATED.value:
-            if not (evidence_refs and [r for r in evidence_refs if str(r).strip()]):
-                missing.append("provenance_present: evidence_refs required for RAW->CURATED")
-            if not obj.scope:
-                missing.append("scope_defined: scope required before curation")
-
-        elif target_status == KnowledgeStatus.CORROBORATED.value:
-            merged = set(obj.evidence_refs) | {str(r) for r in (evidence_refs or [])}
-            if len(merged) < 2:
-                missing.append("evidence_count >= 2 across CURATED+CORROBORATED")
-            lineages = int(independent_lineages) if independent_lineages is not None else int(
-                obj.independent_lineages
+        authority = self.promotion_authority
+        if authority is None:
+            return (
+                "canonical promotion authority is unavailable",
+                ["PROMOTION_AUTHORITY_MISSING"],
+                ["EvidenceStore + LineageStore + RealityVerifier authority required"],
             )
-            if lineages < self.min_independent_lineages:
-                missing.append(
-                    f"independent_lineages >= {self.min_independent_lineages} (got {lineages})"
-                )
-            if self.store.open_contradiction_count(obj.knowledge_id) > 0:
-                missing.append("no OPEN material contradiction may exist")
 
-        elif target_status == KnowledgeStatus.VERIFIED.value:
-            ver_refs = [r for r in (verification_evidence_refs or []) if str(r).strip()]
-            if not ver_refs:
-                missing.append(
-                    "direct verification evidence required (verification_evidence_refs)"
-                )
+        derived = copy.deepcopy(obj)
+        derived.evidence_refs = list(dict.fromkeys(str(ref) for ref in support_refs if str(ref).strip()))
+        ctx = PromotionContext(
+            provenance_present=bool(derived.evidence_refs),
+            unresolved_material_contradictions=self.store.open_contradiction_count(obj.knowledge_id),
+            contradiction_scan_completed=True,
+            evidence_count=len(derived.evidence_refs),
+        )
 
-        elif target_status == KnowledgeStatus.GOLD.value:
-            successes = int(success_observations) if success_observations is not None else 0
-            if successes < self.min_success_observations:
-                missing.append(
-                    f"repeated success: success_observations >= {self.min_success_observations} "
-                    f"(got {successes})"
-                )
-            if self.store.open_contradiction_count(obj.knowledge_id) > 0:
-                missing.append("no OPEN material contradiction may exist")
-            if not obj.evidence_refs and not (evidence_refs and list(evidence_refs)):
-                missing.append("GOLD requires evidence_refs")
+        try:
+            if derived.evidence_refs:
+                authority.require_support(derived.evidence_refs)
+                support = authority.assess_independent_support(derived.evidence_refs)
+                derived.independent_lineages = support.known_independent_lineages
+                ctx.independent_lineage_count = support.known_independent_lineages
+                ctx.evidence_authority_verified = True
 
-        if missing:
-            return ("requirements not met", reasons, missing)
-        return None
+            if target_status == KnowledgeStatus.VERIFIED.value:
+                authority.require_verification(
+                    verification_evidence_refs,
+                    knowledge_id=obj.knowledge_id,
+                    scope=obj.scope,
+                    support_refs=derived.evidence_refs,
+                )
+                ctx.reality_verified = True
+                ctx.scope_match = True
+                ctx.evidence_authority_verified = True
+                if not derived.validity:
+                    derived.validity = {"promotion_scope": obj.scope}
+
+            if target_status == KnowledgeStatus.GOLD.value:
+                gold = authority.assess_gold(
+                    success_evidence_refs,
+                    knowledge_id=obj.knowledge_id,
+                    scope=obj.scope,
+                    support_refs=derived.evidence_refs,
+                    min_episodes=self.min_success_observations,
+                )
+                ctx.repeated_verification = gold.repeated_verification
+                ctx.temporal_stability = gold.temporal_stability
+                ctx.adversarial_check_passed = gold.adversarial_check_passed
+                ctx.counterexample_check_passed = gold.counterexample_check_passed
+                ctx.evidence_authority_verified = True
+        except PromotionAuthorityError as exc:
+            return ("authority requirements not met", ["AUTHORITY_EVIDENCE_REJECTED"], [str(exc)])
+
+        decision = evaluate_promotion(derived, KnowledgeStatus(target_status), ctx)
+        if decision.action is DecisionAction.PROMOTE:
+            return None
+        missing = list(decision.missing_pieces) + list(decision.contradictions)
+        return (
+            "canonical promotion contract held or blocked the transition",
+            [str(code) for code in decision.reason_codes],
+            missing,
+        )
 
     def _gold_review_after_seconds(self, obj: KnowledgeObject) -> int:
         volatility = (obj.validity or {}).get("volatility")
