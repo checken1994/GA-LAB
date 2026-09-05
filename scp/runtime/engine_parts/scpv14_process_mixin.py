@@ -73,7 +73,11 @@ from scp.core.db_manager import (
 logger = logging.getLogger("scp.v14")
 
 #  Extracted modules
-from scp.runtime.judge import JudgeVerdict
+# [M4 FIX] TẠI SAO: `from scp.runtime.judge import JudgeVerdict` bị ImportError
+# (judge.py đã được thiết kế lại, không còn export JudgeVerdict) → module này
+# KHÔNG import được. JudgeVerdict canonical nằm ở judge_parts/types.py (Task
+# 19-A tách ra để mọi module dùng CÙNG một class, tránh isinstance mismatch).
+from scp.runtime.judge_parts.types import JudgeVerdict
 
 # [Task 10-B Modularity Refactor B] Re-export extracted helpers — backward compat.
 # DirectAPIVerifier + _run_periodic_cleanup moved to engine_parts/antibody_adapter.
@@ -549,51 +553,82 @@ class SCPV14ProcessMixin:
             except Exception as e:
                 logger.warning(f"ExperienceEngine learn failed: {e}")
 
-        # Step 8: Phase 0 — record audit trail (every 5 cycles to save time)
-        if self.phase0 is not None and self.cycle_count % 50 == 0:  # [V90 OPT] was every 5
+        # Step 8: Evidence audit trail (every 50 cycles to save time)
+        # [M4 EPISTEMIC CUTOVER] TẠI SAO: authority cho evidence giờ là
+        # immutable epistemic stack — EvidenceStore.observe qua
+        # GovernedEvidenceWriter (PrivacyWriteGate chặn/redact payload trước
+        # khi lưu), LineageStore ghi nhận độc lập nguồn (default
+        # UNKNOWN_INDEPENDENCE), correction chỉ bằng evidence MỚI + relation
+        # SUPERSEDES. Path cũ qua phase0 mutable (add_evidence/link_evidence/
+        # add_decision) KHÔNG còn được runtime gọi; scp/core/phase0.py chỉ còn
+        # là facade deprecated cho caller bên ngoài.
+        if self.cycle_count % 50 == 0:  # [V90 OPT] was every 5
             try:
-                # Record conclusion
-                conclusion_id = self.phase0.add_conclusion(
+                from scp.epistemic.runtime_bridge import get_runtime_bridge
+                bridge = get_runtime_bridge()
+                trace_id = f"cycle-{self.cycle_count}"
+                evidence_ids: list[str] = []
+                sources: list[str] = []
+                # Record SLM responses as MODEL_RESPONSE evidence
+                # (proves "the model said X" — never "X is true")
+                if verdict.slm_responses:
+                    for resp in verdict.slm_responses:
+                        if isinstance(resp, dict) and resp.get("answer"):
+                            slm_source = str(resp.get("slm_name", resp.get("domain", "unknown")) or "unknown")
+                            eid = bridge.record_model_response(
+                                slm_name=slm_source,
+                                answer=resp.get("answer", ""),
+                                confidence=resp.get("confidence", 0.5),
+                                entity=self._extract_entity(question, verdict.domain),
+                                attribute=resp.get("domain", ""),
+                                raw_data=resp,
+                                question=question,
+                                cycle_count=self.cycle_count,
+                                trace_id=trace_id,
+                            )
+                            if eid:
+                                evidence_ids.append(eid)
+                                sources.append(slm_source)
+                # Record reality_check as RUNTIME_OBSERVATION evidence
+                reality_eid = ""
+                if verdict.reality_check and verdict.reality_check.get("real_value") is not None:
+                    reality_source = str(verdict.reality_check.get("source", "v13") or "v13")
+                    reality_eid = bridge.record_reality_check(
+                        source=reality_source,
+                        entity=self._extract_entity(question, verdict.domain),
+                        attribute=self._domain_to_attribute(verdict.domain, question),
+                        real_value=verdict.reality_check.get("real_value"),
+                        raw_data=verdict.reality_check,
+                        question=question,
+                        cycle_count=self.cycle_count,
+                        trace_id=trace_id,
+                    )
+                    if reality_eid:
+                        evidence_ids.append(reality_eid)
+                        sources.append(reality_source)
+                # Record conclusion (+ LineageStore source-independence
+                # assessment recorded conservatively in its metadata)
+                conclusion_eid = bridge.record_conclusion(
                     question=question, ai_answer=ai_answer,
                     verdict=verdict.verdict, confidence=verdict.confidence,
                     domain=verdict.domain or "unknown",
                     reasoning=(verdict.reasoning or "")[:500],
                     cycle_count=self.cycle_count,
+                    trace_id=trace_id,
+                    source_ids=sources,
                 )
-                # Record SLM responses as evidences
-                if verdict.slm_responses:
-                    for resp in verdict.slm_responses:
-                        if isinstance(resp, dict) and resp.get("answer"):
-                            eid = self.phase0.add_evidence(
-                                evidence_type="slm_response",
-                                source=resp.get("slm_name", resp.get("domain", "unknown")),
-                                entity=self._extract_entity(question, verdict.domain),
-                                attribute=resp.get("domain", ""),
-                                value=resp.get("answer", ""),
-                                confidence=resp.get("confidence", 0.5),
-                                raw_data=resp,
-                            )
-                            if conclusion_id and eid:
-                                self.phase0.link_evidence(conclusion_id, eid, weight=resp.get("confidence", 0.5), role="slm")
-                # Record reality_check as evidence
-                if verdict.reality_check and verdict.reality_check.get("real_value") is not None:
-                    eid = self.phase0.add_evidence(
-                        evidence_type="reality_check",
-                        source=verdict.reality_check.get("source", "v13"),
-                        entity=self._extract_entity(question, verdict.domain),
-                        attribute=self._domain_to_attribute(verdict.domain, question),
-                        value=verdict.reality_check.get("real_value"),
-                        confidence=0.9,
-                        raw_data=verdict.reality_check,
-                    )
-                    if conclusion_id and eid:
-                        self.phase0.link_evidence(conclusion_id, eid, weight=0.9, role="reality")
-                # Record decision
-                if conclusion_id:
+                if conclusion_eid:
+                    for eid in evidence_ids:
+                        # Reality check VERIFIES the conclusion; SLM responses
+                        # only SUPPORT it (MODEL_RESPONSE != truth).
+                        bridge.link(eid, conclusion_eid,
+                                    "VERIFIES" if eid == reality_eid else "SUPPORTS")
+                    # Record decision
                     action = f"verdict_{verdict.verdict.lower()}"
-                    self.phase0.add_decision(conclusion_id, action, notes=f"cycle={self.cycle_count}")
+                    bridge.record_decision(conclusion_eid, action,
+                                           notes=f"cycle={self.cycle_count}")
             except Exception as e:
-                logger.warning(f"Phase 0 record failed: {e}")
+                logger.warning(f"Epistemic evidence record failed: {e}")
 
         # [PERF] Run Meta-Cognition cycle every 50 cycles (was 5 - too frequent with API calls)
         if self.meta is not None and self.cycle_count % 500 == 0:  # [V90 OPT] was every 50
