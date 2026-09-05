@@ -159,6 +159,12 @@ def test_golden_b_verified_fix_commits_to_durable_state(tmp_path):
         )
 
     import os
+    # Deterministic WHY contract (same pin as the security-weakening leg):
+    # runner.py loads the repo .env at import time and .env may carry
+    # SCP_WHY_LLM_ENABLED=1; the probabilistic LLM falsification layer then
+    # makes this golden contract flaky (real network verdicts). The
+    # deterministic falsification patterns remain authoritative.
+    os.environ["SCP_WHY_LLM_ENABLED"] = "0"
     os.environ["SCP_SEED_GOLD_EVIDENCE"] = "1"
     try:
         bug.suggested_fix = GOOD_FIX
@@ -168,6 +174,7 @@ def test_golden_b_verified_fix_commits_to_durable_state(tmp_path):
         assert "except OSError:" in target.read_text(encoding="utf-8")
     finally:
         os.environ.pop("SCP_SEED_GOLD_EVIDENCE", None)
+        os.environ.pop("SCP_WHY_LLM_ENABLED", None)
 
 
 def test_golden_b_cosmetic_patch_is_never_promoted(tmp_path):
