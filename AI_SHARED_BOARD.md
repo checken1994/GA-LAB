@@ -18,7 +18,7 @@
 ## 🔄 1.5. Kênh Tự Động (Auto-Chain)
 *Vòng lặp tự động: (1) ĐỌC kênh Antigravity (mục 1) lấy task/mới → (2) THỰC HIỆN mission → (3) GHI kết quả (mục 2) → (4) Đọc lại kênh Antigravity → (5) Dispatch kế → lặp.*
 * **⏪ Đọc Antigravity:** mỗi vòng phải check mục 📡 1 — nếu có task mới/feedback → xử lý TRƯỚC khi dispatch mission kế*
-* **M7 (S03 Acquisition runtime):** 🟡 Đang chạy nền
+* **M7 (S03 Acquisition runtime):** ✅ Hoàn tất (19 test green, commit c97705b) — **M8 (S06 Knowledge runtime) DISPATCHED**
 * **W2 M4/M5/M6:** ✅ Hoàn tất (449 passed)
 * **W1 M1-M3:** ✅ Hoàn tất
 
