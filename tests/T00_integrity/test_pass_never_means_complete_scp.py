@@ -4,8 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
@@ -32,14 +30,23 @@ def _verdict() -> dict:
 
 def test_green_suite_counts_can_never_satisfy_completion():
     """Even with the whole suite green: completion requires EVIDENCE_VERIFIED
-    on EVERY required capability. Anything less keeps the claim FORBIDDEN."""
+    on EVERY required capability. Anything less keeps the claim FORBIDDEN.
+    No skip: the guard must stay executable in BOTH states - a conditional
+    skip would make this guard vanish silently exactly when the state flips."""
     v = _verdict()
-    if v["evidence_verified_count"] >= v["required_capabilities"] and not v["required_still_missing"]:
-        pytest.skip("all required capabilities EVIDENCE_VERIFIED - rule satisfied, nothing to assert")
-    assert v["complete_scp_claim"] == "FORBIDDEN"
-    assert v["evidence_verified_count"] < v["required_capabilities"], (
-        "counts say completion but claim still FORBIDDEN - verdict tool is broken"
+    completion_satisfied = (
+        v["evidence_verified_count"] >= v["required_capabilities"]
+        and not v["required_still_missing"]
     )
+    if completion_satisfied:
+        assert v["complete_scp_claim"] != "FORBIDDEN", (
+            "counts say completion but claim still FORBIDDEN - verdict tool is broken"
+        )
+    else:
+        assert v["complete_scp_claim"] == "FORBIDDEN", (
+            "required capabilities are not all EVIDENCE_VERIFIED, "
+            "so any complete-SCP claim must stay FORBIDDEN"
+        )
 
 
 def test_handoff_and_readme_carry_no_unqualified_complete_scp_claim():

@@ -34,7 +34,8 @@ TARGET_MODULES = (
 @pytest.mark.parametrize("module_name", TARGET_MODULES)
 def test_split_target_imports(module_name: str) -> None:
     """A semantic split may not turn an importable production module into a syntax/import failure."""
-    importlib.import_module(module_name)
+    module = importlib.import_module(module_name)
+    assert module is not None
 
 
 def test_domain_registry_keeps_parent_registry_binding() -> None:
