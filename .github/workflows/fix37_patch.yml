@@ -22,6 +22,20 @@ jobs:
           python-version: "3.11"
       - name: Install focused dependency
         run: python -m pip install pytest
+      - name: Repair patcher method indentation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/fix_issue_37.py')
+          s = p.read_text(encoding='utf-8')
+          old = 'return "".join(lines[: target.lineno - 1]) + _dedent(replacement) + "".join(lines[target.end_lineno :])'
+          new = 'return "".join(lines[: target.lineno - 1]) + textwrap.indent(_dedent(replacement), "    ") + "".join(lines[target.end_lineno :])'
+          if old not in s:
+              raise SystemExit('replace_method helper target not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
       - name: Apply Issue 37 repair
         run: python tools/fix_issue_37.py
       - name: Run S06 authority tests
