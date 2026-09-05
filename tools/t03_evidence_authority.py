@@ -127,16 +127,23 @@ class EvidenceValidator:
         # 5. Git state matching
         current_sha, current_tree, current_clean = get_git_state()
         
-        check_sha = self.expected_sha or current_sha
-        if evidence["tested_sha"] != check_sha:
-            return False, f"SHA mismatch: evidence for {evidence['tested_sha']}, expected {check_sha}"
+        # Blocker 1: Anti-Spoofing
+        if self.expected_sha and self.expected_sha != current_sha:
+            return False, f"Spoofed SHA: expected_sha ({self.expected_sha}) does not match current system HEAD ({current_sha})"
+            
+        if evidence["tested_sha"] != current_sha:
+            return False, f"SHA mismatch: evidence for {evidence['tested_sha']}, current system HEAD is {current_sha}"
             
         if evidence["tree_hash"] != current_tree:
             return False, f"Tree mismatch: evidence tree {evidence['tree_hash']}, current {current_tree}"
 
+        # Blocker 2: Post-verification dirty state
         req_clean = evidence.get("profile", {}).get("clean_required", True)
-        if req_clean and not evidence["git_clean"]:
-            return False, "Evidence was generated on a dirty working tree"
+        if req_clean:
+            if not evidence.get("git_clean", False):
+                return False, "Evidence was generated on a dirty working tree"
+            if not current_clean:
+                return False, "Current working tree is dirty (post-verification state is not clean)"
 
         return True, "VERIFIED"
 

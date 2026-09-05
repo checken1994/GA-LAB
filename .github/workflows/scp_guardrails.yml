@@ -46,19 +46,19 @@ jobs:
         
       - name: Produce Evidence (FA-03)
         run: |
-          mkdir -p .evidence
-          python tools/t03_evidence_authority.py produce --out .evidence/scp_core_evidence.json
+          mkdir -p ${{ runner.temp }}/scp-evidence
+          python tools/t03_evidence_authority.py produce --out ${{ runner.temp }}/scp-evidence/scp_core_evidence.json
           
       - name: Validate Evidence (FA-03)
         run: |
           # The validator will check the evidence against the expected SHA (the PR head or branch head)
           EXPECTED_SHA=${{ github.event.pull_request.head.sha || github.sha }}
-          python tools/t03_evidence_authority.py validate --in-file .evidence/scp_core_evidence.json --candidate-sha $EXPECTED_SHA
+          python tools/t03_evidence_authority.py validate --in-file ${{ runner.temp }}/scp-evidence/scp_core_evidence.json --candidate-sha $EXPECTED_SHA
           
       - name: Upload Evidence Artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
         if: always()
         with:
           name: t03-evidence-record
-          path: .evidence/scp_core_evidence.json
+          path: ${{ runner.temp }}/scp-evidence/scp_core_evidence.json
           retention-days: 14

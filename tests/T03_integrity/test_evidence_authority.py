@@ -39,11 +39,13 @@ def test_fa03_02_evidence_sha_a_used_for_sha_b(base_profile, mock_git_state):
             p = EvidenceProducer(base_profile)
             ev = p.produce()
             
-            # Use validator with expected SHA B
-            v = EvidenceValidator(expected_sha="sha_B")
-            ok, msg = v.validate(ev)
-            assert not ok
-            assert "SHA mismatch" in msg
+    # System actually has sha_B
+    with patch('tools.t03_evidence_authority.get_git_state', return_value=("sha_B", "tree_A", True)):
+        # Validator is run without spoofing expected_sha
+        v = EvidenceValidator()
+        ok, msg = v.validate(ev)
+        assert not ok
+        assert "SHA mismatch" in msg
 
 def test_fa03_03_same_tree_different_commit_sha(base_profile):
     # Produce with SHA_A, Tree_A
@@ -183,17 +185,13 @@ def test_fa03_12_caller_spoofs_candidate_sha(base_profile):
             
     # System actually has sha_B
     with patch('tools.t03_evidence_authority.get_git_state', return_value=("sha_B", "tree_A", True)):
-        # Caller tries to say "expected is sha_A!" but system is sha_B.
-        # Wait, if expected_sha is passed, Validator strictly checks evidence vs expected_sha, 
-        # BUT the evidence itself is locked to the tree and we verify current_tree.
-        # If caller spoofed expected_sha="sha_A", and evidence matches sha_A, 
-        # but the actual tree is tree_B, it fails.
-        # If actual tree is tree_A, then it's a valid proof for sha_A, BUT we don't have sha_A deployed.
-        # This is handled because if they pass expected_sha, it's for CI asserting PR head.
-        pass
+        # Caller spoofing: passes expected_sha="sha_A" to try to get evidence A accepted for B.
+        v = EvidenceValidator(expected_sha="sha_A")
+        ok, msg = v.validate(ev)
+        assert not ok
+        assert "Spoofed SHA" in msg
 
 def test_fa03_13_artifact_out_of_tree(base_profile, tmp_path):
-    # Just proving it writes to an arbitrary path
     import tools.t03_evidence_authority as t03
     t03.PROJECT_ROOT = tmp_path
     
@@ -205,15 +203,13 @@ def test_fa03_13_artifact_out_of_tree(base_profile, tmp_path):
             p = EvidenceProducer(base_profile)
             ev = p.produce()
             
-            out_file = tmp_path / ".evidence" / "ev.json"
-            out_file.parent.mkdir()
+            out_file = tmp_path / "scp-evidence" / "ev.json"
+            out_file.parent.mkdir(parents=True)
             out_file.write_text(json.dumps(ev))
             
             assert out_file.exists()
 
 def test_fa03_14_synthetic_merge_sha(base_profile):
-    # This proves that if PR head is A, and merge is B, evidence produced on B has tested_sha = B.
-    # When CI validates with expected_sha = A (the PR head), it fails.
     with patch('tools.t03_evidence_authority.get_git_state', return_value=("merge_sha_B", "tree_B", True)):
         with patch('subprocess.run') as m:
             m.return_value.returncode = 0
@@ -225,4 +221,50 @@ def test_fa03_14_synthetic_merge_sha(base_profile):
         v = EvidenceValidator(expected_sha="pr_head_A")
         ok, msg = v.validate(ev)
         assert not ok
-        assert "SHA mismatch: evidence for merge_sha_B, expected pr_head_A" in msg
+        assert "Spoofed SHA" in msg
+
+def test_fa03_15_command_mutates_tracked_file(base_profile):
+    with patch('tools.t03_evidence_authority.get_git_state', return_value=("sha_A", "tree_A", True)):
+        with patch('subprocess.run') as m:
+            m.return_value.returncode = 0
+            m.return_value.stdout = "ok"
+            m.return_value.stderr = ""
+            ev = EvidenceProducer(base_profile).produce()
+
+    # After verification, system shows dirty tree (False)
+    with patch('tools.t03_evidence_authority.get_git_state', return_value=("sha_A", "tree_A", False)):
+        v = EvidenceValidator()
+        ok, msg = v.validate(ev)
+        assert not ok
+        assert "post-verification state is not clean" in msg
+
+def test_fa03_16_command_creates_untracked_file(base_profile):
+    with patch('tools.t03_evidence_authority.get_git_state', return_value=("sha_A", "tree_A", True)):
+        with patch('subprocess.run') as m:
+            m.return_value.returncode = 0
+            m.return_value.stdout = "ok"
+            m.return_value.stderr = ""
+            ev = EvidenceProducer(base_profile).produce()
+
+    # After verification, system shows dirty tree (False)
+    with patch('tools.t03_evidence_authority.get_git_state', return_value=("sha_A", "tree_A", False)):
+        v = EvidenceValidator(expected_sha="sha_A")
+        ok, msg = v.validate(ev)
+        assert not ok
+        assert "Current working tree is dirty" in msg
+
+def test_fa03_17_current_clean_false_while_evidence_clean_true(base_profile):
+    # Same concept: evidence says it started clean
+    with patch('tools.t03_evidence_authority.get_git_state', return_value=("sha_A", "tree_A", True)):
+        with patch('subprocess.run') as m:
+            m.return_value.returncode = 0
+            m.return_value.stdout = "ok"
+            m.return_value.stderr = ""
+            ev = EvidenceProducer(base_profile).produce()
+            
+    # Validator checks state and sees dirty
+    with patch('tools.t03_evidence_authority.get_git_state', return_value=("sha_A", "tree_A", False)):
+        v = EvidenceValidator()
+        ok, msg = v.validate(ev)
+        assert not ok
+        assert "post-verification state is not clean" in msg
