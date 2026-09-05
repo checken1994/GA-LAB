@@ -87,6 +87,42 @@ def test_resolution_correction_supersedes_instead_of_rewriting(tmp_path):
     ledger.close()
 
 
+def test_calibration_tables_reject_delete(tmp_path):
+    """M5: the calibration ledger is append-only in BOTH directions - UPDATE
+    and DELETE are machine-aborted; corrections supersede instead."""
+    ledger = CalibrationLedger(tmp_path / "calibration.sqlite")
+    pred = ledger.record_prediction(
+        domain="coding",
+        task_class="root_cause",
+        predictor_type="model",
+        predictor_id="model-x",
+        prediction={"claim": "X"},
+        semantic_verdict=Verdict.VERIFIED,
+        confidence=0.9,
+    )
+    resolution = ledger.resolve(
+        pred["prediction_id"],
+        outcome=Verdict.CONTRADICTED,
+        resolver_type="reality",
+        resolver_id="rv",
+        evidence_refs=["ev_0000000000000001"],
+    )
+
+    with pytest.raises(Exception, match="append-only"):
+        ledger.db.execute(
+            "DELETE FROM calibration_predictions WHERE prediction_id=?", (pred["prediction_id"],)
+        )
+    with pytest.raises(Exception, match="append-only"):
+        ledger.db.execute(
+            "DELETE FROM calibration_resolutions WHERE resolution_id=?", (resolution["resolution_id"],)
+        )
+
+    # Nothing was removed: history is fully preserved.
+    assert ledger.db.query("SELECT COUNT(*) AS n FROM calibration_predictions")[0]["n"] == 1
+    assert ledger.db.query("SELECT COUNT(*) AS n FROM calibration_resolutions")[0]["n"] == 1
+    ledger.close()
+
+
 def test_legacy_pass_fail_engine_is_advisory_only():
     adapter = LegacyCalibrationAdapter(_LegacyEngine())
     advice = adapter.advise(

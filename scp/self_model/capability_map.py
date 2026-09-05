@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
+import subprocess
 from enum import Enum
 from pathlib import Path
 
@@ -69,6 +71,20 @@ _SELF_MODEL_MIGRATIONS = [
                    BEGIN SELECT RAISE(ABORT, 'capability proof is immutable'); END;""",
         ],
     ),
+    (
+        # Append-only DELETE enforcement (M5). self_model_blindspots has a
+        # status lifecycle (OPEN/MITIGATED/CLOSED) so UPDATE stays allowed,
+        # but rows are never removed from the audit history.
+        "0002_capability_proofs_append_only",
+        [
+            """CREATE TRIGGER IF NOT EXISTS capability_proofs_no_delete
+                   BEFORE DELETE ON capability_proofs
+                   BEGIN SELECT RAISE(ABORT, 'capability_proofs is append-only - record a new proof instead'); END;""",
+            """CREATE TRIGGER IF NOT EXISTS self_model_blindspots_no_delete
+                   BEFORE DELETE ON self_model_blindspots
+                   BEGIN SELECT RAISE(ABORT, 'self_model_blindspots is append-only - close via status lifecycle'); END;""",
+        ],
+    ),
 ]
 
 
@@ -85,6 +101,41 @@ class CapabilityMap:
         self.evidence_store = evidence_store
         self.reference_path = Path(reference_path)
         self.bindings_path = Path(bindings_path)
+        self._repo_root_cache: Path | None = None
+
+    def _repo_root(self) -> Path:
+        """Repo that owns the Complete-SCP reference (walk up to .git)."""
+        if self._repo_root_cache is None:
+            for candidate in self.reference_path.resolve().parents:
+                if (candidate / ".git").exists():
+                    self._repo_root_cache = candidate
+                    break
+            else:
+                self._repo_root_cache = Path.cwd()
+        return self._repo_root_cache
+
+    def _current_head_sha(self) -> str:
+        """Ground-truth HEAD sha (git rev-parse HEAD); fail-closed on error."""
+        root = self._repo_root()
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ValueError(
+                f"cannot verify tested_sha against HEAD: git invocation failed ({exc})"
+            ) from exc
+        sha = (proc.stdout or "").strip().lower()
+        if proc.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", sha):
+            detail = ((proc.stderr or "").strip() or "no output")[:200]
+            raise ValueError(
+                f"cannot verify tested_sha against HEAD in {root}: git rev-parse HEAD failed ({detail})"
+            )
+        return sha
 
     def _load_specs(self) -> tuple[dict, dict]:
         reference = yaml.safe_load(self.reference_path.read_text(encoding="utf-8")) or {}
@@ -105,21 +156,41 @@ class CapabilityMap:
         evidence_id: str,
         evidence_level: str,
         tested_sha: str,
+        archived: bool = False,
     ) -> str:
         """Record evidence eligibility; never directly marks a capability verified.
 
-        The evidence itself must carry matching tested_sha and evidence_level in
-        immutable metadata, otherwise it cannot support the self-model claim.
+        Fail-closed validation:
+          - the evidence must be integrity-valid and its immutable metadata must
+            carry the matching ``tested_sha``, ``evidence_level`` AND the
+            ``capability_id`` being proven (an evidence row bound to another
+            capability can never support this one);
+          - ``tested_sha`` must match ``git rev-parse HEAD`` of the repo owning
+            the Complete-SCP reference at write time, so a proof can never be
+            recorded against a sha nobody has tested; ``archived=True`` is the
+            explicit override for archiving HISTORICAL proofs (it still cannot
+            manufacture verification for the current sha, because
+            ``recompute_capability`` only counts proofs matching its own sha).
         """
         level = str(evidence_level).strip().upper()
         if level not in _LEVEL_TO_MATURITY:
             raise ValueError("evidence_level must be A/B/C/D")
+        sha = str(tested_sha).strip().lower()
         ev = self.evidence_store.get(evidence_id)
         metadata = json.loads(ev.get("metadata_json") or "{}")
-        if str(metadata.get("tested_sha") or "") != str(tested_sha):
+        if str(metadata.get("tested_sha") or "").strip().lower() != sha:
             raise ValueError("capability proof evidence tested_sha mismatch")
-        if str(metadata.get("evidence_level") or "").upper() != level:
+        if str(metadata.get("evidence_level") or "").strip().upper() != level:
             raise ValueError("capability proof evidence level mismatch")
+        if str(metadata.get("capability_id") or "").strip() != str(capability_id):
+            raise ValueError("capability proof evidence must declare the capability_id it proves")
+        if not archived:
+            head_sha = self._current_head_sha()
+            if sha != head_sha:
+                raise ValueError(
+                    f"tested_sha {sha} does not match current HEAD {head_sha}; "
+                    "pass archived=True only for historical proof archival"
+                )
         reference, _ = self._load_specs()
         if capability_id not in (reference.get("capabilities") or {}):
             raise ValueError(f"unknown Complete-SCP capability: {capability_id}")
@@ -129,7 +200,7 @@ class CapabilityMap:
                 """INSERT OR IGNORE INTO capability_proofs
                    (proof_id,capability_id,evidence_id,evidence_level,tested_sha,recorded_at)
                    VALUES (?,?,?,?,?,?)""",
-                (proof_id, capability_id, evidence_id, level, str(tested_sha), now_utc_iso()),
+                (proof_id, capability_id, evidence_id, level, sha, now_utc_iso()),
             )
         return proof_id
 
