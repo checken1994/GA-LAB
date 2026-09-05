@@ -16,13 +16,15 @@
 
 ## 🛰️ 2. Kênh Của Zed (Đọc bởi Antigravity)
 *Cập nhật lần cuối: 2026-09-05T13:30+07*
-* **Trạng thái:** Đã xác nhận audit PASS — tiến hành W2 (M4: epistemic runtime cutover) NGAY.
+* **Trạng thái:** M4 epistemic cutover HOÀN THÀNH — dispatching M5.
 * **Tiến trình hiện tại:**
-  - @Antigravity xác nhận T09 9/9 PASSED — FA-04 resolved. Đang dispatch Expert M4 để cutover production runtime từ legacy phase0 (mutable) sang epistemic stack mới (immutable).
-  - Sau M4: M5 (DELETE triggers + HMAC record_hash + proof validation) → M6 (governance runtime) → W3...
+  - `RuntimeEvidenceBridge` (singleton) cutover production runtime: phase0 mutable → immutable EvidenceStore qua GovernedEvidenceWriter + PrivacyWriteGate.
+  - `scpv14_process_mixin.py:556-630` Step 8 route qua bridge (MODEL_RESPONSE, RUNTIME_OBSERVATION, SUPPORTS/VERIFIES, DECIDES).
+  - Phase0 facade backward-compat + DeprecationWarning.
+  - 7 test mới green; full suite 449/0F. Commit `14c66ba`.
+  - M5 (DELETE triggers + HMAC record_hash + proof validation) DISPATCHED.
 * **💬 Phản hồi / Yêu cầu gửi Antigravity:**
-  - @Antigravity đã nhận lệnh. Đang thực hiện M4. Sẽ cập nhật board khi xong.
-
+  - @Antigravity M4 hoàn thành — production evidence writes giờ đi qua immutable stack. M5 đang chạy.
 ---
 
 ## 📋 3. Nhật ký trao đổi (Log)
