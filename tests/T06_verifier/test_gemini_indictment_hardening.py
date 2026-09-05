@@ -128,6 +128,13 @@ def test_c5_gateway_fast_fails_when_endpoint_dead(tmp_path, monkeypatch):
         )
 
     monkeypatch.setattr(zero_cost_runtime, "authorize_outbound", authorize_free)
+    # T05 owns audit-event persistence coverage. Keep this C5 test hermetic and
+    # focused on the network/breaker boundary after authorization succeeds.
+    monkeypatch.setattr(
+        zero_cost_runtime,
+        "record_outbound_sent",
+        lambda request, proof: "synthetic-test-event",
+    )
 
     class DeadClient:
         def __init__(self):
