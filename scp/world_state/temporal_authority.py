@@ -60,6 +60,20 @@ _MIGRATIONS = [
         "ALTER TABLE identity_links ADD COLUMN evidence_refs_json TEXT",
         "ALTER TABLE identity_links ADD COLUMN actor_id TEXT",
     ]),
+    # identity_links previously had NO immutability trigger at all (M5 gap):
+    # lineage rows are append-only, no field is ever rewritten.
+    ("0003_identity_links_immutable", [
+        """CREATE TRIGGER IF NOT EXISTS identity_links_no_update
+               BEFORE UPDATE ON identity_links
+               BEGIN
+                   SELECT RAISE(ABORT, 'identity_links is append-only - lineage is never rewritten');
+               END;""",
+        """CREATE TRIGGER IF NOT EXISTS identity_links_no_delete
+               BEFORE DELETE ON identity_links
+               BEGIN
+                   SELECT RAISE(ABORT, 'identity_links is append-only - purge via retention lifecycle');
+               END;""",
+    ]),
 ]
 
 

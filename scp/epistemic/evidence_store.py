@@ -3,11 +3,18 @@
 Invariants:
   - occurrence identity != content identity: the same content observed twice
     yields the SAME content_hash/blob but TWO different evidence_ids;
-  - the `evidence` table is IMMUTABLE (SQLite trigger aborts UPDATE) - a wrong
-    observation is corrected by a NEW evidence + SUPERSEDES relation, never by
-    rewriting history;
-  - record_hash = sha256 over the canonical immutable metadata, so raw-SQL
-    tampering with metadata is detectable by verify_integrity();
+  - the epistemic tables (`evidence`, `content_blobs`, `evidence_links`) are
+    APPEND-ONLY (SQLite triggers abort UPDATE and DELETE) - a wrong observation
+    is corrected by a NEW evidence + SUPERSEDES relation, never by rewriting
+    history; only the lifecycle tables (`evidence_payload_state`,
+    `retention_events`) stay mutable;
+  - record_hash = sha256 (or HMAC-SHA256 when a key is configured) over the
+    canonical immutable metadata, so raw-SQL tampering with metadata is
+    detectable by verify_integrity(); the keyed variant is defense-in-depth:
+    a raw-SQL actor can no longer recompute the hash after editing, but it is
+    NOT an external trust root (the key lives with the deployment);
+  - blob write is crash-ordered: staging -> fsync -> atomic rename -> DB
+    transaction, and content blobs are deduplicated while occurrences are not;
   - blob write is crash-ordered: staging -> fsync -> atomic rename -> DB
     transaction, and content blobs are deduplicated while occurrences are not;
   - missing/tampered payload fails CLOSED (never returned as valid evidence);
@@ -16,8 +23,10 @@ Invariants:
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
+import subprocess
 import uuid
 from pathlib import Path
 
@@ -97,6 +106,28 @@ _EVIDENCE_MIGRATIONS = [
                    END;""",
         ],
     ),
+    (
+        # Append-only DELETE enforcement (M5). Lifecycle tables
+        # (evidence_payload_state, retention_events) stay mutable by design.
+        "0002_evidence_append_only",
+        [
+            """CREATE TRIGGER IF NOT EXISTS evidence_no_delete
+                   BEFORE DELETE ON evidence
+                   BEGIN
+                       SELECT RAISE(ABORT, 'evidence is append-only - purge via retention lifecycle');
+                   END;""",
+            """CREATE TRIGGER IF NOT EXISTS content_blobs_no_delete
+                   BEFORE DELETE ON content_blobs
+                   BEGIN
+                       SELECT RAISE(ABORT, 'content_blobs is append-only - purge via retention lifecycle');
+                   END;""",
+            """CREATE TRIGGER IF NOT EXISTS evidence_links_no_delete
+                   BEFORE DELETE ON evidence_links
+                   BEGIN
+                       SELECT RAISE(ABORT, 'evidence_links is append-only - supersede instead');
+                   END;""",
+        ],
+    ),
 ]
 
 
@@ -112,8 +143,61 @@ def _blob_rel_path(digest: str) -> str:
     return f"sha256/{hex_part[:2]}/{hex_part[2:4]}/{hex_part}"
 
 
+# --- Keyed record_hash (defense-in-depth, M5) -------------------------------
+# Plain sha256 over canonical metadata is recomputable by ANY raw-SQL actor,
+# so an attacker who drops the immutability trigger can re-hash edited rows.
+# When an HMAC key is configured, record_hash becomes HMAC-SHA256(key, ...) and
+# can no longer be recomputed without the key. This is NOT an external trust
+# root and NOT a secrecy guarantee: the key lives with the deployment. It only
+# raises the cost of tampering.
+HMAC_KEY_ENV = "SCP_EVIDENCE_HMAC_KEY"
+_HMAC_SCHEME_PREFIX = "hmac-sha256:"
+
+
+def derive_repo_identity_key(repo_root: str | Path) -> str:
+    """Deterministic HMAC key material derived from repo identity.
+
+    Prefers the git origin URL; falls back to the resolved repo path. The
+    result is NOT a secret (anyone with repo read access can recompute it) -
+    deployments with a real secret store should pass ``SCP_EVIDENCE_HMAC_KEY``
+    instead. Useful when no secret store exists but tamper elevation is still
+    wanted.
+    """
+    root = Path(repo_root)
+    identity = ""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "config", "--get", "remote.origin.url"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if proc.returncode == 0:
+            identity = proc.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        identity = ""
+    if not identity:
+        identity = str(root.resolve())
+    return "sha256:" + hashlib.sha256(
+        f"scp-evidence-hmac-v1:{identity}".encode("utf-8")
+    ).hexdigest()
+
+
 class EvidenceStore:
-    def __init__(self, db_path: str | Path, objects_dir: str | Path) -> None:
+    def __init__(
+        self,
+        db_path: str | Path,
+        objects_dir: str | Path,
+        hmac_key: str | bytes | None = None,
+    ) -> None:
+        # Key resolution: explicit param > env SCP_EVIDENCE_HMAC_KEY > None.
+        # Without a key the store stays fully backward compatible (plain
+        # sha256 record_hash); with a key it writes/requires HMAC record_hash.
+        key: bytes | None = hmac_key if hmac_key is not None else (os.environ.get(HMAC_KEY_ENV) or None)
+        if isinstance(key, str):
+            key = key.encode("utf-8")
+        self._hmac_key: bytes | None = key if key else None
         self.db = FoundationDB(db_path, _EVIDENCE_MIGRATIONS)
         self.objects_dir = Path(objects_dir)
         self.objects_dir.mkdir(parents=True, exist_ok=True)
@@ -123,6 +207,13 @@ class EvidenceStore:
         # blob but before the atomic rename - staged files are safe to delete.
         for leftover in staging.iterdir():
             leftover.unlink(missing_ok=True)
+
+    def _record_hash(self, canonical_metadata_json: str) -> str:
+        """Keyed (HMAC-SHA256) or plain (sha256) hash of canonical metadata."""
+        data = canonical_metadata_json.encode("utf-8")
+        if self._hmac_key:
+            return _HMAC_SCHEME_PREFIX + hmac.new(self._hmac_key, data, hashlib.sha256).hexdigest()
+        return content_id(data)
 
     def observe(
         self,
@@ -188,8 +279,8 @@ class EvidenceStore:
             "metadata_json": json.dumps(metadata or {}, ensure_ascii=False, sort_keys=True),
             "created_at": now_utc_iso(),
         }
-        row["record_hash"] = content_id(
-            json.dumps({f: row[f] for f in _IMMUTABLE_FIELDS}, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        row["record_hash"] = self._record_hash(
+            json.dumps({f: row[f] for f in _IMMUTABLE_FIELDS}, ensure_ascii=False, sort_keys=True)
         )
         with self.db.transaction() as conn:
             conn.execute(
@@ -234,11 +325,32 @@ class EvidenceStore:
         record = dict(rows[0])
         errors: list[str] = []
 
-        expected_hash = content_id(
-            json.dumps({f: record[f] for f in _IMMUTABLE_FIELDS}, ensure_ascii=False, sort_keys=True).encode("utf-8")
-        )
-        if expected_hash != record["record_hash"]:
-            errors.append("record_hash mismatch - immutable metadata was tampered with")
+        canonical = json.dumps({f: record[f] for f in _IMMUTABLE_FIELDS}, ensure_ascii=False, sort_keys=True)
+        stored_hash = record["record_hash"] or ""
+        # Scheme dispatch is FAIL-CLOSED in both directions:
+        #   - a keyed record without a configured key cannot be validated;
+        #   - an unkeyed record in a keyed store is refused, because plain
+        #     sha256 is recomputable by any raw-SQL actor (that is exactly the
+        #     tamper vector the HMAC key exists to close).
+        if stored_hash.startswith(_HMAC_SCHEME_PREFIX):
+            if not self._hmac_key:
+                errors.append("record_hash is HMAC-keyed but no HMAC key is configured (fail-closed)")
+            else:
+                expected = _HMAC_SCHEME_PREFIX + hmac.new(
+                    self._hmac_key, canonical.encode("utf-8"), hashlib.sha256
+                ).hexdigest()
+                if expected != stored_hash:
+                    errors.append("record_hash mismatch - immutable metadata was tampered with")
+        elif stored_hash.startswith("sha256:"):
+            if self._hmac_key:
+                errors.append(
+                    "record_hash is unkeyed but this store requires an HMAC-keyed hash - "
+                    "possible tampering or unkeyed legacy record"
+                )
+            elif stored_hash != content_id(canonical.encode("utf-8")):
+                errors.append("record_hash mismatch - immutable metadata was tampered with")
+        else:
+            errors.append("record_hash scheme is unknown - fail-closed")
 
         state_rows = self.db.query(
             "SELECT payload_state FROM evidence_payload_state WHERE evidence_id=?", (evidence_id,)

@@ -159,6 +159,12 @@ def test_golden_b_verified_fix_commits_to_durable_state(tmp_path):
         )
 
     import os
+    # Deterministic WHY contract (same pin as the security-weakening leg):
+    # runner.py loads the repo .env at import time and .env may carry
+    # SCP_WHY_LLM_ENABLED=1; the probabilistic LLM falsification layer then
+    # makes this golden contract flaky (real network verdicts). The
+    # deterministic falsification patterns remain authoritative.
+    os.environ["SCP_WHY_LLM_ENABLED"] = "0"
     os.environ["SCP_SEED_GOLD_EVIDENCE"] = "1"
     try:
         bug.suggested_fix = GOOD_FIX
@@ -168,6 +174,7 @@ def test_golden_b_verified_fix_commits_to_durable_state(tmp_path):
         assert "except OSError:" in target.read_text(encoding="utf-8")
     finally:
         os.environ.pop("SCP_SEED_GOLD_EVIDENCE", None)
+        os.environ.pop("SCP_WHY_LLM_ENABLED", None)
 
 
 def test_golden_b_cosmetic_patch_is_never_promoted(tmp_path):
@@ -189,16 +196,21 @@ def test_golden_b_cosmetic_patch_is_never_promoted(tmp_path):
 def test_golden_b_security_weakening_patch_is_killed_by_policy_gate(tmp_path):
     """Catastrophic-forgetting guard: a patch containing a forbidden pattern must be BLOCKED."""
     workspace, target, bug = _seed(tmp_path)
-    bug.suggested_fix = FORBIDDEN_FIX
-
-    engine = AutoFixEngine(str(tmp_path / "autofix-data"))
-    result = engine.process_bug(bug)
-
-    assert result.get("action") == "skipped", (
-        f"PRODUCT_FAIL: a verify=False patch was not blocked: {result}"
-    )
-    reason = str(result.get("reason", "")).lower()
-    assert "policy" in reason, f"Patch was skipped for the wrong reason (not the policy gate): {result}"
+    import os
+    os.environ["SCP_WHY_LLM_ENABLED"] = "0"
+    try:
+        bug.suggested_fix = FORBIDDEN_FIX
+    
+        engine = AutoFixEngine(str(tmp_path / "autofix-data"))
+        result = engine.process_bug(bug)
+    
+        assert result.get("action") == "skipped", (
+            f"PRODUCT_FAIL: a verify=False patch was not blocked: {result}"
+        )
+        reason = str(result.get("reason", "")).lower()
+        assert "policy" in reason, f"Patch was skipped for the wrong reason (not the policy gate): {result}"
+    finally:
+        os.environ.pop("SCP_WHY_LLM_ENABLED", None)
     assert target.read_text(encoding="utf-8") == BUGGY_SOURCE, (
         "Blocked patch still mutated the file"
     )

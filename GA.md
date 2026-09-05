@@ -302,3 +302,31 @@ Forbidden now:
   Its upstream source uses Bulk Advisory only; no 400 response is treated as a
   pass or generic retry. Response headers/cookies are redacted from new audit
   artifacts. Ref: https://github.com/npm/cli/blob/v11.19.1/workspaces/arborist/lib/audit-report.js
+
+## B9. Local continuation — T05 zero-cost dispatch (2026-09-05)
+
+- User target is the original PC checkout. GitHub is a lineage reference;
+  this continuation does not authorize pushing or promoting a release.
+- Scoped T05 changes: preserve unknown/malformed pricing as UNKNOWN, select the
+  newest same-timestamp observation, deny future observations, remove catalog
+  refresh from dispatch/key/status paths, preserve scheduled refresh, and stop
+  policy denials before retries/breaker accounting. Budget cannot add paid tiers.
+- Tests use an isolated proof database and synthetic HTTP transport. Existing
+  timeout/failover tests from other work were preserved. Judge model IDs are
+  pinned in the test fixture to prevent host environment collisions.
+- Pre-checkpoint verification on the working source based on c7ff6a47953514e904d159054a891ab5f0adb1f8:
+  65 T05 cases ran successfully; four bounded mutations were killed by assertions.
+  This is source-hash-bound development evidence, not a full-system or release claim.
+  A fresh run is required on the resulting local commit before citing that SHA.
+- Independent Codex review found the host-environment collision (repaired) and
+  an existing unresolved pricing/evidence integration gap: a nonempty evidence_id
+  alone does not prove the referenced EvidenceStore payload is valid or unpurged.
+  Account eligibility, live-provider inference and durable quota ledger remain
+  outside this bounded T05 evidence. Whole P0 completion remains BLOCKED.
+- A1/A2 were interrupted previously; their incomplete historical patches must
+  not be restored wholesale. A3 registry code has historical focused evidence
+  but requires reconciliation with current source. W3 edits owned by other
+  agents must be preserved; read current source before resuming those cones.
+- No SCP service or soak was started. Same-SHA full release/customer handoff has
+  not been run for this checkpoint. Rollback is a reviewed scoped revert;
+  never restore a policy bypass or weaken tests to manufacture green.

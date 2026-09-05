@@ -1,0 +1,589 @@
+================================================================================
+RUN 1: T09 GOLDEN TASK SUITE
+COMMAND: pytest tests/T09_golden_task/ -v
+WORKING_DIRECTORY: c:\Users\check\Downloads\scp
+EXIT_CODE: 0
+TIMESTAMP: 2026-09-05T05:28:29Z
+TASK_ID: a8b37569-05fa-4ded-8316-3b991bd3d537/task-50
+================================================================================
+
+C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!
+  warnings.warn(
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\check\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+hypothesis profile 'default' -> database=DirectoryBasedExampleDatabase(WindowsPath('C:/Users/check/Downloads/scp/.hypothesis/examples'))
+metadata: {'Python': '3.12.10', 'Platform': 'Windows-11-10.0.26200-SP0', 'Packages': {'pytest': '9.1.1', 'pluggy': '1.6.0'}, 'Plugins': {'anyio': '4.13.0', 'Faker': '40.1.2', 'hypothesis': '6.108.0', 'langsmith': '0.10.13', 'asyncio': '1.3.0', 'cov': '7.0.0', 'json-report': '1.5.0', 'metadata': '3.1.1'}}
+rootdir: C:\Users\check\Downloads\scp
+configfile: pytest.ini
+plugins: anyio-4.13.0, Faker-40.1.2, hypothesis-6.108.0, langsmith-0.10.13, asyncio-1.3.0, cov-7.0.0, json-report-1.5.0, metadata-3.1.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 9 items
+
+tests/T09_golden_task/test_e2e_scp_complete.py::test_complete_scp_architecture_integration PASSED [ 11%]
+tests/T09_golden_task/test_golden_a_agent_os.py::test_golden_a_agent_os_real_execution_flow PASSED [ 22%]
+tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_good_patch_is_apply_verified_then_failclosed PASSED [ 33%]
+tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_verified_fix_commits_to_durable_state PASSED [ 44%]
+tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_cosmetic_patch_is_never_promoted PASSED [ 55%]
+tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_security_weakening_patch_is_killed_by_policy_gate PASSED [ 66%]
+tests/T09_golden_task/test_golden_external_alert_routing_e2e.py::test_ce_s10_04_external_alert_routing_e2e_closed_loop PASSED [ 77%]
+tests/T09_golden_task/test_golden_risk_containment_e2e.py::test_ce_s10_03_governed_containment_e2e_closed_loop PASSED [ 88%]
+tests/T09_golden_task/test_golden_world_observation_e2e.py::test_ce_x08_01_world_observation_to_state_projection_e2e PASSED [100%]
+
+============================= 9 passed in 35.73s ==============================
+
+
+================================================================================
+RUN 2: INITIAL FULL SUITE (Captured baseline regression before test-contract repair)
+COMMAND: pytest tests/
+WORKING_DIRECTORY: c:\Users\check\Downloads\scp
+EXIT_CODE: 1
+TIMESTAMP: 2026-09-05T05:30:58Z
+TASK_ID: a8b37569-05fa-4ded-8316-3b991bd3d537/task-58
+================================================================================
+
+C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!
+  warnings.warn(
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\check\Downloads\scp
+configfile: pytest.ini
+plugins: anyio-4.13.0, Faker-40.1.2, hypothesis-6.108.0, langsmith-0.10.13, asyncio-1.3.0, cov-7.0.0, json-report-1.5.0, metadata-3.1.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 405 items
+
+tests\T00_integrity\test_complete_reference_integrity.py ....            [  0%]
+tests\T00_integrity\test_meta_audit.py F.......................          [  6%]
+tests\T00_integrity\test_pass_never_means_complete_scp.py ...            [  7%]
+tests\T00_integrity\test_scp_future_target.py .......                    [  9%]
+tests\T00_integrity\test_scp_target_test_coverage.py FFFFFFFFFF          [ 11%]
+tests\T00_integrity\test_target_coverage_authority_protected.py .        [ 12%]
+tests\T00_integrity\test_test_infrastructure_fail_closed.py ........     [ 14%]
+tests\T01_boot\test_startup_launcher_contract.py ...                     [ 14%]
+tests\T01_boot\test_supervisor_child_env.py .......                      [ 16%]
+tests\T02_contract\test_api_import_order_contract.py .                   [ 16%]
+tests\T02_contract\test_api_route_profile.py ...                         [ 17%]
+tests\T02_contract\test_benchmark_authority.py .                         [ 17%]
+tests\T02_contract\test_cognitive_orchestrator.py .                      [ 18%]
+tests\T02_contract\test_complete_reference_schema.py ..                  [ 18%]
+tests\T02_contract\test_contracts_primitives.py .......                  [ 20%]
+tests\T02_contract\test_contradiction_authority.py ...                   [ 20%]
+tests\T02_contract\test_dashboard_route_contract.py ...                  [ 21%]
+tests\T02_contract\test_doubt_engine.py ...                              [ 22%]
+tests\T02_contract\test_experiment_and_lesson.py ..                      [ 22%]
+tests\T02_contract\test_foundation_db.py ...                             [ 23%]
+tests\T02_contract\test_god_split_semantic_parity.py ................... [ 28%]
+............                                                             [ 31%]
+tests\T02_contract\test_hands_reconcile_outcome_schema.py .              [ 31%]
+tests\T02_contract\test_knowledge_control_db.py .                        [ 31%]
+tests\T02_contract\test_knowledge_ontology.py ......                     [ 33%]
+tests\T02_contract\test_knowledge_promotion.py ......                    [ 34%]
+tests\T02_contract\test_open_question_and_hypothesis.py ..               [ 35%]
+tests\T02_contract\test_promotion_authority.py ...                       [ 36%]
+tests\T02_contract\test_revalidation_authority.py ..                     [ 36%]
+tests\T02_contract\test_world_state_temporal_contract.py ...........     [ 39%]
+tests\T03_capability\test_auth_fail_closed_contract.py .....             [ 40%]
+tests\T03_capability\test_auth_request_injection.py .                    [ 40%]
+tests\T03_capability\test_capability_token_mutation_contract.py .......  [ 42%]
+tests\T03_capability\test_drift_guard.py .....                           [ 43%]
+tests\T03_capability\test_internet_safety_firewall.py ....               [ 44%]
+tests\T03_capability\test_os_sandbox.py ..                               [ 45%]
+tests\T03_capability\test_privacy_write_gate.py ...                      [ 45%]
+tests\T03_capability\test_risk_intelligence_contract.py ...........      [ 48%]
+tests\T03_capability\test_xff_guard_contract.py .....                    [ 49%]
+tests\T04_kernel\test_ask_kernel_adapter_verify.py ...                   [ 50%]
+tests\T04_kernel\test_ask_kernel_terminal_race.py ..                     [ 51%]
+tests\T04_kernel\test_kernel_crash_consistency.py ..                     [ 51%]
+tests\T04_kernel\test_kernel_p1_regressions.py .....                     [ 52%]
+tests\T04_kernel\test_kernel_storage.py ..                               [ 53%]
+tests\T04_kernel\test_lease_fencing_idempotency.py ...                   [ 54%]
+tests\T04_kernel\test_task_kernel_mutation_contract.py ...               [ 54%]
+tests\T04_kernel\test_transition_lease_fencing.py ..                     [ 55%]
+tests\T05_gateway\test_429_fallback_contract.py ...                      [ 56%]
+tests\T05_gateway\test_budget_routing.py .                               [ 56%]
+tests\T05_gateway\test_circuit_breaker_mutation_contract.py ..           [ 56%]
+tests\T05_gateway\test_fallback_watcher_single_source.py ..              [ 57%]
+tests\T05_gateway\test_llm_egress_policy.py ..........                   [ 59%]
+tests\T05_gateway\test_llm_gateway_fallback_contract.py ......           [ 61%]
+tests\T05_gateway\test_multi_llm_crosscheck.py ...                       [ 61%]
+tests\T05_gateway\test_multi_llm_crosscheck_concurrency.py ...           [ 62%]
+tests\T05_gateway\test_provider_failover.py ......                       [ 64%]
+tests\T05_gateway\test_provider_fallback.py .                            [ 64%]
+tests\T05_gateway\test_provider_timeout_recovery.py .                    [ 64%]
+tests\T05_gateway\test_zero_cost_guard.py .....                          [ 65%]
+tests\T06_verifier\test_calibration_ledger.py ...                        [ 66%]
+tests\T06_verifier\test_evidence_store.py .......                        [ 68%]
+tests\T06_verifier\test_gemini_indictment_hardening.py .........         [ 70%]
+tests\T06_verifier\test_privacy_retention.py .                           [ 70%]
+tests\T06_verifier\test_self_model_capability_map.py ...                 [ 71%]
+tests\T06_verifier\test_source_identity_lineage.py ...                   [ 72%]
+tests\T07_learning\test_autofix_behavioral.py ..                         [ 72%]
+tests\T07_learning\test_autofix_protected_path.py .                      [ 73%]
+tests\T07_learning\test_chat_multimodal_contract.py ......               [ 74%]
+tests\T07_learning\test_epistemic_missing_piece.py ...                   [ 75%]
+tests\T08_runtime\test_learning_scheduler_benchmark.py .                 [ 75%]
+tests\T08_runtime\test_mutation_engine.py ....                           [ 76%]
+tests\T08_runtime\test_soak_harness.py ..                                [ 77%]
+tests\T09_golden_task\test_e2e_scp_complete.py .                         [ 77%]
+tests\T09_golden_task\test_golden_a_agent_os.py .                        [ 77%]
+tests\T09_golden_task\test_golden_b_epistemic_loop.py ....               [ 78%]
+tests\T09_golden_task\test_golden_external_alert_routing_e2e.py .        [ 78%]
+tests\T09_golden_task\test_golden_risk_containment_e2e.py .              [ 79%]
+tests\T09_golden_task\test_golden_world_observation_e2e.py .             [ 79%]
+tests\T10_recovery\test_adversarial_chaos_matrix.py ..                   [ 79%]
+tests\T10_recovery\test_kernel_chaos_recovery.py ..                      [ 80%]
+tests\T10_recovery\test_reconciliation_outcome_contract.py .....         [ 81%]
+tests\T11_release\test_ce_s10_04_alert_evidence_binding.py ..            [ 81%]
+tests\T11_release\test_dashboard_audit_retry.py ........................ [ 87%]
+                                                                         [ 87%]
+tests\T11_release\test_main_handoff_dispatch.py ....................     [ 92%]
+tests\T11_release\test_rc_workflow_runtime_contract.py .......           [ 94%]
+tests\T11_release\test_release_authority_contract.py ...                 [ 95%]
+tests\T11_release\test_scp_skill_dna_contract.py ........                [ 97%]
+tests\T11_release\test_scp_test_skill_contract.py ....                   [ 98%]
+tests\T11_release\test_sha_evidence_binding.py .                         [ 98%]
+tests\contract\test_judge_verifier_contract.py .                         [ 98%]
+tests\external_audit\test_cascade.py .....                               [100%]
+
+================================== FAILURES ===================================
+_________________ test_meta_audit_no_skip_in_mandatory_tests __________________
+
+    def test_meta_audit_no_skip_in_mandatory_tests():
+        # Enforce that no mandatory tests are skipped for reasons other than OS
+        # incompatibility. AST-based: a quoted "pytest.skip" token inside a drift-
+        # guard deny list is NOT a real skip call - only actual Call nodes count.
+        # Covers ALL 12 gates T00-T11 (plus any extra T* dir), and also catches
+        # module-level `pytestmark = pytest.mark.skip(...)` whole-file skips and
+        # skip/xfail/skipif decorators, which the per-call scan cannot see.
+        import ast
+        root_dir = os.path.dirname(os.path.dirname(__file__))
+        mandatory_dirs = sorted(glob.glob(os.path.join(root_dir, 'T[0-9][0-9]*')))
+        assert len(mandatory_dirs) >= 12, f"expected all 12 gate dirs, found {mandatory_dirs}"
+        for dir_path in mandatory_dirs:
+            for filepath in glob.glob(os.path.join(dir_path, '*.py')):
+                if filepath == __file__: continue
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    source = f.read()
+                tree = ast.parse(source, filename=filepath)
+                has_real_skip = any(
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in {'skip', 'importorskip'}
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == 'pytest'
+                    for node in ast.walk(tree)
+                )
+                # If there's a real skip call, it MUST be OS-conditional.
+                if has_real_skip and 'platform.system' not in source:
+>                   assert False, f"Mandatory test {filepath} contains a real pytest.skip() call. Mandatory tests must FAIL if blocked, unless OS-specific."
+E                   AssertionError: Mandatory test C:\Users\check\Downloads\scp\tests\T00_integrity\test_pass_never_means_complete_scp.py contains a real pytest.skip() call. Mandatory tests must FAIL if blocked, unless OS-specific.
+E                   assert False
+
+tests\T00_integrity\test_meta_audit.py:70: AssertionError
+__________ test_shipped_target_test_traceability_structure_is_valid ___________
+
+    def test_shipped_target_test_traceability_structure_is_valid():
+        assert BINDING.is_file(), "spec/scp_target_test_coverage.yaml must exist"
+>       _binding, _target, report = _shipped()
+                                    ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:25: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+________ test_effective_map_contains_all_138_capabilities_and_67_edges ________
+
+    def test_effective_map_contains_all_138_capabilities_and_67_edges():
+>       _binding, _target, report = _shipped()
+                                    ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+__________ test_unclaimed_target_is_explicitly_unproven_not_omitted ___________
+
+    def test_unclaimed_target_is_explicitly_unproven_not_omitted():
+>       _binding, _target, report = _shipped()
+                                    ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+____ test_current_binding_never_turns_test_presence_into_evidence_verified ____
+
+    def test_current_binding_never_turns_test_presence_into_evidence_verified():
+>       _binding, _target, report = _shipped()
+                                    ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:50: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_______________ test_validator_rejects_claim_for_unknown_target _______________
+
+    def test_validator_rejects_claim_for_unknown_target():
+>       binding, target, _report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_________________ test_validator_rejects_missing_pytest_node __________________
+
+    def test_validator_rejects_missing_pytest_node():
+>       binding, target, _report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:65: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_____________ test_validator_rejects_test_from_inapplicable_gate ______________
+
+    def test_validator_rejects_test_from_inapplicable_gate():
+>       binding, target, _report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+______ test_evidence_verified_cannot_be_self_declared_without_provenance ______
+
+    def test_evidence_verified_cannot_be_self_declared_without_provenance():
+>       binding, target, _report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_____ test_reverse_mapping_exists_for_every_explicit_concrete_test_claim ______
+
+    def test_reverse_mapping_exists_for_every_explicit_concrete_test_claim():
+>       binding, _target, report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:98: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_____ test_generated_report_is_deterministic_for_same_binding_and_target ______
+
+    def test_generated_report_is_deterministic_for_same_binding_and_target():
+>       binding, target, report = _shipped()
+                                  ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+E       assert not ['claims[32]: pytest node does not exist: tests/T02_contract/test_god_split_semantic_parity.py::test_split_target_imports']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/T00_integrity/test_meta_audit.py::test_meta_audit_no_skip_in_mandatory_tests
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_shipped_target_test_traceability_structure_is_valid
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_effective_map_contains_all_138_capabilities_and_67_edges
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_unclaimed_target_is_explicitly_unproven_not_omitted
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_current_binding_never_turns_test_presence_into_evidence_verified
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_validator_rejects_claim_for_unknown_target
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_validator_rejects_missing_pytest_node
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_validator_rejects_test_from_inapplicable_gate
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_evidence_verified_cannot_be_self_declared_without_provenance
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_reverse_mapping_exists_for_every_explicit_concrete_test_claim
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_generated_report_is_deterministic_for_same_binding_and_target
+================= 11 failed, 394 passed in 130.74s (0:02:10) ==================
+
+
+================================================================================
+RUN 3: ISOLATED T09 EPISTEMIC LOOP SUITE
+COMMAND: pytest tests/T09_golden_task/test_golden_b_epistemic_loop.py -v
+WORKING_DIRECTORY: c:\Users\check\Downloads\scp
+EXIT_CODE: 0
+TIMESTAMP: 2026-09-05T05:36:40Z
+TASK_ID: a8b37569-05fa-4ded-8316-3b991bd3d537/task-104
+================================================================================
+
+C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!
+  warnings.warn(
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\check\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+hypothesis profile 'default' -> database=DirectoryBasedExampleDatabase(WindowsPath('C:/Users/check/Downloads/scp/.hypothesis/examples'))
+metadata: {'Python': '3.12.10', 'Platform': 'Windows-11-10.0.26200-SP0', 'Packages': {'pytest': '9.1.1', 'pluggy': '1.6.0'}, 'Plugins': {'anyio': '4.13.0', 'Faker': '40.1.2', 'hypothesis': '6.108.0', 'langsmith': '0.10.13', 'asyncio': '1.3.0', 'cov': '7.0.0', 'json-report': '1.5.0', 'metadata': '3.1.1'}}
+rootdir: C:\Users\check\Downloads\scp
+configfile: pytest.ini
+plugins: anyio-4.13.0, Faker-40.1.2, hypothesis-6.108.0, langsmith-0.10.13, asyncio-1.3.0, cov-7.0.0, json-report-1.5.0, metadata-3.1.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 4 items
+
+tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_good_patch_is_apply_verified_then_failclosed PASSED [ 25%]
+tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_verified_fix_commits_to_durable_state PASSED [ 50%]
+tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_cosmetic_patch_is_never_promoted PASSED [ 75%]
+tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_security_weakening_patch_is_killed_by_policy_gate PASSED [100%]
+
+============================= 4 passed in 32.25s ==============================
+
+
+================================================================================
+RUN 4: FINAL VERIFIED FULL SUITE RUN
+COMMAND: pytest tests/
+WORKING_DIRECTORY: c:\Users\check\Downloads\scp
+EXIT_CODE: 0
+TIMESTAMP: 2026-09-05T05:39:03Z
+TASK_ID: a8b37569-05fa-4ded-8316-3b991bd3d537/task-108
+================================================================================
+
+C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!
+  warnings.warn(
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\check\Downloads\scp
+configfile: pytest.ini
+plugins: anyio-4.13.0, Faker-40.1.2, hypothesis-6.108.0, langsmith-0.10.13, asyncio-1.3.0, cov-7.0.0, json-report-1.5.0, metadata-3.1.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 411 items
+
+tests\T00_integrity\test_complete_reference_integrity.py ....            [  0%]
+tests\T00_integrity\test_meta_audit.py ..............................    [  8%]
+tests\T00_integrity\test_pass_never_means_complete_scp.py ...            [  9%]
+tests\T00_integrity\test_scp_future_target.py .......                    [ 10%]
+tests\T00_integrity\test_scp_target_test_coverage.py ..........          [ 13%]
+tests\T00_integrity\test_target_coverage_authority_protected.py .        [ 13%]
+tests\T00_integrity\test_test_infrastructure_fail_closed.py ........     [ 15%]
+tests\T01_boot\test_startup_launcher_contract.py ...                     [ 16%]
+tests\T01_boot\test_supervisor_child_env.py .......                      [ 17%]
+tests\T02_contract\test_api_import_order_contract.py .                   [ 18%]
+tests\T02_contract\test_api_route_profile.py ...                         [ 18%]
+tests\T02_contract\test_benchmark_authority.py .                         [ 18%]
+tests\T02_contract\test_cognitive_orchestrator.py .                      [ 19%]
+tests\T02_contract\test_complete_reference_schema.py ..                  [ 19%]
+tests\T02_contract\test_contracts_primitives.py .......                  [ 21%]
+tests\T02_contract\test_contradiction_authority.py ...                   [ 22%]
+tests\T02_contract\test_dashboard_route_contract.py ...                  [ 22%]
+tests\T02_contract\test_doubt_engine.py ...                              [ 23%]
+tests\T02_contract\test_experiment_and_lesson.py ..                      [ 24%]
+tests\T02_contract\test_foundation_db.py ...                             [ 24%]
+tests\T02_contract\test_god_split_semantic_parity.py ................... [ 29%]
+............                                                             [ 32%]
+tests\T02_contract\test_hands_reconcile_outcome_schema.py .              [ 32%]
+tests\T02_contract\test_knowledge_control_db.py .                        [ 32%]
+tests\T02_contract\test_knowledge_ontology.py ......                     [ 34%]
+tests\T02_contract\test_knowledge_promotion.py ......                    [ 35%]
+tests\T02_contract\test_open_question_and_hypothesis.py ..               [ 36%]
+tests\T02_contract\test_promotion_authority.py ...                       [ 36%]
+tests\T02_contract\test_revalidation_authority.py ..                     [ 37%]
+tests\T02_contract\test_world_state_temporal_contract.py ...........     [ 40%]
+tests\T03_capability\test_auth_fail_closed_contract.py .....             [ 41%]
+tests\T03_capability\test_auth_request_injection.py .                    [ 41%]
+tests\T03_capability\test_capability_token_mutation_contract.py .......  [ 43%]
+tests\T03_capability\test_drift_guard.py .....                           [ 44%]
+tests\T03_capability\test_internet_safety_firewall.py ....               [ 45%]
+tests\T03_capability\test_os_sandbox.py ..                               [ 45%]
+tests\T03_capability\test_privacy_write_gate.py ...                      [ 46%]
+tests\T03_capability\test_risk_intelligence_contract.py ...........      [ 49%]
+tests\T03_capability\test_xff_guard_contract.py .....                    [ 50%]
+tests\T04_kernel\test_ask_kernel_adapter_verify.py ...                   [ 51%]
+tests\T04_kernel\test_ask_kernel_terminal_race.py ..                     [ 51%]
+tests\T04_kernel\test_kernel_crash_consistency.py ..                     [ 52%]
+tests\T04_kernel\test_kernel_p1_regressions.py .....                     [ 53%]
+tests\T04_kernel\test_kernel_storage.py ..                               [ 54%]
+tests\T04_kernel\test_lease_fencing_idempotency.py ...                   [ 54%]
+tests\T04_kernel\test_task_kernel_mutation_contract.py ...               [ 55%]
+tests\T04_kernel\test_transition_lease_fencing.py ..                     [ 55%]
+tests\T05_gateway\test_429_fallback_contract.py ...                      [ 56%]
+tests\T05_gateway\test_budget_routing.py .                               [ 56%]
+tests\T05_gateway\test_circuit_breaker_mutation_contract.py ..           [ 57%]
+tests\T05_gateway\test_fallback_watcher_single_source.py ..              [ 57%]
+tests\T05_gateway\test_llm_egress_policy.py ..........                   [ 60%]
+tests\T05_gateway\test_llm_gateway_fallback_contract.py ......           [ 61%]
+tests\T05_gateway\test_multi_llm_crosscheck.py ...                       [ 62%]
+tests\T05_gateway\test_multi_llm_crosscheck_concurrency.py ...           [ 63%]
+tests\T05_gateway\test_provider_failover.py ......                       [ 64%]
+tests\T05_gateway\test_provider_fallback.py .                            [ 64%]
+tests\T05_gateway\test_provider_timeout_recovery.py .                    [ 65%]
+tests\T05_gateway\test_zero_cost_guard.py .....                          [ 66%]
+tests\T06_verifier\test_calibration_ledger.py ...                        [ 67%]
+tests\T06_verifier\test_evidence_store.py .......                        [ 68%]
+tests\T06_verifier\test_gemini_indictment_hardening.py .........         [ 71%]
+tests\T06_verifier\test_privacy_retention.py .                           [ 71%]
+tests\T06_verifier\test_self_model_capability_map.py ...                 [ 72%]
+tests\T06_verifier\test_source_identity_lineage.py ...                   [ 72%]
+tests\T07_learning\test_autofix_behavioral.py ..                         [ 73%]
+tests\T07_learning\test_autofix_protected_path.py .                      [ 73%]
+tests\T07_learning\test_chat_multimodal_contract.py ......               [ 74%]
+tests\T07_learning\test_epistemic_missing_piece.py ...                   [ 75%]
+tests\T08_runtime\test_learning_scheduler_benchmark.py .                 [ 75%]
+tests\T08_runtime\test_mutation_engine.py ....                           [ 76%]
+tests\T08_runtime\test_soak_harness.py ..                                [ 77%]
+tests\T09_golden_task\test_e2e_scp_complete.py .                         [ 77%]
+tests\T09_golden_task\test_golden_a_agent_os.py .                        [ 77%]
+tests\T09_golden_task\test_golden_b_epistemic_loop.py ....               [ 78%]
+tests\T09_golden_task\test_golden_external_alert_routing_e2e.py .        [ 79%]
+tests\T09_golden_task\test_golden_risk_containment_e2e.py .              [ 79%]
+tests\T09_golden_task\test_golden_world_observation_e2e.py .             [ 79%]
+tests\T10_recovery\test_adversarial_chaos_matrix.py ..                   [ 80%]
+tests\T10_recovery\test_kernel_chaos_recovery.py ..                      [ 80%]
+tests\T10_recovery\test_reconciliation_outcome_contract.py .....         [ 81%]
+tests\T11_release\test_ce_s10_04_alert_evidence_binding.py ..            [ 82%]
+tests\T11_release\test_dashboard_audit_retry.py ........................ [ 88%]
+                                                                         [ 88%]
+tests\T11_release\test_main_handoff_dispatch.py ....................     [ 92%]
+tests\T11_release\test_rc_workflow_runtime_contract.py .......           [ 94%]
+tests\T11_release\test_release_authority_contract.py ...                 [ 95%]
+tests\T11_release\test_scp_skill_dna_contract.py ........                [ 97%]
+tests\T11_release\test_scp_test_skill_contract.py ....                   [ 98%]
+tests\T11_release\test_sha_evidence_binding.py .                         [ 98%]
+tests\contract\test_judge_verifier_contract.py .                         [ 98%]
+tests\external_audit\test_cascade.py .....                               [100%]
+
+======================= 411 passed in 135.33s (0:02:15) =======================
+
+
+================================================================================
+RUN 5: PORTABLE REALITY TESTS RUNNER
+COMMAND: python scripts/run_reality_tests_portable.py
+WORKING_DIRECTORY: c:\Users\check\Downloads\scp
+EXIT_CODE: 0
+TIMESTAMP: 2026-09-05T05:32:39Z
+TASK_ID: a8b37569-05fa-4ded-8316-3b991bd3d537/task-76
+================================================================================
+
+PASS    reality_4-a-002.py (0.15s)
+PASS    reality_4-a-003.py (0.08s)
+PASS    reality_4-a-004.py (0.13s)
+PASS    reality_4-a-005.py (1.36s)
+PASS    reality_4-a-006.py (1.35s)
+PASS    reality_4-a-008.py (0.08s)
+PASS    reality_4-a-009.py (0.08s)
+PASS    reality_4-a-010.py (30.22s)
+PASS    reality_4-a-011.py (0.1s)
+PASS    reality_4-a-012.py (0.15s)
+PASS    reality_4-a-013.py (0.09s)
+PASS    reality_4-a-014.py (0.1s)
+PASS    reality_4-a-015.py (0.09s)
+PASS    reality_4-a-017.py (0.1s)
+PASS    reality_4-a-018.py (0.09s)
+PASS    reality_4-b-001.py (0.1s)
+PASS    reality_4-b-002.py (0.08s)
+PASS    reality_4-b-003.py (0.09s)
+PASS    reality_4-b-004.py (0.08s)
+PASS    reality_4-b-005.py (0.09s)
+PASS    reality_4-b-006.py (0.08s)
+PASS    reality_4-b-007.py (2.3s)
+PASS    reality_4-b-008.py (0.17s)
+PASS    reality_4-b-009.py (0.13s)
+PASS    reality_4-b-010.py (0.12s)
+PASS    reality_4-b-011.py (0.8s)
+PASS    reality_4-b-012.py (0.42s)
+PASS    reality_4-b-013.py (0.21s)
+PASS    reality_4-b-014-semantic.py (0.22s)
+PASS    reality_4-b-014.py (0.17s)
+PASS    reality_4-b-015.py (0.49s)
+PASS    reality_4-b-016.py (0.16s)
+PASS    reality_4-b-017.py (0.08s)
+PASS    reality_4-b-018.py (0.24s)
+PASS    reality_4-b-019.py (0.19s)
+PASS    reality_4-c-005.py (0.08s)
+PASS    reality_4-c-006.py (0.12s)
+PASS    reality_4-c-007.py (0.07s)
+PASS    reality_4-c-008.py (0.09s)
+PASS    reality_4-c-009.py (0.08s)
+PASS    reality_4-c-010.py (0.08s)
+PASS    reality_4-c-011.py (0.09s)
+PASS    reality_4-c-015.py (0.11s)
+PASS    reality_4-c-016.py (0.08s)
+PASS    reality_4-c-018.py (0.08s)
+PASS    reality_4-c-019.py (0.08s)
+PASS    reality_4-c-020.py (0.08s)
+PASS    reality_4-c-021.py (1.19s)
+PASS    reality_4-c-022.py (0.08s)
+PASS    reality_4-d-004.py (0.08s)
+PASS    reality_4-d-005.py (0.08s)
+PASS    reality_4-d-006.py (0.08s)
+PASS    reality_4-d-007.py (4.91s)
+PASS    reality_4-d-008.py (0.36s)
+PASS    reality_4-d-009.py (0.24s)
+PASS    reality_4-d-011.py (0.09s)
+PASS    reality_4-d-012.py (0.08s)
+PASS    reality_4-d-013.py (0.08s)
+PASS    reality_4-d-014.py (0.07s)
+PASS    reality_4-d-015.py (0.06s)
+PASS    reality_4-d-016.py (0.08s)
+PASS    reality_4-d-017.py (0.07s)
+PASS    reality_4-d-018.py (0.08s)
+PASS    reality_4-d-019.py (0.38s)
+PASS    reality_4-d-020.py (0.21s)
+PASS    reality_4-d-022.py (0.09s)
+PASS    reality_4-d-023.py (0.26s)
+PASS    reality_4-d-024.py (0.39s)
+PASS    reality_4-d-025.py (0.19s)
+PASS    reality_4-d-026.py (0.12s)
+PASS    reality_4-d-027.py (0.11s)
+PASS    reality_4-d-028.py (0.08s)
+PASS    reality_4-d-029.py (0.08s)
+PASS    reality_4-d-030.py (0.07s)
+PASS    reality_4-e-001.py (0.54s)
+PASS    reality_4-e-002.py (8.36s)
+{"test_count": 76, "pass": 76, "fail": 0, "timeout": 0, "error": 0}

@@ -589,9 +589,14 @@ class AutoFixMixin:
         # BEFORE the real file is touched. Fail-open: simulation crash →
         # both v4 hooks skipped (proceed with old behavior).
         #
-        # ctx.pairs is built inside the try/except above. If validation try
-        # failed before line 796, ctx.pairs is undefined — defensive .get().
-        _v4_pairs = locals().get("ctx.pairs", []) or []
+        # ctx.pairs is built inside the try/except above. If that try failed
+        # before the assignment, the attribute is unset — defensive getattr.
+        # [M1 fix IMP-14/IMP-23] The old `locals().get("ctx.pairs", [])` could
+        # NEVER find anything: "ctx.pairs" (with the dot) is not a valid
+        # identifier, so it is never a locals() key → _v4_pairs was always []
+        # → the shadow canary + confidence ranker were silently skipped for
+        # every generic fix.
+        _v4_pairs = getattr(ctx, "pairs", []) or []
         ctx.sim_patched: str | None = None
         if ctx.pre_fix_content is not None and _v4_pairs:
             try:
@@ -699,6 +704,11 @@ class AutoFixMixin:
             )
 
     def _auto_fix_part2(self, ctx) -> dict | None:
+        # [M1 fix] Bind filepath HERE. part2 reads it (patched-source read for
+        # the IMP-20 type-flow check) but it was only defined in part1/part3 —
+        # the NameError was swallowed by the local except and type-flow
+        # silently no-oped. Same treatment part3 already documents (STEP0-FIX).
+        filepath = Path(ctx.bug.file)
         # [R10 v4 WIRE — IMP-16 + IMP-20 PAIRED] Blast-Radius + Type-Flow Verify.
         # TẠI SAO: IMP-14 (confidence_ranker) scores a fix but DOES NOT walk
         # the caller graph. A fix that changes `def get_user(uid) ->
@@ -862,12 +872,19 @@ class AutoFixMixin:
                             return _V4_TF_Sig(args=[], returns="")
 
                         _v4_orig_sig = _extract_sig(ctx.pre_fix_content or "", _v4_target_func)
-                        # Read patched source if available
-                        _v4_patched_src = ""
-                        try:
-                            _v4_patched_src = filepath.read_text(encoding="utf-8")
-                        except Exception as _patched_source_error:
-                            logger.debug('[AUTOFIX] patched source read failed; using empty source', exc_info=True)
+                        # [M1] "Patched" source at part2 time = the simulated
+                        # post-patch source (ctx.sim_patched, built in part1
+                        # from the same SEARCH/REPLACE pairs _apply_fix will
+                        # apply). Reading filepath here would return PRE-apply
+                        # bytes and make the orig-vs-new signature comparison
+                        # tautological (orig == current disk state). Fallback:
+                        # current file content if simulation is unavailable.
+                        _v4_patched_src = getattr(ctx, "sim_patched", None) or ""
+                        if not _v4_patched_src:
+                            try:
+                                _v4_patched_src = filepath.read_text(encoding="utf-8")
+                            except Exception as _patched_source_error:
+                                logger.debug('[AUTOFIX] patched source read failed; using empty source', exc_info=True)
                         _v4_new_sig = _extract_sig(_v4_patched_src, _v4_target_func)
 
                         _v4_tflow_result = _v4_tflow(
@@ -949,10 +966,27 @@ class AutoFixMixin:
                 shadow_apply_and_compare as _v4_shadow_compare,
             )
             if ctx.sim_patched is not None and ctx.pre_fix_content is not None:
+                # [M1] Give the canary the fix's INTENT (bug class + the
+                # functions the fix actually touches — derived from the real
+                # line diff of pre-fix vs simulated post-patch source, with a
+                # def-name fallback) so its regression detector can
+                # distinguish the intended exception-surface change
+                # (BareExceptPass swallow→raise inside the fixed function)
+                # from collateral damage in unrelated functions.
+                from scp.autofix.runner_phases.shadow_canary import (
+                    fix_target_functions as _v4_fix_target_funcs,
+                )
+                _v4_sc_target_funcs = _v4_fix_target_funcs(
+                    ctx.pre_fix_content,
+                    ctx.sim_patched,
+                    suggested_fix=ctx.bug.suggested_fix or "",
+                )
                 _v4_shadow_fix = _V4_ShadowFix(
                     original_source=ctx.pre_fix_content,
                     patched_source=ctx.sim_patched,
                     fix_id=ctx._autofix_bug_id,
+                    bug_type=ctx.bug.bug_type,
+                    target_functions=_v4_sc_target_funcs,
                 )
                 _v4_shadow_result = _v4_shadow_compare(
                     target_file=ctx.bug.file,

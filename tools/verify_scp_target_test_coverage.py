@@ -112,12 +112,67 @@ def _selector_parts(selector: Any) -> tuple[str, list[str]]:
     return first, nodes
 
 
+def _body_asserts_verification(func_node: ast.AST) -> bool:
+    """True only when the test body itself executes an assertion at runtime.
+
+    A plain ``assert`` statement or a ``pytest.raises(...)`` call counts.
+    Assertions inside nested ``def``/``class``/``lambda`` scopes never count:
+    those bodies do not run as part of the test body unless invoked explicitly,
+    so a test that only defines them cannot fail on its own (fail-closed).
+    """
+    stack = list(ast.iter_child_nodes(func_node))
+    while stack:
+        current = stack.pop()
+        if isinstance(
+            current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        ):
+            continue
+        if isinstance(current, ast.Assert):
+            return True
+        if (
+            isinstance(current, ast.Call)
+            and isinstance(current.func, ast.Attribute)
+            and current.func.attr == "raises"
+            and isinstance(current.func.value, ast.Name)
+            and current.func.value.id == "pytest"
+        ):
+            return True
+        stack.extend(ast.iter_child_nodes(current))
+    return False
+
+
+def _is_executable_test_node(node: ast.AST) -> bool:
+    """A bound selector must resolve to a test that can actually fail.
+
+    Existence alone proves nothing: ``def test_x(): pass`` (no asserts) and
+    helper functions without the ``test_`` prefix are rejected, as are classes
+    that contain no executable test.
+    """
+    if isinstance(node, ast.ClassDef):
+        return any(
+            isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and member.name.startswith("test_")
+            and _body_asserts_verification(member)
+            for member in node.body
+        )
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return False
+    return node.name.startswith("test_") and _body_asserts_verification(node)
+
+
 def _node_exists(path: Path, nodes: list[str]) -> bool:
+    """True only when the selector resolves to an executable, assertion-carrying test node.
+
+    Intermediate nodes must still be classes; the final node must additionally
+    pass ``_is_executable_test_node`` so an empty or pass-only placeholder can
+    never validate a coverage claim (anti-Goodhart, T00).
+    """
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except (OSError, SyntaxError, UnicodeError):
         return False
     body: list[ast.stmt] = tree.body
+    final: ast.AST | None = None
     for index, node_name in enumerate(nodes):
         found: ast.AST | None = None
         for node in body:
@@ -131,7 +186,11 @@ def _node_exists(path: Path, nodes: list[str]) -> bool:
             if not isinstance(found, ast.ClassDef):
                 return False
             body = found.body
-    return True
+        else:
+            final = found
+    if final is None:
+        return False
+    return _is_executable_test_node(final)
 
 
 def _selector_gate(selector: str, gate_catalog: dict[str, str]) -> str | None:

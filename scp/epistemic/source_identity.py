@@ -117,6 +117,19 @@ _SOURCE_MIGRATIONS = [
             "CREATE INDEX IF NOT EXISTS idx_sources_canonical ON sources(kind, canonical_identity)",
         ],
     ),
+    (
+        # Append-only DELETE enforcement (M5). UPDATE stays allowed for the
+        # last_observed_at projection only (see SourceStore.register); identity
+        # provenance is never removed.
+        "0003_sources_append_only",
+        [
+            """CREATE TRIGGER IF NOT EXISTS sources_no_delete
+                   BEFORE DELETE ON sources
+                   BEGIN
+                       SELECT RAISE(ABORT, 'sources is append-only - source provenance is never purged');
+                   END;""",
+        ],
+    ),
 ]
 
 

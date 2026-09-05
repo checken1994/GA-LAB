@@ -1,0 +1,76 @@
+================================================================================
+RUN 1: INITIAL STATE RUN (Pre-repair of T00/traceability regressions)
+COMMAND: python tools/t00_meta_audit.py
+WORKING_DIRECTORY: c:\Users\check\Downloads\scp
+EXIT_CODE: 1
+TIMESTAMP: 2026-09-05T05:27:36Z
+TASK_ID: a8b37569-05fa-4ded-8316-3b991bd3d537/task-38
+================================================================================
+
+[T00 Meta-Audit] Starting Test-Integrity Regression Authority...
+[T00 Meta-Audit] Trusted Base: origin/main
+
+--- SCOPE & LIMITATIONS ---
+ * FA-01 (Semantic Weakening): Partial (skip/xfail checked). Logic weakening requires L4 human review.
+ * FA-02: ENFORCED for regressions in collected pytest nodeids
+ * FA-03 (Same-SHA Evidence): NOT ENFORCED by T00 (Requires dedicated evidence tool).
+ * FA-04 (Manufactured Green): Regex-based. Complex AST tracking requires L4 human review.
+ * FA-05 (Self-Granting Auth): NOT ENFORCED by T00 (Requires capability scanner).
+[T00 Meta-Audit] Collecting baseline pytest nodeids (origin/main)...
+[T00 Meta-Audit] Collecting candidate pytest nodeids...
+
+--- BASELINE_DEBT (Tracked, Not Blocking) ---
+ [DEBT] FA-01: scp/tests/external_audit/test_security.py -> pytest.skip() in test_bandit_no_new_high_severity_via_bandit (2 historical instances)
+ [DEBT] FA-01: scp/tests/external_audit/test_security.py -> pytest.skip() in test_no_hardcoded_token_in_source (1 historical instances)
+ [DEBT] FA-01: tests/T03_capability/test_os_sandbox.py -> pytest.skip() in test_sandbox_executes_command_inside_job_object (1 historical instances)
+ [DEBT] FA-01: tests/T03_capability/test_os_sandbox.py -> pytest.skip() in test_sandbox_rejects_invalid_capability (1 historical instances)
+ [DEBT] FA-04: scp/autofix/evidence_replay.py -> hardcoded VERIFIED: return {"ok": True, "status": "VERIFIED"} (1 historical instances)
+
+--- L4 CODEOWNERS (Warning) ---
+ [L4] L4 Protected Path Modified: tools/t00_meta_audit.py
+Note: L4 is VERIFIED only by GitHub Server-Side Ruleset. This is a local warning.
+
+============================================================
+T00 META-AUDIT FAILED - NEW REGRESSIONS DETECTED
+============================================================
+ [FAIL] FA-01: tests/T00_integrity/test_pass_never_means_complete_scp.py -> pytest.skip() in test_green_suite_counts_can_never_satisfy_completion (1 new instances)
+
+Fix violations before proceeding.
+
+
+================================================================================
+RUN 2: VERIFIED CURRENT WORKING TREE RUN
+COMMAND: python tools/t00_meta_audit.py
+WORKING_DIRECTORY: c:\Users\check\Downloads\scp
+EXIT_CODE: 0
+TIMESTAMP: 2026-09-05T05:34:06Z
+TASK_ID: a8b37569-05fa-4ded-8316-3b991bd3d537/task-94
+================================================================================
+
+[T00 Meta-Audit] Starting Test-Integrity Regression Authority...
+[T00 Meta-Audit] Trusted Base: origin/main
+
+--- SCOPE & LIMITATIONS ---
+ * FA-01 (Semantic Weakening): Partial (skip/xfail checked, incl. module-level pytestmark). Logic weakening requires L4 human review.
+ * FA-02: ENFORCED for regressions in collected pytest nodeids
+ * FA-03 (Same-SHA Evidence): NOT ENFORCED by T00 (Requires dedicated evidence tool).
+ * FA-04 (Manufactured Green): Regex-based. Complex AST tracking requires L4 human review.
+ * FA-05 (Self-Granting Auth): NOT ENFORCED by T00 (Requires capability scanner).
+[T00 Meta-Audit] Collecting baseline pytest nodeids (origin/main)...
+[T00 Meta-Audit] Collecting candidate pytest nodeids...
+
+--- BASELINE_DEBT (Tracked, Not Blocking) ---
+ [DEBT] FA-01: scp/tests/external_audit/test_security.py -> pytest.skip() in test_bandit_no_new_high_severity_via_bandit (2 historical instances)
+ [DEBT] FA-01: scp/tests/external_audit/test_security.py -> pytest.skip() in test_no_hardcoded_token_in_source (1 historical instances)
+ [DEBT] FA-01: tests/T03_capability/test_os_sandbox.py -> pytest.skip() in test_sandbox_executes_command_inside_job_object (1 historical instances)
+ [DEBT] FA-01: tests/T03_capability/test_os_sandbox.py -> pytest.skip() in test_sandbox_rejects_invalid_capability (1 historical instances)
+ [DEBT] FA-04: scp/autofix/evidence_replay.py -> hardcoded VERIFIED: return {"ok": True, "status": "VERIFIED"} (1 historical instances)
+
+--- L4 CODEOWNERS (Warning) ---
+ [L4] L4 Protected Path Modified: tests/T00_integrity/test_meta_audit.py
+ [L4] L4 Protected Path Modified: tests/T00_integrity/test_pass_never_means_complete_scp.py
+ [L4] L4 Protected Path Modified: tests/T02_contract/test_god_split_semantic_parity.py
+ [L4] L4 Protected Path Modified: tools/t00_meta_audit.py
+Note: L4 is VERIFIED only by GitHub Server-Side Ruleset. This is a local warning.
+
+[T00 Meta-Audit] All integrity checks passed (0 new regressions).

@@ -126,3 +126,22 @@ def test_change_detection_tracks_state_deltas_without_mutating_past(authority):
     history = authority.history("water:reservoir-1")
     assert len(history) == 2 and history[0]["valid_time"] == t1 and history[1]["valid_time"] == t2
     assert projection.current("water:reservoir-1", "turbidity")["value"]["ntu"] == 18.2
+
+
+def test_epistemic_world_tables_reject_delete_and_identity_links_fully_immutable(authority):
+    """M5: world_assertions DELETE stays aborted (regression pin) and
+    identity_links - previously WITHOUT any immutability trigger - now aborts
+    both UPDATE and DELETE."""
+    entities = EntityEventAuthority(authority)
+    link = entities.link_identity("entity-a", "entity-b", evidence_refs=["evidence:link-1"], actor_id="resolver-1")
+    obs = authority.record_observation(subject="sensor:x", predicate="reading", value={"v": 1}, valid_time="2026-09-01T08:00:00+00:00", evidence_refs=["evidence:1"], actor_id="ingest-1")
+
+    with pytest.raises(Exception, match="append-only"):
+        authority.db.execute("DELETE FROM world_assertions WHERE assertion_id=?", (obs["assertion_id"],))
+    with pytest.raises(Exception, match="append-only"):
+        authority.db.execute("DELETE FROM identity_links WHERE link_id=?", (link["link_id"],))
+    with pytest.raises(Exception, match="append-only"):
+        authority.db.execute("UPDATE identity_links SET entity_b='entity-hacked' WHERE link_id=?", (link["link_id"],))
+
+    assert authority.db.query("SELECT COUNT(*) AS n FROM identity_links")[0]["n"] == 1
+    assert len(authority.history("sensor:x")) == 1

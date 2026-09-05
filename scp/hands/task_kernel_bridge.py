@@ -2,6 +2,8 @@ from __future__ import annotations
 
 
 
+import asyncio
+
 import hashlib
 
 import json
@@ -15,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 
+
+from scp.kernel_storage import StorageIntegrityError
 
 from scp.task_kernel import KernelError, TaskKernel, stable_hash
 
@@ -75,6 +79,10 @@ class TaskKernelHandsBridge:
             self._owns_kernel = True
 
         self.worker_id = worker_id
+        # Lease TTL for the mutating dispatch. Kept as an attribute so the
+        # heartbeat loop below can renew on the same cadence; default matches
+        # the historical hard-coded 60s.
+        self.lease_ttl_seconds = 60.0
 
         self.data_dir = executor.data_dir
 
@@ -274,6 +282,35 @@ class TaskKernelHandsBridge:
 
 
 
+    async def _heartbeat_until_finished(
+        self,
+        task_id: str,
+        lease_id: str,
+        ttl_seconds: float,
+        stop: asyncio.Event,
+    ) -> None:
+        """Keep the lease alive while the awaited dispatch is in flight.
+
+        A mutating Hands action may legitimately run longer than the lease
+        TTL; without a heartbeat the lease expires mid-flight and even a
+        VERIFIED result can no longer be committed (fail-closed into
+        UNKNOWN). The loop renews expires_at/heartbeat_at on the kernel and
+        stops as soon as lease authority is gone (KernelError) or the
+        dispatch finishes.
+        """
+        interval = max(0.2, ttl_seconds / 3.0)
+        while True:
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+                return
+            except asyncio.TimeoutError:
+                pass
+            try:
+                self.kernel.heartbeat(task_id, lease_id, extend_seconds=ttl_seconds)
+            except KernelError:
+                return
+
+
     async def execute(
 
         self,
@@ -336,7 +373,12 @@ class TaskKernelHandsBridge:
 
                 )
 
-            except sqlite3.IntegrityError:
+            # [P1 FIX 2026-09-05] kernel_storage translates the backend
+            # UNIQUE violation into StorageIntegrityError (RuntimeError), so
+            # catching sqlite3.IntegrityError here was dead code and the
+            # replayed response could never fire. Accept both the neutral
+            # type and a raw backend IntegrityError for custom storage.
+            except (StorageIntegrityError, sqlite3.IntegrityError):
 
                 created = False
 
@@ -366,7 +408,7 @@ class TaskKernelHandsBridge:
 
                     self.kernel.transition(task_id, state, actor="hands-kernel-bridge", reason="hands_side_effect_lifecycle")
 
-            lease = self.kernel.claim(task_id, self.worker_id, ttl_seconds=60)
+            lease = self.kernel.claim(task_id, self.worker_id, ttl_seconds=self.lease_ttl_seconds)
 
             lease_id = lease.lease_id
 
@@ -424,7 +466,26 @@ class TaskKernelHandsBridge:
 
             dispatch_started = True
 
-            result = await self.executor.execute(action, params, capability_level, approved, False)
+            # [P1 FIX 2026-09-05] Renew the lease while the driver runs so a
+            # >TTL action cannot lose its lease mid-flight. Heartbeats stop
+            # before the post-dispatch kernel writes, which stay synchronous.
+            stop_heartbeat = asyncio.Event()
+
+            heartbeat_task = asyncio.create_task(
+                self._heartbeat_until_finished(
+                    task_id, lease.lease_id, self.lease_ttl_seconds, stop_heartbeat
+                )
+            )
+
+            try:
+
+                result = await self.executor.execute(action, params, capability_level, approved, False)
+
+            finally:
+
+                stop_heartbeat.set()
+
+                await asyncio.gather(heartbeat_task, return_exceptions=True)
 
             if self._policy_blocked_before_dispatch(result):
 

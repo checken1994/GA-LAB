@@ -22,7 +22,6 @@ import asyncio
 import itertools
 
 import httpx
-import pytest
 
 
 class FakeResponse:
@@ -42,9 +41,11 @@ class FakeClient:
     def __init__(self, script: list[FakeResponse | Exception]):
         self.script = list(script)
         self.calls = 0
+        self.models: list[str] = []
 
     async def post(self, url, json=None, headers=None):
         self.calls += 1
+        self.models.append(str((json or {}).get("model", "")))
         item = self.script.pop(0) if self.script else self.script[-1]
         if isinstance(item, Exception):
             raise item
@@ -59,8 +60,23 @@ def _keyed(monkeypatch, provider):
     monkeypatch.setattr(target, "_key_cycle", itertools.cycle(["test-key"]), raising=False)
 
 
-def test_breaker_open_skips_dead_provider_without_network_call(monkeypatch):
+def test_breaker_open_skips_dead_provider_without_network_call(pricing_runtime, monkeypatch):
+    """Breaker OPEN → zero requests reach the dead provider's transport.
+
+    Z3 verified-free-only semantics: all three chat candidates carry fresh
+    pricing proofs (seeded), so PEP authorization needs no catalog refresh;
+    the primary model keeps a PAID proof and is DENY_PAID without dispatch.
+    """
+    from scp.llm_gateway import zero_cost_runtime
     from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
+
+    # Chat-task Z3 candidates under the T05 conftest env:
+    #   free_fallback = OPENROUTER_MODEL_CHAT ("unverified-chat"),
+    #   primary       = OPENROUTER_MODEL ("unverified-primary"),
+    #   auto-router   = "openrouter/free".
+    pricing_runtime("unverified-chat")
+    pricing_runtime("openrouter/free")
+    pricing_runtime("unverified-primary", prompt="0.002", completion="0.003")
 
     gateway = LLMGateway()
     _keyed(monkeypatch, OpenRouterProvider)
@@ -73,7 +89,19 @@ def test_breaker_open_skips_dead_provider_without_network_call(monkeypatch):
 
     answer, label = asyncio.run(gateway.chat("q", task="chat"))
     assert answer is None
+    assert label == "none"
     assert dead.calls == 0  # breaker OPEN → KHÔNG đốt một request nào vào provider chết
+
+    # Z2 boundary audit: nothing was actually sent, and the PAID model was
+    # explicitly denied by the PEP (never dispatched).
+    events = zero_cost_runtime.get_runtime_guard().proof_store.db.query(
+        "SELECT model, decision, actual_sent FROM zero_cost_outbound_events"
+    )
+    assert all(row["actual_sent"] == 0 for row in events)
+    assert any(
+        row["model"] == "unverified-primary" and row["decision"] == "DENY_PAID"
+        for row in events
+    )
 
 
 def test_env_extra_provider_sits_in_chain(monkeypatch):
@@ -128,19 +156,44 @@ def test_deny_egress_blocks_env_provider_before_injected_transport(monkeypatch):
     assert transport.calls == 0
 
 
-def test_all_providers_down_fails_closed(monkeypatch):
+def test_all_providers_down_fails_closed(pricing_runtime, monkeypatch):
     # Exercise provider outage, not global egress-deny; network remains a fake client.
     monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
     monkeypatch.setenv("SCP_LLM_EGRESS_ALLOWLIST", "openrouter.ai")
+    from scp.llm_gateway import zero_cost_runtime
     from scp.llm_gateway.client import LLMGateway, OpenRouterProvider
+
+    # Same chat-task Z3 candidates as the breaker test: fresh exact-$0 proofs
+    # for the free fallback + auto-router; the primary stays PAID.
+    pricing_runtime("unverified-chat")
+    pricing_runtime("openrouter/free")
+    pricing_runtime("unverified-primary", prompt="0.002", completion="0.003")
 
     gateway = LLMGateway()
     _keyed(monkeypatch, OpenRouterProvider)
-    gateway.openrouter_chat._client = FakeClient([FakeResponse(429)])
 
+    # Provider-level contract: both verified-$0 candidates hit 429 → the Z3
+    # router reports WAITING_FREE_QUOTA; the PAID model is never dispatched.
+    quota_client = FakeClient([FakeResponse(429), FakeResponse(429)])
+    gateway.openrouter_chat._client = quota_client
+    provider_answer, provider_label = asyncio.run(gateway.openrouter_chat.chat("q"))
+    assert provider_answer is None
+    assert provider_label == "waiting_free_quota"
+    assert quota_client.models == ["unverified-chat", "openrouter/free"]
+
+    # Gateway-level contract: an exhausted verified-free pool fails closed.
+    dead = FakeClient([FakeResponse(429), FakeResponse(429)])
+    gateway.openrouter_chat._client = dead
     answer, label = asyncio.run(gateway.chat("q", task="chat"))
     assert answer is None and label == "none"
     assert gateway._stats["failures"] == 1
+    assert "unverified-primary" not in dead.models
+
+    # Z2 boundary audit: only verified exact-$0 models were ever sent.
+    sent = zero_cost_runtime.get_runtime_guard().proof_store.db.query(
+        "SELECT model FROM zero_cost_outbound_events WHERE actual_sent=1"
+    )
+    assert {row["model"] for row in sent} == {"unverified-chat", "openrouter/free"}
 
 
 def test_env_compat_placeholder_key_is_disabled(monkeypatch):
@@ -148,6 +201,7 @@ def test_env_compat_placeholder_key_is_disabled(monkeypatch):
 
     monkeypatch.setenv("FAKE_KEY", "changeme")
     provider = EnvCompatProvider("fake", "chat", "FAKE_KEY", "FAKE_URL", "FAKE_MODEL")
+    assert provider.enabled is False
     monkeypatch.setenv("FAKE_URL", "https://api.fake.ai/v1")
     monkeypatch.setenv("FAKE_MODEL", "fake-1")
     provider2 = EnvCompatProvider("fake", "chat", "FAKE_KEY", "FAKE_URL", "FAKE_MODEL")

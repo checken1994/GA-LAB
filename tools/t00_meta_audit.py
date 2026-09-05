@@ -70,6 +70,8 @@ def get_local_content(path):
     except Exception:
         return None
 
+SKIP_MARKS = ('skip', 'xfail', 'skipif')
+
 class AuditVisitor(ast.NodeVisitor):
     def __init__(self):
         self.findings = Counter()
@@ -100,6 +102,44 @@ class AuditVisitor(ast.NodeVisitor):
                 
         self.generic_visit(node)
         self.current_func = old
+
+    def _skip_mark_names(self, value):
+        """Names of pytest.mark.{skip,xfail,skipif} referenced in a pytestmark value."""
+        marks = set()
+        if value is None:
+            return marks
+        for node in ast.walk(value):
+            attr_node = node.func if isinstance(node, ast.Call) else node
+            if (
+                isinstance(attr_node, ast.Attribute)
+                and attr_node.attr in SKIP_MARKS
+                and isinstance(attr_node.value, ast.Attribute)
+                and attr_node.value.attr == 'mark'
+                and isinstance(attr_node.value.value, ast.Name)
+                and attr_node.value.value.id == 'pytest'
+            ):
+                marks.add(attr_node.attr)
+        return marks
+
+    def _check_pytestmark_target(self, target, value):
+        # A module- or class-level `pytestmark = pytest.mark.skip(...)` silently
+        # skips whole files/classes without any skip call or function decorator.
+        if isinstance(target, ast.Name) and target.id == 'pytestmark':
+            for mark in sorted(self._skip_mark_names(value)):
+                self.findings[f"pytestmark {mark} in {self.current_func}"] += 1
+
+    def visit_Assign(self, node):
+        for target in node.targets:
+            self._check_pytestmark_target(target, node.value)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node):
+        self._check_pytestmark_target(node.target, node.value)
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node):
+        self._check_pytestmark_target(node.target, node.value)
+        self.generic_visit(node)
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Attribute):
@@ -227,7 +267,7 @@ def main():
     print(f"[T00 Meta-Audit] Starting Test-Integrity Regression Authority...")
     print(f"[T00 Meta-Audit] Trusted Base: {trusted_base}")
     print("\n--- SCOPE & LIMITATIONS ---")
-    print(" * FA-01 (Semantic Weakening): Partial (skip/xfail checked). Logic weakening requires L4 human review.")
+    print(" * FA-01 (Semantic Weakening): Partial (skip/xfail checked, incl. module-level pytestmark). Logic weakening requires L4 human review.")
     print(" * FA-02: ENFORCED for regressions in collected pytest nodeids")
     print(" * FA-03 (Same-SHA Evidence): NOT ENFORCED by T00 (Requires dedicated evidence tool).")
     print(" * FA-04 (Manufactured Green): Regex-based. Complex AST tracking requires L4 human review.")

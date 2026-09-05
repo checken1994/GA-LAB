@@ -376,24 +376,46 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
                 if not _patch or "<<<<<<< SEARCH" not in _patch:
                     logger.warning(f" LLM returned no valid patch for {module_name}")
                     return False
-                # Apply patch (backup first)
-                _backup = _p.with_suffix(_p.suffix + ".meta_repair_bak")
-                _backup.write_text(_source, encoding="utf-8")
-                _new_source = _source
-                # Simple search-replace application
+                # [P0-FIX 2026-09-03] The module is a PROTECTED_PATH (e.g.
+                # policy_gate.py). Self-writing it = self-modification of the
+                # constitution gate — the exact vector drift_guard exists to
+                # block (a poisoned bug report can weaken KILL patterns and
+                # the retry "passes"). Instead of applying: queue the patch
+                # as a PROPOSAL for human review (fail-closed — gate stays
+                # DOWN, but the human receives a ready-made fix).
                 import re as _re
                 _blocks = _re.findall(r'<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>>', _patch, _re.DOTALL)
+                _new_source = _source
                 for _old, _new in _blocks:
                     _new_source = _new_source.replace(_old, _new, 1)
                 if _new_source == _source:
                     logger.warning(f" patch did not change source for {module_name}")
                     return False
-                # Verify new source compiles
                 import ast as _ast
-                _ast.parse(_new_source)
-                _p.write_text(_new_source, encoding="utf-8")
-                logger.info(f" meta-repair applied to {module_name} (backup at {_backup.name})")
-                return True
+                _ast.parse(_new_source)  # proposal must at least compile
+
+                from scp.core.code_evolution_agent import _relative_repo_path
+                try:
+                    _rel = _relative_repo_path(_p)
+                except Exception:
+                    _rel = _module_path
+                _proposals = Path("data") / "governance" / "proposals"
+                _proposals.mkdir(parents=True, exist_ok=True)
+                import time as _time
+                _proposal_file = _proposals / f"meta_repair_{module_name}_{int(_time.time())}.md"
+                _proposal_file.write_text(
+                    f"# Meta-repair proposal: {_module_path}\n\n"
+                    f"## Error\n```\n{_error_str}\n```\n\n"
+                    f"## Proposed patch (SEARCH/REPLACE)\n```diff\n{_patch}\n```\n\n"
+                    f"## Human action required\nReview, apply manually or via "
+                    f"governance-approved change (protected_invariants.yaml).",
+                    encoding="utf-8",
+                )
+                logger.warning(
+                    f" meta-repair PROPOSAL queued (not applied — protected path): "
+                    f"{_proposal_file} — human review required"
+                )
+                return False
             except ImportError:
                 logger.debug(" llm_fix unavailable — cannot meta-repair")
                 return False

@@ -58,6 +58,19 @@ _CALIBRATION_MIGRATIONS = [
                    BEGIN SELECT RAISE(ABORT, 'calibration resolution is immutable'); END;""",
         ],
     ),
+    (
+        # Append-only DELETE enforcement (M5): resolved history is never purged
+        # row-by-row; corrections are expressed as superseding resolutions.
+        "0002_calibration_append_only",
+        [
+            """CREATE TRIGGER IF NOT EXISTS calibration_predictions_no_delete
+                   BEFORE DELETE ON calibration_predictions
+                   BEGIN SELECT RAISE(ABORT, 'calibration_predictions is append-only - supersede instead'); END;""",
+            """CREATE TRIGGER IF NOT EXISTS calibration_resolutions_no_delete
+                   BEFORE DELETE ON calibration_resolutions
+                   BEGIN SELECT RAISE(ABORT, 'calibration_resolutions is append-only - supersede instead'); END;""",
+        ],
+    ),
 ]
 
 

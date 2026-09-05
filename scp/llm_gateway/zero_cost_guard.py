@@ -5,6 +5,7 @@ Authorization rule in free-only mode:
     AND data-class/provider policy allows the request -> ALLOW_FREE
 Everything else fails closed before the network driver.
 """
+
 from __future__ import annotations
 
 import json
@@ -41,6 +42,17 @@ def _decimal_price(value: object) -> Decimal:
         return Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError) as exc:
         raise ValueError(f"invalid price value: {value!r}") from exc
+
+
+def _optional_decimal_price(value: object) -> Decimal | None:
+    """Preserve a partial/unknown catalog observation as deny authority."""
+    if value is None or str(value).strip().upper() in {"", "UNKNOWN", "NULL", "NONE"}:
+        return None
+    try:
+        price = _decimal_price(value)
+    except ValueError:
+        return None
+    return price if price.is_finite() and price >= 0 else None
 
 
 def _parse_time(value: str) -> datetime:
@@ -92,8 +104,8 @@ class PricingProof:
     proof_id: str
     provider: str
     model: str
-    prompt_price: Decimal
-    completion_price: Decimal
+    prompt_price: Decimal | None
+    completion_price: Decimal | None
     currency: str
     catalog_hash: str
     evidence_id: str | None
@@ -128,11 +140,13 @@ class PricingProofStore:
         currency: str = "USD",
         metadata: dict | None = None,
     ) -> PricingProof:
-        prompt = _decimal_price(prompt_price)
-        completion = _decimal_price(completion_price)
+        prompt = _optional_decimal_price(prompt_price)
+        completion = _optional_decimal_price(completion_price)
         # Parsing both timestamps at write time prevents malformed/stale proof
         # records from reaching the authorization path.
-        if _parse_time(expires_at) <= _parse_time(observed_at):
+        observed = _parse_time(observed_at)
+        expires = _parse_time(expires_at)
+        if expires <= observed:
             raise ValueError("pricing proof expires_at must be after observed_at")
         proof_id = new_id("price")
         with self.db.transaction() as conn:
@@ -145,13 +159,13 @@ class PricingProofStore:
                     proof_id,
                     str(provider).strip().lower(),
                     str(model).strip(),
-                    str(prompt),
-                    str(completion),
+                    str(prompt) if prompt is not None else "UNKNOWN",
+                    str(completion) if completion is not None else "UNKNOWN",
                     str(currency).upper(),
                     str(catalog_hash),
                     evidence_id,
-                    observed_at,
-                    expires_at,
+                    observed.isoformat(),
+                    expires.isoformat(),
                     json.dumps(metadata or {}, ensure_ascii=False, sort_keys=True),
                 ),
             )
@@ -166,8 +180,8 @@ class PricingProofStore:
             proof_id=row["proof_id"],
             provider=row["provider"],
             model=row["model"],
-            prompt_price=_decimal_price(row["prompt_price"]),
-            completion_price=_decimal_price(row["completion_price"]),
+            prompt_price=_optional_decimal_price(row["prompt_price"]),
+            completion_price=_optional_decimal_price(row["completion_price"]),
             currency=row["currency"],
             catalog_hash=row["catalog_hash"],
             evidence_id=row["evidence_id"],
@@ -180,7 +194,7 @@ class PricingProofStore:
         rows = self.db.query(
             """SELECT proof_id FROM pricing_proofs
                WHERE provider=? AND model=? AND active=1
-               ORDER BY observed_at DESC, proof_id DESC LIMIT 1""",
+               ORDER BY observed_at DESC, rowid DESC LIMIT 1""",
             (str(provider).strip().lower(), str(model).strip()),
         )
         return self.get(rows[0]["proof_id"]) if rows else None
@@ -195,8 +209,10 @@ class PricingProofStore:
         actual_sent: bool,
     ) -> str:
         event_id = new_id("zcevt")
-        data_class = request.data_class.value if isinstance(request.data_class, DataClass) else (
-            str(request.data_class).upper() if request.data_class is not None else None
+        data_class = (
+            request.data_class.value
+            if isinstance(request.data_class, DataClass)
+            else (str(request.data_class).upper() if request.data_class is not None else None)
         )
         with self.db.transaction() as conn:
             conn.execute(
@@ -249,7 +265,9 @@ class ZeroCostGuard:
         if str(source.get("SCP_FREE_FAIL_IF_PRICE_UNKNOWN", "1")).strip().lower() not in {"1", "true", "yes", "on"}:
             raise ValueError("unknown price must fail closed in free_only mode")
 
-    def evaluate(self, request: ZeroCostRequest, *, now: datetime | None = None) -> tuple[ZeroCostDecision, PricingProof | None]:
+    def evaluate(
+        self, request: ZeroCostRequest, *, now: datetime | None = None
+    ) -> tuple[ZeroCostDecision, PricingProof | None]:
         proof = self.proof_store.latest(request.provider, request.model)
         if proof is None:
             return ZeroCostDecision.DENY_UNKNOWN_PRICE, None
@@ -258,6 +276,10 @@ class ZeroCostGuard:
         current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         if _parse_time(proof.expires_at) <= current:
             return ZeroCostDecision.DENY_STALE_PRICE, proof
+        if _parse_time(proof.observed_at) > current or proof.currency != "USD":
+            return ZeroCostDecision.DENY_UNKNOWN_PRICE, proof
+        if proof.prompt_price is None or proof.completion_price is None:
+            return ZeroCostDecision.DENY_UNKNOWN_PRICE, proof
         if proof.prompt_price != Decimal("0") or proof.completion_price != Decimal("0"):
             return ZeroCostDecision.DENY_PAID, proof
         if self.privacy_gate is not None:

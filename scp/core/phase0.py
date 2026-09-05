@@ -32,8 +32,11 @@ import json
 import os
 import sqlite3  # kept for sqlite3.IntegrityError exception class
 import uuid
+import warnings
 from datetime import datetime
 from typing import Any, Optional
+
+from scp.contracts.data_class import DataClass
 
 _RUNTIME_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -64,6 +67,171 @@ from scp.core.db_manager import db_exec, db_query_all, db_query_one
 from scp.core.db_manager import get_db as _canonical_get_db
 
 logger = logging.getLogger("scp.core.phase0")
+
+
+# ============================================================
+# [M4 EPISTEMIC CUTOVER] Deprecated legacy facade -> epistemic authority
+# ============================================================
+# TẠI SAO: authority cho runtime evidence giờ là immutable epistemic stack
+# (scp/epistemic): EvidenceStore.observe (trigger `evidence_no_update` chặn
+# UPDATE) đi qua GovernedEvidenceWriter (PrivacyWriteGate) + LineageStore;
+# correction chỉ bằng evidence MỚI + relation SUPERSEDES, không bao giờ sửa
+# in-place. Các helper dưới đây route mọi write legacy qua stack mới
+# (best-effort, KHÔNG raise — hành vi legacy không được phép break), trong khi
+# các bảng legacy bên dưới chỉ còn là DEPRECATED read-model append-only cho
+# các audit query cũ.
+_COMPAT_DEPRECATION = (
+    "scp.core.phase0.{name} is deprecated: the mutable phase0 store no longer "
+    "holds authority. Use scp.epistemic.runtime_bridge (immutable evidence + "
+    "PrivacyWriteGate + LineageStore)."
+)
+
+
+def _warn_deprecated(name: str) -> None:
+    message = _COMPAT_DEPRECATION.format(name=name)
+    logger.warning(message)
+    warnings.warn(message, DeprecationWarning, stacklevel=3)
+
+
+def _get_compat_bridge():
+    # Lazy import at call time so tests can monkeypatch
+    # scp.epistemic.runtime_bridge.get_runtime_bridge.
+    from scp.epistemic.runtime_bridge import get_runtime_bridge
+
+    return get_runtime_bridge()
+
+
+def _route_evidence_to_epistemic(*, evidence_type: str, source: str, entity: str,
+                                 attribute: str, value: Any, confidence: float,
+                                 raw_data: Any, legacy_id: str) -> None:
+    """[M4] Authority write for legacy add_evidence. Never raises."""
+    try:
+        from scp.epistemic.runtime_bridge import (
+            COMPAT_COLLECTOR_ID,
+            COLLECTOR_VERSION,
+            KIND_BY_LEGACY_TYPE,
+            canonical_bytes,
+            safe_float,
+        )
+        bridge = _get_compat_bridge()
+        record = bridge.stack.writer.observe(
+            kind=KIND_BY_LEGACY_TYPE.get(str(evidence_type), "RUNTIME_OBSERVATION"),
+            content=canonical_bytes({"value": value, "raw_data": raw_data}),
+            collector_id=COMPAT_COLLECTOR_ID,
+            collector_version=COLLECTOR_VERSION,
+            source_id=str(source) if source else None,
+            data_class=DataClass.INTERNAL,
+            metadata={
+                "observation_type": "phase0_compat_evidence",
+                "legacy_evidence_id": str(legacy_id),
+                "evidence_type": str(evidence_type),
+                "entity": str(entity or ""),
+                "attribute": str(attribute or ""),
+                "value": str(value)[:500],
+                "confidence": safe_float(confidence, 0.5),
+            },
+        )
+        bridge.register_legacy_mapping(legacy_id, record["evidence_id"])
+    except Exception as exc:
+        logger.warning("phase0 compat: epistemic routing failed: %s", exc)
+
+
+def _route_conclusion_to_epistemic(*, question: str, ai_answer: str, verdict: str,
+                                   confidence: float, domain: str, reasoning: str,
+                                   cycle_count: int, legacy_id: str) -> None:
+    """[M4] Authority write for legacy add_conclusion. Never raises."""
+    try:
+        from scp.epistemic.runtime_bridge import (
+            COMPAT_COLLECTOR_ID,
+            COLLECTOR_VERSION,
+            canonical_bytes,
+            safe_float,
+        )
+        bridge = _get_compat_bridge()
+        record = bridge.stack.writer.observe(
+            kind="RUNTIME_OBSERVATION",
+            content=canonical_bytes(
+                {"question": question, "ai_answer": ai_answer,
+                 "verdict": verdict, "reasoning": reasoning}
+            ),
+            collector_id=COMPAT_COLLECTOR_ID,
+            collector_version=COLLECTOR_VERSION,
+            source_id=COMPAT_COLLECTOR_ID,
+            data_class=DataClass.INTERNAL,
+            metadata={
+                "observation_type": "phase0_compat_conclusion",
+                "legacy_conclusion_id": str(legacy_id),
+                "verdict": str(verdict),
+                "confidence": safe_float(confidence, 0.0),
+                "domain": str(domain or "unknown"),
+                "cycle_count": int(cycle_count),
+            },
+        )
+        bridge.register_legacy_mapping(legacy_id, record["evidence_id"])
+    except Exception as exc:
+        logger.warning("phase0 compat: epistemic routing failed: %s", exc)
+
+
+def _route_link_to_epistemic(conclusion_id, evidence_id, weight: float, role: str) -> None:
+    """[M4] Authority relation for legacy link_evidence. Never raises."""
+    try:
+        bridge = _get_compat_bridge()
+        relation = str(role or "").strip().upper().replace("-", "_")
+        if not relation or not relation.replace("_", "").isalnum():
+            relation = "SUPPORTS"
+        bridge.link_legacy_pair(conclusion_id, evidence_id, relation)
+    except Exception as exc:
+        logger.warning("phase0 compat: epistemic routing failed: %s", exc)
+
+
+def _route_decision_to_epistemic(conclusion_id, action: str, notes: str) -> None:
+    """[M4] Authority write for legacy add_decision. Never raises."""
+    try:
+        from scp.epistemic.runtime_bridge import (
+            COMPAT_COLLECTOR_ID,
+            COLLECTOR_VERSION,
+            canonical_bytes,
+        )
+        bridge = _get_compat_bridge()
+        bridge.stack.writer.observe(
+            kind="RUNTIME_OBSERVATION",
+            content=canonical_bytes({"action": action, "notes": notes}),
+            collector_id=COMPAT_COLLECTOR_ID,
+            collector_version=COLLECTOR_VERSION,
+            source_id=COMPAT_COLLECTOR_ID,
+            data_class=DataClass.INTERNAL,
+            metadata={
+                "observation_type": "phase0_compat_decision",
+                "action": str(action),
+                "notes": str(notes)[:500],
+                "legacy_conclusion_id": str(conclusion_id),
+            },
+        )
+    except Exception as exc:
+        logger.warning("phase0 compat: epistemic routing failed: %s", exc)
+
+
+def _route_verification_to_epistemic(evidence_id: str, *, verified: bool, by: str = "") -> None:
+    """[M4] Authority write for legacy EvidenceStore.verify/fail: a
+    verification OUTCOME is a NEW immutable TEST_RESULT evidence linked
+    VERIFIES -> target; the target record is never edited."""
+    try:
+        bridge = _get_compat_bridge()
+        bridge.record_verification(
+            evidence_id, verified=verified, by=by,
+            note="phase0 legacy verify/fail compat routing",
+        )
+    except Exception as exc:
+        logger.warning("phase0 compat: epistemic routing failed: %s", exc)
+
+
+def _route_supersede_to_epistemic(old_evidence_id, new_evidence_id) -> None:
+    """[M4] Authority relation for legacy EvidenceStore.supersede."""
+    try:
+        bridge = _get_compat_bridge()
+        bridge.link_legacy_pair(old_evidence_id, new_evidence_id, "SUPERSEDES")
+    except Exception as exc:
+        logger.warning("phase0 compat: epistemic routing failed: %s", exc)
 
 
 def init_phase0_schema():
@@ -214,12 +382,24 @@ class Phase0Store:
     def add_evidence(evidence_type: str, source: str = "", entity: str = "",
                      attribute: str = "", value: Any = None, confidence: float = 0.5,
                      raw_data: Any = None) -> str:
-        """Add evidence to evidences table. Returns evidence_id (UUID)."""
+        """Add evidence to evidences table. Returns evidence_id (UUID).
+
+        [M4 DEPRECATED] Legacy mutable-store write. The authority write goes
+        through the immutable epistemic stack (PrivacyWriteGate enforced);
+        the legacy row below is a deprecated read-model only.
+        """
+        _warn_deprecated("Phase0Store.add_evidence")
         ts = datetime.now().isoformat()
         value_str = str(value) if value is not None else ""
         raw_str = json.dumps(raw_data, default=str)[:2000] if raw_data else ""
         sha = hashlib.sha256(f"{evidence_type}|{source}|{entity}|{attribute}|{value_str}".encode()).hexdigest()[:16]
         evidence_id = str(uuid.uuid4())
+        # [M4] Authority: immutable epistemic evidence (best-effort, no raise).
+        _route_evidence_to_epistemic(
+            evidence_type=evidence_type, source=source, entity=entity,
+            attribute=attribute, value=value, confidence=confidence,
+            raw_data=raw_data, legacy_id=evidence_id,
+        )
         try:
             db_exec("""
                 INSERT INTO evidences
@@ -235,10 +415,21 @@ class Phase0Store:
     def add_conclusion(question: str, ai_answer: str, verdict: str,
                        confidence: float = 0.0, domain: str = "", reasoning: str = "",
                        cycle_count: int = 0) -> str:
-        """Add conclusion to conclusions table. Returns conclusion_id (UUID)."""
+        """Add conclusion to conclusions table. Returns conclusion_id (UUID).
+
+        [M4 DEPRECATED] Authority write goes through the epistemic stack;
+        the legacy row is a deprecated read-model only.
+        """
+        _warn_deprecated("Phase0Store.add_conclusion")
         ts = datetime.now().isoformat()
         sha = hashlib.sha256(f"{question}|{ai_answer}|{verdict}|{cycle_count}".encode()).hexdigest()[:16]
         conclusion_id = str(uuid.uuid4())
+        # [M4] Authority: immutable conclusion observation (best-effort).
+        _route_conclusion_to_epistemic(
+            question=question, ai_answer=ai_answer, verdict=verdict,
+            confidence=confidence, domain=domain, reasoning=reasoning,
+            cycle_count=cycle_count, legacy_id=conclusion_id,
+        )
         try:
             db_exec("""
                 INSERT INTO conclusions
@@ -253,7 +444,13 @@ class Phase0Store:
 
     @staticmethod
     def link_evidence(conclusion_id, evidence_id, weight: float = 1.0, role: str = "") -> str:
-        """Link evidence to conclusion (many-to-many). Returns the link_id (UUID)."""
+        """Link evidence to conclusion (many-to-many). Returns the link_id (UUID).
+
+        [M4 DEPRECATED] The authority relation is recorded in the epistemic
+        evidence_links (SUPERSEDES/SUPPORTS/...); the legacy rows below are a
+        deprecated read-model only.
+        """
+        _warn_deprecated("Phase0Store.link_evidence")
         conclusion_str = str(conclusion_id) if not isinstance(conclusion_id, str) else conclusion_id
         evidence_str = str(evidence_id) if not isinstance(evidence_id, str) else evidence_id
         if not conclusion_str or not evidence_str or conclusion_str == "-1" or evidence_str == "-1":
@@ -261,6 +458,8 @@ class Phase0Store:
         link_id = str(uuid.uuid4())
         chain_id = str(uuid.uuid4())
         ts = datetime.now().isoformat()
+        # [M4] Authority: immutable relation (best-effort).
+        _route_link_to_epistemic(conclusion_str, evidence_str, weight, role)
         try:
             # [FIX] Create a reason_chain first (FK: evidence_links.chain_id → reason_chains.id)
             db_exec("""
@@ -279,8 +478,17 @@ class Phase0Store:
 
     @staticmethod
     def add_decision(conclusion_id, action: str, prev_conclusion_id=None, notes: str = ""):
-        """Record a decision (e.g., 'promote_to_kb', 'reject', 'flag_for_review')."""
+        """Record a decision (e.g., 'promote_to_kb', 'reject', 'flag_for_review').
+
+        [M4 DEPRECATED] The authority decision observation goes through the
+        epistemic stack (RUNTIME_OBSERVATION + DECIDES relation); the legacy
+        decision_history row (trigger-protected append-only) is a deprecated
+        read-model only.
+        """
+        _warn_deprecated("Phase0Store.add_decision")
         ts = datetime.now().isoformat()
+        # [M4] Authority: immutable decision observation (best-effort).
+        _route_decision_to_epistemic(conclusion_id, action, notes)
         try:
             db_exec("""
                 INSERT INTO decision_history
@@ -374,7 +582,17 @@ class EvidenceStore:
 
     @staticmethod
     def verify(evidence_id: str, by: str = "") -> bool:
-        """Mark evidence as VERIFIED."""
+        """Mark evidence as VERIFIED.
+
+        [M4 DEPRECATED + CUTOVER] The verification OUTCOME is recorded in the
+        immutable epistemic stack as a NEW TEST_RESULT evidence linked
+        VERIFIES -> target (never an edit). The in-place UPDATE below is a
+        deprecated read-model sync that only keeps the legacy
+        ChainStateService state consistent; it is no longer the authority.
+        """
+        _warn_deprecated("EvidenceStore.verify")
+        # [M4] Authority: immutable verification outcome (best-effort).
+        _route_verification_to_epistemic(evidence_id, verified=True, by=by)
         ts = datetime.now().isoformat()
         try:
             db_exec("""
@@ -391,7 +609,15 @@ class EvidenceStore:
 
     @staticmethod
     def fail(evidence_id: str) -> bool:
-        """Mark evidence as FAILED."""
+        """Mark evidence as FAILED.
+
+        [M4 DEPRECATED + CUTOVER] Same authority rule as verify(): a NEW
+        immutable TEST_RESULT evidence records the FAILED outcome; the legacy
+        UPDATE below is a deprecated read-model sync only.
+        """
+        _warn_deprecated("EvidenceStore.fail")
+        # [M4] Authority: immutable verification outcome (best-effort).
+        _route_verification_to_epistemic(evidence_id, verified=False, by="legacy_fail")
         ts = datetime.now().isoformat()
         try:
             db_exec("""
@@ -408,11 +634,19 @@ class EvidenceStore:
 
     @staticmethod
     def supersede(old_evidence_id: str, new_evidence_id: str) -> bool:
-        """Mark old evidence as superseded by new one."""
+        """Mark old evidence as superseded by new one.
+
+        [M4 DEPRECATED + CUTOVER] The authority relation SUPERSEDES between
+        the two observations is recorded in the epistemic evidence_links; the
+        legacy status flag below is a deprecated read-model sync only.
+        """
+        _warn_deprecated("EvidenceStore.supersede")
         # Check if old evidence exists
         old = db_query_one("SELECT id FROM evidences WHERE id = ?", (old_evidence_id,))
         if not old:
             return False
+        # [M4] Authority: immutable SUPERSEDES relation (best-effort).
+        _route_supersede_to_epistemic(old_evidence_id, new_evidence_id)
         ts = datetime.now().isoformat()
         try:
             db_exec("""

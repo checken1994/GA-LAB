@@ -1,15 +1,55 @@
+import ast
 import os
 import glob
+
+def _pytestmark_skip_marks(value_node):
+    # Names of pytest.mark.{skip,xfail,skipif} referenced inside a pytestmark
+    # assignment value (call form or bare attribute form).
+    marks = set()
+    if value_node is None:
+        return marks
+    for node in ast.walk(value_node):
+        attr_node = node.func if isinstance(node, ast.Call) else node
+        if (
+            isinstance(attr_node, ast.Attribute)
+            and attr_node.attr in {'skip', 'xfail', 'skipif'}
+            and isinstance(attr_node.value, ast.Attribute)
+            and attr_node.value.attr == 'mark'
+            and isinstance(attr_node.value.value, ast.Name)
+            and attr_node.value.value.id == 'pytest'
+        ):
+            marks.add(attr_node.attr)
+    return marks
+
+def _pytestmark_assignment(tree):
+    # Yields (marks) for module/class-level `pytestmark = pytest.mark.skip(...)`
+    # assignments. Whole-file silent skips hide from per-call/per-decorator
+    # detectors, so they must be caught at the assignment itself.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            targets, value = [node.target], node.value
+        else:
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == 'pytestmark' for t in targets):
+            continue
+        marks = _pytestmark_skip_marks(value)
+        if marks:
+            yield sorted(marks)
 
 def test_meta_audit_no_skip_in_mandatory_tests():
     # Enforce that no mandatory tests are skipped for reasons other than OS
     # incompatibility. AST-based: a quoted "pytest.skip" token inside a drift-
     # guard deny list is NOT a real skip call - only actual Call nodes count.
+    # Covers ALL 12 gates T00-T11 (plus any extra T* dir), and also catches
+    # module-level `pytestmark = pytest.mark.skip(...)` whole-file skips and
+    # skip/xfail/skipif decorators, which the per-call scan cannot see.
     import ast
     root_dir = os.path.dirname(os.path.dirname(__file__))
-    mandatory_dirs = ['T03_capability', 'T04_kernel', 'T05_gateway', 'T10_recovery']
-    for d in mandatory_dirs:
-        dir_path = os.path.join(root_dir, d)
+    mandatory_dirs = sorted(glob.glob(os.path.join(root_dir, 'T[0-9][0-9]*')))
+    assert len(mandatory_dirs) >= 12, f"expected all 12 gate dirs, found {mandatory_dirs}"
+    for dir_path in mandatory_dirs:
         for filepath in glob.glob(os.path.join(dir_path, '*.py')):
             if filepath == __file__: continue
             with open(filepath, 'r', encoding='utf-8') as f:
@@ -26,6 +66,31 @@ def test_meta_audit_no_skip_in_mandatory_tests():
             # If there's a real skip call, it MUST be OS-conditional.
             if has_real_skip and 'platform.system' not in source:
                 assert False, f"Mandatory test {filepath} contains a real pytest.skip() call. Mandatory tests must FAIL if blocked, unless OS-specific."
+            # A whole-file pytestmark skip is never an OS exception.
+            for marks in _pytestmark_assignment(tree):
+                assert False, (
+                    f"Mandatory test {filepath} assigns pytestmark = pytest.mark.{marks[0]}(...), "
+                    "which silently skips the entire file. Mandatory tests must FAIL if blocked."
+                )
+            # Decorator-based skip/xfail/skipif on any test/class in a mandatory
+            # gate must be OS-conditional, same rule as real skip calls. The
+            # attribute NAME is matched receiver-agnostic (@pytest.mark.xfail is
+            # a pytest->mark->xfail Attribute chain, not a bare Name).
+            for scoped in ast.walk(tree):
+                if not isinstance(scoped, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    continue
+                for dec in scoped.decorator_list:
+                    dec_func = dec.func if isinstance(dec, ast.Call) else dec
+                    if (
+                        isinstance(dec_func, ast.Attribute)
+                        and dec_func.attr in {'skip', 'xfail', 'skipif'}
+                        and 'platform.system' not in source
+                    ):
+                        assert False, (
+                            f"Mandatory test {filepath} decorates {scoped.name} with "
+                            f"pytest.mark.{dec_func.attr}. Mandatory tests must FAIL if "
+                            "blocked, unless OS-specific."
+                        )
 
 def test_meta_audit_no_assert_true():
     # Enforce that no tests just assert True
@@ -292,3 +357,76 @@ def test_fa02_collection_error_fails_closed(mock_run):
     with pytest.raises(SystemExit) as e:
         check_real_test_deletion("origin/main")
     assert e.value.code == 1
+
+
+import tempfile
+from pathlib import Path as _Path
+
+from tools.t00_meta_audit import get_fa01_signatures
+from tools.verify_scp_target_test_coverage import _node_exists
+
+
+def test_fa01_module_level_pytestmark_skip_is_new_violation():
+    baseline = "import pytest\n"
+    candidate = (
+        "import pytest\n"
+        "pytestmark = pytest.mark.skip(reason='whole file skipped')\n"
+        "def test_a():\n    assert 1\n"
+    )
+    new_v, debt = audit_content(candidate, baseline, "tests/test_a.py")
+    assert len(new_v) == 1, new_v
+    assert "FA-01" in new_v[0]
+    assert "pytestmark skip" in new_v[0]
+    assert len(debt) == 0
+
+def test_fa01_historical_module_pytestmark_is_tracked_as_debt():
+    baseline = "import pytest\npytestmark = pytest.mark.skipif(False, reason='x')\n"
+    new_v, debt = audit_content(baseline, baseline, "tests/test_a.py")
+    assert len(new_v) == 0
+    assert len(debt) == 1
+    assert "pytestmark skipif" in debt[0]
+
+def test_fa01_bare_pytestmark_attribute_assignment_is_flagged():
+    baseline = ""
+    candidate = "import pytest\npytestmark = pytest.mark.xfail\n"
+    new_v, _debt = audit_content(candidate, baseline, "tests/test_a.py")
+    assert len(new_v) == 1
+    assert "pytestmark xfail" in new_v[0]
+
+def test_fa01_unrelated_pytestmark_mark_is_not_flagged():
+    candidate = "import pytest\npytestmark = pytest.mark.slow\n"
+    new_v, debt = audit_content(candidate, "", "tests/test_a.py")
+    assert len(new_v) == 0
+    assert len(debt) == 0
+
+def test_node_exists_requires_executable_asserting_test_node():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _Path(tmp) / "sample_tests.py"
+        path.write_text(
+            "def test_placeholder():\n    pass\n\n"
+            "def helper_with_assert():\n    assert 1\n\n"
+            "def test_real():\n    assert 1 == 1\n\n"
+            "def test_uses_raises():\n    import pytest\n"
+            "    with pytest.raises(ValueError):\n        raise ValueError()\n\n"
+            "def test_nested_assert_only():\n"
+            "    def inner():\n        assert 0\n\n"
+            "class TestGroup:\n"
+            "    def test_inner(self):\n        assert 1\n\n"
+            "class TestHollow:\n"
+            "    def test_hollow_member(self):\n        pass\n",
+            encoding="utf-8",
+        )
+        assert _node_exists(path, ["test_real"]) is True
+        assert _node_exists(path, ["test_uses_raises"]) is True
+        assert _node_exists(path, ["TestGroup", "test_inner"]) is True
+        assert _node_exists(path, ["test_placeholder"]) is False, "pass-only test must not validate a coverage claim"
+        assert _node_exists(path, ["helper_with_assert"]) is False, "helper without test_ prefix must not validate a coverage claim"
+        assert _node_exists(path, ["test_nested_assert_only"]) is False, "assert locked inside a nested def proves nothing"
+        assert _node_exists(path, ["TestHollow", "test_hollow_member"]) is False, "class of pass-only tests proves nothing"
+        assert _node_exists(path, ["test_missing"]) is False
+
+def test_fa01_signatures_covers_module_pytestmark_directly():
+    sigs = get_fa01_signatures(
+        "import pytest\npytestmark = pytest.mark.skip(reason='r')\n"
+    )
+    assert any("pytestmark skip" in key for key in sigs)

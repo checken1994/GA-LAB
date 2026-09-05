@@ -1,13 +1,16 @@
+import subprocess
 import pytest
 from pathlib import Path
 from scp.knowledge.doubt_engine import (
-    DoubtAuthority, 
-    DoubtType, 
+    DoubtAuthority,
+    DoubtType,
     MissingPiece,
     DoubtRecord
 )
 from scp.self_model.capability_map import CapabilityMap
 from scp.epistemic.evidence_store import EvidenceStore
+
+ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.fixture
 def mock_capability_map(tmp_path):
@@ -44,9 +47,15 @@ bindings:
     )
     
     # Let's mock proof to make scp.network.http RUNTIME_VERIFIED
-    sha = "abc1234"
+    # M5: a runtime proof must be bound to the ACTUAL tested commit -
+    # record_proof verifies tested_sha against `git rev-parse HEAD` and the
+    # evidence metadata must declare the capability_id it proves.
+    sha = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip().lower()
     # Insert evidence
-    ev_id = es.observe(kind='TEST_RESULT', content=b'test', collector_id='x', collector_version='1', metadata={'tested_sha': 'abc1234', 'evidence_level': 'C'})['evidence_id']
+    ev_id = es.observe(kind='TEST_RESULT', content=b'test', collector_id='x', collector_version='1', metadata={'tested_sha': sha, 'evidence_level': 'C', 'capability_id': 'scp.network.http'})['evidence_id']
     cap_map.record_proof(
         capability_id="scp.network.http",
         evidence_id=ev_id,

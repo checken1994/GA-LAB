@@ -115,16 +115,15 @@ def _persist_pricing_proofs(catalog: list) -> bool:
         for model in catalog:
             if not isinstance(model, dict) or not model.get("id"):
                 continue
-            pricing = model.get("pricing") or {}
+            pricing = model.get("pricing")
+            if not isinstance(pricing, dict):
+                pricing = {}
             prompt = pricing.get("prompt")
             completion = pricing.get("completion")
             pricing_unknown = prompt is None or completion is None
-            # Unknown pricing gets a conservative non-zero sentinel proof so a
-            # newer catalog observation can never leave an older free proof
-            # authoritative. It is therefore denied at the PEP.
-            if pricing_unknown:
-                prompt = "1"
-                completion = "1"
+            # Persist explicit UNKNOWN values. This supersedes an older free
+            # proof without falsely classifying missing data as an observed
+            # paid price; both still deny at the PEP.
             try:
                 proofs.record(
                     provider="openrouter",
@@ -138,12 +137,13 @@ def _persist_pricing_proofs(catalog: list) -> bool:
                     metadata={"pricing_unknown": pricing_unknown},
                 )
             except (TypeError, ValueError):
-                # Malformed pricing is fail-closed: store a paid sentinel proof.
+                # Malformed pricing is fail-closed and remains epistemically
+                # UNKNOWN rather than manufacturing a paid observation.
                 proofs.record(
                     provider="openrouter",
                     model=str(model["id"]),
-                    prompt_price="1",
-                    completion_price="1",
+                    prompt_price=None,
+                    completion_price=None,
                     catalog_hash=catalog_hash,
                     evidence_id=ev["evidence_id"],
                     observed_at=observed.isoformat(),
@@ -209,10 +209,10 @@ def start_background_refresh() -> None:
 
     def loop() -> None:
         while True:
-            time.sleep(FREE_CATALOG_REFRESH_SEC)
             try:
                 refresh_free_catalog(force=True)
             except Exception:
                 logger.exception("[free_catalog] background refresh failed")
+            time.sleep(FREE_CATALOG_REFRESH_SEC)
 
     threading.Thread(target=loop, daemon=True, name="llm-gateway-free-catalog-refresh").start()

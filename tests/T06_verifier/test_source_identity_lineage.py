@@ -46,6 +46,26 @@ def test_db_default_is_unknown_independence_not_python_only(tmp_path):
     lineage.close()
 
 
+def test_sources_reject_delete_but_last_observed_at_stays_mutable(tmp_path):
+    """M5: source provenance is append-only. The ONLY allowed mutation is the
+    last_observed_at projection advance in register(); DELETE is machine-aborted."""
+    db = tmp_path / "sources.sqlite"
+    store = SourceStore(db)
+    first = store.register(kind=SourceKind.WEB_DOCUMENT, identity="https://example.com/a")
+    second = store.register(kind=SourceKind.WEB_DOCUMENT, identity="https://example.com/a")
+    assert first.source_id == second.source_id, "register must keep identity stable"
+
+    with pytest.raises(Exception, match="append-only"):
+        store.db.execute("DELETE FROM sources WHERE source_id=?", (first.source_id,))
+    assert store.db.query("SELECT COUNT(*) AS n FROM sources")[0]["n"] == 1
+
+    # last_observed_at is a projection, not identity: still mutable by design.
+    store.db.execute("UPDATE sources SET last_observed_at=? WHERE source_id=?", ("2099-01-01T00:00:00+00:00", first.source_id))
+    store.db._conn.commit()
+    assert store.get(first.source_id).last_observed_at == "2099-01-01T00:00:00+00:00"
+    store.close()
+
+
 def test_unknown_and_shared_sources_cannot_manufacture_independence(tmp_path):
     lineage = LineageStore(tmp_path / "epistemic.sqlite")
     a = "src_0000000000000011"

@@ -48,6 +48,7 @@ class PromotionContext:
     repeated_verification: bool = False
     temporal_stability: bool = False
     adversarial_check_passed: bool = False
+    counterexample_check_passed: bool = False
     revalidation_failed: bool = False
     obsolete: bool = False
 
@@ -112,6 +113,8 @@ def evaluate_promotion(obj: KnowledgeObject, target_status: KnowledgeStatus, ctx
             missing.append("independent_lineage >= 2")
         if not ctx.contradiction_scan_completed:
             missing.append("contradiction_scan_completed")
+        if ctx.unresolved_material_contradictions > 0:
+            contradictions.append("unresolved_material_contradictions")
             
     elif target_status == KnowledgeStatus.VERIFIED:
         if not ctx.reality_verified:
@@ -134,6 +137,8 @@ def evaluate_promotion(obj: KnowledgeObject, target_status: KnowledgeStatus, ctx
             missing.append("temporal_stability")
         if not ctx.adversarial_check_passed:
             missing.append("adversarial_check_passed")
+        if not ctx.counterexample_check_passed:
+            missing.append("counterexample_check_passed")
         if not ctx.provenance_present:
             missing.append("provenance_complete")
 
