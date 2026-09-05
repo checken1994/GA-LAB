@@ -86,7 +86,7 @@ def _parent_trace(request: Request, supplied: str | None) -> str | None:
     return str(getattr(run, "trace_id", "") or "")[:120] or None
 
 
-@router.get("/status")
+@router.get("/status", dependencies=[Depends(verify_admin)])
 @traced_request(_AGENT_LEDGER, require_write=False, action="agent_status")
 async def agent_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)

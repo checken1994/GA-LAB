@@ -1,0 +1,37 @@
+# Task Assignment: Explorer Remediation 1
+
+## Identity
+- Role: Explorer (Test Suite Log Reality Investigator)
+- Archetype: teamwork_preview_explorer
+- Working directory: c:\Users\check\Downloads\scp\.agents\explorer_remediation_1
+- Parent: Orchestrator 2 (c:\Users\check\Downloads\scp\.agents\orchestrator_2)
+
+## Mandatory Inputs
+- Mandatory file: c:\Users\check\Downloads\scp\.agents\ORIGINAL_REQUEST.md
+- Scope document: c:\Users\check\Downloads\scp\.agents\orchestrator_2\SCOPE.md
+- Primary document with integrity violation: c:\Users\check\Downloads\scp\teamwork_runtime_audit_report.md
+- MANDATORY FULL AUDITOR EVIDENCE REPORT:
+  c:\Users\check\Downloads\scp\.agents\auditor_integrity_2\handoff.md
+
+## Objective & Scope
+The Forensic Auditor reported an **INTEGRITY VIOLATION** on `teamwork_runtime_audit_report.md` because Section 3.3 contains fabricated test directories (`tests\T01_discovery\`, `tests\T02_policy\`, `tests\T08_autofix\`) and non-existent files (`test_system_discovery.py`, etc.).
+
+Your objective:
+1. Inspect the real filesystem under `tests/` and run `pytest tests/ --collect-only -q` or inspect test files.
+2. Determine the exact, authentic file list and progress lines of `pytest tests/` when executed on HEAD `48e5ca8dd0867d1257103ea66f73be752d785b60`.
+3. Provide the exact authentic replacement block for Section 3.3.
+4. Formulate an actionable, zero-fabrication remediation strategy for the Worker.
+
+Write your report to `c:\Users\check\Downloads\scp\.agents\explorer_remediation_1\handoff.md`.
+
+## 2026-09-05T10:51:23Z
+You are Explorer Remediation 1. Your working directory is c:\Users\check\Downloads\scp\.agents\explorer_remediation_1.
+Read your DISPATCH.md at c:\Users\check\Downloads\scp\.agents\explorer_remediation_1\DISPATCH.md.
+MANDATORY: Read ORIGINAL_REQUEST.md at c:\Users\check\Downloads\scp\.agents\ORIGINAL_REQUEST.md before starting work.
+Read the FULL FORENSIC AUDITOR EVIDENCE REPORT at:
+c:\Users\check\Downloads\scp\.agents\auditor_integrity_2\handoff.md
+
+Investigate real test files under tests/ on commit 48e5ca8dd0867d1257103ea66f73be752d785b60.
+Determine the exact, authentic file list and progress lines of pytest tests/ to replace the fabricated Section 3.3.
+Maintain progress.md in your directory. Write your full report to c:\Users\check\Downloads\scp\.agents\explorer_remediation_1\handoff.md.
+When finished, send a message to orchestrator parent.

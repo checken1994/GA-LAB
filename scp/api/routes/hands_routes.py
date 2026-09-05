@@ -104,7 +104,7 @@ def _guard(request: Request, token: str | None) -> None:
         raise HTTPException(status_code=403, detail="SCP Hands is local-only or token is invalid")
 
 
-@router.get("/status")
+@router.get("/status", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="hands_status")
 async def hands_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
@@ -114,7 +114,7 @@ async def hands_status(request: Request, x_scp_pc_token: str | None = Header(def
     return result
 
 
-@router.get("/capabilities")
+@router.get("/capabilities", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="hands_capability_status")
 async def hands_capability_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
@@ -135,7 +135,7 @@ async def hands_capability_restore(payload: CapabilityControlRequest, request: R
     return {"success": True, "capability": _hands.restore_capabilities(payload.reason, "operator")}
 
 
-@router.get("/actions")
+@router.get("/actions", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="hands_actions")
 async def hands_actions(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
@@ -184,21 +184,21 @@ async def hands_reconcile(payload: HandsReconcileRequest, request: Request, x_sc
         return {"success": False, "error": str(exc), "taskId": payload.taskId}
 
 
-@router.get("/planner/status")
+@router.get("/planner/status", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="planner_status")
 async def planner_status(request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return _planner.status()
 
 
-@router.get("/planner")
+@router.get("/planner", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="planner_list")
 async def planner_list(request: Request, limit: int = 20, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     return {"version": "3.7", "plans": _planner.list_plans(limit)}
 
 
-@router.get("/planner/{plan_id}")
+@router.get("/planner/{plan_id}", dependencies=[Depends(verify_admin)])
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=False, action="planner_get")
 async def planner_get(plan_id: str, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)

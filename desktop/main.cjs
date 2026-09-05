@@ -28,7 +28,7 @@ function ensurePackagedDefaults() {
       'SCP_AUTH_PASSWORD_FILE=secrets/scp-auth-password',
       'SCP_AUTH_TOKEN_SECRET_FILE=secrets/scp-auth-token',
       'SCP_SCHEDULER_ADMIN_TOKEN_FILE=secrets/scp-scheduler-admin-token',
-      'SCP_LLM_BRIDGE_PORT=11434',
+      `SCP_LLM_BRIDGE_PORT=${process.env.SCP_LLM_BRIDGE_PORT || process.env.OLLAMA_PORT || '11434'}`,
       'SCP_DESKTOP_CSP_MODE=production',
     ].join('\n') + '\n';
     fs.writeFileSync(envFile, defaults, { flag: 'wx', encoding: 'utf8' });

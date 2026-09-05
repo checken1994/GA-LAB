@@ -40,6 +40,12 @@ Toàn bộ 13 kỹ năng SCP được quản lý và version-control tại `.age
 8. **Language & Identifiers:** Làm việc bằng tiếng Việt; giữ nguyên identifier kỹ thuật tiếng Anh khi cần.
 9. **GA.md & Live Truth:** Trước mọi task phải đọc `GA.md` trên `main`. Sau đó refresh GitHub live, đọc DNA/Skills/authority mà `GA.md` yêu cầu. `Live repo + Reality/evidence > memory/chat history`. Không dùng hoặc lưu làm authority các trạng thái dễ lỗi thời như SHA, số test, blocker, branch state, roadmap hay next task.
 10. **Session Lifecycle & Handoff:** 1 task SCP lớn = 1 session/chat riêng; cùng root cause thì tiếp tục cùng session. Cuối task lớn: cập nhật handoff trong `GA.md` trên `main` rồi mới chuyển session.
+11. **Deep Audit Epistemology & Evidence Verification (Phase 1 V2.1):**
+    - **Reality-First Evidence Ladder:** Loại bằng chứng phải khớp với loại claim (`SOURCE_VERIFIED` -> `TEST_VERIFIED` -> `RUNTIME_VERIFIED` -> `REALITY_VERIFIED`). Tuyệt đối không suy diễn hành vi runtime từ mã nguồn tĩnh.
+    - **Anti-Self-Certification:** Deep Audit Engine không được tự chứng nhận (Planner ≠ Oracle ≠ Recorder ≠ PromotionGate). `ContractAdapter` là Authority của Trusted Computing Base (TCB), Oracle không được tin vào diễn giải trung gian của Planner.
+    - **Verdict Strictness:** Cấm dùng chữ `PASS` cho runtime probes. Thay bằng `NOT_FALSIFIED_WITHIN_OBSERVATION_ENVELOPE`. Ghi nhớ: `NOT_FALSIFIED` KHÔNG PHẢI LÀ `EVIDENCE_VERIFIED`.
+    - **Snapshot Isolation:** Bắt buộc tách biệt *Immutable Source Snapshot* (tested commit/tree) khỏi *Mutable Execution Overlay* (sandbox/temp db).
+    - **Evidence Bundle & Gate:** Promotion Gate đánh giá dựa trên một `EvidenceBundle` tuân thủ `AuditChallenge` profile. Một record đơn lẻ không có giá trị promote. Fail-closed nếu có bất kỳ contradiction nào chưa được resolve.
 
 ---
 

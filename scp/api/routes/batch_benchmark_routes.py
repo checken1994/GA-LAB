@@ -286,7 +286,7 @@ async def create_batch(payload: BatchCreateRequest, request: Request, x_scp_pc_t
     return {"success": True, "job": _public_state(job_id)}
 
 
-@router.get("/batch/{job_id}")
+@router.get("/batch/{job_id}", dependencies=[Depends(verify_admin)])
 @traced_request(_BATCH_BENCHMARK_ROUTES_LEDGER, require_write=False, action="batch_status")
 async def batch_status(job_id: str, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)

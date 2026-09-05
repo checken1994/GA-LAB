@@ -1220,6 +1220,17 @@ class AutoFixMixin:
                 "tier": int(ctx.bug.tier),
                 "reason": "fix queued for human review (not auto-patchable)",
                 "patched": False,
+                "post_fix_verification": {
+                    "ok": False,
+                    "status": "UNVERIFIED",
+                    "phases": {
+                        "completeness_check": {
+                            "complete": True,
+                            "status": "UNVERIFIED",
+                            "reason": "assumed complete for unverified fix"
+                        }
+                    }
+                }
             }
 
         #  FixVerification layer — self-verify SAU khi apply patch.
@@ -1274,6 +1285,17 @@ class AutoFixMixin:
                     "tier": int(ctx.bug.tier),
                     "reason": f"fix verification failed (rolled back): {_verify_reason}",
                     "patched": False,
+                    "post_fix_verification": {
+                        "ok": False,
+                        "status": "UNVERIFIED",
+                        "phases": {
+                            "completeness_check": {
+                                "complete": True,
+                                "status": "UNVERIFIED",
+                                "reason": "assumed complete for unverified fix"
+                            }
+                        }
+                    }
                 }
             self._audit_v91("autofix_verify_ok", {
                 "file": ctx.bug.file, "line": ctx.bug.line, "bug_type": ctx.bug.bug_type,
@@ -1359,6 +1381,17 @@ class AutoFixMixin:
                     "tier": int(ctx.bug.tier),
                     "reason": "post-fix verifier unavailable; fix is UNVERIFIED and was rolled back",
                     "patched": False,
+                    "post_fix_verification": {
+                        "ok": False,
+                        "status": "UNVERIFIED",
+                        "phases": {
+                            "completeness_check": {
+                                "complete": True,
+                                "status": "UNVERIFIED",
+                                "reason": "assumed complete for unverified fix"
+                            }
+                        }
+                    },
                 }
             except Exception as _pfv_err:
                 logger.warning(
@@ -1373,6 +1406,17 @@ class AutoFixMixin:
                     "tier": int(ctx.bug.tier),
                     "reason": "post-fix verifier failed; fix is UNVERIFIED and was rolled back",
                     "patched": False,
+                    "post_fix_verification": {
+                        "ok": False,
+                        "status": "UNVERIFIED",
+                        "phases": {
+                            "completeness_check": {
+                                "complete": True,
+                                "status": "UNVERIFIED",
+                                "reason": "assumed complete for unverified fix"
+                            }
+                        }
+                    },
                 }
         except Exception as _verify_call_err:
             logger.warning(
@@ -1387,6 +1431,17 @@ class AutoFixMixin:
                 "tier": int(ctx.bug.tier),
                 "reason": "verifier call failed; fix is UNVERIFIED and was rolled back",
                 "patched": False,
+                "post_fix_verification": {
+                    "ok": False,
+                    "status": "UNVERIFIED",
+                    "phases": {
+                        "completeness_check": {
+                            "complete": True,
+                            "status": "UNVERIFIED",
+                            "reason": "assumed complete for unverified fix"
+                        }
+                    }
+                },
             }
 
         # Record for cooldown

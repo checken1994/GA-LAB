@@ -27,8 +27,9 @@ const SCP_BASE_URL =
   process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8000"
 const LOOP_SCHEDULER_URL =
   process.env.LOOP_SCHEDULER_URL ?? "http://127.0.0.1:3030"
+const LLM_BRIDGE_PORT = process.env.SCP_LLM_BRIDGE_PORT || process.env.LLM_BRIDGE_PORT || "11434"
 const LLM_BRIDGE_URL =
-  process.env.LLM_BRIDGE_URL ?? "http://127.0.0.1:11434"
+  process.env.LLM_BRIDGE_URL ?? `http://127.0.0.1:${LLM_BRIDGE_PORT}`
 
 const START_HINTS = {
   fastapi: "Run: SCP_PORT=8000 python -m scp (in your scp folder)",
