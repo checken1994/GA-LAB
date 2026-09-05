@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 import threading
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 _lock = threading.Lock()
 _store: PricingProofStore | None = None
 _guard: ZeroCostGuard | None = None
+_request_data_class: ContextVar[DataClass | str | None] = ContextVar("scp_llm_request_data_class", default=None)
 
 
 def _runtime_store_path() -> Path:
@@ -46,6 +49,30 @@ def _runtime_store_path() -> Path:
     except ValueError as exc:
         raise RuntimeError("SCP_ZERO_COST_PROOF_DB must stay inside SCP_DATA_DIR") from exc
     return candidate
+
+
+
+
+def _effective_data_class(provider: Any) -> DataClass | str | None:
+    explicit = _request_data_class.get()
+    if explicit is not None:
+        return explicit
+    return getattr(provider, "_scp_data_class", DataClass.INTERNAL)
+
+
+@contextmanager
+def outbound_data_class(data_class: DataClass | str | None):
+    """Bind data classification to the current async/thread context.
+
+    This avoids mutating a shared provider instance when concurrent requests
+    carry different privacy classifications. Existing callers that do not set
+    a request-local class keep the historical INTERNAL default.
+    """
+    token = _request_data_class.set(data_class)
+    try:
+        yield
+    finally:
+        _request_data_class.reset(token)
 
 
 def get_runtime_guard() -> ZeroCostGuard:
@@ -135,7 +162,7 @@ def install_openai_compatible_provider_pep(provider_cls: type) -> bool:
                 provider=getattr(self, "PROVIDER_NAME", "unknown"),
                 model=model,
                 task_class=getattr(self, "task", "default"),
-                data_class=getattr(self, "_scp_data_class", DataClass.INTERNAL),
+                data_class=_effective_data_class(self),
             )
         except ZeroCostDenied as exc:
             return None, f"zero_cost_denied:{exc.decision.value}"
@@ -199,7 +226,7 @@ def install_free_only_provider_router(provider_cls: type) -> bool:
                     provider=getattr(self, "PROVIDER_NAME", "unknown"),
                     model=model,
                     task_class=getattr(self, "task", "default"),
-                    data_class=getattr(self, "_scp_data_class", DataClass.INTERNAL),
+                    data_class=_effective_data_class(self),
                 )
                 eligible.append(model)
             except ZeroCostDenied as exc:

@@ -309,6 +309,37 @@ class CognitiveGate:
                     f"MetaFalsifier: thiếu 1 critical vector ({missing_critical[0]})"
                 )
 
+        # 1.5. PASS-WHY skeptical review. This is the V3 "PASS != TRUE"
+        # control ported into the current CognitiveGate. It never upgrades a
+        # verdict; it can only request a downgrade/review when a candidate PASS
+        # lacks positive support or ignored a failed epistemic check.
+        pass_review = cognitive_result.get("pass_review")
+        if pass_review and pass_review.get("review_required"):
+            reason_codes = set(pass_review.get("reason_codes") or [])
+            critical_pass_why = {
+                "PASS_WITHOUT_EVIDENCE",
+                "NO_SUPPORTING_EVIDENCE",
+                "IGNORED_ANTIBODY_FAILURE",
+                "PASS_WHY_AUDIT_ERROR",
+            }
+            if reason_codes & critical_pass_why:
+                critical_failure = True
+            reasons.append(
+                "PassWhy: " + ", ".join(sorted(reason_codes or {"REVIEW_REQUIRED"}))
+            )
+
+        # 1.6. Source diversity only affects the gate when current LineageStore
+        # actually assessed the source identities. Host/domain diversity alone
+        # is not authority for independence.
+        diversity = cognitive_result.get("source_diversity")
+        if diversity and diversity.get("lineage_assessed"):
+            if diversity.get("recommendation") == "CAPTURE_RISK":
+                reasons.append("SourceDiversity: epistemic capture risk")
+                if int(diversity.get("known_independent_lineages", 0)) <= 1:
+                    critical_failure = True
+            elif diversity.get("recommendation") == "WATCH":
+                reasons.append("SourceDiversity: concentration/lineage watch")
+
         # 2. ProofGraph check
         proof = cognitive_result.get("proof_graph")
         if proof:

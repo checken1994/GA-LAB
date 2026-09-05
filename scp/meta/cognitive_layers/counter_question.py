@@ -124,7 +124,7 @@ class CounterQuestionEngine:
         ],
     }
 
-    def generate_counter_questions(self, question: str, domain: str) -> list[CounterQuestion]:
+    def generate_counter_questions(self, question: str, domain: str, *, enqueue_reverification: bool = True) -> list[CounterQuestion]:
         """Generate counter-questions for a claim."""
         patterns = self.REFRAMING_PATTERNS.get(domain, [])
         results = []
@@ -141,7 +141,8 @@ class CounterQuestionEngine:
         #  If ≥2 counter-questions suggest ambiguity, enqueue for auto-verify
         # Ambiguity = scope_narrowing AND assumption_challenging both present
         ambiguity_types = {r.reframing_type for r in results}
-        if "scope_narrowing" in ambiguity_types and "assumption_challenging" in ambiguity_types:
+        if (enqueue_reverification and "scope_narrowing" in ambiguity_types
+                and "assumption_challenging" in ambiguity_types):
             self._enqueue_for_reverification(question, domain, results)
 
         return results

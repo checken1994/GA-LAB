@@ -72,6 +72,8 @@ from scp.meta.cognitive_layers.unknown_state import (  # noqa: F401
     UnknownState,
     UnknownStateClassifier,
 )
+from scp.meta.pass_why import PassWhyAsker
+from scp.meta.source_diversity import SourceDiversityAuditor
 
 
 # ============================================================
@@ -98,14 +100,20 @@ class CognitiveEngine:
 
     # All available layers
     ALL_LAYERS = {"meta_falsifier", "unknown_state", "counter_question",
-                  "proof_graph", "recursive_why"}
+                  "proof_graph", "recursive_why", "pass_why",
+                  "source_diversity"}
 
-    def __init__(self):
+    def __init__(self, lineage_store=None):
         self.meta_falsifier = MetaFalsifier()
         self.unknown_classifier = UnknownStateClassifier()
         self.counter_question = CounterQuestionEngine()
         self.proof_builder = ProofGraphBuilder()
         self.recursive_why = RecursiveWhyEngine()
+        # [GPT-5.6 Sol port] Restore V3 skeptical post-PASS review and source
+        # diversity audit. LineageStore remains the only authority allowed to
+        # count independent support; callers may inject it when available.
+        self.pass_why = PassWhyAsker()
+        self.source_diversity = SourceDiversityAuditor(lineage_store=lineage_store)
         #  Per-layer enable/disable
         self.enabled_layers = self._load_layer_config()
 
@@ -168,6 +176,33 @@ class CognitiveEngine:
                     "suggestions": [],
                     "reasoning": "No WHY plan to falsify (WHY engine not enabled or failed)",
                 }
+
+        # 1.5. Pass-Why skeptical review (V3 donor capability)
+        if "pass_why" in self.enabled_layers:
+            _antibodies = evidence.get("antibodies", []) if isinstance(evidence, dict) else []
+            _pass_review = self.pass_why.check(
+                verdict=verdict,
+                confidence=confidence,
+                evidence=evidence,
+                antibody_results=_antibodies,
+                sources=sources_succeeded,
+            )
+            result["pass_review"] = _pass_review.to_dict()
+
+        # 1.6. Source diversity / epistemic capture audit. This audit never
+        # manufactures source independence from host/domain diversity.
+        if "source_diversity" in self.enabled_layers:
+            _diversity_evidence = []
+            if isinstance(evidence, list):
+                _diversity_evidence = [item for item in evidence if isinstance(item, dict)]
+            elif isinstance(evidence, dict):
+                _items = evidence.get("items") or evidence.get("evidence")
+                if isinstance(_items, list):
+                    _diversity_evidence = [item for item in _items if isinstance(item, dict)]
+            if not _diversity_evidence and sources_succeeded:
+                _diversity_evidence = [{"source": source} for source in sources_succeeded]
+            _diversity = self.source_diversity.audit(_diversity_evidence)
+            result["source_diversity"] = _diversity.to_dict()
 
         # 2. Unknown State classification
         if "unknown_state" in self.enabled_layers:

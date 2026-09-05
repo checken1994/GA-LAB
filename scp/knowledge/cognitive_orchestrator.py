@@ -8,6 +8,7 @@ from scp.knowledge.hypothesis_authority import HypothesisAuthority
 from scp.knowledge.experiment_authority import ExperimentAuthority
 from scp.knowledge.lesson_authority import LessonAuthority
 from scp.knowledge.benchmark_authority import BenchmarkAuthority
+from scp.knowledge.epistemic_audit_authority import EpistemicAuditAuthority, EpistemicAuditResult
 
 class CognitiveOrchestrator:
     """
@@ -25,7 +26,8 @@ class CognitiveOrchestrator:
         hypothesis: HypothesisAuthority,
         experiment: ExperimentAuthority,
         lesson: LessonAuthority,
-        benchmark: BenchmarkAuthority
+        benchmark: BenchmarkAuthority,
+        epistemic_audit: EpistemicAuditAuthority | None = None,
     ):
         self.knowledge_db = knowledge_db
         self.learning_db = learning_db
@@ -36,7 +38,23 @@ class CognitiveOrchestrator:
         self.experiment = experiment
         self.lesson = lesson
         self.benchmark = benchmark
+        # [GPT-5.6 Sol port] P1 bridge for the restored V3 skeptical controls.
+        # The bridge writes unresolved findings only through OpenQuestionAuthority;
+        # it has no promotion or execution authority.
+        self.epistemic_audit = epistemic_audit or EpistemicAuditAuthority(
+            open_question_authority=open_question
+        )
         self.logger = logging.getLogger("CognitiveOrchestrator")
+
+
+    def review_candidate(self, **kwargs) -> EpistemicAuditResult:
+        """Run the restored V3 epistemic controls through the current P1 bridge.
+
+        This method is intentionally side-effect free unless the caller passes
+        ``materialize_question=True``. It does not execute experiments or promote
+        knowledge.
+        """
+        return self.epistemic_audit.review_candidate(**kwargs)
 
     def run_tick(self):
         """

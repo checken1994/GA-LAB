@@ -63,3 +63,15 @@ def test_ask_runtime_user_visible_strings_and_fact_check_keywords_are_clean():
     assert "[SCP: Answer withheld — WHY Gate blocked]" in source
     assert "SCP đã kiểm tra:" in source
     assert "Độ tin cậy: {v.confidence:.0%} — chưa đạt ngưỡng (cần ≥70%)" in source
+
+
+def test_image_data_and_image_url_share_the_same_jailbreak_scan_and_vision_path():
+    root = Path(__file__).resolve().parents[2]
+    source = (root / "scp" / "api_server_parts" / "multimodal_adapter.py").read_text(encoding="utf-8")
+    package = (root / "scp" / "api_server_parts" / "__init__.py").read_text(encoding="utf-8")
+    # The composition adapter scans both decoded image_data and fetched image_url
+    # before forwarding to the byte-identical legacy /ask implementation.
+    assert "ImageJailbreakDetector().detect(image_bytes=image_bytes)" in source
+    assert "VisionHandler().observe_image" in source
+    assert 'verdict="UNKNOWN"' in source
+    assert "build_multimodal_ask_wrapper" in package
