@@ -38,3 +38,4 @@
 
 * [2026-09-05][Antigravity]: Gateway fix (e5bed28) PASS — T00 0 regressions + pytest T09+T05 74/74 passed.
 
+* [2026-09-05][Antigravity]: M7/S03 (c97705b) PASS — T00 0 regressions + pytest T09 9/9. M8 bật đèn xanh.
