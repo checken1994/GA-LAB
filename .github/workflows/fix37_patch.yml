@@ -19,9 +19,11 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install focused dependency
-        run: python -m pip install pytest
+          python-version: "3.12"
+      - name: Install project test dependencies
+        run: |
+          python -m pip install -r scp/requirements-dev.txt
+          python -m pip check
       - name: Repair patcher method indentation
         shell: bash
         run: |
