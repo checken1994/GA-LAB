@@ -107,28 +107,63 @@ def test_c5_breaker_opens_after_threshold_and_half_open():
 
 def test_c5_gateway_fast_fails_when_endpoint_dead(tmp_path, monkeypatch):
     monkeypatch.delenv("SCP_EGRESS_MODE", raising=False)
+    from scp.llm_gateway import zero_cost_runtime
     from scp.llm_gateway.client import OpenRouterProvider
+    from scp.llm_gateway.zero_cost_guard import ZeroCostRequest
+
+    # This test is specifically about the transport circuit-breaker. Authorize
+    # synthetic exact-$0 candidates hermetically so Z2/Z3 do not short-circuit
+    # the test before the dead endpoint is exercised.
+    def authorize_free(*args, **kwargs):
+        provider_name = kwargs.get("provider", args[0] if args else "openrouter")
+        model = kwargs.get("model", args[1] if len(args) > 1 else "free-model")
+        return (
+            ZeroCostRequest(
+                provider_name,
+                model,
+                kwargs.get("task_class", "judge"),
+                kwargs.get("data_class", "INTERNAL"),
+            ),
+            None,
+        )
+
+    monkeypatch.setattr(zero_cost_runtime, "authorize_outbound", authorize_free)
 
     class DeadClient:
+        def __init__(self):
+            self.calls = 0
+
         async def post(self, *a, **k):
+            self.calls += 1
             raise ConnectionError("endpoint dead")
 
     provider = OpenRouterProvider(task="judge")
-    provider._client = DeadClient()
+    provider.model = "synthetic-primary-free"
+    provider.free_fallback = "synthetic-fallback-free"
+    dead_client = DeadClient()
+    provider._client = dead_client
     # inject key qua class attrs (monkeypatch tự restore, không ô nhiễm test khác)
     monkeypatch.setattr(type(provider), "_API_KEYS", ["test-key"], raising=False)
     monkeypatch.setattr(type(provider), "_key_cycle", itertools.cycle(["test-key"]), raising=False)
 
     async def drive():
-        results = []
-        for _ in range(4):
-            results.append(await provider.chat("q", "", ""))
-        return results
+        first = await provider.chat("q", "", "")
+        calls_after_first = dead_client.calls
+        second = await provider.chat("q", "", "")
+        return first, second, calls_after_first, dead_client.calls
 
-    results = asyncio.run(drive())
-    # 3 lần đầu: try thật (fail chậm theo exception) — lần thứ 4: circuit open
-    assert results[-1] == (None, "none")
+    first, second, calls_after_first, calls_after_second = asyncio.run(drive())
+
+    # The authorized free transport is actually exercised and repeated
+    # transport failures open the breaker.
+    assert first == (None, "none")
+    assert calls_after_first > 0
     assert provider._breaker.is_open() is True
+
+    # Once open, the next provider call fast-fails without another network
+    # dispatch. This keeps the C5 proof while respecting the $0 PEP.
+    assert second == (None, "none")
+    assert calls_after_second == calls_after_first
 
 
 # ---------------------------------------------------------------------------
