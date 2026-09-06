@@ -60,3 +60,13 @@ Enforcement: `tools/t00_meta_audit.py` (pre-commit hook) + `.github/workflows/sc
 
 Quy trình thực thi: `.agents/EXECUTION_PROTOCOL.md`.
 
+## 4. CƠ CHẾ CƯỠNG CHẾ BỘ NHỚ (AGENT-LEVEL HARD CONSTRAINTS)
+
+Để chống lại tình trạng Agent "Có Skill nhưng lười không dùng" và "Giao quyền quá mức cho Subagent", 2 cơ chế sau đây mang tính Ràng buộc Tuyệt đối (Forced Constraints) đối với bất kỳ Agent nào hoạt động trong SCP:
+
+1. **Forced Skill Activation (Chống ảo giác đồng thuận):**
+   Agent Mẹ KHÔNG ĐƯỢC PHÉP chỉ dựa vào tóm tắt (summary) của Skill trên bề mặt. Trước khi phân tích mã nguồn hoặc đưa ra bất kỳ phán quyết nào, Agent BẮT BUỘC phải dùng tool `view_file` đọc trực tiếp file `SKILL.md` tương ứng tại `.agents/skills/<tên-skill>/SKILL.md`. Báo cáo kết quả mà thiếu bước gọi tool đọc file Skill = Vi phạm nghiêm trọng (Báo cáo vô hiệu).
+
+2. **Subagent Prompt Injection (Trói buộc Đệ - Chống F01/F02 tái phát):**
+   Khi dùng tool `invoke_subagent`, Agent Mẹ TUYỆT ĐỐI KHÔNG ĐƯỢC giao Prompt mở. Trong trường `Prompt` truyền cho Subagent, BẮT BUỘC phải nhúng kèm đoạn lệnh cưỡng chế sau (hoặc tương đương):
+   > "MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-07. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables."
