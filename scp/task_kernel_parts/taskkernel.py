@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Any
 from scp.kernel_storage import KernelStorage, StorageIntegrityError, make_storage
 
+class OptimisticLockError(RuntimeError):
+    """Placeholder overwritten by scp.task_kernel.OptimisticLockError upon import."""
+    pass
+
+__all__ = ["TaskKernel", "OptimisticLockError"]
+
 class TaskKernel:
     """Small durable kernel. The journal is authoritative; tasks is a rebuildable projection.
 
@@ -51,7 +57,94 @@ class TaskKernel:
         self._storage.close()
 
     def _schema(self) -> None:
-        self.conn.executescript('\n            CREATE TABLE IF NOT EXISTS control (\n                id INTEGER PRIMARY KEY CHECK (id=1),\n                global_kill INTEGER NOT NULL DEFAULT 0,\n                global_kill_epoch INTEGER NOT NULL DEFAULT 0\n            );\n            INSERT OR IGNORE INTO control(id) VALUES(1);\n            CREATE TABLE IF NOT EXISTS tasks (\n                task_id TEXT PRIMARY KEY,\n                owner TEXT NOT NULL,\n                goal TEXT NOT NULL,\n                risk_tier TEXT NOT NULL,\n                deadline_ms INTEGER NOT NULL,\n                max_attempts INTEGER NOT NULL,\n                input_hash TEXT NOT NULL,\n                priority INTEGER NOT NULL DEFAULT 5,\n                state TEXT NOT NULL,\n                version INTEGER NOT NULL DEFAULT 1,\n                active_lease_id TEXT,\n                active_fencing_token INTEGER NOT NULL DEFAULT 0,\n                created_at TEXT NOT NULL,\n                updated_at TEXT NOT NULL\n            );\n            CREATE TABLE IF NOT EXISTS events (\n                event_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                seq INTEGER NOT NULL,\n                type TEXT NOT NULL,\n                from_state TEXT,\n                to_state TEXT,\n                actor TEXT NOT NULL,\n                reason TEXT NOT NULL,\n                payload_json TEXT NOT NULL,\n                policy_hash TEXT,\n                prev_event_hash TEXT,\n                event_hash TEXT NOT NULL,\n                created_at TEXT NOT NULL,\n                UNIQUE(task_id, seq)\n            );\n            CREATE TABLE IF NOT EXISTS leases (\n                lease_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                attempt_id TEXT NOT NULL,\n                worker_id TEXT NOT NULL,\n                issued_at REAL NOT NULL,\n                expires_at REAL NOT NULL,\n                heartbeat_at REAL NOT NULL,\n                fencing_token INTEGER NOT NULL,\n                global_kill_epoch INTEGER NOT NULL,\n                released INTEGER NOT NULL DEFAULT 0\n            );\n            CREATE INDEX IF NOT EXISTS idx_leases_task ON leases(task_id, fencing_token);\n            CREATE TABLE IF NOT EXISTS checkpoints (\n                checkpoint_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                attempt_id TEXT NOT NULL,\n                step_id TEXT NOT NULL,\n                state TEXT NOT NULL,\n                planned_action_hash TEXT NOT NULL,\n                capability_epoch INTEGER NOT NULL,\n                idempotency_key TEXT NOT NULL,\n                pre_observation_ref TEXT,\n                post_observation_ref TEXT,\n                tool_result_json TEXT,\n                verifier_verdict TEXT,\n                payload_hash TEXT NOT NULL,\n                created_at TEXT NOT NULL\n            );\n            CREATE TABLE IF NOT EXISTS idempotency (\n                logical_key TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                step_id TEXT NOT NULL,\n                action_type TEXT NOT NULL,\n                resource_identity TEXT NOT NULL,\n                status TEXT NOT NULL,\n                result_ref TEXT,\n                created_at TEXT NOT NULL\n            );\n            ')
+        self.conn.executescript('''
+            CREATE TABLE IF NOT EXISTS control (
+                id INTEGER PRIMARY KEY CHECK (id=1),
+                global_kill INTEGER NOT NULL DEFAULT 0,
+                global_kill_epoch INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT OR IGNORE INTO control(id) VALUES(1);
+            CREATE TABLE IF NOT EXISTS tasks (
+                task_id TEXT PRIMARY KEY,
+                owner TEXT NOT NULL,
+                goal TEXT NOT NULL,
+                risk_tier TEXT NOT NULL,
+                deadline_ms INTEGER NOT NULL,
+                max_attempts INTEGER NOT NULL,
+                input_hash TEXT NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 5,
+                state TEXT NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1,
+                active_lease_id TEXT,
+                active_fencing_token INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS events (
+                event_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                seq INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                from_state TEXT,
+                to_state TEXT,
+                actor TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                policy_hash TEXT,
+                prev_event_hash TEXT,
+                event_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(task_id, seq)
+            );
+            CREATE TABLE IF NOT EXISTS leases (
+                lease_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                attempt_id TEXT NOT NULL,
+                worker_id TEXT NOT NULL,
+                issued_at REAL NOT NULL,
+                expires_at REAL NOT NULL,
+                heartbeat_at REAL NOT NULL,
+                fencing_token INTEGER NOT NULL,
+                global_kill_epoch INTEGER NOT NULL,
+                released INTEGER NOT NULL DEFAULT 0,
+                version INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE INDEX IF NOT EXISTS idx_leases_task ON leases(task_id, fencing_token);
+            CREATE TABLE IF NOT EXISTS checkpoints (
+                checkpoint_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                attempt_id TEXT NOT NULL,
+                step_id TEXT NOT NULL,
+                state TEXT NOT NULL,
+                planned_action_hash TEXT NOT NULL,
+                capability_epoch INTEGER NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                pre_observation_ref TEXT,
+                post_observation_ref TEXT,
+                tool_result_json TEXT,
+                verifier_verdict TEXT,
+                payload_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS idempotency (
+                logical_key TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                step_id TEXT NOT NULL,
+                action_type TEXT NOT NULL,
+                resource_identity TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result_ref TEXT,
+                created_at TEXT NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS queue_accounts (
+                owner TEXT PRIMARY KEY,
+                active INTEGER NOT NULL DEFAULT 0,
+                dispatch_count INTEGER NOT NULL DEFAULT 0,
+                last_dispatch_at REAL NOT NULL DEFAULT 0,
+                version INTEGER NOT NULL DEFAULT 1
+            );
+            ''')
         task_columns = {row['name'] for row in self.conn.execute('PRAGMA table_info(tasks)').fetchall()}
         if 'priority' not in task_columns:
             self.conn.execute('ALTER TABLE tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 5')
@@ -59,7 +152,13 @@ class TaskKernel:
             self.conn.execute('ALTER TABLE tasks ADD COLUMN active_lease_id TEXT')
         if 'active_fencing_token' not in task_columns:
             self.conn.execute('ALTER TABLE tasks ADD COLUMN active_fencing_token INTEGER NOT NULL DEFAULT 0')
-        self.conn.execute('\n            CREATE TABLE IF NOT EXISTS queue_accounts (\n                owner TEXT PRIMARY KEY,\n                active INTEGER NOT NULL DEFAULT 0,\n                dispatch_count INTEGER NOT NULL DEFAULT 0,\n                last_dispatch_at REAL NOT NULL DEFAULT 0\n            )\n            ')
+        if 'version' not in task_columns:
+            self.conn.execute('ALTER TABLE tasks ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+
+        for table in ('leases', 'idempotency', 'queue_accounts'):
+            cols = {row['name'] for row in self.conn.execute(f'PRAGMA table_info({table})').fetchall()}
+            if 'version' not in cols:
+                self.conn.execute(f'ALTER TABLE {table} ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
 
     def _begin(self) -> None:
         """Acquire the write slot + BEGIN IMMEDIATE, với bounded retry trên
@@ -145,8 +244,11 @@ class TaskKernel:
                     return self.get_task(task_id)
             task = self._task(task_id)
             if expected_version is not None and int(task["version"]) != expected_version:
-                raise StaleLease(
-                    f"concurrency conflict on task {task_id}: expected version {expected_version}, found {task['version']}"
+                raise OptimisticLockError(
+                    f"concurrency conflict on task {task_id}: expected version {expected_version}, found {task['version']}",
+                    table="tasks",
+                    entity_id=task_id,
+                    expected_version=expected_version,
                 )
             cur_version = int(task["version"])
             old = task["state"]
@@ -211,9 +313,9 @@ class TaskKernel:
                     new_lease_id = None
                     new_fencing_token = 0
                     if caller_lease:
-                        self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?", (caller_lease,))
+                        self.conn.execute("UPDATE leases SET released=1,version=version+1 WHERE lease_id=? AND released=0", (caller_lease,))
                         self.conn.execute(
-                            "UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?",
+                            "UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?",
                             (task["owner"],),
                         )
                         if hasattr(self, "_bound_leases"):
@@ -224,7 +326,12 @@ class TaskKernel:
                 (to_state, new_lease_id, new_fencing_token, now_iso(), task_id, cur_version),
             )
             if cur.rowcount != 1:
-                raise StaleLease(f"concurrency conflict transitioning task {task_id}: expected version {cur_version}")
+                raise OptimisticLockError(
+                    f"concurrency conflict transitioning task {task_id}: expected version {cur_version}",
+                    table="tasks",
+                    entity_id=task_id,
+                    expected_version=cur_version,
+                )
 
             self._append_event(
                 task_id,
@@ -290,7 +397,12 @@ class TaskKernel:
             for task in candidates:
                 created_at = datetime.fromisoformat(task['created_at']).timestamp()
                 if now >= created_at + int(task['deadline_ms']) / 1000.0:
-                    self.conn.execute("UPDATE tasks SET state='FAILED',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=?", (now_iso(), task['task_id']))
+                    cur = self.conn.execute(
+                        "UPDATE tasks SET state='FAILED',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?",
+                        (now_iso(), task['task_id'], task['version']),
+                    )
+                    if cur.rowcount != 1:
+                        continue
                     self._append_event(task['task_id'], 'DEADLINE_EXPIRED', 'QUEUED', 'FAILED', 'kernel', 'queue_deadline_guard', {'deadline_ms': task['deadline_ms']})
                     continue
                 if int(task['owner_active']) >= max_active_per_owner:
@@ -331,6 +443,12 @@ class TaskKernel:
         control = self._control()
         now = time.time()
         if lease['task_id'] != task_id or lease['released'] or lease['expires_at'] <= now or (lease['global_kill_epoch'] != control['global_kill_epoch']) or control['global_kill']:
+            if lease['released']:
+                raise OptimisticLockError(
+                    f"lease {lease_id} has already been released",
+                    table="leases",
+                    entity_id=lease_id,
+                )
             raise StaleLease(lease_id)
         latest = self.conn.execute('SELECT COALESCE(MAX(fencing_token), 0) AS n FROM leases WHERE task_id=?', (task_id,)).fetchone()['n']
         if int(lease['fencing_token']) != int(latest):
@@ -367,7 +485,7 @@ class TaskKernel:
             raise
         return self.get_task(task_id)
 
-    def heartbeat(self, task_id: str, lease_id: str, extend_seconds: float=30.0) -> Lease:
+    def heartbeat(self, task_id: str, lease_id: str, extend_seconds: float=30.0, expected_version: int | None=None) -> Lease:
         self._begin()
         try:
             lease = self._assert_lease(lease_id, task_id)
@@ -383,9 +501,28 @@ class TaskKernel:
                     raise StaleLease(f"kernel instance does not possess active lease authority for task {task_id}")
                 if bound != lease_id:
                     raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
+            current_lease_version = int(lease['version']) if 'version' in lease.keys() else 1
+            if expected_version is not None and current_lease_version != expected_version:
+                raise OptimisticLockError(
+                    f"concurrency conflict on lease {lease_id}: expected version {expected_version}, found {current_lease_version}",
+                    table="leases",
+                    entity_id=lease_id,
+                    expected_version=expected_version,
+                )
+            target_version = expected_version if expected_version is not None else current_lease_version
             now = time.time()
             expires = now + extend_seconds
-            self.conn.execute('UPDATE leases SET heartbeat_at=?,expires_at=? WHERE lease_id=?', (now, expires, lease_id))
+            cur = self.conn.execute(
+                'UPDATE leases SET heartbeat_at=?,expires_at=?,version=version+1 WHERE lease_id=? AND released=0 AND version=?',
+                (now, expires, lease_id, target_version),
+            )
+            if cur.rowcount != 1:
+                raise OptimisticLockError(
+                    f"concurrency conflict heartbeating lease {lease_id} (version mismatch or lease released)",
+                    table="leases",
+                    entity_id=lease_id,
+                    expected_version=target_version,
+                )
             self._commit()
             return Lease(lease['lease_id'], lease['task_id'], lease['attempt_id'], lease['worker_id'], expires, lease['fencing_token'], lease['global_kill_epoch'])
         except Exception:
@@ -413,9 +550,9 @@ class TaskKernel:
                     self._append_event(task['task_id'], 'LEASE_EXPIRED', cur_state, 'QUEUED', 'kernel', 'heartbeat_expired', {'lease_id': lease['lease_id']})
                 elif task['active_lease_id'] == lease['lease_id']:
                     self.conn.execute("UPDATE tasks SET active_lease_id=NULL,active_fencing_token=0,version=version+1,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task['task_id'], task['version']))
-                self.conn.execute('UPDATE leases SET released=1 WHERE lease_id=?', (lease['lease_id'],))
+                self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE lease_id=? AND released=0', (lease['lease_id'],))
                 owner = self._task(lease['task_id'])['owner']
-                self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (owner,))
+                self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (owner,))
                 if hasattr(self, '_bound_leases'):
                     self._bound_leases.pop(lease['task_id'], None)
             self._commit()
@@ -424,7 +561,7 @@ class TaskKernel:
             self._rollback()
             raise
 
-    def release(self, task_id: str, lease_id: str) -> None:
+    def release(self, task_id: str, lease_id: str, expected_version: int | None=None) -> None:
         self._begin()
         try:
             self._assert_lease(lease_id, task_id)
@@ -438,14 +575,31 @@ class TaskKernel:
                     raise StaleLease(f"kernel instance does not possess active lease authority for task {task_id}")
                 if bound != lease_id:
                     raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
-            self.conn.execute('UPDATE leases SET released=1 WHERE lease_id=?', (lease_id,))
+            lease = self._lease(lease_id)
+            current_lease_version = int(lease['version']) if 'version' in lease.keys() else 1
+            if expected_version is not None and current_lease_version != expected_version:
+                raise OptimisticLockError(
+                    f"concurrency conflict releasing lease {lease_id}: expected version {expected_version}, found {current_lease_version}",
+                    table="leases",
+                    entity_id=lease_id,
+                    expected_version=expected_version,
+                )
+            target_version = expected_version if expected_version is not None else current_lease_version
+            cur = self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE lease_id=? AND released=0 AND version=?', (lease_id, target_version))
+            if cur.rowcount != 1:
+                raise OptimisticLockError(
+                    f"concurrency conflict releasing lease {lease_id}",
+                    table="leases",
+                    entity_id=lease_id,
+                    expected_version=target_version,
+                )
             cur = self.conn.execute(
                 'UPDATE tasks SET active_lease_id=NULL,active_fencing_token=0,version=version+1,updated_at=? WHERE task_id=? AND version=?',
                 (now_iso(), task_id, task['version']),
             )
             if cur.rowcount != 1:
                 raise StaleLease(f"concurrency conflict releasing lease on task {task_id}")
-            self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+            self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (task['owner'],))
             self._append_event(task_id, 'LEASE_RELEASED', None, None, 'kernel', 'worker_release', {'lease_id': lease_id})
             if hasattr(self, '_bound_leases'):
                 self._bound_leases.pop(task_id, None)
@@ -573,9 +727,9 @@ class TaskKernel:
                 raise StaleLease(f"concurrency conflict entering reconciling task {task_id}")
             active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (task_id,)).fetchall()
             if active_leases:
-                self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
+                self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE task_id=? AND released=0', (task_id,))
                 for _ in active_leases:
-                    self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+                    self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (task['owner'],))
             if hasattr(self, '_bound_leases'):
                 self._bound_leases.pop(task_id, None)
             self._append_event(task_id, 'RECONCILE_STARTED', 'UNKNOWN', 'RECONCILING', 'kernel', reason or 'reconcile_required', {'checkpoint_id': checkpoint_id})
@@ -604,18 +758,25 @@ class TaskKernel:
             if not idem:
                 raise KernelError('reconcile idempotency key not found')
             old_state = task['state']
+            idem_version = int(idem['version']) if 'version' in idem.keys() else 1
             if outcome == 'NOT_APPLIED':
                 if idem['status'] != 'CLAIMED':
                     raise KernelError('reconcile idempotency status is not CLAIMED')
-                self.conn.execute("UPDATE idempotency SET status='RETRYABLE',result_ref=? WHERE logical_key=?", (evidence_ref, checkpoint['idempotency_key']))
+                cur_idem = self.conn.execute("UPDATE idempotency SET status='RETRYABLE',result_ref=?,version=version+1 WHERE logical_key=? AND status='CLAIMED' AND version=?", (evidence_ref, checkpoint['idempotency_key'], idem_version))
+                if cur_idem.rowcount != 1:
+                    raise OptimisticLockError(f"concurrency conflict reconciling idempotency key {checkpoint['idempotency_key']}", table="idempotency", entity_id=checkpoint['idempotency_key'], expected_version=idem_version)
                 next_state = 'QUEUED'
                 event_type = 'RECONCILE_NOT_APPLIED'
             elif outcome == 'APPLIED':
-                self.conn.execute("UPDATE idempotency SET status='RECONCILED_APPLIED',result_ref=? WHERE logical_key=?", (evidence_ref, checkpoint['idempotency_key']))
+                cur_idem = self.conn.execute("UPDATE idempotency SET status='RECONCILED_APPLIED',result_ref=?,version=version+1 WHERE logical_key=? AND status='CLAIMED' AND version=?", (evidence_ref, checkpoint['idempotency_key'], idem_version))
+                if cur_idem.rowcount != 1:
+                    raise OptimisticLockError(f"concurrency conflict reconciling idempotency key {checkpoint['idempotency_key']}", table="idempotency", entity_id=checkpoint['idempotency_key'], expected_version=idem_version)
                 next_state = 'HUMAN_REVIEW'
                 event_type = 'RECONCILE_APPLIED'
             else:
-                self.conn.execute("UPDATE idempotency SET status='RECONCILED_UNKNOWN',result_ref=? WHERE logical_key=?", (evidence_ref, checkpoint['idempotency_key']))
+                cur_idem = self.conn.execute("UPDATE idempotency SET status='RECONCILED_UNKNOWN',result_ref=?,version=version+1 WHERE logical_key=? AND status='CLAIMED' AND version=?", (evidence_ref, checkpoint['idempotency_key'], idem_version))
+                if cur_idem.rowcount != 1:
+                    raise OptimisticLockError(f"concurrency conflict reconciling idempotency key {checkpoint['idempotency_key']}", table="idempotency", entity_id=checkpoint['idempotency_key'], expected_version=idem_version)
                 next_state = 'HUMAN_REVIEW'
                 event_type = 'RECONCILE_UNKNOWN'
             cur = self.conn.execute('UPDATE tasks SET state=?,version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?', (next_state, now_iso(), task_id, task['version']))
@@ -623,9 +784,9 @@ class TaskKernel:
                 raise StaleLease(f"concurrency conflict reconciling task {task_id}")
             active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (task_id,)).fetchall()
             if active_leases:
-                self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
+                self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE task_id=? AND released=0', (task_id,))
                 for _ in active_leases:
-                    self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+                    self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (task['owner'],))
             if hasattr(self, '_bound_leases'):
                 self._bound_leases.pop(task_id, None)
             self._append_event(task_id, event_type, old_state, next_state, verifier_id or 'provider-state-reader', 'reconcile_outcome_recorded', {'checkpoint_id': checkpoint_id, 'outcome': outcome, 'evidence_ref': evidence_ref, 'verifier_id': verifier_id})
@@ -650,26 +811,45 @@ class TaskKernel:
             raise CheckpointCorrupt('checkpoint payload hash mismatch')
         return dict(row)
 
-    def idempotency_claim(self, task_id: str, step_id: str, action_type: str, resource_identity: str) -> tuple[str, bool]:
+    def idempotency_claim(self, task_id: str, step_id: str, action_type: str, resource_identity: str, expected_version: int | None=None) -> tuple[str, bool]:
         logical_key = stable_hash({'task_id': task_id, 'step_id': step_id, 'action_type': action_type, 'resource_identity': resource_identity})
         self._begin()
         try:
             row = self.conn.execute('SELECT * FROM idempotency WHERE logical_key=?', (logical_key,)).fetchone()
             if row:
+                current_version = int(row['version']) if 'version' in row.keys() else 1
+                if expected_version is not None and current_version != expected_version:
+                    raise OptimisticLockError(
+                        f"concurrency conflict claiming idempotency {logical_key}: expected version {expected_version}, found {current_version}",
+                        table="idempotency",
+                        entity_id=logical_key,
+                        expected_version=expected_version,
+                    )
                 if row['status'] == 'RETRYABLE':
-                    self.conn.execute("UPDATE idempotency SET status='CLAIMED',result_ref=NULL WHERE logical_key=?", (logical_key,))
+                    target_version = expected_version if expected_version is not None else current_version
+                    cur = self.conn.execute("UPDATE idempotency SET status='CLAIMED',result_ref=NULL,version=version+1 WHERE logical_key=? AND status='RETRYABLE' AND version=?", (logical_key, target_version))
+                    if cur.rowcount == 1:
+                        self._commit()
+                        return (logical_key, True)
+                    if expected_version is not None:
+                        raise OptimisticLockError(
+                            f"concurrency conflict claiming idempotency {logical_key}",
+                            table="idempotency",
+                            entity_id=logical_key,
+                            expected_version=target_version,
+                        )
                     self._commit()
-                    return (logical_key, True)
+                    return (logical_key, False)
                 self._commit()
                 return (logical_key, False)
-            self.conn.execute('INSERT INTO idempotency(logical_key,task_id,step_id,action_type,resource_identity,status,created_at) VALUES (?,?,?,?,?,?,?)', (logical_key, task_id, step_id, action_type, resource_identity, 'CLAIMED', now_iso()))
+            self.conn.execute('INSERT INTO idempotency(logical_key,task_id,step_id,action_type,resource_identity,status,created_at,version) VALUES (?,?,?,?,?,?,?,1)', (logical_key, task_id, step_id, action_type, resource_identity, 'CLAIMED', now_iso()))
             self._commit()
             return (logical_key, True)
         except Exception:
             self._rollback()
             raise
 
-    def idempotency_complete(self, logical_key: str, result_ref: str) -> None:
+    def idempotency_complete(self, logical_key: str, result_ref: str, expected_version: int | None=None) -> None:
         if not logical_key or not result_ref:
             raise KernelError('invalid idempotency completion')
         self._begin()
@@ -677,6 +857,15 @@ class TaskKernel:
             row = self.conn.execute('SELECT * FROM idempotency WHERE logical_key=?', (logical_key,)).fetchone()
             if not row:
                 raise KernelError('idempotency key not found')
+            current_version = int(row['version']) if 'version' in row.keys() else 1
+            if expected_version is not None and current_version != expected_version:
+                raise OptimisticLockError(
+                    f"concurrency conflict on idempotency {logical_key}: expected version {expected_version}, found {current_version}",
+                    table="idempotency",
+                    entity_id=logical_key,
+                    expected_version=expected_version,
+                )
+            target_version = expected_version if expected_version is not None else current_version
             if row['status'] == 'COMPLETED':
                 if row['result_ref'] != result_ref:
                     raise KernelError('idempotency result mismatch')
@@ -684,7 +873,14 @@ class TaskKernel:
                 return
             if row['status'] != 'CLAIMED':
                 raise KernelError(f"invalid idempotency status: {row['status']}")
-            self.conn.execute("UPDATE idempotency SET status='COMPLETED',result_ref=? WHERE logical_key=?", (result_ref, logical_key))
+            cur = self.conn.execute("UPDATE idempotency SET status='COMPLETED',result_ref=?,version=version+1 WHERE logical_key=? AND status='CLAIMED' AND version=?", (result_ref, logical_key, target_version))
+            if cur.rowcount != 1:
+                raise OptimisticLockError(
+                    f"concurrency conflict completing idempotency {logical_key}",
+                    table="idempotency",
+                    entity_id=logical_key,
+                    expected_version=target_version,
+                )
             self._commit()
         except Exception:
             self._rollback()
@@ -720,8 +916,8 @@ class TaskKernel:
             if cur.rowcount != 1:
                 raise StaleLease(f"concurrency conflict completing task {task_id}")
             self._append_event(task_id, 'TASK_COMPLETED', old, 'COMPLETED', 'verifier', 'postcondition_verified', {'evidence_ref': evidence_ref, 'verifier_verdict': verifier_verdict, 'lease_id': lease_id})
-            self.conn.execute('UPDATE leases SET released=1 WHERE lease_id=?', (lease_id,))
-            self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+            self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE lease_id=? AND released=0', (lease_id,))
+            self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (task['owner'],))
             if hasattr(self, '_bound_leases'):
                 self._bound_leases.pop(task_id, None)
             self._commit()
@@ -753,9 +949,9 @@ class TaskKernel:
             cur = self.conn.execute("UPDATE tasks SET state='CANCELLED',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task_id, task['version']))
             if cur.rowcount != 1:
                 raise StaleLease(f"concurrency conflict cancelling task {task_id}")
-            self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
+            self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE task_id=? AND released=0', (task_id,))
             for _ in active_leases:
-                self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+                self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (task['owner'],))
             self._append_event(task_id, 'TASK_KILLED', task['state'], 'CANCELLED', actor, 'task_kill', {})
             if hasattr(self, '_bound_leases'):
                 self._bound_leases.pop(task_id, None)
@@ -839,10 +1035,10 @@ class TaskKernel:
                     continue
                 active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (tid,)).fetchall()
                 if active_leases:
-                    self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (tid,))
+                    self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE task_id=? AND released=0', (tid,))
                     for _ in active_leases:
                         self.conn.execute(
-                            'UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?',
+                            'UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?',
                             (task['owner'],),
                         )
                 if hasattr(self, '_bound_leases'):
@@ -920,9 +1116,9 @@ class TaskKernel:
                 current = task_row['state']
                 active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (task_id,)).fetchall()
                 if active_leases:
-                    self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
+                    self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE task_id=? AND released=0', (task_id,))
                     for _ in active_leases:
-                        self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task_row['owner'],))
+                        self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (task_row['owner'],))
                 if current == 'RUNNING' or current == 'VERIFYING':
                     self.transition(task_id, 'HUMAN_REVIEW', actor=actor, reason='boot_recovery_in_flight')
                     report['recovered'].append({'task_id': task_id, 'from': current, 'to': 'HUMAN_REVIEW'})

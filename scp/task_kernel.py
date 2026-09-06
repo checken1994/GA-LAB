@@ -54,6 +54,30 @@ class StaleLease(KernelError):
     pass
 
 
+class OptimisticLockError(StaleLease):
+    """Raised when an atomic OCC version check fails (0 rows updated due to version mismatch)."""
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        table: str | None = None,
+        entity_id: str | None = None,
+        expected_version: int | None = None,
+    ) -> None:
+        self.table = table
+        self.entity_id = entity_id
+        self.expected_version = expected_version
+        if not message:
+            message = (
+                f"Optimistic lock conflict on table '{table}' for entity '{entity_id}'"
+                f" (expected version {expected_version})"
+            )
+        elif entity_id and entity_id not in message:
+            message = f"{message} (table={table}, entity_id={entity_id}, expected_version={expected_version})"
+        super().__init__(message)
+
+
 class KillSwitchActive(KernelError):
     pass
 
@@ -153,6 +177,7 @@ def _idempotency_claim_fenced(
     step_id: str,
     action_type: str,
     resource_identity: str,
+    expected_version: int | None = None,
 ) -> tuple[str, bool]:
     logical_key = stable_hash(
         {
@@ -183,17 +208,36 @@ def _idempotency_claim_fenced(
             "SELECT * FROM idempotency WHERE logical_key=?", (logical_key,)
         ).fetchone()
         if row:
-            if row["status"] == "RETRYABLE":
-                self.conn.execute(
-                    "UPDATE idempotency SET status='CLAIMED',result_ref=NULL WHERE logical_key=?",
-                    (logical_key,),
+            current_version = int(row["version"]) if "version" in row.keys() else 1
+            if expected_version is not None and current_version != expected_version:
+                raise OptimisticLockError(
+                    f"concurrency conflict claiming idempotency {logical_key}: expected version {expected_version}, found {current_version}",
+                    table="idempotency",
+                    entity_id=logical_key,
+                    expected_version=expected_version,
                 )
+            if row["status"] == "RETRYABLE":
+                target_version = expected_version if expected_version is not None else current_version
+                cur = self.conn.execute(
+                    "UPDATE idempotency SET status='CLAIMED',result_ref=NULL,version=version+1 WHERE logical_key=? AND status='RETRYABLE' AND version=?",
+                    (logical_key, target_version),
+                )
+                if cur.rowcount == 1:
+                    self._commit()
+                    return logical_key, True
+                if expected_version is not None:
+                    raise OptimisticLockError(
+                        f"concurrency conflict claiming idempotency {logical_key}",
+                        table="idempotency",
+                        entity_id=logical_key,
+                        expected_version=target_version,
+                    )
                 self._commit()
-                return logical_key, True
+                return logical_key, False
             self._commit()
             return logical_key, False
         self.conn.execute(
-            "INSERT INTO idempotency(logical_key,task_id,step_id,action_type,resource_identity,status,created_at) VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO idempotency(logical_key,task_id,step_id,action_type,resource_identity,status,created_at,version) VALUES (?,?,?,?,?,?,?,1)",
             (logical_key, task_id, step_id, action_type, resource_identity, "CLAIMED", now_iso()),
         )
         self._commit()
@@ -203,7 +247,12 @@ def _idempotency_claim_fenced(
         raise
 
 
-def _idempotency_complete_fenced(self: Any, logical_key: str, result_ref: str) -> None:
+def _idempotency_complete_fenced(
+    self: Any,
+    logical_key: str,
+    result_ref: str,
+    expected_version: int | None = None,
+) -> None:
     if not logical_key or not result_ref:
         raise KernelError("invalid idempotency completion")
     self._begin()
@@ -221,6 +270,17 @@ def _idempotency_complete_fenced(self: Any, logical_key: str, result_ref: str) -
         task = self._task(tid)
         if task["active_lease_id"] != lease_id:
             raise StaleLease(f"lease {lease_id} does not match active task lease {task['active_lease_id']}")
+
+        current_version = int(row["version"]) if "version" in row.keys() else 1
+        if expected_version is not None and current_version != expected_version:
+            raise OptimisticLockError(
+                f"concurrency conflict on idempotency {logical_key}: expected version {expected_version}, found {current_version}",
+                table="idempotency",
+                entity_id=logical_key,
+                expected_version=expected_version,
+            )
+        target_version = expected_version if expected_version is not None else current_version
+
         if row["status"] == "COMPLETED":
             if row["result_ref"] != result_ref:
                 raise KernelError("idempotency result mismatch")
@@ -228,10 +288,17 @@ def _idempotency_complete_fenced(self: Any, logical_key: str, result_ref: str) -
             return
         if row["status"] != "CLAIMED":
             raise KernelError(f"invalid idempotency status: {row['status']}")
-        self.conn.execute(
-            "UPDATE idempotency SET status='COMPLETED',result_ref=? WHERE logical_key=?",
-            (result_ref, logical_key),
+        cur = self.conn.execute(
+            "UPDATE idempotency SET status='COMPLETED',result_ref=?,version=version+1 WHERE logical_key=? AND status='CLAIMED' AND version=?",
+            (result_ref, logical_key, target_version),
         )
+        if cur.rowcount != 1:
+            raise OptimisticLockError(
+                f"concurrency conflict completing idempotency {logical_key}",
+                table="idempotency",
+                entity_id=logical_key,
+                expected_version=target_version,
+            )
         self._commit()
     except Exception:
         self._rollback()
@@ -289,10 +356,18 @@ def _reconcile_unknown_complete_outcomes(
 
         status = f"RECONCILED_{normalized}"
         event_type = f"RECONCILE_{normalized}"
-        self.conn.execute(
-            "UPDATE idempotency SET status=?,result_ref=? WHERE logical_key=?",
-            (status, evidence_ref, checkpoint["idempotency_key"]),
+        cur_idem_version = int(idem["version"]) if "version" in idem.keys() else 1
+        cur_idem = self.conn.execute(
+            "UPDATE idempotency SET status=?,result_ref=?,version=version+1 WHERE logical_key=? AND status='CLAIMED' AND version=?",
+            (status, evidence_ref, checkpoint["idempotency_key"], cur_idem_version),
         )
+        if cur_idem.rowcount != 1:
+            raise OptimisticLockError(
+                f"concurrency conflict reconciling idempotency key {checkpoint['idempotency_key']}",
+                table="idempotency",
+                entity_id=checkpoint["idempotency_key"],
+                expected_version=cur_idem_version,
+            )
         cur = self.conn.execute(
             "UPDATE tasks SET state='HUMAN_REVIEW',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?",
             (now_iso(), task_id, task["version"]),
@@ -301,9 +376,9 @@ def _reconcile_unknown_complete_outcomes(
             raise StaleLease(f"concurrency conflict reconciling task {task_id}")
         active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (task_id,)).fetchall()
         if active_leases:
-            self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
+            self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE task_id=? AND released=0', (task_id,))
             for _ in active_leases:
-                self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+                self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (task['owner'],))
         if hasattr(self, '_bound_leases'):
             self._bound_leases.pop(task_id, None)
         self._append_event(
@@ -340,7 +415,7 @@ TaskKernel.__module__ = __name__
 
 __all__ = [
     "TaskKernel", "Lease", "RecoveryDecision", "KernelError",
-    "InvalidTransition", "StaleLease", "KillSwitchActive",
+    "InvalidTransition", "StaleLease", "OptimisticLockError", "KillSwitchActive",
     "CheckpointCorrupt", "NotFound", "STATES", "TERMINAL",
     "ALLOWED_TRANSITIONS", "now_iso", "stable_hash", "as_json",
 ]
