@@ -119,20 +119,21 @@ class SQLiteKernelStorage:
         return conn
 
     def begin(self) -> None:
-        """Acquire write lock + BEGIN IMMEDIATE (3 retries on SQLITE_BUSY)."""
+        """Acquire write lock + BEGIN IMMEDIATE (bounded retry on SQLITE_BUSY / locked)."""
         self._tx_lock.acquire()
         try:
             last_error: Exception | None = None
-            for attempt in range(3):
+            for attempt in range(25):
                 try:
                     self._get_conn().execute("BEGIN IMMEDIATE")
                     self._tx_state.held = True
                     return
                 except sqlite3.OperationalError as exc:
-                    if "locked" not in str(exc).lower():
+                    err_msg = str(exc).lower()
+                    if "locked" not in err_msg and "busy" not in err_msg:
                         raise
                     last_error = exc
-                    time.sleep(0.05 * (attempt + 1))
+                    time.sleep(0.05 * min(attempt + 1, 4))
             raise last_error if last_error else RuntimeError("begin failed")
         except BaseException:
             self._tx_lock.release()

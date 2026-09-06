@@ -36,6 +36,8 @@ class TaskKernel:
                 raise ValueError('Either db_path or storage= must be provided')
             self._storage = make_storage(db_path)
             self.db_path = str(db_path)
+        self._bound_leases: dict[str, str] = {}
+        self._system_authority: bool = False
         self._schema()
 
     @property
@@ -44,13 +46,19 @@ class TaskKernel:
         return self._storage
 
     def close(self) -> None:
+        if hasattr(self, "_bound_leases"):
+            self._bound_leases.clear()
         self._storage.close()
 
     def _schema(self) -> None:
-        self.conn.executescript('\n            CREATE TABLE IF NOT EXISTS control (\n                id INTEGER PRIMARY KEY CHECK (id=1),\n                global_kill INTEGER NOT NULL DEFAULT 0,\n                global_kill_epoch INTEGER NOT NULL DEFAULT 0\n            );\n            INSERT OR IGNORE INTO control(id) VALUES(1);\n            CREATE TABLE IF NOT EXISTS tasks (\n                task_id TEXT PRIMARY KEY,\n                owner TEXT NOT NULL,\n                goal TEXT NOT NULL,\n                risk_tier TEXT NOT NULL,\n                deadline_ms INTEGER NOT NULL,\n                max_attempts INTEGER NOT NULL,\n                input_hash TEXT NOT NULL,\n                priority INTEGER NOT NULL DEFAULT 5,\n                state TEXT NOT NULL,\n                version INTEGER NOT NULL DEFAULT 1,\n                created_at TEXT NOT NULL,\n                updated_at TEXT NOT NULL\n            );\n            CREATE TABLE IF NOT EXISTS events (\n                event_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                seq INTEGER NOT NULL,\n                type TEXT NOT NULL,\n                from_state TEXT,\n                to_state TEXT,\n                actor TEXT NOT NULL,\n                reason TEXT NOT NULL,\n                payload_json TEXT NOT NULL,\n                policy_hash TEXT,\n                prev_event_hash TEXT,\n                event_hash TEXT NOT NULL,\n                created_at TEXT NOT NULL,\n                UNIQUE(task_id, seq)\n            );\n            CREATE TABLE IF NOT EXISTS leases (\n                lease_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                attempt_id TEXT NOT NULL,\n                worker_id TEXT NOT NULL,\n                issued_at REAL NOT NULL,\n                expires_at REAL NOT NULL,\n                heartbeat_at REAL NOT NULL,\n                fencing_token INTEGER NOT NULL,\n                global_kill_epoch INTEGER NOT NULL,\n                released INTEGER NOT NULL DEFAULT 0\n            );\n            CREATE INDEX IF NOT EXISTS idx_leases_task ON leases(task_id, fencing_token);\n            CREATE TABLE IF NOT EXISTS checkpoints (\n                checkpoint_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                attempt_id TEXT NOT NULL,\n                step_id TEXT NOT NULL,\n                state TEXT NOT NULL,\n                planned_action_hash TEXT NOT NULL,\n                capability_epoch INTEGER NOT NULL,\n                idempotency_key TEXT NOT NULL,\n                pre_observation_ref TEXT,\n                post_observation_ref TEXT,\n                tool_result_json TEXT,\n                verifier_verdict TEXT,\n                payload_hash TEXT NOT NULL,\n                created_at TEXT NOT NULL\n            );\n            CREATE TABLE IF NOT EXISTS idempotency (\n                logical_key TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                step_id TEXT NOT NULL,\n                action_type TEXT NOT NULL,\n                resource_identity TEXT NOT NULL,\n                status TEXT NOT NULL,\n                result_ref TEXT,\n                created_at TEXT NOT NULL\n            );\n            ')
+        self.conn.executescript('\n            CREATE TABLE IF NOT EXISTS control (\n                id INTEGER PRIMARY KEY CHECK (id=1),\n                global_kill INTEGER NOT NULL DEFAULT 0,\n                global_kill_epoch INTEGER NOT NULL DEFAULT 0\n            );\n            INSERT OR IGNORE INTO control(id) VALUES(1);\n            CREATE TABLE IF NOT EXISTS tasks (\n                task_id TEXT PRIMARY KEY,\n                owner TEXT NOT NULL,\n                goal TEXT NOT NULL,\n                risk_tier TEXT NOT NULL,\n                deadline_ms INTEGER NOT NULL,\n                max_attempts INTEGER NOT NULL,\n                input_hash TEXT NOT NULL,\n                priority INTEGER NOT NULL DEFAULT 5,\n                state TEXT NOT NULL,\n                version INTEGER NOT NULL DEFAULT 1,\n                active_lease_id TEXT,\n                active_fencing_token INTEGER NOT NULL DEFAULT 0,\n                created_at TEXT NOT NULL,\n                updated_at TEXT NOT NULL\n            );\n            CREATE TABLE IF NOT EXISTS events (\n                event_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                seq INTEGER NOT NULL,\n                type TEXT NOT NULL,\n                from_state TEXT,\n                to_state TEXT,\n                actor TEXT NOT NULL,\n                reason TEXT NOT NULL,\n                payload_json TEXT NOT NULL,\n                policy_hash TEXT,\n                prev_event_hash TEXT,\n                event_hash TEXT NOT NULL,\n                created_at TEXT NOT NULL,\n                UNIQUE(task_id, seq)\n            );\n            CREATE TABLE IF NOT EXISTS leases (\n                lease_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                attempt_id TEXT NOT NULL,\n                worker_id TEXT NOT NULL,\n                issued_at REAL NOT NULL,\n                expires_at REAL NOT NULL,\n                heartbeat_at REAL NOT NULL,\n                fencing_token INTEGER NOT NULL,\n                global_kill_epoch INTEGER NOT NULL,\n                released INTEGER NOT NULL DEFAULT 0\n            );\n            CREATE INDEX IF NOT EXISTS idx_leases_task ON leases(task_id, fencing_token);\n            CREATE TABLE IF NOT EXISTS checkpoints (\n                checkpoint_id TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                attempt_id TEXT NOT NULL,\n                step_id TEXT NOT NULL,\n                state TEXT NOT NULL,\n                planned_action_hash TEXT NOT NULL,\n                capability_epoch INTEGER NOT NULL,\n                idempotency_key TEXT NOT NULL,\n                pre_observation_ref TEXT,\n                post_observation_ref TEXT,\n                tool_result_json TEXT,\n                verifier_verdict TEXT,\n                payload_hash TEXT NOT NULL,\n                created_at TEXT NOT NULL\n            );\n            CREATE TABLE IF NOT EXISTS idempotency (\n                logical_key TEXT PRIMARY KEY,\n                task_id TEXT NOT NULL,\n                step_id TEXT NOT NULL,\n                action_type TEXT NOT NULL,\n                resource_identity TEXT NOT NULL,\n                status TEXT NOT NULL,\n                result_ref TEXT,\n                created_at TEXT NOT NULL\n            );\n            ')
         task_columns = {row['name'] for row in self.conn.execute('PRAGMA table_info(tasks)').fetchall()}
         if 'priority' not in task_columns:
             self.conn.execute('ALTER TABLE tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 5')
+        if 'active_lease_id' not in task_columns:
+            self.conn.execute('ALTER TABLE tasks ADD COLUMN active_lease_id TEXT')
+        if 'active_fencing_token' not in task_columns:
+            self.conn.execute('ALTER TABLE tasks ADD COLUMN active_fencing_token INTEGER NOT NULL DEFAULT 0')
         self.conn.execute('\n            CREATE TABLE IF NOT EXISTS queue_accounts (\n                owner TEXT PRIMARY KEY,\n                active INTEGER NOT NULL DEFAULT 0,\n                dispatch_count INTEGER NOT NULL DEFAULT 0,\n                last_dispatch_at REAL NOT NULL DEFAULT 0\n            )\n            ')
 
     def _begin(self) -> None:
@@ -111,36 +119,123 @@ class TaskKernel:
             raise
         return self.get_task(task_id)
 
-    def transition(self, task_id: str, to_state: str, actor: str='kernel', reason: str='', payload: dict[str, Any] | None=None, event_id: str | None=None) -> dict[str, Any]:
-        if to_state not in STATES and to_state != 'WAITING_APPROVAL':
-            raise InvalidTransition(f'unknown target state {to_state}')
+    def transition(
+        self,
+        task_id: str,
+        to_state: str,
+        actor: str = "kernel",
+        reason: str = "",
+        payload: dict[str, Any] | None = None,
+        event_id: str | None = None,
+        lease_id: str | None = None,
+        expected_version: int | None = None,
+    ) -> dict[str, Any]:
+        if to_state not in STATES and to_state != "WAITING_APPROVAL":
+            raise InvalidTransition(f"unknown target state {to_state}")
         self._begin()
         try:
             if event_id:
-                existing = self.conn.execute('SELECT * FROM events WHERE event_id=?', (event_id,)).fetchone()
+                existing = self.conn.execute(
+                    "SELECT * FROM events WHERE event_id=?", (event_id,)
+                ).fetchone()
                 if existing:
-                    if existing['task_id'] != task_id or existing['to_state'] != to_state:
-                        raise InvalidTransition('event_id reused for a different transition')
+                    if existing["task_id"] != task_id or existing["to_state"] != to_state:
+                        raise InvalidTransition("event_id reused for a different transition")
                     self._commit()
                     return self.get_task(task_id)
             task = self._task(task_id)
-            old = task['state']
+            if expected_version is not None and int(task["version"]) != expected_version:
+                raise StaleLease(
+                    f"concurrency conflict on task {task_id}: expected version {expected_version}, found {task['version']}"
+                )
+            cur_version = int(task["version"])
+            old = task["state"]
             if to_state not in ALLOWED_TRANSITIONS.get(old, set()):
-                raise InvalidTransition(f'{old}->{to_state}')
+                raise InvalidTransition(f"{old}->{to_state}")
             if old in TERMINAL:
-                raise InvalidTransition('terminal task is immutable')
-            if to_state in ('COMPLETED', 'FAILED', 'RUNNING', 'CHECKPOINTED', 'VERIFYING'):
+                raise InvalidTransition("terminal task is immutable")
+
+            if to_state in ("COMPLETED", "FAILED", "RUNNING", "CHECKPOINTED", "VERIFYING"):
                 try:
-                    from scp.meta.why_gate import get_why_gate, WhyDecision
-                    why_res = get_why_gate().gate(action_type='kernel_transition', action_desc=f'Transition {task_id} from {old} to {to_state} by {actor}', context=reason, llm_enabled=False)
+                    from scp.meta.why_gate import WhyDecision, get_why_gate
+
+                    why_res = get_why_gate().gate(
+                        action_type="kernel_transition",
+                        action_desc=f"Transition {task_id} from {old} to {to_state} by {actor}",
+                        context=reason,
+                        llm_enabled=False,
+                    )
                     if why_res.decision == WhyDecision.REJECT:
-                        raise InvalidTransition(f'WHY Gate REJECTED this kernel transition: {why_res.falsification_reason}')
+                        raise InvalidTransition(
+                            f"WHY Gate REJECTED this kernel transition: {why_res.falsification_reason}"
+                        )
                 except InvalidTransition:
                     raise
                 except Exception as why_err:
-                    raise InvalidTransition(f'WHY Gate crashed, fail-closed: {why_err}')
-            self.conn.execute('UPDATE tasks SET state=?,version=version+1,updated_at=? WHERE task_id=?', (to_state, now_iso(), task_id))
-            self._append_event(task_id, 'STATE_TRANSITION', old, to_state, actor, reason or f'{old}->{to_state}', payload, event_id=event_id)
+                    raise InvalidTransition(f"WHY Gate crashed, fail-closed: {why_err}")
+
+            # Lease Authority Gate (INV-01)
+            caller_lease = lease_id or getattr(self, "_bound_leases", {}).get(task_id)
+            is_system = getattr(self, "_system_authority", False)
+
+            if is_system:
+                new_lease_id = None
+                new_fencing_token = 0
+            else:
+                is_leased_state = old in {"LEASED", "RUNNING", "WAITING_TOOL", "VERIFYING", "CHECKPOINTED", "UNKNOWN"}
+                has_active_lease = bool(task["active_lease_id"])
+                if is_leased_state or has_active_lease:
+                    bound = getattr(self, "_bound_leases", {}).get(task_id)
+                    if not caller_lease:
+                        raise StaleLease(f"transition from {old} requires active lease authority")
+                    if bound and caller_lease != bound:
+                        raise StaleLease(f"caller lease {caller_lease} does not match bound instance lease {bound}")
+                    if not bound:
+                        raise StaleLease(f"kernel instance does not possess active lease authority for task {task_id}")
+                    if task["active_lease_id"] and caller_lease != task["active_lease_id"]:
+                        raise StaleLease(
+                            f"caller lease {caller_lease} does not match active task lease {task['active_lease_id']}"
+                        )
+                    lease_row = self._assert_lease(caller_lease, task_id)
+                    token = int(lease_row["fencing_token"])
+                elif caller_lease:
+                    lease_row = self._assert_lease(caller_lease, task_id)
+                    token = int(lease_row["fencing_token"])
+                else:
+                    token = 0
+
+                if to_state in {"RUNNING", "WAITING_TOOL", "VERIFYING", "CHECKPOINTED"}:
+                    new_lease_id = caller_lease
+                    new_fencing_token = token
+                else:
+                    new_lease_id = None
+                    new_fencing_token = 0
+                    if caller_lease:
+                        self.conn.execute("UPDATE leases SET released=1 WHERE lease_id=?", (caller_lease,))
+                        self.conn.execute(
+                            "UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?",
+                            (task["owner"],),
+                        )
+                        if hasattr(self, "_bound_leases"):
+                            self._bound_leases.pop(task_id, None)
+
+            cur = self.conn.execute(
+                "UPDATE tasks SET state=?,version=version+1,active_lease_id=?,active_fencing_token=?,updated_at=? WHERE task_id=? AND version=?",
+                (to_state, new_lease_id, new_fencing_token, now_iso(), task_id, cur_version),
+            )
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict transitioning task {task_id}: expected version {cur_version}")
+
+            self._append_event(
+                task_id,
+                "STATE_TRANSITION",
+                old,
+                to_state,
+                actor,
+                reason or f"{old}->{to_state}",
+                payload,
+                event_id=event_id,
+            )
             self._commit()
         except Exception:
             self._rollback()
@@ -170,9 +265,12 @@ class TaskKernel:
             token = int(old) + 1
             now = time.time()
             lease_id = 'lease_' + secrets.token_hex(12)
+            cur = self.conn.execute("UPDATE tasks SET state='LEASED',version=version+1,active_lease_id=?,active_fencing_token=?,updated_at=? WHERE task_id=? AND version=?", (lease_id, token, now_iso(), task_id, task['version']))
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict claiming task {task_id}")
             self.conn.execute('INSERT INTO leases(lease_id,task_id,attempt_id,worker_id,issued_at,expires_at,heartbeat_at,fencing_token,global_kill_epoch) VALUES (?,?,?,?,?,?,?,?,?)', (lease_id, task_id, attempt_id, worker_id, now, now + ttl_seconds, now, token, control['global_kill_epoch']))
-            self.conn.execute("UPDATE tasks SET state='LEASED',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task_id))
             self.conn.execute('INSERT INTO queue_accounts(owner,active,dispatch_count,last_dispatch_at) VALUES (?,?,?,?) ON CONFLICT(owner) DO UPDATE SET active=active+1,dispatch_count=dispatch_count+1,last_dispatch_at=excluded.last_dispatch_at', (task['owner'], 1, 1, now))
+            self._bound_leases[task_id] = lease_id
             self._append_event(task_id, 'LEASE_GRANTED', 'QUEUED', 'LEASED', 'kernel', 'lease_granted', {'lease_id': lease_id, 'fencing_token': token, 'worker_id': worker_id})
             self._commit()
             return Lease(lease_id, task_id, attempt_id, worker_id, now + ttl_seconds, token, control['global_kill_epoch'])
@@ -192,7 +290,7 @@ class TaskKernel:
             for task in candidates:
                 created_at = datetime.fromisoformat(task['created_at']).timestamp()
                 if now >= created_at + int(task['deadline_ms']) / 1000.0:
-                    self.conn.execute("UPDATE tasks SET state='FAILED',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task['task_id']))
+                    self.conn.execute("UPDATE tasks SET state='FAILED',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=?", (now_iso(), task['task_id']))
                     self._append_event(task['task_id'], 'DEADLINE_EXPIRED', 'QUEUED', 'FAILED', 'kernel', 'queue_deadline_guard', {'deadline_ms': task['deadline_ms']})
                     continue
                 if int(task['owner_active']) >= max_active_per_owner:
@@ -202,9 +300,12 @@ class TaskKernel:
                 fencing_token = int(latest) + 1
                 lease_id = 'lease_' + secrets.token_hex(12)
                 expires_at = now + ttl_seconds
+                cur = self.conn.execute("UPDATE tasks SET state='LEASED',version=version+1,active_lease_id=?,active_fencing_token=?,updated_at=? WHERE task_id=? AND version=?", (lease_id, fencing_token, now_iso(), task['task_id'], task['version']))
+                if cur.rowcount != 1:
+                    continue
                 self.conn.execute('INSERT INTO leases(lease_id,task_id,attempt_id,worker_id,issued_at,expires_at,heartbeat_at,fencing_token,global_kill_epoch) VALUES (?,?,?,?,?,?,?,?,?)', (lease_id, task['task_id'], attempt_id, worker_id, now, expires_at, now, fencing_token, control['global_kill_epoch']))
-                self.conn.execute("UPDATE tasks SET state='LEASED',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task['task_id']))
                 self.conn.execute('INSERT INTO queue_accounts(owner,active,dispatch_count,last_dispatch_at) VALUES (?,?,?,?) ON CONFLICT(owner) DO UPDATE SET active=active+1,dispatch_count=dispatch_count+1,last_dispatch_at=excluded.last_dispatch_at', (task['owner'], 1, 1, now))
+                self._bound_leases[task['task_id']] = lease_id
                 self._append_event(task['task_id'], 'LEASE_GRANTED', 'QUEUED', 'LEASED', 'kernel', 'fair_queue_claim', {'lease_id': lease_id, 'fencing_token': fencing_token, 'worker_id': worker_id})
                 self._commit()
                 return Lease(lease_id, task['task_id'], attempt_id, worker_id, expires_at, fencing_token, control['global_kill_epoch'])
@@ -239,11 +340,26 @@ class TaskKernel:
     def start(self, task_id: str, lease_id: str) -> dict[str, Any]:
         self._begin()
         try:
-            self._assert_lease(lease_id, task_id)
+            lease = self._assert_lease(lease_id, task_id)
             task = self._task(task_id)
             if task['state'] != 'LEASED':
                 raise InvalidTransition(f"{task['state']}->RUNNING")
-            self.conn.execute("UPDATE tasks SET state='RUNNING',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task_id))
+            if task['active_lease_id'] and task['active_lease_id'] != lease_id:
+                raise StaleLease(f"start lease {lease_id} does not match active task lease {task['active_lease_id']}")
+            is_system = getattr(self, "_system_authority", False)
+            bound = getattr(self, "_bound_leases", {}).get(task_id)
+            if not is_system:
+                if not bound:
+                    raise StaleLease(f"kernel instance does not possess active lease authority to start task {task_id}")
+                if bound != lease_id:
+                    raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
+            cur = self.conn.execute(
+                "UPDATE tasks SET state='RUNNING',version=version+1,active_lease_id=?,active_fencing_token=?,updated_at=? WHERE task_id=? AND version=? AND (active_lease_id=? OR active_lease_id IS NULL)",
+                (lease_id, int(lease['fencing_token']), now_iso(), task_id, task['version'], lease_id)
+            )
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict starting task {task_id}")
+            self._bound_leases[task_id] = lease_id
             self._append_event(task_id, 'WORKER_STARTED', 'LEASED', 'RUNNING', 'worker', 'lease_valid', {'lease_id': lease_id})
             self._commit()
         except Exception:
@@ -255,6 +371,18 @@ class TaskKernel:
         self._begin()
         try:
             lease = self._assert_lease(lease_id, task_id)
+            task = self._task(task_id)
+            if task['active_lease_id'] != lease_id:
+                raise StaleLease(f"heartbeat lease {lease_id} does not match active task lease {task['active_lease_id']}")
+            if task['state'] not in {"LEASED", "RUNNING", "WAITING_TOOL", "VERIFYING", "CHECKPOINTED", "UNKNOWN"}:
+                raise StaleLease(f"cannot heartbeat task in non-leased state {task['state']}")
+            is_system = getattr(self, "_system_authority", False)
+            bound = getattr(self, "_bound_leases", {}).get(task_id)
+            if not is_system:
+                if not bound:
+                    raise StaleLease(f"kernel instance does not possess active lease authority for task {task_id}")
+                if bound != lease_id:
+                    raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
             now = time.time()
             expires = now + extend_seconds
             self.conn.execute('UPDATE leases SET heartbeat_at=?,expires_at=? WHERE lease_id=?', (now, expires, lease_id))
@@ -272,13 +400,24 @@ class TaskKernel:
             for lease in self.conn.execute('SELECT * FROM leases WHERE released=0 AND expires_at<=?', (now,)).fetchall():
                 expired.append(lease['lease_id'])
                 task = self._task(lease['task_id'])
-                if task['state'] in {'LEASED', 'RUNNING', 'WAITING_TOOL'}:
-                    old = task['state']
-                    self.conn.execute("UPDATE tasks SET state='RECOVERING',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task['task_id']))
+                cur_state = task['state']
+                if cur_state in {'LEASED', 'RUNNING', 'WAITING_TOOL'}:
+                    old = cur_state
+                    cur = self.conn.execute("UPDATE tasks SET state='RECOVERING',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task['task_id'], task['version']))
                     self._append_event(task['task_id'], 'LEASE_EXPIRED', old, 'RECOVERING', 'kernel', 'heartbeat_expired', {'lease_id': lease['lease_id']})
+                elif cur_state == 'VERIFYING':
+                    cur = self.conn.execute("UPDATE tasks SET state='HUMAN_REVIEW',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task['task_id'], task['version']))
+                    self._append_event(task['task_id'], 'LEASE_EXPIRED', cur_state, 'HUMAN_REVIEW', 'kernel', 'heartbeat_expired', {'lease_id': lease['lease_id']})
+                elif cur_state == 'CHECKPOINTED':
+                    cur = self.conn.execute("UPDATE tasks SET state='QUEUED',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task['task_id'], task['version']))
+                    self._append_event(task['task_id'], 'LEASE_EXPIRED', cur_state, 'QUEUED', 'kernel', 'heartbeat_expired', {'lease_id': lease['lease_id']})
+                elif task['active_lease_id'] == lease['lease_id']:
+                    self.conn.execute("UPDATE tasks SET active_lease_id=NULL,active_fencing_token=0,version=version+1,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task['task_id'], task['version']))
                 self.conn.execute('UPDATE leases SET released=1 WHERE lease_id=?', (lease['lease_id'],))
                 owner = self._task(lease['task_id'])['owner']
                 self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (owner,))
+                if hasattr(self, '_bound_leases'):
+                    self._bound_leases.pop(lease['task_id'], None)
             self._commit()
             return expired
         except Exception:
@@ -289,10 +428,27 @@ class TaskKernel:
         self._begin()
         try:
             self._assert_lease(lease_id, task_id)
+            task = self._task(task_id)
+            if task["active_lease_id"] != lease_id:
+                raise StaleLease(f"release lease {lease_id} does not match active task lease {task['active_lease_id']}")
+            is_system = getattr(self, "_system_authority", False)
+            bound = getattr(self, "_bound_leases", {}).get(task_id)
+            if not is_system:
+                if not bound:
+                    raise StaleLease(f"kernel instance does not possess active lease authority for task {task_id}")
+                if bound != lease_id:
+                    raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
             self.conn.execute('UPDATE leases SET released=1 WHERE lease_id=?', (lease_id,))
-            owner = self._task(task_id)['owner']
-            self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (owner,))
+            cur = self.conn.execute(
+                'UPDATE tasks SET active_lease_id=NULL,active_fencing_token=0,version=version+1,updated_at=? WHERE task_id=? AND version=?',
+                (now_iso(), task_id, task['version']),
+            )
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict releasing lease on task {task_id}")
+            self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
             self._append_event(task_id, 'LEASE_RELEASED', None, None, 'kernel', 'worker_release', {'lease_id': lease_id})
+            if hasattr(self, '_bound_leases'):
+                self._bound_leases.pop(task_id, None)
             self._commit()
         except Exception:
             self._rollback()
@@ -305,6 +461,18 @@ class TaskKernel:
         self._begin()
         try:
             lease = self._assert_lease(lease_id, task_id)
+            task = self._task(task_id)
+            if task['state'] not in {'RUNNING', 'WAITING_TOOL', 'VERIFYING', 'CHECKPOINTED'}:
+                raise InvalidTransition(f"cannot checkpoint task in state {task['state']}")
+            if task['active_lease_id'] != lease_id:
+                raise StaleLease(f"checkpoint lease {lease_id} does not match active task lease {task['active_lease_id']}")
+            is_system = getattr(self, "_system_authority", False)
+            bound = getattr(self, "_bound_leases", {}).get(task_id)
+            if not is_system:
+                if not bound:
+                    raise StaleLease(f"kernel instance does not possess active lease authority for task {task_id}")
+                if bound != lease_id:
+                    raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
             payload = {'task_id': task_id, 'attempt_id': lease['attempt_id'], 'step_id': step_id, 'state': state, 'planned_action': planned_action, 'capability_epoch': capability_epoch, 'idempotency_key': idempotency_key, 'pre_observation_ref': pre_observation_ref, 'post_observation_ref': post_observation_ref, 'tool_result': tool_result, 'verifier_verdict': verifier_verdict}
             cp_id = 'cp_' + secrets.token_hex(10)
             payload_hash = stable_hash(payload)
@@ -334,6 +502,15 @@ class TaskKernel:
             task = self._task(task_id)
             if task['state'] not in {'RUNNING', 'WAITING_TOOL'}:
                 raise InvalidTransition(f"{task['state']}->UNKNOWN")
+            if task['active_lease_id'] != lease_id:
+                raise StaleLease(f"dispatch lease {lease_id} does not match active task lease {task['active_lease_id']}")
+            is_system = getattr(self, "_system_authority", False)
+            bound = getattr(self, "_bound_leases", {}).get(task_id)
+            if not is_system:
+                if not bound:
+                    raise StaleLease(f"kernel instance does not possess active lease authority for task {task_id}")
+                if bound != lease_id:
+                    raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
             existing = self.conn.execute("SELECT * FROM checkpoints WHERE task_id=? AND attempt_id=? AND step_id=? AND idempotency_key=? AND state='UNKNOWN' ORDER BY created_at DESC LIMIT 1", (task_id, lease['attempt_id'], step_id, idempotency_key)).fetchone()
             if existing:
                 existing_result = json.loads(existing['tool_result_json'] or '{}')
@@ -350,7 +527,9 @@ class TaskKernel:
             payload_hash = stable_hash(payload)
             self.conn.execute('INSERT INTO checkpoints(checkpoint_id,task_id,attempt_id,step_id,state,planned_action_hash,capability_epoch,idempotency_key,pre_observation_ref,post_observation_ref,tool_result_json,verifier_verdict,payload_hash,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (checkpoint_id, task_id, lease['attempt_id'], step_id, 'UNKNOWN', stable_hash(planned_action), capability_epoch, idempotency_key, pre_observation_ref, None, json.dumps(tool_result, ensure_ascii=False, sort_keys=True), None, payload_hash, now_iso()))
             old_state = task['state']
-            self.conn.execute("UPDATE tasks SET state='UNKNOWN',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task_id))
+            cur = self.conn.execute("UPDATE tasks SET state='UNKNOWN',version=version+1,active_lease_id=?,active_fencing_token=?,updated_at=? WHERE task_id=? AND version=?", (lease_id, int(lease['fencing_token']), now_iso(), task_id, task['version']))
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict on task {task_id}")
             self._append_event(task_id, 'ACTION_DISPATCHED', old_state, 'UNKNOWN', 'worker', 'side_effect_response_unknown', {'checkpoint_id': checkpoint_id, 'step_id': step_id, 'idempotency_key': idempotency_key, 'provider_request_id': str(provider_request_id)})
             self._commit()
             result = self.get_checkpoint(checkpoint_id)
@@ -389,7 +568,16 @@ class TaskKernel:
                 return dict(task)
             if task['state'] != 'UNKNOWN':
                 raise InvalidTransition(f"{task['state']}->RECONCILING")
-            self.conn.execute("UPDATE tasks SET state='RECONCILING',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task_id))
+            cur = self.conn.execute("UPDATE tasks SET state='RECONCILING',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task_id, task['version']))
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict entering reconciling task {task_id}")
+            active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (task_id,)).fetchall()
+            if active_leases:
+                self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
+                for _ in active_leases:
+                    self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+            if hasattr(self, '_bound_leases'):
+                self._bound_leases.pop(task_id, None)
             self._append_event(task_id, 'RECONCILE_STARTED', 'UNKNOWN', 'RECONCILING', 'kernel', reason or 'reconcile_required', {'checkpoint_id': checkpoint_id})
             self._commit()
             return self.get_task(task_id)
@@ -430,7 +618,16 @@ class TaskKernel:
                 self.conn.execute("UPDATE idempotency SET status='RECONCILED_UNKNOWN',result_ref=? WHERE logical_key=?", (evidence_ref, checkpoint['idempotency_key']))
                 next_state = 'HUMAN_REVIEW'
                 event_type = 'RECONCILE_UNKNOWN'
-            self.conn.execute('UPDATE tasks SET state=?,version=version+1,updated_at=? WHERE task_id=?', (next_state, now_iso(), task_id))
+            cur = self.conn.execute('UPDATE tasks SET state=?,version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?', (next_state, now_iso(), task_id, task['version']))
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict reconciling task {task_id}")
+            active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (task_id,)).fetchall()
+            if active_leases:
+                self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
+                for _ in active_leases:
+                    self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+            if hasattr(self, '_bound_leases'):
+                self._bound_leases.pop(task_id, None)
             self._append_event(task_id, event_type, old_state, next_state, verifier_id or 'provider-state-reader', 'reconcile_outcome_recorded', {'checkpoint_id': checkpoint_id, 'outcome': outcome, 'evidence_ref': evidence_ref, 'verifier_id': verifier_id})
             self._commit()
             return self.get_task(task_id)
@@ -509,11 +706,24 @@ class TaskKernel:
             task = self._task(task_id)
             if task['state'] not in {'VERIFYING', 'RUNNING'}:
                 raise InvalidTransition(f"{task['state']}->COMPLETED")
+            if task['active_lease_id'] != lease_id:
+                raise StaleLease(f"completion lease {lease_id} does not match active task lease {task['active_lease_id']}")
+            is_system = getattr(self, "_system_authority", False)
+            bound = getattr(self, "_bound_leases", {}).get(task_id)
+            if not is_system:
+                if not bound:
+                    raise StaleLease(f"kernel instance does not possess active lease authority to complete task {task_id}")
+                if bound != lease_id:
+                    raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
             old = task['state']
-            self.conn.execute("UPDATE tasks SET state='COMPLETED',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task_id))
+            cur = self.conn.execute("UPDATE tasks SET state='COMPLETED',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task_id, task['version']))
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict completing task {task_id}")
             self._append_event(task_id, 'TASK_COMPLETED', old, 'COMPLETED', 'verifier', 'postcondition_verified', {'evidence_ref': evidence_ref, 'verifier_verdict': verifier_verdict, 'lease_id': lease_id})
             self.conn.execute('UPDATE leases SET released=1 WHERE lease_id=?', (lease_id,))
-            self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=(SELECT owner FROM tasks WHERE task_id=? )', (task_id,))
+            self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
+            if hasattr(self, '_bound_leases'):
+                self._bound_leases.pop(task_id, None)
             self._commit()
             return self.get_task(task_id)
         except Exception:
@@ -540,16 +750,24 @@ class TaskKernel:
             if task['state'] in TERMINAL:
                 raise InvalidTransition('terminal task is immutable')
             active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (task_id,)).fetchall()
-            self.conn.execute("UPDATE tasks SET state='CANCELLED',version=version+1,updated_at=? WHERE task_id=?", (now_iso(), task_id))
+            cur = self.conn.execute("UPDATE tasks SET state='CANCELLED',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task_id, task['version']))
+            if cur.rowcount != 1:
+                raise StaleLease(f"concurrency conflict cancelling task {task_id}")
             self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
             for _ in active_leases:
                 self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task['owner'],))
             self._append_event(task_id, 'TASK_KILLED', task['state'], 'CANCELLED', actor, 'task_kill', {})
+            if hasattr(self, '_bound_leases'):
+                self._bound_leases.pop(task_id, None)
             self._commit()
             return self.get_task(task_id)
         except Exception:
             self._rollback()
             raise
+
+    def cancel(self, task_id: str, actor: str = 'operator') -> dict[str, Any]:
+        """Cancel a task atomically with lease release and queue decrement (alias of set_task_kill)."""
+        return self.set_task_kill(task_id, actor=actor)
 
     def auto_reconcile_orphans(self, actor: str='kernel_watchdog', stale_seconds: float=60.0, now: float | None=None) -> list[str]:
         """Tự động rà soát các task bị mồ côi (chết do crash, mất kết nối) và đưa vào RECONCILING.
@@ -570,7 +788,7 @@ class TaskKernel:
             self._begin()
             rows = self.conn.execute(
                 "SELECT task_id, state FROM tasks "
-                "WHERE state IN ('LEASED', 'RUNNING') "
+                "WHERE state IN ('LEASED', 'RUNNING', 'WAITING_TOOL') "
                 "AND CAST(strftime('%s', updated_at) AS INTEGER) < ?",
                 (cutoff,),
             ).fetchall()
@@ -601,26 +819,34 @@ class TaskKernel:
                     'stale_seconds': float(stale_seconds),
                 }
                 current = task['state']
+                cur_version = task['version']
                 moved = False
                 for target, reason in plan:
                     # Never write a transition outside the map (no free-form state).
                     if target not in ALLOWED_TRANSITIONS.get(current, set()):
                         break
-                    self.conn.execute(
-                        'UPDATE tasks SET state=?,version=version+1,updated_at=? WHERE task_id=?',
-                        (target, now_iso(), tid),
+                    cur = self.conn.execute(
+                        'UPDATE tasks SET state=?,version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?',
+                        (target, now_iso(), tid, cur_version),
                     )
+                    if cur.rowcount != 1:
+                        break
+                    cur_version += 1
                     self._append_event(tid, 'STATE_TRANSITION', current, target, actor, reason, dict(payload))
                     current = target
                     moved = True
                 if not moved:
                     continue
-                if lease is not None:
-                    self.conn.execute('UPDATE leases SET released=1 WHERE lease_id=?', (lease['lease_id'],))
-                self.conn.execute(
-                    'UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?',
-                    (task['owner'],),
-                )
+                active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (tid,)).fetchall()
+                if active_leases:
+                    self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (tid,))
+                    for _ in active_leases:
+                        self.conn.execute(
+                            'UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?',
+                            (task['owner'],),
+                        )
+                if hasattr(self, '_bound_leases'):
+                    self._bound_leases.pop(tid, None)
                 orphans.append(tid)
             self._commit()
         except Exception:
@@ -678,29 +904,39 @@ class TaskKernel:
         báo cáo corrupted (nhẹ tay với bằng chứng hơn là tiện tay "khắc phục").
         """
         report: dict[str, Any] = {'recovered': [], 'corrupted': [], 'left_as_is': []}
-        rows = self.conn.execute('SELECT task_id, state FROM tasks').fetchall()
-        for row in rows:
-            task_id, state = (row['task_id'], row['state'])
-            journal = self.verify_journal(task_id)
-            if not journal['hash_chain_valid']:
-                report['corrupted'].append({'task_id': task_id, 'errors': journal['errors'][:5]})
-                continue
-            if state in TERMINAL:
-                continue
-            self.rebuild_projection(task_id)
-            current = self._task(task_id)['state']
-            if current == 'RUNNING' or current == 'VERIFYING':
-                self.transition(task_id, 'HUMAN_REVIEW', actor=actor, reason='boot_recovery_in_flight')
-                report['recovered'].append({'task_id': task_id, 'from': current, 'to': 'HUMAN_REVIEW'})
-            elif current in {'LEASED', 'WAITING_TOOL'}:
-                self.transition(task_id, 'RECOVERING', actor=actor, reason='boot_recovery_in_flight')
-                report['recovered'].append({'task_id': task_id, 'from': current, 'to': 'RECOVERING'})
-            elif current == 'CHECKPOINTED':
-                self.transition(task_id, 'QUEUED', actor=actor, reason='boot_recovery_resume')
-                report['recovered'].append({'task_id': task_id, 'from': current, 'to': 'QUEUED'})
-            else:
-                report['left_as_is'].append({'task_id': task_id, 'state': current})
-        return report
+        self._system_authority = True
+        try:
+            rows = self.conn.execute('SELECT task_id, state FROM tasks').fetchall()
+            for row in rows:
+                task_id, state = (row['task_id'], row['state'])
+                journal = self.verify_journal(task_id)
+                if not journal['hash_chain_valid']:
+                    report['corrupted'].append({'task_id': task_id, 'errors': journal['errors'][:5]})
+                    continue
+                if state in TERMINAL:
+                    continue
+                self.rebuild_projection(task_id)
+                task_row = self._task(task_id)
+                current = task_row['state']
+                active_leases = self.conn.execute('SELECT lease_id FROM leases WHERE task_id=? AND released=0', (task_id,)).fetchall()
+                if active_leases:
+                    self.conn.execute('UPDATE leases SET released=1 WHERE task_id=?', (task_id,))
+                    for _ in active_leases:
+                        self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END WHERE owner=?', (task_row['owner'],))
+                if current == 'RUNNING' or current == 'VERIFYING':
+                    self.transition(task_id, 'HUMAN_REVIEW', actor=actor, reason='boot_recovery_in_flight')
+                    report['recovered'].append({'task_id': task_id, 'from': current, 'to': 'HUMAN_REVIEW'})
+                elif current in {'LEASED', 'WAITING_TOOL'}:
+                    self.transition(task_id, 'RECOVERING', actor=actor, reason='boot_recovery_in_flight')
+                    report['recovered'].append({'task_id': task_id, 'from': current, 'to': 'RECOVERING'})
+                elif current == 'CHECKPOINTED':
+                    self.transition(task_id, 'QUEUED', actor=actor, reason='boot_recovery_resume')
+                    report['recovered'].append({'task_id': task_id, 'from': current, 'to': 'QUEUED'})
+                else:
+                    report['left_as_is'].append({'task_id': task_id, 'state': current})
+            return report
+        finally:
+            self._system_authority = False
 
     def in_flight_count(self) -> int:
         """[CHAIN-AUDIT: backpressure] Số task chưa tới quyết định cuối —
@@ -753,7 +989,26 @@ class TaskKernel:
         for event in events[1:]:
             if event['to_state']:
                 state = event['to_state']
-        self.conn.execute('UPDATE tasks SET state=?,updated_at=? WHERE task_id=?', (state, now_iso(), task_id))
+        self._begin()
+        try:
+            if state in {"LEASED", "RUNNING", "WAITING_TOOL", "VERIFYING", "CHECKPOINTED", "UNKNOWN"}:
+                lease_row = self.conn.execute(
+                    'SELECT lease_id, fencing_token FROM leases WHERE task_id=? AND released=0 ORDER BY fencing_token DESC LIMIT 1',
+                    (task_id,),
+                ).fetchone()
+                active_lease_id = lease_row['lease_id'] if lease_row else None
+                active_fencing_token = int(lease_row['fencing_token']) if lease_row else 0
+            else:
+                active_lease_id = None
+                active_fencing_token = 0
+            self.conn.execute(
+                'UPDATE tasks SET state=?,version=version+1,active_lease_id=?,active_fencing_token=?,updated_at=? WHERE task_id=?',
+                (state, active_lease_id, active_fencing_token, now_iso(), task_id),
+            )
+            self._commit()
+        except Exception:
+            self._rollback()
+            raise
         return self.get_task(task_id)
 
     @staticmethod
