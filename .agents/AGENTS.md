@@ -83,6 +83,17 @@ M4 cần C-level Reality evidence trên exact SHA.
 M5 cần D-level recovery evidence.
 Có class/test file không đồng nghĩa đạt maturity.
 
+
+**FA-08: KHÔNG tự tạo bằng chứng (No Forged Provenance).**
+Tuyệt đối cấm Agent tự ý dùng lệnh write_to_file để tạo ra các file .log, .txt, .out chứa nội dung giả lập kết quả thực thi. Mọi bằng chứng (Evidence) phải là kết quả raw stdout/stderr sinh ra từ lệnh shell hệ thống (ví dụ: pytest > log, python script.py). Ảo giác output terminal là vi phạm nghiêm trọng.
+
+**FA-09: CẤM kết luận lỗi mà không có kịch bản chứng minh (The Exploit Mandate).**
+Không được phép khẳng định hệ thống có lỗ hổng (logic, concurrency, security...) chỉ bằng việc phân tích mã nguồn (Static AST). Để claim một lỗi, BẮT BUỘC phải viết và chạy một script mô phỏng/tấn công độc lập. Nếu script không văng lỗi (Crash/Exception) trong thực tế terminal, giả thuyết lỗi đó phải bị loại bỏ.
+
+**FA-10: CẤM giả định trạng thái giữa các thư mục/workspace (Cross-Workspace Isolation).**
+Khi được yêu cầu kiểm tra một thư mục mới (clone, audit workspace, external repos), cấm mặc định rằng code của nó giống với thư mục gốc. Bắt buộc phải kiểm tra HEAD SHA, hash hoặc chạy diff trước khi phân tích.
+
+
 ---
 
 ## 4. Enforcement Infrastructure
@@ -104,4 +115,5 @@ Cài đặt hook: `python tools/install_git_hooks.py`
 
 2. **Subagent Prompt Injection (Trói buộc Đệ - Chống F01/F02 tái phát):**
    Khi dùng tool `invoke_subagent`, Agent Mẹ TUYỆT ĐỐI KHÔNG ĐƯỢC giao Prompt mở. Trong trường `Prompt` truyền cho Subagent, BẮT BUỘC phải nhúng kèm đoạn lệnh cưỡng chế sau (hoặc tương đương):
-   > "MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-07. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables."
+   > "MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-10. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables."
+

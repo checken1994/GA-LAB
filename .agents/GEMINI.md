@@ -47,7 +47,7 @@ Toàn bộ 13 kỹ năng SCP được quản lý và version-control tại `.age
 
 Xem chi tiết đầy đủ tại `.agents/AGENTS.md` § 3.
 
-Tóm tắt FA-01 đến FA-07:
+Tóm tắt FA-01 đến FA-10:
 - **FA-01:** Không loosen test. Test đỏ phải classify. HARNESS_BROKEN → sửa harness nhưng prove strictness preserved/increased. PRODUCT_FAIL → sửa product. PRODUCT_BLOCKED → không manufacture green.
 - **FA-02:** KHÔNG delete/skip/xfail test.
 - **FA-03:** KHÔNG claim Done/Pass khi chưa có full `pytest tests/` terminal output.
@@ -55,6 +55,9 @@ Tóm tắt FA-01 đến FA-07:
 - **FA-05:** KHÔNG self-grant authority.
 - **FA-06:** KHÔNG sửa code trước baseline reconcile.
 - **FA-07:** KHÔNG claim maturity từ code/test presence.
+- **FA-08:** KHÔNG tự tạo bằng chứng (cấm giả lập file log).
+- **FA-09:** CẤM claim lỗ hổng (logic/security) khi chưa có script reproduce chạy văng lỗi thật trên terminal.
+- **FA-10:** CẤM giả định trạng thái code giữa các workspace/clone khác nhau (phải hash/diff trước).
 
 Enforcement: `tools/t00_meta_audit.py` (pre-commit hook) + `.github/workflows/scp_guardrails.yml` (CI).
 
@@ -69,4 +72,4 @@ Quy trình thực thi: `.agents/EXECUTION_PROTOCOL.md`.
 
 2. **Subagent Prompt Injection (Trói buộc Đệ - Chống F01/F02 tái phát):**
    Khi dùng tool `invoke_subagent`, Agent Mẹ TUYỆT ĐỐI KHÔNG ĐƯỢC giao Prompt mở. Trong trường `Prompt` truyền cho Subagent, BẮT BUỘC phải nhúng kèm đoạn lệnh cưỡng chế sau (hoặc tương đương):
-   > "MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-07. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables."
+   > "MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-10. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables."
