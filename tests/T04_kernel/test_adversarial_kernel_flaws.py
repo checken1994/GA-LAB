@@ -390,3 +390,43 @@ def test_kernel_cancel_method_alias_and_quota_cleanup(tmp_path):
         kernel.close()
 
 
+def test_gap11_raw_transition_to_completed_is_strictly_forbidden(tmp_path):
+    """GAP-11: Raw transition() to COMPLETED must raise InvalidTransition.
+
+    Tasks can only be completed via commit_completed() with valid evidence and lease.
+    """
+    kernel = TaskKernel(tmp_path / "kernel.sqlite3")
+    try:
+        lease = _setup_running_task(kernel, "adv-gap11-1", "owner-gap11")
+        kernel.transition("adv-gap11-1", "VERIFYING")
+
+        # Rogue attempt: bypass evidence verification via transition()
+        with pytest.raises(InvalidTransition) as excinfo:
+            kernel.transition(
+                "adv-gap11-1",
+                "COMPLETED",
+                lease_id=lease.lease_id,
+                actor="rogue_worker",
+                reason="fake pass attempt",
+            )
+        assert "direct transition to COMPLETED is forbidden" in str(excinfo.value)
+
+        # Verify DB state is unmodified
+        task = kernel.get_task("adv-gap11-1")
+        assert task["state"] == "VERIFYING"
+        events = kernel.get_events("adv-gap11-1")
+        assert not any(e["to_state"] == "COMPLETED" for e in events)
+
+        # Legitimate path: commit_completed with valid evidence
+        completed = kernel.commit_completed(
+            "adv-gap11-1",
+            lease.lease_id,
+            "VERIFIED",
+            "evidence://audit/proof-hash-1234",
+        )
+        assert completed["state"] == "COMPLETED"
+    finally:
+        kernel.close()
+
+
+

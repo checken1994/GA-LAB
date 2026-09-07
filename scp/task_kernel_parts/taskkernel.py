@@ -250,6 +250,10 @@ class TaskKernel:
     ) -> dict[str, Any]:
         if to_state not in STATES and to_state != "WAITING_APPROVAL":
             raise InvalidTransition(f"unknown target state {to_state}")
+        if to_state == "COMPLETED":
+            raise InvalidTransition(
+                "direct transition to COMPLETED is forbidden; use commit_completed() with valid evidence"
+            )
         self._begin()
         try:
             if event_id:

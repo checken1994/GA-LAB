@@ -134,3 +134,46 @@ Nếu Milestone 1 đã làm xong: xác nhận bằng chạy pytest — không gi
 - [ ] `python tools/t00_meta_audit.py` PASS, 0 new regressions.
 - [ ] Challenger thử forge token + bypass secret → bị chặn hoàn toàn.
 - [ ] Handoff tại `.agents/sentinel_4/handoff.md` với HEAD_SHA, TREE_HASH, evidence links.
+
+## 2026-09-07T17:32:22Z
+
+This is a single self-contained fix; keep it small and focused. Sửa lỗ hổng GAP-11 (Fake PASS Bypass) trong `TaskKernel` và áp dụng quy trình nghiệm thu nhân quả FA-12.
+
+Working directory: c:\Users\check\Downloads\scp
+Integrity mode: benchmark
+
+MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-12. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables.
+
+## Requirements
+
+### R1. Tiêu diệt GAP-11
+Sửa hàm `transition()` trong `scp/task_kernel_parts/taskkernel.py` để chặn đứng hành vi chuyển thẳng sang trạng thái `COMPLETED`. Mọi nỗ lực gọi `transition(..., "COMPLETED")` phải văng lỗi `InvalidTransition`. Trạng thái `COMPLETED` CHỈ được phép đạt tới qua `commit_completed()` với bằng chứng hợp lệ.
+
+### R2. Quét ngoại vi (FA-11) & Bản đồ nhân quả
+Vẽ Sơ đồ Nhân quả (Mermaid Causal Graph) cho toàn bộ file `taskkernel.py`. Dựa vào đó, quét xem ngoài `COMPLETED`, các trạng thái khác (như `FAILED`, `CANCELLED`, `WAITING_APPROVAL`) có đang bị hở sườn tương tự không. Nếu phát hiện GAP mới, lập `EMERGENCY_GAP_REPORT.md` nhưng KHÔNG lén lút sửa — báo cáo Orchestrator và chờ lệnh.
+
+### R3. Bằng chứng Thực thi (FA-12)
+Không được nghiệm thu chỉ bằng Unit Test. Bắt buộc:
+1. Chạy `python tools/probes/probe_gap11.py` trên terminal và lấy output thực tế.
+2. Đọc raw SQLite data để chứng minh transition bị chặn ở tầng DB.
+3. Báo cáo End-to-End: chuỗi nhân quả của fix ĐÃ THỰC SỰ ĐƯỢC GỌI thành công.
+
+## Acceptance Criteria
+
+### Security & Integrity
+- [ ] Lệnh `python tools/probes/probe_gap11.py` trả về GREEN (cụ thể: `InvalidTransition` được ném ra).
+- [ ] Hàm `transition()` ném `InvalidTransition` nếu `to_state == "COMPLETED"`.
+- [ ] Causal Graph (Mermaid) của toàn bộ `taskkernel.py` được tạo thành công.
+- [ ] Không có Scope Creep: không sửa bất kỳ GAP mới nào chưa được Orchestrator duyệt.
+
+### Regression
+- [ ] `pytest tests/T04_kernel/ -q` PASS 100% (66/66 tests).
+- [ ] `python tools/t00_meta_audit.py` PASS, 0 new regressions.
+
+### Traceability Binding
+- [ ] Nếu file `spec/scp_target_test_coverage.yaml` có SHA của `taskkernel.py`, cập nhật SHA đó để khớp với file đã sửa.
+- [ ] Báo cáo handoff đầy đủ HEAD SHA, bằng chứng probe GREEN.
+
+### Merge
+- [ ] Commit fix với message chuẩn: `fix(security): GAP-11 block raw COMPLETED transition`
+- [ ] Push thẳng lên `main` (`git push origin main`).
