@@ -118,6 +118,9 @@ Sau khi vẽ Causal Graph (bước 1 của FA-12), Agent BẮT BUỘC tạo mộ
 2. **Ghi nhận `UNPROVEN_BRANCH`** vào báo cáo và báo cáo ngay lên Orchestrator để được duyệt trước khi tiếp tục.
 Không được phép tuyên bố FIXED/DONE khi còn nhánh nhân quả chưa được phủ test mà không có lý do được Orchestrator chấp thuận.
 
+**Phạm vi bao phủ bắt buộc:** Coverage Matrix phải bao gồm TOÀN BỘ chuỗi nhân quả của **tất cả file đang sửa** VÀ **các file liên quan** (file nào gọi vào hoặc được gọi từ file đang sửa). Không được chỉ test mỗi nhánh vừa fix — toàn bộ state machine và call graph liên quan đều phải được kiểm kê và phân loại COVERED / UNPROVEN_BRANCH.
+
+
 
 ---
 
