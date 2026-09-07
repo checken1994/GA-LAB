@@ -8,6 +8,7 @@ import pytest
 from scp.hands.hands_executor import HandsExecutor
 from scp.hands.task_kernel_bridge import TaskKernelHandsBridge
 from scp.pc_control.pc_controller import PCController
+from scp.security.capability_epoch import CapabilityAuthority
 from scp.task_kernel import TaskKernel
 from scp.verifier import IndependentVerifier
 
@@ -34,12 +35,19 @@ def test_golden_a_agent_os_real_execution_flow(tmp_path):
     """Golden A: create task -> capability -> bounded action -> real observation -> durable evidence."""
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    executor = HandsExecutor(controller=PCController(working_dir=workspace))
+    cap_state = tmp_path / "capability_state.json"
+    cap_auth = CapabilityAuthority(cap_state)
+    executor = HandsExecutor(
+        controller=PCController(working_dir=workspace),
+        capability_authority=cap_auth,
+        data_dir=tmp_path / "hands_data",
+    )
     bridge = TaskKernelHandsBridge(executor, db_path=tmp_path / "kernel.sqlite3")
 
     target = workspace / "golden_artifact.txt"
     content = "real_state_written_by_golden_a"
     request_key = f"golden-a-{uuid.uuid4().hex}"
+    token = cap_auth.issue("hands:pc.write_file")
 
     result = asyncio.run(
         bridge.execute(
@@ -48,6 +56,7 @@ def test_golden_a_agent_os_real_execution_flow(tmp_path):
             capability_level=3,
             approved=True,
             request_key=request_key,
+            capability_token=token,
         )
     )
 
@@ -98,6 +107,7 @@ def test_golden_a_agent_os_real_execution_flow(tmp_path):
             capability_level=3,
             approved=True,
             request_key=request_key,
+            capability_token=token,
         )
     )
     assert replay.get("success") is False, f"Replay executed the side effect again: {replay}"

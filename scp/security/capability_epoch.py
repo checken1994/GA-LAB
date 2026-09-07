@@ -22,6 +22,56 @@ class CapabilityToken:
     token_id: str
     issued_at: float
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "subject": self.subject,
+            "epoch": self.epoch,
+            "token_id": self.token_id,
+            "issued_at": self.issued_at,
+        }
+
+
+def parse_capability_token(token: Any) -> CapabilityToken | None:
+    """Safely parse a capability token from CapabilityToken, dict, or JSON str.
+
+    Returns None fail-closed if token cannot be safely parsed.
+    """
+    if token is None or token == "":
+        return None
+    if isinstance(token, CapabilityToken):
+        return token
+    if isinstance(token, str):
+        token_str = token.strip()
+        if not token_str:
+            return None
+        try:
+            parsed = json.loads(token_str)
+            if isinstance(parsed, dict):
+                token = parsed
+            else:
+                return None
+        except Exception:
+            return None
+    if isinstance(token, dict):
+        try:
+            subject = str(token.get("subject", "")).strip()
+            epoch_val = token.get("epoch")
+            if epoch_val is None:
+                return None
+            epoch = int(epoch_val)
+            token_id = str(token.get("token_id") or token.get("tokenId") or "")
+            issued_at_val = token.get("issued_at") if token.get("issued_at") is not None else token.get("issuedAt", 0.0)
+            issued_at = float(issued_at_val)
+            return CapabilityToken(
+                subject=subject,
+                epoch=epoch,
+                token_id=token_id,
+                issued_at=issued_at,
+            )
+        except (ValueError, TypeError):
+            return None
+    return None
+
 
 class CapabilityAuthority:
     """Durable, epoch-based capability revocation for one SCP tool boundary.
@@ -105,12 +155,17 @@ class CapabilityAuthority:
                 raise CapabilityRevokedError(f"capabilities revoked: {state.get('reason', 'operator_revoke')}")
             return CapabilityToken(subject=subject, epoch=state["epoch"], token_id=uuid.uuid4().hex, issued_at=time.time())
 
-    def validate(self, token: CapabilityToken | None) -> bool:
+    def validate(self, token: CapabilityToken | None, required_subject: str | None = None) -> bool:
         if token is None:
             return False
+        if not (hasattr(token, "subject") and hasattr(token, "epoch")):
+            return False
+        if required_subject is not None:
+            if str(getattr(token, "subject", "")) != str(required_subject):
+                return False
         with self._lock:
             state = self._load()
-            return not state["revoked"] and token.epoch == state["epoch"]
+            return not state["revoked"] and getattr(token, "epoch", -1) == state["epoch"]
 
     def revoke(self, reason: str = "operator_revoke", actor: str = "operator") -> dict[str, Any]:
         with self._lock:
@@ -141,4 +196,4 @@ class CapabilityAuthority:
             return self.status()
 
 
-__all__ = ["CapabilityAuthority", "CapabilityRevokedError", "CapabilityToken"]
+__all__ = ["CapabilityAuthority", "CapabilityRevokedError", "CapabilityToken", "parse_capability_token"]

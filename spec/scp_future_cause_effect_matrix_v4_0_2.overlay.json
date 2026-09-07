@@ -12,7 +12,7 @@
   "capabilities": 138,
   "edges": 67,
   "invariants": 34,
-  "skills": 13
+  "skills": 14
  },
  "semantics": {
   "cap_row": [
@@ -358,6 +358,18 @@
     "untrusted_dom_string -> raw_javascript_interpolation",
     "browser -> direct_network_bypass",
     "spa_wait -> unbounded_navigation"
+   ],
+   "scp-delta-audit": [
+    [
+     "audit.evidence_first_loop",
+     "audit.anti_placebo_mutation_mandate",
+     "audit.probe_before_patch",
+     "global_invariants"
+    ],
+    [
+     "T00",
+     "T04"
+    ]
    ]
   },
   "S12_SELF_AWARENESS_AUDIT": {
@@ -905,7 +917,7 @@
    "capabilities": 138,
    "cause_effect_edges": 67,
    "global_invariants": 34,
-   "skill_contracts": 13
+   "skill_contracts": 14
   },
   "traceability_add": [
    "every current SCP Skill maps to structural target(s) and T00-T11 gate(s)",
@@ -926,7 +938,7 @@
   ]
  },
  "skill_traceability": {
-  "required": 13,
+  "required": 14,
   "rule": "pack change => recount+traceability review; no infinite audit",
   "row": [
    "maps_to",
@@ -1091,6 +1103,17 @@
      "T03",
      "T08",
      "T10"
+    ]
+   ],
+   "scp-delta-audit": [
+    [
+     "global_invariants",
+     "dna_traceability",
+     "completeness_semantics"
+    ],
+    [
+     "T00",
+     "T04"
     ]
    ]
   }

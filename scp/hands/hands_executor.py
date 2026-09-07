@@ -38,12 +38,12 @@ class _LinkParser(HTMLParser):
 class HandsExecutor:
     """Execute only registered actions and produce evidence for every result."""
 
-    def __init__(self, controller: PCController | None = None, navigator: WebNavigator | None = None, capability_authority: CapabilityAuthority | None = None) -> None:
+    def __init__(self, controller: PCController | None = None, navigator: WebNavigator | None = None, capability_authority: CapabilityAuthority | None = None, data_dir: Path | None = None) -> None:
         project_root = Path(__file__).resolve().parents[2]
         self.controller = controller or PCController()
         self.navigator = navigator or WebNavigator()
         self.registry = ActionRegistry()
-        self.data_dir = project_root / "data" / "hands"
+        self.data_dir = Path(data_dir) if data_dir is not None else (project_root / "data" / "hands")
         self.processes = ManagedProcessManager(self.data_dir, project_root)
         self.audit_path = self.data_dir / "audit.jsonl"
         self.checkpoint_path = self.data_dir / "checkpoints.jsonl"
@@ -66,8 +66,8 @@ class HandsExecutor:
         return checkpoint_id
 
     def _check_capability(self, definition: ActionDefinition, capability_level: int, approved: bool, capability_token: CapabilityToken | None) -> tuple[bool, str]:
-        if not self.capability_authority.validate(capability_token):
-            return False, "Capability token is revoked or stale"
+        if not self.capability_authority.validate(capability_token, required_subject=f"hands:{definition.name}"):
+            return False, "Capability token is revoked, stale, or scope mismatch"
         if self.controller.kill_switch_engaged():
             return False, "Kill switch is engaged"
         if capability_level < definition.capability_level:
@@ -107,11 +107,25 @@ class HandsExecutor:
     async def execute(self, action: str, params: dict[str, Any] | None = None, capability_level: int = 0, approved: bool = False, dry_run: bool = False, capability_token: CapabilityToken | None = None) -> dict[str, Any]:
         params = params or {}
         started = time.perf_counter()
-        try:
-            capability_token = capability_token or self.capability_authority.issue(f"hands:{action}")
-        except CapabilityRevokedError as exc:
-            result = {"success": False, "action": action, "error": str(exc), "verification": {"passed": False}}
-            self._audit("ACTION_BLOCKED_CAPABILITY_REVOKED", result)
+        if capability_token is None:
+            result = {
+                "success": False,
+                "action": action,
+                "error": "CapabilityRequiredError: Caller must provide an authorized capability token (FA-05)",
+                "verification": {"passed": False},
+            }
+            self._audit("ACTION_BLOCKED_UNAUTHORIZED", result)
+            return result
+
+        expected_subject = f"hands:{action}"
+        if getattr(capability_token, "subject", None) != expected_subject:
+            result = {
+                "success": False,
+                "action": action,
+                "error": f"CapabilityScopeMismatchError: Token subject '{getattr(capability_token, 'subject', None)}' does not match required action '{expected_subject}' (INV-AUTH-02)",
+                "verification": {"passed": False},
+            }
+            self._audit("ACTION_BLOCKED_SCOPE_MISMATCH", result)
             return result
         try:
             definition = self.registry.require(action)
@@ -125,12 +139,14 @@ class HandsExecutor:
             self._audit("ACTION_BLOCKED", result)
             return result
         if dry_run:
-            result = {"success": True, "dryRun": True, "action": action, "policy": definition.public(), "capabilityEpoch": capability_token.epoch, "verification": {"passed": True, "rule": "dry-run-only"}}
+            result = {"success": True, "dryRun": True, "action": action, "policy": definition.public(), "capabilityEpoch": getattr(capability_token, "epoch", 0), "verification": {"passed": True, "rule": "dry-run-only"}}
             self._audit("ACTION_DRY_RUN", result)
             return result
         try:
-            if not self.capability_authority.validate(capability_token):
-                result = {"success": False, "error": "Capability revoked before dispatch", "verification": {"passed": False}}
+            if not self.capability_authority.validate(capability_token, required_subject=expected_subject):
+                result = {"success": False, "action": action, "error": "Capability revoked before dispatch", "verification": {"passed": False}}
+                self._audit("ACTION_BLOCKED_CAPABILITY_REVOKED", result)
+                return result
             elif action == "pc.status":
                 status_data = self.controller.status()
                 result = {"success": True, "data": status_data, "evidence": {"controller": status_data.get("controller")}, "verification": {"passed": status_data.get("controller") == "online", "rule": definition.verifier}}
@@ -317,17 +333,36 @@ class HandsExecutor:
                 result = {"success": False, "error": "Action implementation missing"}
         except Exception as exc:
             result = {"success": False, "error": f"Executor error: {exc}", "verification": {"passed": False}}
-        result.update({"action": action, "durationMs": round((time.perf_counter() - started) * 1000), "policy": definition.public(), "capabilityEpoch": capability_token.epoch})
+        result.update({"action": action, "durationMs": round((time.perf_counter() - started) * 1000), "policy": definition.public(), "capabilityEpoch": getattr(capability_token, "epoch", 0)})
         self._audit("ACTION_EXECUTED" if result.get("success") else "ACTION_FAILED", result)
         return result
 
     async def rollback(self, checkpoint_id: str, capability_level: int = 3, approved: bool = False, capability_token: CapabilityToken | None = None) -> dict[str, Any]:
-        try:
-            capability_token = capability_token or self.capability_authority.issue("hands:rollback")
-        except CapabilityRevokedError as exc:
-            return {"success": False, "error": str(exc)}
-        if not self.capability_authority.validate(capability_token):
-            return {"success": False, "error": "Capability token is revoked or stale"}
+        if capability_token is None:
+            result = {
+                "success": False,
+                "action": "rollback",
+                "error": "CapabilityRequiredError: Caller must provide an authorized capability token (FA-05)",
+                "verification": {"passed": False},
+            }
+            self._audit("ROLLBACK_BLOCKED_UNAUTHORIZED", result)
+            return result
+
+        expected_subject = "hands:rollback"
+        if getattr(capability_token, "subject", None) != expected_subject:
+            result = {
+                "success": False,
+                "action": "rollback",
+                "error": f"CapabilityScopeMismatchError: Token subject '{getattr(capability_token, 'subject', None)}' does not match required action '{expected_subject}' (INV-AUTH-02)",
+                "verification": {"passed": False},
+            }
+            self._audit("ROLLBACK_BLOCKED_SCOPE_MISMATCH", result)
+            return result
+
+        if not self.capability_authority.validate(capability_token, required_subject=expected_subject):
+            result = {"success": False, "action": "rollback", "error": "Capability token is revoked or stale"}
+            self._audit("ROLLBACK_BLOCKED_CAPABILITY_REVOKED", result)
+            return result
         if self.controller.kill_switch_engaged():
             return {"success": False, "error": "Kill switch is engaged"}
         if capability_level < CapabilityLevel.WORKSPACE or not approved:

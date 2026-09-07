@@ -30,6 +30,7 @@ import pytest
 from scp.hands.hands_executor import HandsExecutor
 from scp.hands.task_kernel_bridge import TaskKernelHandsBridge
 from scp.pc_control.pc_controller import PCController
+from scp.security.capability_epoch import CapabilityAuthority
 from scp.task_kernel import ALLOWED_TRANSITIONS, CheckpointCorrupt, TaskKernel
 
 
@@ -38,12 +39,18 @@ from scp.task_kernel import ALLOWED_TRANSITIONS, CheckpointCorrupt, TaskKernel
 # ---------------------------------------------------------------------------
 
 
-def _bridge_with_executor(tmp_path: Path) -> tuple[TaskKernelHandsBridge, Path]:
+def _bridge_with_executor(tmp_path: Path) -> tuple[TaskKernelHandsBridge, Path, CapabilityAuthority]:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    executor = HandsExecutor(controller=PCController(working_dir=workspace))
+    cap_state = tmp_path / "capability_state.json"
+    cap_auth = CapabilityAuthority(cap_state)
+    executor = HandsExecutor(
+        controller=PCController(working_dir=workspace),
+        capability_authority=cap_auth,
+        data_dir=tmp_path / "hands_data",
+    )
     bridge = TaskKernelHandsBridge(executor, db_path=tmp_path / "kernel.sqlite3")
-    return bridge, workspace
+    return bridge, workspace, cap_auth
 
 
 def _running_task(
@@ -87,11 +94,12 @@ def _assert_legal_state_chain(events: list[dict[str, Any]]) -> None:
 
 
 def test_bridge_duplicate_request_returns_replayed_response(tmp_path):
-    bridge, workspace = _bridge_with_executor(tmp_path)
+    bridge, workspace, cap_auth = _bridge_with_executor(tmp_path)
     try:
         target = workspace / "replay_artifact.txt"
         content = "original_state_written_once"
         request_key = f"p1-replay-{uuid.uuid4().hex}"
+        token = cap_auth.issue("hands:pc.write_file")
 
         first = asyncio.run(
             bridge.execute(
@@ -100,6 +108,7 @@ def test_bridge_duplicate_request_returns_replayed_response(tmp_path):
                 capability_level=3,
                 approved=True,
                 request_key=request_key,
+                capability_token=token,
             )
         )
         assert first.get("success") is True, f"first execution failed: {first}"
@@ -115,6 +124,7 @@ def test_bridge_duplicate_request_returns_replayed_response(tmp_path):
                 capability_level=3,
                 approved=True,
                 request_key=request_key,
+                capability_token=token,
             )
         )
 
@@ -280,7 +290,7 @@ def test_checkpoint_still_rejects_invalid_state(tmp_path):
 
 
 def test_bridge_heartbeat_keeps_lease_alive_across_slow_dispatch(tmp_path):
-    bridge, workspace = _bridge_with_executor(tmp_path)
+    bridge, workspace, cap_auth = _bridge_with_executor(tmp_path)
     try:
         # Force lease expiry well below the dispatch duration: without the
         # heartbeat loop the lease dies mid-flight and a VERIFIED result can
@@ -290,9 +300,9 @@ def test_bridge_heartbeat_keeps_lease_alive_across_slow_dispatch(tmp_path):
         executor = bridge.executor
         real_execute = executor.execute
 
-        async def slow_execute(action, params, capability_level, approved, dry_run):
+        async def slow_execute(action, params, capability_level, approved, dry_run, capability_token=None, **kwargs):
             await asyncio.sleep(2.4)  # > 2 full lease TTLs
-            return await real_execute(action, params, capability_level, approved, dry_run)
+            return await real_execute(action, params, capability_level, approved, dry_run, capability_token=capability_token, **kwargs)
 
         executor.execute = slow_execute
 
@@ -308,6 +318,7 @@ def test_bridge_heartbeat_keeps_lease_alive_across_slow_dispatch(tmp_path):
 
         target = workspace / "slow_artifact.txt"
         content = "written_after_slow_dispatch"
+        token = cap_auth.issue("hands:pc.write_file")
 
         result = asyncio.run(
             bridge.execute(
@@ -316,6 +327,7 @@ def test_bridge_heartbeat_keeps_lease_alive_across_slow_dispatch(tmp_path):
                 capability_level=3,
                 approved=True,
                 request_key=f"p1-slow-{uuid.uuid4().hex}",
+                capability_token=token,
             )
         )
 

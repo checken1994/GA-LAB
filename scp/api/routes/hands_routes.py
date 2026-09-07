@@ -14,6 +14,7 @@ from scp.hands.goal_parser import GoalParser
 from scp.hands.hands_executor import HandsExecutor
 from scp.hands.planner import HandsPlanner
 from scp.hands.task_kernel_bridge import TaskKernelHandsBridge
+from scp.security.capability_epoch import parse_capability_token
 
 _HANDS_ROUTES_LEDGER = RequestRunLedger()
 
@@ -41,12 +42,14 @@ class HandsActionRequest(BaseModel):
     capabilityLevel: int = Field(default=0, ge=0, le=5)
     approved: bool = False
     dryRun: bool = False
+    capabilityToken: Any = Field(default=None, description="Zero-Trust capability token")
 
 
 class HandsRollbackRequest(BaseModel):
     checkpointId: str = Field(min_length=8, max_length=128)
     capabilityLevel: int = Field(default=3, ge=0, le=5)
     approved: bool = False
+    capabilityToken: Any = Field(default=None, description="Zero-Trust capability token")
 
 
 class HandsReconcileRequest(BaseModel):
@@ -87,6 +90,7 @@ class GoalParseRequest(BaseModel):
 class PlannerRollbackRequest(BaseModel):
     capabilityLevel: int = Field(default=3, ge=0, le=5)
     approved: bool = False
+    capabilityToken: Any = Field(default=None, description="Zero-Trust capability token")
 
 
 class PlannerRecoveryRequest(BaseModel):
@@ -157,14 +161,29 @@ async def hands_plan(payload: HandsActionRequest, request: Request, x_scp_pc_tok
 async def hands_execute(payload: HandsActionRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
     request_key = request.headers.get("X-SCP-Idempotency-Key") or request.headers.get("Idempotency-Key")
-    return await _active_bridge().execute(payload.action, payload.params, payload.capabilityLevel, payload.approved, payload.dryRun, request_key=request_key)
+    token = parse_capability_token(payload.capabilityToken)
+    return await _active_bridge().execute(
+        payload.action,
+        payload.params,
+        payload.capabilityLevel,
+        payload.approved,
+        payload.dryRun,
+        request_key=request_key,
+        capability_token=token,
+    )
 
 
 @router.post("/rollback")
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="hands_rollback")
 async def hands_rollback(payload: HandsRollbackRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _active_bridge().rollback(payload.checkpointId, payload.capabilityLevel, payload.approved)
+    token = parse_capability_token(payload.capabilityToken)
+    return await _active_bridge().rollback(
+        payload.checkpointId,
+        payload.capabilityLevel,
+        payload.approved,
+        capability_token=token,
+    )
 
 
 @router.post("/reconcile")
@@ -247,7 +266,13 @@ async def planner_run_dag(plan_id: str, payload: PlannerDagRunRequest, request: 
 @traced_request(_HANDS_ROUTES_LEDGER, require_write=True, action="planner_rollback")
 async def planner_rollback(plan_id: str, payload: PlannerRollbackRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _planner.rollback_plan(plan_id, payload.capabilityLevel, payload.approved)
+    token = parse_capability_token(payload.capabilityToken)
+    return await _planner.rollback_plan(
+        plan_id,
+        payload.capabilityLevel,
+        payload.approved,
+        capability_token=token,
+    )
 
 
 @router.post("/planner/{plan_id}/recover")

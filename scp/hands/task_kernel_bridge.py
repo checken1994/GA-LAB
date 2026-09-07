@@ -19,86 +19,61 @@ from typing import Any
 
 
 from scp.kernel_storage import StorageIntegrityError
-
+from scp.security.capability_epoch import CapabilityToken, parse_capability_token
 from scp.task_kernel import KernelError, TaskKernel, stable_hash
 
 
-
-
-
 class TaskKernelHandsBridge:
-
     """Durably wrap mutating Hands actions with the TaskKernel lifecycle.
 
-
-
     Read-only and dry-run actions remain on the existing executor path. A real
-
     mutating action gets a kernel task, lease, idempotency claim and a
-
     pre-dispatch checkpoint. A verified result is committed. If the action
-
     returns an ambiguous result or raises after dispatch started, the bridge
-
     records ``UNKNOWN`` with a stable local request identity; retry then
-
     requires explicit reconciliation.
-
     """
 
-
-
     def __init__(
-
         self,
-
         executor: Any,
-
         kernel: TaskKernel | None = None,
-
         db_path: str | Path | None = None,
-
         worker_id: str = "hands-route-worker",
-
     ) -> None:
-
         self.executor = executor
-
         if kernel is not None:
-
             self.kernel = kernel
-
             self._owns_kernel = False
-
         else:
-
             root = Path(db_path or Path(executor.data_dir) / "task_kernel.sqlite3")
-
             self.kernel = TaskKernel(root)
-
             self._owns_kernel = True
-
         self.worker_id = worker_id
         # Lease TTL for the mutating dispatch. Kept as an attribute so the
         # heartbeat loop below can renew on the same cadence; default matches
         # the historical hard-coded 60s.
         self.lease_ttl_seconds = 60.0
-
         self.data_dir = executor.data_dir
-
         self.registry = executor.registry
 
-
-
     def _audit(self, event: str, payload: dict[str, Any]) -> None:
-
         self.executor._audit(event, payload)
 
-
-
-    async def rollback(self, checkpoint_id: str, capability_level: int = 3, approved: bool = False) -> dict[str, Any]:
-
-        return await self.executor.rollback(checkpoint_id, capability_level, approved)
+    async def rollback(
+        self,
+        checkpoint_id: str,
+        capability_level: int = 3,
+        approved: bool = False,
+        capability_token: CapabilityToken | Any = None,
+    ) -> dict[str, Any]:
+        token = parse_capability_token(capability_token)
+        return await self.executor.rollback(
+            checkpoint_id,
+            capability_level,
+            approved,
+            capability_token=token,
+        )
 
 
 
@@ -157,33 +132,25 @@ class TaskKernelHandsBridge:
 
 
     @staticmethod
-
     def _policy_blocked_before_dispatch(result: dict[str, Any]) -> bool:
-
         error = str(result.get("error", "")).lower()
-
         return any(
-
             marker in error
-
             for marker in (
-
                 "unknown hands action",
-
                 "capability token is revoked",
-
                 "capability revoked before dispatch",
-
+                "capabilityrequired",
+                "capability required",
+                "capabilityscopemismatch",
+                "scope mismatch",
+                "caller must provide an authorized capability token",
                 "kill switch is engaged",
-
                 "requires capability",
-
                 "explicit approval required",
-
                 "outside safe workspace",
-
+                "unauthorized",
             )
-
         )
 
 
@@ -202,7 +169,15 @@ class TaskKernelHandsBridge:
 
         task = self.kernel.get_task(task_id)
 
-        result = {"taskId": task_id, "state": task["state"], "version": task["version"]}
+        task_state = task.get("state") if isinstance(task, dict) else task["state"]
+
+        result = {
+            "taskId": task_id,
+            "state": task_state,
+            "taskState": task_state,
+            "version": task.get("version") if isinstance(task, dict) else task["version"],
+            "requiresRecovery": False,
+        }
 
         if lease_id:
 
@@ -312,30 +287,22 @@ class TaskKernelHandsBridge:
 
 
     async def execute(
-
         self,
-
         action: str,
-
         params: dict[str, Any] | None = None,
-
         capability_level: int = 0,
-
         approved: bool = False,
-
         dry_run: bool = False,
-
         request_key: str | None = None,
-
+        capability_token: CapabilityToken | Any = None,
     ) -> dict[str, Any]:
-
+        token = parse_capability_token(capability_token)
         params = params or {}
-
         definition = self.executor.registry.require(action)
-
         if not definition.mutates_state or dry_run:
-
-            return await self.executor.execute(action, params, capability_level, approved, dry_run)
+            return await self.executor.execute(
+                action, params, capability_level, approved, dry_run, capability_token=token
+            )
 
 
 
@@ -439,31 +406,18 @@ class TaskKernelHandsBridge:
                 }
 
             checkpoint_id = self.kernel.checkpoint(
-
                 task_id,
-
                 lease.lease_id,
-
                 action,
-
                 "WAITING_TOOL",
-
                 planned_action,
-
-                self._capability_epoch(self.executor),
-
+                token.epoch if token else self._capability_epoch(self.executor),
                 logical_key,
-
                 pre_observation_ref=f"hands://{task_id}/pre",
-
             )
 
-
-
             # From this call onward a driver may have performed a side effect;
-
             # any exception must therefore be treated as unknown, not retryable.
-
             dispatch_started = True
 
             # [P1 FIX 2026-09-05] Renew the lease while the driver runs so a
@@ -478,8 +432,7 @@ class TaskKernelHandsBridge:
             )
 
             try:
-
-                result = await self.executor.execute(action, params, capability_level, approved, False)
+                result = await self.executor.execute(action, params, capability_level, approved, False, capability_token=token)
 
             finally:
 
@@ -503,11 +456,14 @@ class TaskKernelHandsBridge:
 
                 )
 
-                self.kernel.release(task_id, lease.lease_id)
-
                 lease_active = False
 
-                return {**result, "safeToRetry": False, "kernel": self._public_kernel(task_id, lease.lease_id)}
+                return {
+                    **result,
+                    "requiresRecovery": False,
+                    "safeToRetry": False,
+                    "kernel": self._public_kernel(task_id, lease.lease_id),
+                }
 
 
 
