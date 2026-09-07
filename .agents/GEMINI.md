@@ -56,7 +56,12 @@ Tóm tắt FA-01 đến FA-10:
 # SCP Agent Instructions & System Skills Directives
 
 > **QUY TẮC BẮT BUỘC TRƯỚC MỌI PHIÊN LÀM VIỆC (PRE-SESSION MANDATE)**
-> Trước khi bắt đầu bất kỳ tác vụ nào trong workspace này, Agent **BẮT BUỘC** phải tải, tham chiếu và tuân thủ bộ kỹ năng **SCP Skills** cùng 29 nguyên lý **SCP DNA**.
+> Trước khi bắt đầu bất kỳ tác vụ nào trong workspace này, Agent **BẮT BUỘC** thực hiện theo thứ tự sau bằng cách gọi tool thực tế (KHÔNG dùng training memory thay thế):
+> 1. **Tải `GA.md`** (gọi `view_file` trên nhánh `main`) → lấy live project state, current blockers, và next task.
+> 2. **Tải `.agents/AGENTS.md`** (gọi `view_file`) → nạp đầy đủ FA-01 đến FA-13 vào context. `GEMINI.md` auto-load nhưng chỉ chứa tóm tắt — AGENTS.md mới là nguồn đầy đủ.
+> 3. **Tải Skill tương ứng** (gọi `view_file` vào `.agents/skills/<tên-skill>/SKILL.md`) → kích hoạt skill phù hợp với task.
+> **"Tải" = gọi tool `view_file` thực tế. Dùng training memory thay thế = Vi phạm Pre-session Mandate.**
+
 
 ---
 

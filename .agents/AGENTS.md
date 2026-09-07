@@ -1,7 +1,12 @@
 # SCP Agent Instructions & System Skills Directives
 
 > **QUY TẮC BẮT BUỘC TRƯỚC MỌI PHIÊN LÀM VIỆC (PRE-SESSION MANDATE)**
-> Trước khi bắt đầu bất kỳ tác vụ nào trong workspace này, Agent **BẮT BUỘC** phải tải, tham chiếu và tuân thủ bộ kỹ năng **SCP Skills** cùng 29 nguyên lý **SCP DNA**.
+> Trước khi bắt đầu bất kỳ tác vụ nào trong workspace này, Agent **BẮT BUỘC** thực hiện theo thứ tự sau bằng cách gọi tool thực tế (KHÔNG dùng training memory thay thế):
+> 1. **Tải `GA.md`** (gọi `view_file` trên nhánh `main`) → lấy live project state, current blockers, và next task.
+> 2. **Tải `.agents/AGENTS.md`** (gọi `view_file`) → nạp đầy đủ FA-01 đến FA-13 vào context. `GEMINI.md` auto-load nhưng chỉ chứa tóm tắt — AGENTS.md mới là nguồn đầy đủ.
+> 3. **Tải Skill tương ứng** (gọi `view_file` vào `.agents/skills/<tên-skill>/SKILL.md`) → kích hoạt skill phù hợp với task.
+> **"Tải" = gọi tool `view_file` thực tế. Dùng training memory thay thế = Vi phạm Pre-session Mandate.**
+
 
 ---
 
@@ -131,12 +136,11 @@ Cài đặt hook: `python tools/install_git_hooks.py`
 Để chống lại tình trạng Agent "Có Skill nhưng lười không dùng" và "Giao quyền quá mức cho Subagent", 2 cơ chế sau đây mang tính Ràng buộc Tuyệt đối (Forced Constraints) đối với bất kỳ Agent nào hoạt động trong SCP:
 
 1. **Forced Skill Activation (Chống ảo giác đồng thuận):**
-   Agent Mẹ KHÔNG ĐƯỢC PHÉP chỉ dựa vào tóm tắt (summary) của Skill trên bề mặt. Trước khi phân tích mã nguồn hoặc đưa ra bất kỳ phán quyết nào, Agent BẮT BUỘC phải dùng tool `view_file` đọc trực tiếp file `SKILL.md` tương ứng tại `.agents/skills/<tên-skill>/SKILL.md`. Báo cáo kết quả mà thiếu bước gọi tool đọc file Skill = Vi phạm nghiêm trọng (Báo cáo vô hiệu).
+   Agent Mẹ KHÔNG ĐƯỢC PHÉP chỉ dựa vào tóm tắt (summary) của Skill từ training memory hoặc GEMINI.md. Trước khi phân tích mã nguồn hoặc đưa ra bất kỳ phán quyết nào, Agent BẮT BUỘC phải **gọi tool `view_file`** để tải nội dung file `SKILL.md` tương ứng tại `.agents/skills/<tên-skill>/SKILL.md` vào context window. **"Tải" ≠ "Nhớ từ training"**. Báo cáo kết quả mà thiếu bước gọi tool tải file Skill = Vi phạm nghiêm trọng (Báo cáo vô hiệu).
 
 2. **Subagent Prompt Injection (Trói buộc Đệ - Chống F01/F02 tái phát):**
    Khi dùng tool `invoke_subagent`, Agent Mẹ TUYỆT ĐỐI KHÔNG ĐƯỢC giao Prompt mở. Trong trường `Prompt` truyền cho Subagent, BẮT BUỘC phải nhúng kèm đoạn lệnh cưỡng chế sau (hoặc tương đương):
-   > "MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-10. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables."
-
+   > "MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-13. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables."
 
   3. **Call Graph Navigation (Chống ngợp dữ liệu):**
      Khi thực hiện kiểm toán hoặc phân tích mã nguồn phức tạp, Agent BẮT BUỘC phải thiết lập bản đặc tả chi tiết "dòng code nào gọi dòng code nào" (Line-by-line Call Graph / Execution Trace). Dùng sơ đồ này làm bản đồ định vị (Navigation Map) thay vì tải và đọc hiểu chay toàn bộ văn bản code để tránh quá tải bộ nhớ và sinh ảo giác.
