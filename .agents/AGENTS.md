@@ -107,6 +107,12 @@ Tuyệt đối không được tuyên bố "Hoàn thành" (FIXED/DONE) chỉ b�
 4. **Khám nghiệm Runtime Data:** Đọc và phân tích trực tiếp dữ liệu thực tế sinh ra sau khi chạy (VD: raw SQLite rows, physical logs).
 5. **Bằng chứng End-to-End:** Dùng data thực tế đó để đối chiếu ngược lại Sơ đồ Nhân quả, chứng minh bằng mắt thật rằng: *Chuỗi nhân quả của đoạn code vừa fix ĐÃ THỰC SỰ ĐƯỢC GỌI và chạy thành công từ đầu đến cuối.*
 
+**FA-13: TEST TỪ NHÂN QUẢ (Causal-Driven Test Generation).**
+Sau khi vẽ Causal Graph (bước 1 của FA-12), Agent BẮT BUỘC tạo một **Coverage Matrix**: mỗi nhánh nhân quả trong graph phải có ít nhất 1 test tương ứng trong `tests/`. Nhánh nào thiếu test phải xử lý theo một trong hai cách:
+1. **Viết test mới** bao phủ nhánh đó (ưu tiên).
+2. **Ghi nhận `UNPROVEN_BRANCH`** vào báo cáo và báo cáo ngay lên Orchestrator để được duyệt trước khi tiếp tục.
+Không được phép tuyên bố FIXED/DONE khi còn nhánh nhân quả chưa được phủ test mà không có lý do được Orchestrator chấp thuận.
+
 
 ---
 
