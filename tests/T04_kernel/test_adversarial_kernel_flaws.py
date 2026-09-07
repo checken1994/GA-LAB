@@ -429,4 +429,111 @@ def test_gap11_raw_transition_to_completed_is_strictly_forbidden(tmp_path):
         kernel.close()
 
 
+def test_gap11_adversarial_replay_attack_blocked(tmp_path):
+    """GAP-11 Adversarial: Replaying an existing TASK_COMPLETED event_id must fail closed."""
+    kernel = TaskKernel(tmp_path / "kernel.sqlite3")
+    try:
+        lease = _setup_running_task(kernel, "adv-gap11-replay-1", "owner-replay")
+        kernel.transition("adv-gap11-replay-1", "VERIFYING")
+        completed = kernel.commit_completed(
+            "adv-gap11-replay-1",
+            lease.lease_id,
+            "VERIFIED",
+            "evidence://valid/proof-1",
+        )
+        assert completed["state"] == "COMPLETED"
+        events = kernel.get_events("adv-gap11-replay-1")
+        completed_evt = [e for e in events if e["to_state"] == "COMPLETED"][0]
+        completed_event_id = completed_evt["event_id"]
+
+        # Setup victim task in VERIFYING
+        lease_victim = _setup_running_task(kernel, "adv-gap11-victim", "owner-replay")
+        kernel.transition("adv-gap11-victim", "VERIFYING")
+
+        # Attack: replay the valid COMPLETED event_id on the victim task
+        with pytest.raises(InvalidTransition) as excinfo:
+            kernel.transition(
+                "adv-gap11-victim",
+                "COMPLETED",
+                event_id=completed_event_id,
+                lease_id=lease_victim.lease_id,
+                actor="verifier",
+                reason="postcondition_verified",
+            )
+        assert "direct transition to COMPLETED is forbidden" in str(excinfo.value)
+        task_victim = kernel.get_task("adv-gap11-victim")
+        assert task_victim["state"] == "VERIFYING"
+    finally:
+        kernel.close()
+
+
+def test_gap11_adversarial_all_states_direct_transition_blocked(tmp_path):
+    """GAP-11 Adversarial: transition() to COMPLETED is blocked from non-existent and unstarted tasks."""
+    kernel = TaskKernel(tmp_path / "kernel.sqlite3")
+    try:
+        # 1. Non-existent task
+        with pytest.raises(InvalidTransition) as excinfo:
+            kernel.transition("non-existent-task-id", "COMPLETED")
+        assert "direct transition to COMPLETED is forbidden" in str(excinfo.value)
+
+        # 2. Freshly created task (CREATED state)
+        kernel.create_task("adv-created-task", "owner-created", "goal")
+        with pytest.raises(InvalidTransition) as excinfo:
+            kernel.transition("adv-created-task", "COMPLETED")
+        assert "direct transition to COMPLETED is forbidden" in str(excinfo.value)
+        assert kernel.get_task("adv-created-task")["state"] == "CREATED"
+
+        # 3. Task in PLANNING state
+        kernel.transition("adv-created-task", "PLANNING")
+        with pytest.raises(InvalidTransition) as excinfo:
+            kernel.transition("adv-created-task", "COMPLETED")
+        assert "direct transition to COMPLETED is forbidden" in str(excinfo.value)
+        assert kernel.get_task("adv-created-task")["state"] == "PLANNING"
+    finally:
+        kernel.close()
+
+
+def test_gap11_rebuild_projection_with_tampered_journal_fails_closed(tmp_path):
+    """GAP-11 Adversarial: Raw SQLite tampering with events table fails journal integrity and rebuild refuses."""
+    import sqlite3
+    db_file = tmp_path / "kernel.sqlite3"
+    kernel = TaskKernel(db_file)
+    try:
+        lease = _setup_running_task(kernel, "adv-tamper-1", "owner-tamper")
+        kernel.transition("adv-tamper-1", "VERIFYING")
+
+        # Directly inject forged COMPLETED event with broken hash into SQLite
+        conn = sqlite3.connect(db_file)
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO events(event_id, task_id, seq, type, from_state, to_state, actor, reason, payload_json, event_hash, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "evt_forged_raw",
+                "adv-tamper-1",
+                99,
+                "STATE_TRANSITION",
+                "VERIFYING",
+                "COMPLETED",
+                "forger",
+                "fake",
+                "{}",
+                "fake_hash_value",
+                "2026-09-08T00:00:00Z",
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        # Rebuild projection MUST fail-closed due to invalid journal integrity
+        with pytest.raises(KernelError) as excinfo:
+            kernel.rebuild_projection("adv-tamper-1")
+        assert "journal integrity invalid" in str(excinfo.value)
+
+        # Verify DB tasks table was NOT modified
+        assert kernel.get_task("adv-tamper-1")["state"] == "VERIFYING"
+    finally:
+        kernel.close()
+
+
 
