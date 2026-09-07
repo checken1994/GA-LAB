@@ -4,6 +4,14 @@
 >
 > Chat/memory chỉ hỗ trợ continuity. Repo + Reality evidence trên đúng SHA là source of truth.
 
+> [!IMPORTANT]
+> **BẮT BUỘC SAU KHI ĐỌC FILE NÀY:** Bất kỳ AI nào (Gemini, Claude, ChatGPT, hoặc bất kỳ model nào khác) đều phải **tải thêm 2 file sau bằng cách gọi tool `view_file`** trước khi bắt đầu làm việc:
+> 1. `.agents/GEMINI.md` — Tóm tắt toàn bộ FA rules + Skills SCP
+> 2. `.agents/AGENTS.md` — Chi tiết đầy đủ FA-01 đến FA-13 (nguồn chuẩn)
+>
+> **Lý do:** `GEMINI.md` chỉ tự động nạp trên surface Antigravity/Gemini. Các AI khác (Claude, ChatGPT...) phải tải thủ công. File này (GA.md) là file DUY NHẤT mọi AI đều đọc — đây là điểm truyền bá luật FA đến toàn bộ hệ thống.
+> **"Tải" = gọi tool `view_file`. Dùng training memory thay thế = Vi phạm.**
+
 ---
 
 # A. SESSION RULES
