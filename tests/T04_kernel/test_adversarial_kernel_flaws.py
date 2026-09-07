@@ -686,5 +686,232 @@ def test_multithreaded_lease_watchdog_race_with_commit_completed(tmp_path):
         kernel.close()
 
 
+def test_multiprocess_direct_transition_to_completed_blocked(tmp_path):
+    """Adversarial R3: Direct transition to COMPLETED across OS process boundary is blocked."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    db_path = tmp_path / "multiproc.sqlite3"
+    kernel = TaskKernel(db_path)
+    try:
+        lease = _setup_running_task(kernel, "adv-mp-1", "owner-mp")
+        kernel.transition("adv-mp-1", "VERIFYING", lease_id=lease.lease_id)
+
+        # Worker subprocess attempts kernel.transition(..., "COMPLETED")
+        code = (
+            "import sys\n"
+            "from pathlib import Path\n"
+            "from scp.task_kernel import TaskKernel, InvalidTransition\n"
+            "k = TaskKernel(Path(sys.argv[1]))\n"
+            "try:\n"
+            "    k.transition(sys.argv[2], 'COMPLETED', lease_id=sys.argv[3])\n"
+            "    sys.exit(1)\n"
+            "except InvalidTransition:\n"
+            "    sys.exit(0)\n"
+            "finally:\n"
+            "    k.close()\n"
+        )
+        cmd = [
+            sys.executable,
+            "-c",
+            code,
+            str(db_path),
+            "adv-mp-1",
+            lease.lease_id,
+        ]
+        repo_root = Path(__file__).resolve().parents[2]
+        proc = subprocess.run(
+            cmd,
+            env={**os.environ, "PYTHONPATH": str(repo_root)},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert proc.returncode == 0, f"Subprocess succeeded or failed unexpectedly: {proc.stdout} {proc.stderr}"
+        assert kernel.get_task("adv-mp-1")["state"] == "VERIFYING"
+        events = kernel.get_events("adv-mp-1")
+        assert not any(e["to_state"] == "COMPLETED" for e in events)
+    finally:
+        kernel.close()
+
+
+def test_full_lifecycle_checkpointed_and_waiting_tool_transitions(tmp_path):
+    """FA-13 Group 1: Lifecycle transitions through CHECKPOINTED and WAITING_TOOL."""
+    kernel = TaskKernel(tmp_path / "kernel.sqlite3")
+    try:
+        # Branch 1: RUNNING -> CHECKPOINTED -> RUNNING -> VERIFYING -> commit_completed
+        lease1 = _setup_running_task(kernel, "adv-cp-1", "owner-cp")
+        kernel.transition("adv-cp-1", "CHECKPOINTED", lease_id=lease1.lease_id)
+        assert kernel.get_task("adv-cp-1")["state"] == "CHECKPOINTED"
+        kernel.transition("adv-cp-1", "RUNNING", lease_id=lease1.lease_id)
+        assert kernel.get_task("adv-cp-1")["state"] == "RUNNING"
+        kernel.transition("adv-cp-1", "VERIFYING", lease_id=lease1.lease_id)
+        completed1 = kernel.commit_completed("adv-cp-1", lease1.lease_id, "VERIFIED", "evidence://cp-1")
+        assert completed1["state"] == "COMPLETED"
+
+        # Branch 2: RUNNING -> WAITING_TOOL -> VERIFYING -> commit_completed
+        lease2 = _setup_running_task(kernel, "adv-wt-1", "owner-wt")
+        kernel.transition("adv-wt-1", "WAITING_TOOL", lease_id=lease2.lease_id)
+        assert kernel.get_task("adv-wt-1")["state"] == "WAITING_TOOL"
+        kernel.transition("adv-wt-1", "VERIFYING", lease_id=lease2.lease_id)
+        assert kernel.get_task("adv-wt-1")["state"] == "VERIFYING"
+        completed2 = kernel.commit_completed("adv-wt-1", lease2.lease_id, "VERIFIED", "evidence://wt-1")
+        assert completed2["state"] == "COMPLETED"
+    finally:
+        kernel.close()
+
+
+def test_lifecycle_recovering_reconciling_branches(tmp_path):
+    """FA-13 Group 1: Lifecycle transitions through RECOVERING and RECONCILING."""
+    kernel = TaskKernel(tmp_path / "kernel.sqlite3")
+    try:
+        # Branch 1: RUNNING -> RECOVERING -> RECONCILING -> QUEUED -> LEASED -> RUNNING -> VERIFYING -> COMPLETED
+        lease1 = _setup_running_task(kernel, "adv-rec-1", "owner-rec")
+        kernel.transition("adv-rec-1", "RECOVERING", lease_id=lease1.lease_id)
+        assert kernel.get_task("adv-rec-1")["state"] == "RECOVERING"
+
+        kernel.transition("adv-rec-1", "RECONCILING")
+        assert kernel.get_task("adv-rec-1")["state"] == "RECONCILING"
+
+        # Transition to QUEUED
+        kernel.transition("adv-rec-1", "QUEUED")
+        assert kernel.get_task("adv-rec-1")["state"] == "QUEUED"
+
+        lease2 = kernel.claim("adv-rec-1", "worker-2", ttl_seconds=60)
+        kernel.start("adv-rec-1", lease2.lease_id)
+        kernel.transition("adv-rec-1", "VERIFYING", lease_id=lease2.lease_id)
+        completed = kernel.commit_completed("adv-rec-1", lease2.lease_id, "VERIFIED", "evidence://rec-1")
+        assert completed["state"] == "COMPLETED"
+
+        # Branch 2: RECONCILING -> CHECKPOINTED
+        lease_rec2 = _setup_running_task(kernel, "adv-rec-2", "owner-rec")
+        kernel.transition("adv-rec-2", "RECOVERING", lease_id=lease_rec2.lease_id)
+        kernel.transition("adv-rec-2", "RECONCILING")
+        kernel.transition("adv-rec-2", "CHECKPOINTED")
+        assert kernel.get_task("adv-rec-2")["state"] == "CHECKPOINTED"
+
+        # Branch 3: RECONCILING -> HUMAN_REVIEW -> READY -> QUEUED
+        lease_rec3 = _setup_running_task(kernel, "adv-rec-3", "owner-rec")
+        kernel.transition("adv-rec-3", "RECOVERING", lease_id=lease_rec3.lease_id)
+        kernel.transition("adv-rec-3", "RECONCILING")
+        kernel.transition("adv-rec-3", "HUMAN_REVIEW")
+        assert kernel.get_task("adv-rec-3")["state"] == "HUMAN_REVIEW"
+        kernel.transition("adv-rec-3", "READY")
+        assert kernel.get_task("adv-rec-3")["state"] == "READY"
+        kernel.transition("adv-rec-3", "QUEUED")
+        assert kernel.get_task("adv-rec-3")["state"] == "QUEUED"
+
+        # Branch 4: WAITING_TOOL -> UNKNOWN -> RECOVERING (under system authority)
+        lease_rec4 = _setup_running_task(kernel, "adv-rec-4", "owner-rec")
+        kernel.transition("adv-rec-4", "WAITING_TOOL", lease_id=lease_rec4.lease_id)
+        kernel.transition("adv-rec-4", "UNKNOWN", lease_id=lease_rec4.lease_id)
+        assert kernel.get_task("adv-rec-4")["state"] == "UNKNOWN"
+        kernel._system_authority = True
+        try:
+            kernel.transition("adv-rec-4", "RECOVERING", actor="system_watchdog")
+            assert kernel.get_task("adv-rec-4")["state"] == "RECOVERING"
+        finally:
+            kernel._system_authority = False
+    finally:
+        kernel.close()
+
+
+def test_cancellation_from_all_valid_pre_terminal_states(tmp_path):
+    """FA-13 Group 2: Cancellation from CREATED, PLANNING, READY, QUEUED, RUNNING."""
+    kernel = TaskKernel(tmp_path / "kernel.sqlite3")
+    try:
+        # 1. From CREATED
+        kernel.create_task("adv-cancel-1", "owner-c", "cancel from created")
+        c1 = kernel.cancel("adv-cancel-1")
+        assert c1["state"] == "CANCELLED"
+        with pytest.raises(InvalidTransition):
+            kernel.transition("adv-cancel-1", "PLANNING")
+
+        # 2. From PLANNING
+        kernel.create_task("adv-cancel-2", "owner-c", "cancel from planning")
+        kernel.transition("adv-cancel-2", "PLANNING")
+        c2 = kernel.cancel("adv-cancel-2")
+        assert c2["state"] == "CANCELLED"
+
+        # 3. From READY
+        kernel.create_task("adv-cancel-3", "owner-c", "cancel from ready")
+        kernel.transition("adv-cancel-3", "PLANNING")
+        kernel.transition("adv-cancel-3", "READY")
+        c3 = kernel.cancel("adv-cancel-3")
+        assert c3["state"] == "CANCELLED"
+
+        # 4. From QUEUED
+        kernel.create_task("adv-cancel-4", "owner-c", "cancel from queued")
+        kernel.transition("adv-cancel-4", "PLANNING")
+        kernel.transition("adv-cancel-4", "READY")
+        kernel.transition("adv-cancel-4", "QUEUED")
+        c4 = kernel.cancel("adv-cancel-4")
+        assert c4["state"] == "CANCELLED"
+
+        # 5. From RUNNING
+        lease5 = _setup_running_task(kernel, "adv-cancel-5", "owner-c")
+        c5 = kernel.cancel("adv-cancel-5")
+        assert c5["state"] == "CANCELLED"
+        assert kernel.get_task("adv-cancel-5")["active_lease_id"] is None
+    finally:
+        kernel.close()
+
+
+@pytest.mark.asyncio
+async def test_ask_kernel_adapter_caller_fail_and_finalize_integration(tmp_path, monkeypatch):
+    """FA-13 Group 4: AskKernelAdapter integration covering fail() and finalize() -> commit_completed()."""
+    import scp.runtime.judge_llm as judge_mod
+    from scp.ask_kernel_adapter import AskKernelAdapter
+
+    async def _fake_judge(question: str, ai_answer: str, context: str = "") -> bool:
+        return True
+
+    monkeypatch.setattr(judge_mod, "_llm_judge_async", _fake_judge)
+    monkeypatch.setenv("SCP_MULTI_LLM_CROSSCHECK", "0")
+
+    db_path = str(tmp_path / "adapter_kernel.sqlite3")
+    trace_path = str(tmp_path / "adapter_trace.jsonl")
+    adapter = AskKernelAdapter(db_path=db_path, trace_path=trace_path)
+    try:
+        class DummyReq:
+            question = "what color is the sky?"
+            contexts = ["sky is blue"]
+            retrieved_context = ""
+            session_id = "caller-test"
+
+        req = DummyReq()
+
+        # Part 1: adapter.fail() sets task state to FAILED
+        task1 = adapter.begin(req.question, list(req.contexts), req.retrieved_context, "session-fail")
+        t1_id = task1["task_id"]
+        assert adapter.kernel.get_task(t1_id)["state"] == "RUNNING"
+        adapter.fail(task1, reason="upstream handler failed")
+        assert adapter.kernel.get_task(t1_id)["state"] == "FAILED"
+
+        # Part 2: adapter.finalize() commits verified task to COMPLETED via commit_completed()
+        task2 = adapter.begin(req.question, list(req.contexts), req.retrieved_context, "session-complete")
+        t2_id = task2["task_id"]
+        assert adapter.kernel.get_task(t2_id)["state"] == "RUNNING"
+
+        passing_response = {
+            "final_answer": "The sky is blue",
+            "verdict": "PASS",
+            "governance_decision": "UPHOLD",
+            "v98_classification": {"provenance": "input_context_only"},
+        }
+
+        res = await adapter.finalize(task2, passing_response, req)
+        assert res["verification"]["verdict"] == "VERIFIED"
+        assert res["task"]["state"] == "COMPLETED"
+        assert adapter.kernel.get_task(t2_id)["state"] == "COMPLETED"
+        events = adapter.kernel.get_events(t2_id)
+        assert any(e["type"] == "TASK_COMPLETED" and e["to_state"] == "COMPLETED" for e in events)
+    finally:
+        adapter.kernel.close()
+
+
+
 
 

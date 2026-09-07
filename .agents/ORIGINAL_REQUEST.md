@@ -177,3 +177,60 @@ Không được nghiệm thu chỉ bằng Unit Test. Bắt buộc:
 ### Merge
 - [ ] Commit fix với message chuẩn: `fix(security): GAP-11 block raw COMPLETED transition`
 - [ ] Push thẳng lên `main` (`git push origin main`).
+
+## 2026-09-07T17:59:53Z
+
+FA-13 COVERAGE AUDIT — Orchestrator Feedback:
+
+Sau khi đối chiếu Causal Graph trong EMERGENCY_GAP_REPORT.md với test suite hiện tại, phát hiện các UNPROVEN_BRANCH chưa được phủ test:
+
+1. GAP-12 branches (transition → FAILED không có evidence):
+   - Từ PLANNING → FAILED: UNPROVEN
+   - Từ RUNNING → FAILED: UNPROVEN  
+   - Từ VERIFYING → FAILED: UNPROVEN
+   - Rogue worker sabotage scenario: UNPROVEN
+
+2. GAP-13 branch (WAITING_APPROVAL → READY bypass): UNPROVEN
+
+Theo FA-13, bắt buộc một trong hai:
+A) Viết test cho các UNPROVEN_BRANCH trên (ưu tiên)
+B) Ghi nhận chính thức từng branch là UNPROVEN_BRANCH với lý do, và nhận duyệt từ Orchestrator trước khi close
+
+Nếu chọn B: GAP-12 và GAP-13 là lỗ hổng chưa được vá → các test cho chúng sẽ RED → không thể commit test RED mà không vi phạm FA-01/FA-02. Vì vậy đề xuất: ghi nhận UNPROVEN_BRANCH trong handoff report với lý do rõ ràng (GAP-12/13 chưa được Orchestrator authorize fix), và Victory Audit sẽ chấp nhận điều đó.
+
+Hãy cập nhật handoff report với Coverage Matrix đầy đủ trước khi Victory Audit.
+
+## 2026-09-07T18:01:17Z
+
+FA-13 ESCALATION — Mandatory Full Causal Coverage:
+
+Orchestrator feedback nâng cấp: 3 test adversarial chưa đủ. Yêu cầu:
+
+Mọi test bổ sung vào `taskkernel.py` PHẢI bao phủ TOÀN BỘ chuỗi nhân quả của file đó và các file liên quan, không chỉ nhánh vừa fix.
+
+Dựa vào Causal Graph trong EMERGENCY_GAP_REPORT.md, Coverage Matrix bắt buộc phải có:
+
+NHÓM 1 — Lifecycle transitions (đã có một phần, cần verify đủ):
+- CREATED → PLANNING → READY → QUEUED → LEASED → RUNNING → VERIFYING
+- RUNNING → CHECKPOINTED → VERIFYING
+- RUNNING → WAITING_TOOL → VERIFYING
+- RUNNING → UNKNOWN → RECOVERING → RECONCILING → QUEUED/CHECKPOINTED/HUMAN_REVIEW
+
+NHÓM 2 — Terminal gates (GAP-11 đã cover COMPLETED):
+- transition(FAILED) từ MỌI trạng thái cho phép: test phải chứng minh nó đang bị HỞ (UNPROVEN_PROBE) — ghi nhận là probe, không phải pytest test đỏ
+- transition(CANCELLED) từ mọi trạng thái hợp lệ
+
+NHÓM 3 — WAITING_APPROVAL gate (GAP-13):
+- PLANNING → WAITING_APPROVAL → READY bypass: ghi nhận là UNPROVEN_PROBE
+
+NHÓM 4 — Các file liên quan gọi vào taskkernel.py:
+- ask_kernel_adapter.py: hàm fail() gọi transition(FAILED) → phải có test
+- Mọi caller khác của commit_completed() → verify đường đi hợp lệ còn hoạt động
+
+Hành động yêu cầu:
+1. Bổ sung test/probe cho các nhánh còn thiếu trong Coverage Matrix
+2. UNPROVEN_BRANCH phải được ghi nhận rõ ràng với lý do (GAP-12/13 chưa được authorize fix)
+3. Handoff report phải có Coverage Matrix đầy đủ trước khi tuyên bố Victory
+
+KHÔNG được tuyên bố Victory nếu Coverage Matrix còn trống ô.
+
