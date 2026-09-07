@@ -536,4 +536,155 @@ def test_gap11_rebuild_projection_with_tampered_journal_fails_closed(tmp_path):
         kernel.close()
 
 
+def test_watchdog_lease_expiry_racing_commit_completed_blocks_stale_worker(tmp_path):
+    """Adversarial R2: Expired lease watchdog racing against commit_completed().
+
+    Verifies that passive TTL expiry or active watchdog expiry strictly blocks
+    commit_completed() with StaleLease and cannot force a COMPLETED state.
+    """
+    import time
+    db_file = tmp_path / "kernel.sqlite3"
+    kernel = TaskKernel(db_file)
+    try:
+        # 1. Passive TTL expiry
+        lease1 = _setup_running_task(kernel, "adv-watchdog-1", "owner-watchdog")
+        kernel.transition("adv-watchdog-1", "VERIFYING")
+        # Manually expire the lease in DB
+        kernel.conn.execute("UPDATE leases SET expires_at=? WHERE lease_id=?", (time.time() - 1.0, lease1.lease_id))
+
+        with pytest.raises(StaleLease):
+            kernel.commit_completed(
+                "adv-watchdog-1",
+                lease1.lease_id,
+                "VERIFIED",
+                "evidence://passive-expired",
+            )
+        assert kernel.get_task("adv-watchdog-1")["state"] == "VERIFYING"
+
+        # 2. Active watchdog expiry via expire_leases()
+        lease2 = _setup_running_task(kernel, "adv-watchdog-2", "owner-watchdog")
+        kernel.transition("adv-watchdog-2", "VERIFYING")
+        expired = kernel.expire_leases(now=time.time() + 1000.0)
+        assert lease2.lease_id in expired
+        # Task must now be in HUMAN_REVIEW
+        assert kernel.get_task("adv-watchdog-2")["state"] == "HUMAN_REVIEW"
+        assert kernel.get_task("adv-watchdog-2")["active_lease_id"] is None
+
+        # Stale worker attempts commit_completed()
+        with pytest.raises(StaleLease):
+            kernel.commit_completed(
+                "adv-watchdog-2",
+                lease2.lease_id,
+                "VERIFIED",
+                "evidence://stale-worker-after-watchdog",
+            )
+        assert kernel.get_task("adv-watchdog-2")["state"] == "HUMAN_REVIEW"
+        events2 = kernel.get_events("adv-watchdog-2")
+        assert not any(e["to_state"] == "COMPLETED" for e in events2)
+    finally:
+        kernel.close()
+
+
+def test_fencing_token_staleness_blocks_commit_completed_after_reclaim(tmp_path):
+    """Adversarial R2: Fencing token staleness strictly rejects commit_completed()."""
+    import time
+    db_file = tmp_path / "kernel.sqlite3"
+    kernel = TaskKernel(db_file)
+    try:
+        lease1 = _setup_running_task(kernel, "adv-fence-1", "owner-fence")
+        # Expire lease1
+        kernel.expire_leases(now=time.time() + 1000.0)
+        assert kernel.get_task("adv-fence-1")["state"] == "RECOVERING"
+
+        # Re-queue task and claim by worker 2
+        kernel.transition("adv-fence-1", "QUEUED")
+        lease2 = kernel.claim("adv-fence-1", "worker-2", ttl_seconds=60.0)
+        assert lease2.fencing_token > lease1.fencing_token
+        kernel.start("adv-fence-1", lease2.lease_id)
+        kernel.transition("adv-fence-1", "VERIFYING")
+
+        # Worker 1 (stale fencing token) attempts commit_completed()
+        with pytest.raises(StaleLease):
+            kernel.commit_completed(
+                "adv-fence-1",
+                lease1.lease_id,
+                "VERIFIED",
+                "evidence://stale-token-commit",
+            )
+
+        task = kernel.get_task("adv-fence-1")
+        assert task["state"] == "VERIFYING"
+        assert task["active_lease_id"] == lease2.lease_id
+        assert task["active_fencing_token"] == lease2.fencing_token
+    finally:
+        kernel.close()
+
+
+def test_multithreaded_lease_watchdog_race_with_commit_completed(tmp_path):
+    """Adversarial R2: True concurrent race between expire_leases() and commit_completed()."""
+    import concurrent.futures
+    import time
+    db_file = tmp_path / "kernel.sqlite3"
+    kernel = TaskKernel(db_file)
+    thread_kernels = []
+    try:
+        num_tasks = 8
+        tasks = []
+        for i in range(num_tasks):
+            tid = f"adv-race-{i}"
+            kernel.create_task(tid, "owner-race", f"goal {i}")
+            for s in ("PLANNING", "READY", "QUEUED"):
+                kernel.transition(tid, s, actor="setup")
+            lease = kernel.claim(tid, f"worker-{i}", ttl_seconds=0.1)
+            kernel.start(tid, lease.lease_id)
+            kernel.transition(tid, "VERIFYING", lease_id=lease.lease_id)
+            tasks.append((tid, lease.lease_id))
+
+        def watchdog_action(tid, lid):
+            try:
+                time.sleep(0.02)
+                k = TaskKernel(db_file)
+                thread_kernels.append(k)
+                k.expire_leases(now=time.time() + 0.1)
+            except Exception:
+                pass
+
+        def commit_action(tid, lid):
+            try:
+                time.sleep(0.02)
+                k = TaskKernel(db_file)
+                thread_kernels.append(k)
+                k._bound_leases[tid] = lid
+                k.commit_completed(tid, lid, "VERIFIED", f"evidence://{tid}")
+            except Exception:
+                pass
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+            futures = []
+            for tid, lid in tasks:
+                futures.append(executor.submit(watchdog_action, tid, lid))
+                futures.append(executor.submit(commit_action, tid, lid))
+            concurrent.futures.wait(futures)
+
+        for tid, lid in tasks:
+            task = kernel.get_task(tid)
+            assert task["state"] in {"COMPLETED", "HUMAN_REVIEW"}, f"Task {tid} in unexpected state: {task['state']}"
+            events = kernel.get_events(tid)
+            event_types = [e["type"] for e in events]
+            if task["state"] == "COMPLETED":
+                assert "TASK_COMPLETED" in event_types
+                assert event_types[-1] == "TASK_COMPLETED"
+            elif task["state"] == "HUMAN_REVIEW":
+                assert "LEASE_EXPIRED" in event_types
+                assert "TASK_COMPLETED" not in event_types
+    finally:
+        for tk in thread_kernels:
+            try:
+                tk.close()
+            except Exception:
+                pass
+        kernel.close()
+
+
+
 
