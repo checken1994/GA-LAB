@@ -13,7 +13,26 @@ from scp.kernel_storage import KernelStorage, StorageIntegrityError, make_storag
 
 class OptimisticLockError(RuntimeError):
     """Placeholder overwritten by scp.task_kernel.OptimisticLockError upon import."""
-    pass
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        table: str | None = None,
+        entity_id: str | None = None,
+        expected_version: int | None = None,
+    ) -> None:
+        self.table = table
+        self.entity_id = entity_id
+        self.expected_version = expected_version
+        if not message:
+            message = (
+                f"Optimistic lock conflict on table '{table}' for entity '{entity_id}'"
+                f" (expected version {expected_version})"
+            )
+        elif entity_id and entity_id not in message:
+            message = f"{message} (table={table}, entity_id={entity_id}, expected_version={expected_version})"
+        super().__init__(message)
 
 __all__ = ["TaskKernel", "OptimisticLockError"]
 
@@ -1173,20 +1192,30 @@ class TaskKernel:
             prev = e['event_hash']
         return {'task_id': task_id, 'event_count': len(events), 'hash_chain_valid': not errors, 'errors': errors}
 
-    def rebuild_projection(self, task_id: str) -> dict[str, Any]:
-        journal = self.verify_journal(task_id)
-        if not journal['hash_chain_valid']:
-            details = ';'.join(journal['errors'])
-            raise KernelError(f'journal integrity invalid: {details}')
-        events = self.get_events(task_id)
-        if not events:
-            raise NotFound(task_id)
-        state = events[0]['to_state']
-        for event in events[1:]:
-            if event['to_state']:
-                state = event['to_state']
+    def rebuild_projection(self, task_id: str, expected_version: int | None = None) -> dict[str, Any]:
         self._begin()
         try:
+            journal = self.verify_journal(task_id)
+            if not journal['hash_chain_valid']:
+                details = ';'.join(journal['errors'])
+                raise KernelError(f'journal integrity invalid: {details}')
+            events = self.get_events(task_id)
+            if not events:
+                raise NotFound(task_id)
+            state = events[0]['to_state']
+            for event in events[1:]:
+                if event['to_state']:
+                    state = event['to_state']
+            task = self._task(task_id)
+            cur_version = int(task['version'])
+            if expected_version is not None and cur_version != expected_version:
+                raise OptimisticLockError(
+                    f"concurrency conflict rebuilding projection for task {task_id}: expected version {expected_version}, found {cur_version}",
+                    table="tasks",
+                    entity_id=task_id,
+                    expected_version=expected_version,
+                )
+            target_version = expected_version if expected_version is not None else cur_version
             if state in {"LEASED", "RUNNING", "WAITING_TOOL", "VERIFYING", "CHECKPOINTED", "UNKNOWN"}:
                 lease_row = self.conn.execute(
                     'SELECT lease_id, fencing_token FROM leases WHERE task_id=? AND released=0 ORDER BY fencing_token DESC LIMIT 1',
@@ -1197,10 +1226,17 @@ class TaskKernel:
             else:
                 active_lease_id = None
                 active_fencing_token = 0
-            self.conn.execute(
-                'UPDATE tasks SET state=?,version=version+1,active_lease_id=?,active_fencing_token=?,updated_at=? WHERE task_id=?',
-                (state, active_lease_id, active_fencing_token, now_iso(), task_id),
+            cur = self.conn.execute(
+                'UPDATE tasks SET state=?,version=version+1,active_lease_id=?,active_fencing_token=?,updated_at=? WHERE task_id=? AND version=?',
+                (state, active_lease_id, active_fencing_token, now_iso(), task_id, target_version),
             )
+            if cur.rowcount != 1:
+                raise OptimisticLockError(
+                    f"concurrency conflict rebuilding projection for task {task_id}: expected version {target_version}",
+                    table="tasks",
+                    entity_id=task_id,
+                    expected_version=target_version,
+                )
             self._commit()
         except Exception:
             self._rollback()
