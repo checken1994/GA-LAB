@@ -93,6 +93,12 @@ Không được phép khẳng định hệ thống có lỗ hổng (logic, concu
 **FA-10: CẤM giả định trạng thái giữa các thư mục/workspace (Cross-Workspace Isolation).**
 Khi được yêu cầu kiểm tra một thư mục mới (clone, audit workspace, external repos), cấm mặc định rằng code của nó giống với thư mục gốc. Bắt buộc phải kiểm tra HEAD SHA, hash hoặc chạy diff trước khi phân tích.
 
+**FA-11: CẤM LÀM NGƠ LỖ HỔNG LÂN CẬN (Mandatory Peripheral Audit & No Blind Eye).**
+Khi mở bất kỳ file nào để sửa code, Agent BẮT BUỘC thoát khỏi tư duy "đường hầm" (task myopia) và phải quét nhanh logic bảo mật ngoại vi (State Machine, Evidence Gates, Quyền hạn) của các hàm lân cận. Nếu phát hiện lỗ hổng ngoài phạm vi (Out-of-scope GAP), BẮT BUỘC tuân thủ 3 bước:
+1. **Cấm lén lút sửa (Anti-Scope Creep):** KHÔNG ĐƯỢC lén lút vá lỗ hổng mới khi chưa chạy quy trình Probe (Probe Before Patch).
+2. **Báo cáo Nhân quả Bắt buộc (Mandatory Causal Report):** KHÔNG ĐƯỢC ghi log suông. Bắt buộc tạo một Artifact độc lập (VD: `EMERGENCY_GAP_REPORT.md`), trong đó phải vẽ Sơ đồ Nhân quả (Mermaid Causal Graph) chỉ rõ: Trigger -> Local Failure -> System Impact.
+3. **Quyền Phủ Quyết (Halt & Escalate):** Nếu lỗ hổng lân cận làm cho tác vụ hiện tại đang làm trở nên vô nghĩa, Agent BẮT BUỘC PHẢI DỪNG TÁC VỤ HIỆN TẠI, trả về trạng thái FAILED/BLOCKED, và ép Orchestrator ưu tiên xử lý lỗ hổng nền tảng trước.
+
 
 ---
 

@@ -58,6 +58,7 @@ Tóm tắt FA-01 đến FA-10:
 - **FA-08:** KHÔNG tự tạo bằng chứng (cấm giả lập file log).
 - **FA-09:** CẤM claim lỗ hổng (logic/security) khi chưa có script reproduce chạy văng lỗi thật trên terminal.
 - **FA-10:** CẤM giả định trạng thái code giữa các workspace/clone khác nhau (phải hash/diff trước).
+- **FA-11:** CẤM LÀM NGƠ LỖ HỔNG LÂN CẬN (No Blind Eye). Khi sửa file, BẮT BUỘC rà soát logic bảo mật ngoại vi. Nếu phát hiện GAP mới: (1) Cấm lén lút sửa (Scope Creep). (2) Phải tạo Artifact báo cáo Sơ đồ Nhân quả. (3) Bắt buộc Halt & Escalate nếu lỗ hổng mới làm tác vụ hiện tại trở nên vô nghĩa.
 
 Enforcement: `tools/t00_meta_audit.py` (pre-commit hook) + `.github/workflows/scp_guardrails.yml` (CI).
 
