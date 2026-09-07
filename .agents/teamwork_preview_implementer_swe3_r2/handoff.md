@@ -95,4 +95,18 @@ Command: `python -m pytest tests/T04_kernel/ -q`
 
 ### 3.2 Meta-Audit Verification
 Command: `python tools/t00_meta_audit.py`
-*(Verified 0 regressions against origin/main)*
+```text
+[T00 Meta-Audit] Starting Test-Integrity Regression Authority...
+[T00 Meta-Audit] Trusted Base: origin/main
+[T00 Meta-Audit] Collecting baseline pytest nodeids (origin/main)...
+[T00 Meta-Audit] Collecting candidate pytest nodeids...
+[T00 Meta-Audit] All integrity checks passed (0 new regressions).
+```
+
+---
+
+## 4. Git Lineage & Commit
+- **Commit SHA:** `da7476a`
+- **Commit Message:** `test(kernel): add round 2 adversarial watchdog race tests and probe for GAP-11`
+- **Pushed to:** `origin/main`
+
