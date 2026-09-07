@@ -1,0 +1,55 @@
+{
+  "config": {
+    "batch_size": 2,
+    "duration_seconds": 1.5,
+    "integrity_interval_seconds": 0.4,
+    "interval_seconds": 0.1,
+    "max_errors": 1,
+    "min_free_mb": 0,
+    "report_interval_seconds": 0.25,
+    "workers": 2
+  },
+  "counters": {
+    "completed": 12,
+    "events_verified": 96,
+    "failed": 0,
+    "submitted": 12
+  },
+  "database": "C:\\Users\\check\\Downloads\\scp\\reports\\pytest-basetemp-challenger1\\test_short_soak_produces_verif0\\soak-smoke\\kernel.sqlite3",
+  "database_sha256": "3c5cdfa7c2fd504cea3f259a1fe558bf08e0cca3f9efbd53965d84897068c0a8",
+  "elapsed_seconds": 1.515,
+  "events_log": "C:\\Users\\check\\Downloads\\scp\\reports\\pytest-basetemp-challenger1\\test_short_soak_produces_verif0\\soak-smoke\\events.jsonl",
+  "failure_reason": null,
+  "finished_at": "2026-09-07T12:56:09.178169+00:00",
+  "free_disk_mb": 63542,
+  "integrity_checks": 3,
+  "last_integrity": {
+    "invalid_chains": [],
+    "quick_check": "ok",
+    "tasks": 12
+  },
+  "latency_seconds": {
+    "max": 0.055518,
+    "mean": 0.024853,
+    "min": 0.0102,
+    "p50": 0.029151,
+    "p95": 0.03588,
+    "p99": 0.055518
+  },
+  "pending": 0,
+  "pid": 696,
+  "progress_fraction": 1.0,
+  "provenance": {
+    "git_commit": "bc424a4b45fdf76e0f51fbba62d7bd52dde55e5e",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10",
+    "working_tree_dirty_at_start": true
+  },
+  "recent_errors": [],
+  "run_id": "pytest-smoke",
+  "schema_version": 1,
+  "started_at": "2026-09-07T12:56:07.664046+00:00",
+  "status": "COMPLETED",
+  "target_duration_seconds": 1.5,
+  "updated_at": "2026-09-07T12:56:09.178169+00:00"
+}

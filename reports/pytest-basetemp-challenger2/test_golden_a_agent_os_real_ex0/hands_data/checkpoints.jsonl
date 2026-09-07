@@ -1,0 +1,1 @@
+{"checkpointId": "48c5193e8a4f4fd99a870d226512102e", "timestamp": 1788786195.0051117, "action": "pc.write_file", "target": "C:\\Users\\check\\Downloads\\scp\\reports\\pytest-basetemp-challenger2\\test_golden_a_agent_os_real_ex0\\workspace\\golden_artifact.txt", "existed": false, "priorHash": null, "backupPath": null, "backupId": null}

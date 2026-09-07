@@ -1,0 +1,1 @@
+{"timestamp": 1788786154.6668022, "iso": "2026-09-07T13:02:34Z", "event": "ACTION_BLOCKED_UNAUTHORIZED", "success": false, "action": "pc.write_file", "error": "CapabilityRequiredError: Caller must provide an authorized capability token (FA-05)", "verification": {"passed": false}}

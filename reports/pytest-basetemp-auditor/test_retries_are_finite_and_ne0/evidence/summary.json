@@ -1,0 +1,38 @@
+{
+  "gate": "dashboard_build_audit",
+  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "scope": "native npm production dependency audit; build is a separate required workflow command",
+  "lock_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "command": [
+    "node",
+    "npm-cli.js",
+    "audit",
+    "--omit=dev",
+    "--audit-level=high",
+    "--json"
+  ],
+  "max_attempts": 3,
+  "npm_audit_version": "11.19.1",
+  "attempt_timeout_seconds": 120,
+  "bindings": {
+    ".agents/skills/release-gate-skill-dna-bindings.json": "31728d958b529bd5a86e3bb4c610d4ebc9a3405a092fd36ed7e1dc34df480bfe",
+    ".agents/skills/scp-dna/SKILL.md": "4aada0be4873598dc50c3a7f38d90151429bb5263c511a838ed1cdcb4d594d10",
+    ".agents/skills/scp-dna/references/dna-principles.md": "ed7b15b0ba51c95ff39e82275b3503436dba914b265d3a03d0588ee98bead7a0",
+    ".agents/skills/scp-runtime-audit/SKILL.md": "63680fd1f1826b967f0c71367836ce0c773894f21bbf8abb33d43b005184851f"
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "exit_code": 1,
+      "status": "RETRYABLE_REGISTRY_ERROR",
+      "elapsed_seconds": 0.0
+    },
+    {
+      "attempt": 2,
+      "exit_code": 0,
+      "status": "PASS_WITHIN_SCOPE",
+      "elapsed_seconds": 0.015
+    }
+  ],
+  "status": "PASS_WITHIN_SCOPE"
+}

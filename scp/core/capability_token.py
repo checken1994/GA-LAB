@@ -8,12 +8,50 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_SECRET_STR = os.environ.get("SCP_CAPABILITY_SECRET")
-_SECRET = _SECRET_STR.encode() if _SECRET_STR else b""
+class MissingSecretError(RuntimeError):
+    """Raised when SCP_CAPABILITY_SECRET is missing or empty (GAP-09 fail-closed)."""
+    pass
 
-if not _SECRET:
-    logger.warning("SCP_CAPABILITY_SECRET is missing. Using fallback dev-secret. DO NOT USE IN PRODUCTION.")
-    _SECRET = b"dev-secret-do-not-use-in-prod-12345"
+
+class InvalidTokenSignatureError(PermissionError):
+    """Raised when a capability token is unsigned, has an invalid signature, or has been tampered with."""
+    pass
+
+
+def compute_token_signature(secret: bytes, subject: str, epoch: int, token_id: str, issued_at: float) -> str:
+    """Compute deterministic HMAC-SHA256 signature for a CapabilityToken."""
+    canonical = f"{subject}:{epoch}:{token_id}:{issued_at:.6f}".encode("utf-8")
+    return hmac.new(secret, canonical, hashlib.sha256).hexdigest()
+
+
+def verify_token_signature(secret: bytes, subject: str, epoch: int, token_id: str, issued_at: float, signature: str) -> bool:
+    """Verify HMAC-SHA256 signature for a CapabilityToken using constant-time comparison.
+
+    Raises InvalidTokenSignatureError fail-closed if signature is missing, invalid, or tampered.
+    """
+    if not signature or not str(signature).strip():
+        raise InvalidTokenSignatureError("Capability token is unsigned (GAP-08/FA-04)")
+    expected = compute_token_signature(secret, subject, epoch, token_id, issued_at)
+    if not hmac.compare_digest(str(signature).strip(), expected):
+        raise InvalidTokenSignatureError("Capability token signature verification failed (tampered token)")
+    return True
+
+
+def get_capability_secret() -> bytes:
+    """Read and return the cryptographic secret for capability tokens.
+
+    Raises MissingSecretError if SCP_CAPABILITY_SECRET is missing or empty.
+    """
+    secret = os.environ.get("SCP_CAPABILITY_SECRET")
+    if not secret or not secret.strip():
+        raise MissingSecretError(
+            "SCP_CAPABILITY_SECRET environment variable is missing or empty. "
+            "A cryptographic secret is required to sign and verify capability tokens (GAP-09)."
+        )
+    return secret.strip().encode("utf-8")
+
+
+_SECRET = get_capability_secret()
 
 def mint_token(issuer: str, scope: str, capability_level: int, ttl_seconds: int = 3600) -> str:
     epoch = int(time.time())
@@ -54,3 +92,22 @@ def verify_token(token: str, required_scope: str = "*") -> dict:
         return {"valid": False, "error": "Scope mismatch"}
         
     return {"valid": True, "payload": payload}
+
+
+def __getattr__(name: str):
+    if name == "CapabilityToken":
+        from scp.security.capability_epoch import CapabilityToken
+        return CapabilityToken
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+__all__ = [
+    "MissingSecretError",
+    "InvalidTokenSignatureError",
+    "get_capability_secret",
+    "compute_token_signature",
+    "verify_token_signature",
+    "mint_token",
+    "verify_token",
+    "CapabilityToken",
+]

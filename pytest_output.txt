@@ -1,0 +1,381 @@
+.....................................FFFFFFFFFFFFFFFFF.................. [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 48%]
+........................................................................ [ 64%]
+.......................................................................F [ 80%]
+F....................................................................... [ 96%]
+..................                                                       [100%]
+================================== FAILURES ===================================
+__________ test_shipped_future_target_v402_passes_bounded_validator ___________
+
+    def test_shipped_future_target_v402_passes_bounded_validator():
+        assert MANIFEST.is_file(), "active future-target manifest must exist"
+        errors = validate_future_target(MANIFEST)
+>       assert not errors, f"SCP Future Target v4.0.2 violates declared contract: {errors}"
+E       AssertionError: SCP Future Target v4.0.2 violates declared contract: ['overlay blob SHA does not match manifest']
+E       assert not ['overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_future_target.py:27: AssertionError
+________ test_effective_target_is_base_plus_overlay_with_frozen_counts ________
+
+    def test_effective_target_is_base_plus_overlay_with_frozen_counts():
+>       manifest, target = _shipped()
+                           ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_future_target.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        manifest, target, errors = compose_future_target(MANIFEST)
+>       assert not errors, f"composition failed: {errors}"
+E       AssertionError: composition failed: ['overlay blob SHA does not match manifest']
+E       assert not ['overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_future_target.py:20: AssertionError
+__________________ test_validator_rejects_orphan_capability ___________________
+
+    def test_validator_rejects_orphan_capability():
+>       manifest, target = _shipped()
+                           ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_future_target.py:54: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        manifest, target, errors = compose_future_target(MANIFEST)
+>       assert not errors, f"composition failed: {errors}"
+E       AssertionError: composition failed: ['overlay blob SHA does not match manifest']
+E       assert not ['overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_future_target.py:20: AssertionError
+__________ test_validator_rejects_unknown_gate_on_cause_effect_edge ___________
+
+    def test_validator_rejects_unknown_gate_on_cause_effect_edge():
+>       manifest, target = _shipped()
+                           ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_future_target.py:64: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        manifest, target, errors = compose_future_target(MANIFEST)
+>       assert not errors, f"composition failed: {errors}"
+E       AssertionError: composition failed: ['overlay blob SHA does not match manifest']
+E       assert not ['overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_future_target.py:20: AssertionError
+________________ test_validator_rejects_skill_traceability_gap ________________
+
+    def test_validator_rejects_skill_traceability_gap():
+>       manifest, target = _shipped()
+                           ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_future_target.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        manifest, target, errors = compose_future_target(MANIFEST)
+>       assert not errors, f"composition failed: {errors}"
+E       AssertionError: composition failed: ['overlay blob SHA does not match manifest']
+E       assert not ['overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_future_target.py:20: AssertionError
+_____ test_freeze_policy_blocks_validator_recursion_without_new_evidence ______
+
+    def test_freeze_policy_blocks_validator_recursion_without_new_evidence():
+>       manifest, target = _shipped()
+                           ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_future_target.py:80: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        manifest, target, errors = compose_future_target(MANIFEST)
+>       assert not errors, f"composition failed: {errors}"
+E       AssertionError: composition failed: ['overlay blob SHA does not match manifest']
+E       assert not ['overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_future_target.py:20: AssertionError
+_____ test_reference_alignment_gap_is_reported_not_used_to_delete_target ______
+
+    def test_reference_alignment_gap_is_reported_not_used_to_delete_target():
+>       _manifest, target = _shipped()
+                            ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_future_target.py:92: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        manifest, target, errors = compose_future_target(MANIFEST)
+>       assert not errors, f"composition failed: {errors}"
+E       AssertionError: composition failed: ['overlay blob SHA does not match manifest']
+E       assert not ['overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_future_target.py:20: AssertionError
+__________ test_shipped_target_test_traceability_structure_is_valid ___________
+
+    def test_shipped_target_test_traceability_structure_is_valid():
+        assert BINDING.is_file(), "spec/scp_target_test_coverage.yaml must exist"
+>       _binding, _target, report = _shipped()
+                                    ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:25: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+________ test_effective_map_contains_all_138_capabilities_and_67_edges ________
+
+    def test_effective_map_contains_all_138_capabilities_and_67_edges():
+>       _binding, _target, report = _shipped()
+                                    ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+__________ test_unclaimed_target_is_explicitly_unproven_not_omitted ___________
+
+    def test_unclaimed_target_is_explicitly_unproven_not_omitted():
+>       _binding, _target, report = _shipped()
+                                    ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+____ test_current_binding_never_turns_test_presence_into_evidence_verified ____
+
+    def test_current_binding_never_turns_test_presence_into_evidence_verified():
+>       _binding, _target, report = _shipped()
+                                    ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:50: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_______________ test_validator_rejects_claim_for_unknown_target _______________
+
+    def test_validator_rejects_claim_for_unknown_target():
+>       binding, target, _report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_________________ test_validator_rejects_missing_pytest_node __________________
+
+    def test_validator_rejects_missing_pytest_node():
+>       binding, target, _report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:65: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_____________ test_validator_rejects_test_from_inapplicable_gate ______________
+
+    def test_validator_rejects_test_from_inapplicable_gate():
+>       binding, target, _report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+______ test_evidence_verified_cannot_be_self_declared_without_provenance ______
+
+    def test_evidence_verified_cannot_be_self_declared_without_provenance():
+>       binding, target, _report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_____ test_reverse_mapping_exists_for_every_explicit_concrete_test_claim ______
+
+    def test_reverse_mapping_exists_for_every_explicit_concrete_test_claim():
+>       binding, _target, report = _shipped()
+                                   ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:98: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_____ test_generated_report_is_deterministic_for_same_binding_and_target ______
+
+    def test_generated_report_is_deterministic_for_same_binding_and_target():
+>       binding, target, report = _shipped()
+                                  ^^^^^^^^^^
+
+tests\T00_integrity\test_scp_target_test_coverage.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _shipped():
+        binding, target, report, errors = load_and_validate(BINDING)
+>       assert not errors, f"target-test traceability binding is invalid: {errors}"
+E       AssertionError: target-test traceability binding is invalid: ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+E       assert not ['coverage binding is stale: target manifest blob SHA does not match active file', 'overlay blob SHA does not match manifest']
+
+tests\T00_integrity\test_scp_target_test_coverage.py:19: AssertionError
+_________ test_golden_b_good_patch_is_apply_verified_then_failclosed __________
+
+tmp_path = WindowsPath('C:/Users/check/Downloads/scp/reports/pytest-basetemp/test_golden_b_good_patch_is_ap0')
+
+    def test_golden_b_good_patch_is_apply_verified_then_failclosed(tmp_path):
+        """
+        B1 (real contract): a good patch must be applied, then gated by the FULL
+        post-fix verification pipeline before promotion. With no gold evidence and
+        the reality_test module missing, promotion must be fail-closed: ROLLBACK +
+        Tier-3 escalation. An UNVERIFIED fix must never be promoted (DNA #22).
+        """
+        workspace, target, bug = _seed(tmp_path)
+        original_sha = hashlib.sha256(target.read_bytes()).hexdigest()
+        bug.suggested_fix = GOOD_FIX
+    
+        engine = AutoFixEngine(str(tmp_path / "autofix-data"))
+        result = engine.process_bug(bug)
+    
+        # The fix itself was applied and verified complete by the re-scan phase...
+        post = result.get("post_fix_verification") or {}
+        phases = post.get("phases") or {}
+        completeness = phases.get("completeness_check") or {}
+>       assert completeness.get("complete") is True, (
+            f"Completeness check should confirm the fix removed the bug: {post}"
+        )
+E       AssertionError: Completeness check should confirm the fix removed the bug: {}
+E       assert None is True
+E        +  where None = <built-in method get of dict object at 0x000001A266622FC0>('complete')
+E        +    where <built-in method get of dict object at 0x000001A266622FC0> = {}.get
+
+tests\T09_golden_task\test_golden_b_epistemic_loop.py:110: AssertionError
+_____________ test_golden_b_verified_fix_commits_to_durable_state _____________
+
+tmp_path = WindowsPath('C:/Users/check/Downloads/scp/reports/pytest-basetemp/test_golden_b_verified_fix_com1')
+
+    def test_golden_b_verified_fix_commits_to_durable_state(tmp_path):
+        """
+        Commit leg: once verification evidence EXISTS, the fix must be promoted
+        (file keeps the fix, audit binds before/after hashes, reflect persists a
+        lesson). Today this leg cannot succeed for ANY generic fix.
+        """
+        workspace, target, bug = _seed(tmp_path)
+        try:
+            from scp.autofix.runner_phases.reality_test import run_reality_test  # noqa: F401
+        except ImportError as exc:
+            pytest.fail(
+                "PRODUCT_BLOCKED: the AutoFix commit path is dead for every generic "
+                f"fix - scp/autofix/runner_phases/reality_test.py does not exist "
+                f"(import failed: {exc}), so run_full_post_fix_verify always returns "
+                "UNVERIFIED and every applied fix is rolled back and escalated to "
+                "Tier 3 (the fail-closed half is proven by "
+                "test_golden_b_good_patch_is_apply_verified_then_failclosed). "
+                "Required to close: (1) implement reality_test - exercise the "
+                "patched callables against the post-state; (2) an evidence_replay "
+                "gold-seeding policy for first-time bug signatures; (3) write the "
+                "semantic_equiv backup at apply time. Do NOT weaken the verifier "
+                "to promote unverified fixes."
+            )
+    
+        import os
+        # Deterministic WHY contract (same pin as the security-weakening leg):
+        # runner.py loads the repo .env at import time and .env may carry
+        # SCP_WHY_LLM_ENABLED=1; the probabilistic LLM falsification layer then
+        # makes this golden contract flaky (real network verdicts). The
+        # deterministic falsification patterns remain authoritative.
+        os.environ["SCP_WHY_LLM_ENABLED"] = "0"
+        os.environ["SCP_SEED_GOLD_EVIDENCE"] = "1"
+        try:
+            bug.suggested_fix = GOOD_FIX
+            engine = AutoFixEngine(str(tmp_path / "autofix-data"))
+            result = engine.process_bug(bug)
+>           assert result.get("action") == "fixed", f"Verified fix was not committed: {result}"
+E           AssertionError: Verified fix was not committed: {'action': 'skipped', 'tier': 1, 'reason': 'fix verification failed (rolled back): property validation failed; fix is UNVERIFIED', 'patched': False}
+E           assert 'skipped' == 'fixed'
+E             
+E             - fixed
+E             + skipped
+
+tests\T09_golden_task\test_golden_b_epistemic_loop.py:173: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  scp.autofix.validate_patch:validate_patch.py:79 Silent except: invalid syntax (<unknown>, line 1)
+WARNING  scp.autofix.validate_patch:validate_patch.py:89 Silent except: invalid syntax (<unknown>, line 2)
+WARNING  scp.autofix:verify_mixin.py:390 [R10 v4 IMP-19] property_validator failed; rejecting unverifiable fix: FileNotFoundError
+WARNING  scp.autofix:autofix_mixin.py:1199  Fix verification FAILED for C:\Users\check\Downloads\scp\reports\pytest-basetemp\test_golden_b_verified_fix_com1\workspace\util.py:5: property validation failed; fix is UNVERIFIED — ROLLING BACK
+ERROR    scp.autofix:autofix_mixin.py:1213  Rollback FAILED for C:\Users\check\Downloads\scp\reports\pytest-basetemp\test_golden_b_verified_fix_com1\workspace\util.py: [Errno 2] No such file or directory: 'C:\\Users\\check\\Downloads\\scp\\reports\\pytest-basetemp\\test_golden_b_verified_fix_com1\\workspace\\util.py'
+=========================== short test summary info ===========================
+FAILED tests/T00_integrity/test_scp_future_target.py::test_shipped_future_target_v402_passes_bounded_validator
+FAILED tests/T00_integrity/test_scp_future_target.py::test_effective_target_is_base_plus_overlay_with_frozen_counts
+FAILED tests/T00_integrity/test_scp_future_target.py::test_validator_rejects_orphan_capability
+FAILED tests/T00_integrity/test_scp_future_target.py::test_validator_rejects_unknown_gate_on_cause_effect_edge
+FAILED tests/T00_integrity/test_scp_future_target.py::test_validator_rejects_skill_traceability_gap
+FAILED tests/T00_integrity/test_scp_future_target.py::test_freeze_policy_blocks_validator_recursion_without_new_evidence
+FAILED tests/T00_integrity/test_scp_future_target.py::test_reference_alignment_gap_is_reported_not_used_to_delete_target
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_shipped_target_test_traceability_structure_is_valid
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_effective_map_contains_all_138_capabilities_and_67_edges
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_unclaimed_target_is_explicitly_unproven_not_omitted
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_current_binding_never_turns_test_presence_into_evidence_verified
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_validator_rejects_claim_for_unknown_target
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_validator_rejects_missing_pytest_node
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_validator_rejects_test_from_inapplicable_gate
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_evidence_verified_cannot_be_self_declared_without_provenance
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_reverse_mapping_exists_for_every_explicit_concrete_test_claim
+FAILED tests/T00_integrity/test_scp_target_test_coverage.py::test_generated_report_is_deterministic_for_same_binding_and_target
+FAILED tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_good_patch_is_apply_verified_then_failclosed
+FAILED tests/T09_golden_task/test_golden_b_epistemic_loop.py::test_golden_b_verified_fix_commits_to_durable_state
+19 failed, 431 passed in 104.94s (0:01:44)

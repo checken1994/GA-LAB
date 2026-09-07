@@ -1,0 +1,1 @@
+{"ts": 1788715460.850459, "engine": "autofix", "event": "autofix_verify_ok", "payload": {"file": "C:\\Users\\check\\Downloads\\scp\\reports\\pytest-basetemp-auditor\\test_golden_b_verified_fix_com0\\workspace\\util.py", "line": 5, "bug_type": "BareExceptPass", "reason": "fix verified OK (syntax + re-scan + no new bugs + self-scan + pytest + enterprise + property)"}}

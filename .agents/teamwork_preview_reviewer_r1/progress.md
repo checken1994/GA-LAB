@@ -1,0 +1,21 @@
+# Progress Log: Adversarial Review R1 (GAP-03 & GAP-04)
+
+- [x] Pre-session mandate: Loaded and reviewed `GA.md`, `scp-dna/SKILL.md`, `scp-task-kernel-review/SKILL.md`, and `scp-reality-verifier/SKILL.md`.
+- [x] Step 1: Independently re-derived requirements for GAP-03 (OCC version check on rebuild_projection) and GAP-04 (atomic transaction encapsulation).
+- [x] Step 2: Adversarial breakdown & code audit:
+  - Discovered that the prior probe script used fake concurrency in Subtest 2 (sequential execution with no threads).
+  - Discovered that GAP-04 transaction boundary in probe was only verified via static AST string inspection (`inspect.getsource`), not runtime execution.
+  - Discovered missing test coverage for cross-method OCC race (`transition` vs `rebuild_projection`).
+  - Discovered missing high-concurrency stress test (10 parallel threads).
+  - Discovered missing error cleanup test for non-existent tasks in `rebuild_projection`.
+- [x] Step 3: Implement fixes and tests:
+  - Upgraded `tools/probes/probe_gap03_04_blind_overwrite.py` to use real threads with `threading.Barrier(2)` in Subtest 2.
+  - Added Subtest 4 to `probe_gap03_04_blind_overwrite.py` for runtime transaction rollback verification.
+  - Extended `tests/T04_kernel/test_rebuild_projection_occ.py` with 3 adversarial test cases (4 -> 7 tests).
+- [x] Step 4: Verification & Anti-Placebo testing:
+  - Ran `probe_gap03_04_blind_overwrite.py`: GREEN (all 4 subtests passed).
+  - Ran `pytest tests/T04_kernel/test_rebuild_projection_occ.py -v`: 7 passed in 1.00s.
+  - Ran `pytest tests/T04_kernel/ -v`: 49 passed in 5.37s.
+  - Ran `pytest tests/ -q`: 438 passed in 110.14s (exit=0).
+  - Ran `python tools/t00_meta_audit.py`: PASSED (0 new regressions).
+- [x] Step 5: Deliver handoff report and notify Sentinel/parent.

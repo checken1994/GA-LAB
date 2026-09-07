@@ -12,6 +12,7 @@ testable without exposing SQLite locks or connections to the kernel.
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 import threading
 import time
@@ -92,8 +93,6 @@ class SQLiteKernelStorage:
         self._conn_local = threading.local()
         self._all_conns: list[sqlite3.Connection] = []
         self._conn_guard = threading.Lock()
-        self._tx_lock = threading.RLock()
-        self._tx_state = threading.local()
         c = self._get_conn()
         c.execute("PRAGMA journal_mode=WAL")
         c.execute("PRAGMA foreign_keys=ON")
@@ -120,43 +119,26 @@ class SQLiteKernelStorage:
 
     def begin(self) -> None:
         """Acquire write lock + BEGIN IMMEDIATE (bounded retry on SQLITE_BUSY / locked)."""
-        self._tx_lock.acquire()
-        try:
-            last_error: Exception | None = None
-            for attempt in range(25):
-                try:
-                    self._get_conn().execute("BEGIN IMMEDIATE")
-                    self._tx_state.held = True
-                    return
-                except sqlite3.OperationalError as exc:
-                    err_msg = str(exc).lower()
-                    if "locked" not in err_msg and "busy" not in err_msg:
-                        raise
-                    last_error = exc
-                    time.sleep(0.05 * min(attempt + 1, 4))
-            raise last_error if last_error else RuntimeError("begin failed")
-        except BaseException:
-            self._tx_lock.release()
-            raise
-
-    def _release_tx_lock(self) -> None:
-        if getattr(self._tx_state, "held", False):
-            self._tx_state.held = False
-            self._tx_lock.release()
+        last_error: Exception | None = None
+        for attempt in range(25):
+            try:
+                self._get_conn().execute("BEGIN IMMEDIATE")
+                return
+            except sqlite3.OperationalError as exc:
+                err_msg = str(exc).lower()
+                if "locked" not in err_msg and "busy" not in err_msg:
+                    raise
+                last_error = exc
+                time.sleep(0.05 * min(attempt + 1, 4))
+        raise last_error if last_error else RuntimeError("begin failed")
 
     def commit(self) -> None:
-        try:
-            self._get_conn().execute("COMMIT")
-        finally:
-            self._release_tx_lock()
+        self._get_conn().execute("COMMIT")
 
     def rollback(self) -> None:
-        try:
-            conn = self._get_conn()
-            if conn.in_transaction:
-                conn.execute("ROLLBACK")
-        finally:
-            self._release_tx_lock()
+        conn = self._get_conn()
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
 
     def execute(self, sql: str, params: Any = ()) -> Any:
         try:
@@ -196,9 +178,19 @@ class SQLiteKernelStorage:
             destination.close()
 
 
-def make_storage(db_path: str | Path) -> SQLiteKernelStorage:
-    """Create the default SQLite storage for a given path.
+def make_storage(db_path: str | Path, backend: str | None = None) -> SQLiteKernelStorage:
+    """Create the storage backend for a given path.
 
-    Future: accept a backend= parameter to select Postgres/etcd.
+    WARNING: SQLite is a Single Point of Failure (SPOF) in distributed deployments.
+    It does not support cross-node replication or active-active clustering.
+    For high availability or multi-node production setups, a distributed storage backend is required.
     """
-    return SQLiteKernelStorage(db_path)
+    if backend is None:
+        backend = os.environ.get("SCP_STORAGE_BACKEND", "sqlite")
+    backend = backend.strip().lower()
+    if backend in ("sqlite", ""):
+        return SQLiteKernelStorage(db_path)
+    raise NotImplementedError(
+        f"Unsupported storage backend '{backend}'. Only 'sqlite' is currently supported. "
+        "For distributed deployments, inject a custom Storage instance into TaskKernel."
+    )

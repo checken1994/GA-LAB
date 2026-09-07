@@ -1,0 +1,15 @@
+{
+  "2d33624fb3187849": {
+    "token": "2d33624fb3187849",
+    "file": "C:\\Users\\check\\Downloads\\scp\\reports\\pytest-basetemp-auditor\\test_golden_b_verified_fix_com0\\workspace\\util.py",
+    "bug_id": "C:\\Users\\check\\Downloads\\scp\\reports\\pytest-basetemp-auditor\\test_golden_b_verified_fix_com0\\workspace\\util.py:5",
+    "bug_type": "BareExceptPass",
+    "tier": 1,
+    "timestamp": 1788715463.2164705,
+    "before_hash": "043c236d638cdd2e957027881eaecd10",
+    "after_hash": "a226a915451548c8f75c7ed79ae35edb",
+    "before_content": "def load_text(path):\n    try:\n        with open(path, encoding=\"utf-8\") as handle:\n            return handle.read()\n    except:\n        pass\n",
+    "patch": "<<<<<<< SEARCH\n    except:\n        pass\n=======\n    except OSError:\n        return \"\"\n>>>>>>> REPLACE\n",
+    "reality_test_result": {}
+  }
+}

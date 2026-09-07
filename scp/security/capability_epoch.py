@@ -10,6 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from scp.core.capability_token import (
+    InvalidTokenSignatureError,
+    compute_token_signature,
+    get_capability_secret,
+    verify_token_signature,
+)
+
 
 class CapabilityRevokedError(RuntimeError):
     """Raised when a new action cannot receive a capability token."""
@@ -21,6 +28,7 @@ class CapabilityToken:
     epoch: int
     token_id: str
     issued_at: float
+    signature: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -28,6 +36,7 @@ class CapabilityToken:
             "epoch": self.epoch,
             "token_id": self.token_id,
             "issued_at": self.issued_at,
+            "signature": self.signature,
         }
 
 
@@ -62,11 +71,13 @@ def parse_capability_token(token: Any) -> CapabilityToken | None:
             token_id = str(token.get("token_id") or token.get("tokenId") or "")
             issued_at_val = token.get("issued_at") if token.get("issued_at") is not None else token.get("issuedAt", 0.0)
             issued_at = float(issued_at_val)
+            signature = str(token.get("signature") or "")
             return CapabilityToken(
                 subject=subject,
                 epoch=epoch,
                 token_id=token_id,
                 issued_at=issued_at,
+                signature=signature,
             )
         except (ValueError, TypeError):
             return None
@@ -84,9 +95,21 @@ class CapabilityAuthority:
 
     SCHEMA_VERSION = "scp-capability-epoch-v1"
 
-    def __init__(self, state_path: str | Path) -> None:
+    def __init__(self, state_path: str | Path, secret: bytes | str | None = None) -> None:
         self.state_path = Path(state_path)
         self._lock = threading.RLock()
+        if secret is None:
+            self.secret = get_capability_secret()
+        elif isinstance(secret, str):
+            if not secret.strip():
+                from scp.core.capability_token import MissingSecretError
+                raise MissingSecretError("Explicit capability secret is empty.")
+            self.secret = secret.strip().encode("utf-8")
+        else:
+            if not secret or not secret.strip():
+                from scp.core.capability_token import MissingSecretError
+                raise MissingSecretError("Explicit capability secret is empty.")
+            self.secret = secret
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
@@ -153,13 +176,41 @@ class CapabilityAuthority:
             state = self._load()
             if state["revoked"]:
                 raise CapabilityRevokedError(f"capabilities revoked: {state.get('reason', 'operator_revoke')}")
-            return CapabilityToken(subject=subject, epoch=state["epoch"], token_id=uuid.uuid4().hex, issued_at=time.time())
+            epoch = state["epoch"]
+            token_id = uuid.uuid4().hex
+            issued_at = round(time.time(), 6)
+            signature = compute_token_signature(
+                secret=self.secret,
+                subject=subject,
+                epoch=epoch,
+                token_id=token_id,
+                issued_at=issued_at,
+            )
+            return CapabilityToken(
+                subject=subject,
+                epoch=epoch,
+                token_id=token_id,
+                issued_at=issued_at,
+                signature=signature,
+            )
 
     def validate(self, token: CapabilityToken | None, required_subject: str | None = None) -> bool:
         if token is None:
             return False
         if not (hasattr(token, "subject") and hasattr(token, "epoch")):
             return False
+
+        # Strict Fail-Closed Signature Verification (GAP-08)
+        signature = getattr(token, "signature", "")
+        verify_token_signature(
+            secret=self.secret,
+            subject=str(token.subject),
+            epoch=int(token.epoch),
+            token_id=str(getattr(token, "token_id", "")),
+            issued_at=float(getattr(token, "issued_at", 0.0)),
+            signature=signature,
+        )
+
         if required_subject is not None:
             if str(getattr(token, "subject", "")) != str(required_subject):
                 return False
@@ -196,4 +247,10 @@ class CapabilityAuthority:
             return self.status()
 
 
-__all__ = ["CapabilityAuthority", "CapabilityRevokedError", "CapabilityToken", "parse_capability_token"]
+__all__ = [
+    "CapabilityAuthority",
+    "CapabilityRevokedError",
+    "CapabilityToken",
+    "InvalidTokenSignatureError",
+    "parse_capability_token",
+]
