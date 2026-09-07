@@ -99,6 +99,14 @@ Khi mở bất kỳ file nào để sửa code, Agent BẮT BUỘC thoát khỏi
 2. **Báo cáo Nhân quả Bắt buộc (Mandatory Causal Report):** KHÔNG ĐƯỢC ghi log suông. Bắt buộc tạo một Artifact độc lập (VD: `EMERGENCY_GAP_REPORT.md`), trong đó phải vẽ Sơ đồ Nhân quả (Mermaid Causal Graph) chỉ rõ: Trigger -> Local Failure -> System Impact.
 3. **Quyền Phủ Quyết (Halt & Escalate):** Nếu lỗ hổng lân cận làm cho tác vụ hiện tại đang làm trở nên vô nghĩa, Agent BẮT BUỘC PHẢI DỪNG TÁC VỤ HIỆN TẠI, trả về trạng thái FAILED/BLOCKED, và ép Orchestrator ưu tiên xử lý lỗ hổng nền tảng trước.
 
+**FA-12: NGHIỆM THU NHÂN QUẢ THỰC TẾ (End-to-End Empirical Closure).**
+Tuyệt đối không được tuyên bố "Hoàn thành" (FIXED/DONE) chỉ bằng việc chạy Unit Test. Quá trình đóng (close) một lỗ hổng BẮT BUỘC phải qua 5 bước:
+1. **Bản đồ Nhân quả Toàn phần:** Vẽ Causal Graph cho *toàn bộ file* vừa sửa (không chỉ hàm bị lỗi).
+2. **Truy quét Lỗi ẩn:** Đối chiếu bản đồ, xác định xem trong file đó còn lỗ hổng nào đang bị "chìm" (chưa được báo cáo) hay không.
+3. **Thực thi Vật lý:** Chạy tác vụ thực tế trên PC (Live Environment / Terminal).
+4. **Khám nghiệm Runtime Data:** Đọc và phân tích trực tiếp dữ liệu thực tế sinh ra sau khi chạy (VD: raw SQLite rows, physical logs).
+5. **Bằng chứng End-to-End:** Dùng data thực tế đó để đối chiếu ngược lại Sơ đồ Nhân quả, chứng minh bằng mắt thật rằng: *Chuỗi nhân quả của đoạn code vừa fix ĐÃ THỰC SỰ ĐƯỢC GỌI và chạy thành công từ đầu đến cuối.*
+
 
 ---
 
