@@ -15,10 +15,8 @@ RUN uv pip install --system --no-cache -r requirements.txt || pip install --no-c
 
 # Copy source code
 COPY scp/ ./scp/
-COPY pyproject.toml setup.cfg* README* ./
+COPY README* ./
 
-# Install the package itself
-RUN uv pip install --system --no-cache -e . 2>/dev/null || pip install --no-cache-dir -e .
 
 # Environment variable placeholders (override at runtime)
 ENV OPENROUTER_API_KEY=""
@@ -30,7 +28,9 @@ ENV SCP_KW_ENABLE="0"
 
 EXPOSE 8080
 
-RUN useradd -u 10001 -m scpuser
+RUN useradd -u 10001 -m scpuser && \
+    mkdir -p /app/data && \
+    chown -R scpuser:scpuser /app/data
 USER 10001
 
 ENTRYPOINT ["python", "-m", "scp"]

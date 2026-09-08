@@ -8,8 +8,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8080:8000"
+    command: ["8000"]
     environment:
+      - SCP_CAPABILITY_SECRET=${SCP_CAPABILITY_SECRET:-audit-test-cap-secret-32chars}
       - SCP_JWT_SECRET=${SCP_JWT_SECRET:-audit-test-secret-change-me-32chars}
       - SCP_ADMIN_KEY=${SCP_ADMIN_KEY:-audit-test-admin-key-32chars}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-test-key}
@@ -24,7 +26,7 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - ./data:/app/data
+      - scp_data:/app/data
     restart: "no"
 
   audit:
@@ -47,5 +49,8 @@ services:
     profiles:
       - test
     volumes:
-      - ./data:/app/data
+      - scp_data:/app/data
       - ./reports:/app/reports
+
+volumes:
+  scp_data:

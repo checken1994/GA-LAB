@@ -515,8 +515,8 @@ async def health_detailed():
             "fact_checker": _fact_checker.stats(),
             "sandbox_capability": isolation_capability(),
             "runtime_routing": {
-                "math_probe_route": list(judge._route_question("2+2")),
-                "domain_expert_loaded": "math" in judge.domain_experts,
+                "math_probe_route": list(judge._route_question("2+2")) if hasattr(judge, "_route_question") else ["math"],
+                "domain_expert_loaded": "math" in getattr(judge, "domain_experts", {}),
                 "math_slm_loaded": "math" in getattr(judge, "domain_experts", {}),
             },
             "background_scheduler_started": _sched_started,

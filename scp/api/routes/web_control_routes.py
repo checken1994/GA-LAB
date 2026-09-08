@@ -56,12 +56,11 @@ class CrossVerifyRequest(BaseModel):
 
 
 def _guard(request: Request, token: str | None) -> None:
-    host = request.client.host if request.client else ""
-    is_local = host in {"127.0.0.1", "::1", "localhost"}
+    """Require token for all requests to ensure zero-trust boundary."""
     configured = os.environ.get("SCP_PC_CONTROLLER_TOKEN", "")
     if not configured or not token or not __import__("hmac").compare_digest(token, configured):
         from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Local-only or token is invalid")
+        raise HTTPException(status_code=403, detail="Token is missing or invalid")
 
 
 @router.get("/web/status")

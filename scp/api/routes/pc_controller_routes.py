@@ -68,10 +68,10 @@ def _is_local(request: Request) -> bool:
 
 
 def _guard(request: Request, token: str | None) -> None:
-    """Allow local dashboard calls (direct, not proxied); require token for remote."""
+    """Require token for all requests to ensure zero-trust boundary."""
     configured = os.environ.get("SCP_PC_CONTROLLER_TOKEN", "")
-    if not configured or not token or not hmac.compare_digest(token, configured):
-        raise HTTPException(status_code=403, detail="PC Controller is local-only or token is invalid")
+    if not configured or not token or not __import__("hmac").compare_digest(token, configured):
+        raise HTTPException(status_code=403, detail="PC Controller token is missing or invalid")
 
 
 @router.get("/status")
