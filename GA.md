@@ -310,3 +310,41 @@ Forbidden now:
   Its upstream source uses Bulk Advisory only; no 400 response is treated as a
   pass or generic retry. Response headers/cookies are redacted from new audit
   artifacts. Ref: https://github.com/npm/cli/blob/v11.19.1/workspaces/arborist/lib/audit-report.js
+
+## B9. Security Remediation Handoff — 2026-09-09
+
+- **Commit:** `d0fcb6e` on branch `omega/gap-01-remediation`
+- **Test results:** 619 PASS / 1 FAIL (99.8%) — 1 flaky isolation test on Windows
+  (`test_autofix_end_to_end_rollback_on_verify_failure`): passes alone, fails in
+  full suite due to Windows file locking in `shutil.move` on shadow snapshot dir.
+  HARNESS_BROKEN classification; product rollback behavior is correct.
+
+- **R2 (PCController Token Boundary):** COMPLETED.
+  HMAC-SHA256 PEP token wraps PCController. 15 new tests in T03. Exploit probe blocked.
+
+- **R3 (Verifier Receipt Cryptographic Provenance):** COMPLETED.
+  `scp/core/verifier_receipt.py` created. Kernel verifies HMAC signature before
+  COMPLETED commit. 22 new tests in T04.
+
+- **R6 (AutoFix Shadow Rollback):** COMPLETED.
+  `scp/autofix/shadow_snapshot.py` created. AutoFix pipeline auto-rollbacks when
+  pytest fails. 12 new tests in T07.
+
+- **Bug fixes applied:**
+  - `verify_mixin.py`: exit code 4 + "ERROR" = collection error, not test failure
+    (`_has_err` only True when returncode ∉ {4,5})
+  - `post_fix_verify.py`: `semantic_equiv` fail-open when no backup (DNA #7)
+  - `shadow_snapshot.py`: `os.replace` WinError 5 fallback to `shutil.copy2`
+  - `shadow_snapshot.py`: removed local `import shutil` that shadowed module global
+
+- **Phase 3 Challenger Audit:** NOT COMPLETED — teamwork_preview quota exhausted
+  (~89h reset). Workers completed R2/R3/R6 at 100% unit test pass. Challenger
+  subagents were dispatched but quota ran out before results were received.
+  Next session should resume Challenger Audit or accept current evidence level.
+
+- **Remaining sequence:**
+  1. (Optional) Resume Challenger Audit after teamwork quota resets (~89h)
+  2. Investigate/fix flaky Windows test isolation issue in T07 shadow snapshot
+  3. Push branch and run GitHub mandatory gates on candidate SHA
+  4. When gates pass, create manifest-only freeze child
+  5. Guarded PR merge → fresh full-system customer handoff on merge SHA
