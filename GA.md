@@ -342,9 +342,17 @@ Forbidden now:
   subagents were dispatched but quota ran out before results were received.
   Next session should resume Challenger Audit or accept current evidence level.
 
+- **R6 / T07 (fix bổ sung):** COMPLETED — `12e04c1`
+  `shadow_snapshot.py`: `shutil.move` → `copytree+rmtree` với retry 5 lần.
+  Root cause: Windows giữ file handle trên tx_dir khi full suite chạy.
+  `shutil.copytree` đọc từng file riêng (không cần lock dir) nên bypass WinError 5.
+
+- **Final test result:** **620/620 PASS** · 0 FAIL · 245s
+  SHA: `12e04c1` — branch `omega/gap-01-remediation`
+
 - **Remaining sequence:**
-  1. (Optional) Resume Challenger Audit after teamwork quota resets (~89h)
-  2. Investigate/fix flaky Windows test isolation issue in T07 shadow snapshot
-  3. Push branch and run GitHub mandatory gates on candidate SHA
-  4. When gates pass, create manifest-only freeze child
-  5. Guarded PR merge → fresh full-system customer handoff on merge SHA
+  1. Start SCP service live trên PC và chạy `scp-runtime-audit`
+  2. Push branch và run GitHub mandatory gates
+  3. Khi gates pass → manifest-only freeze → guarded PR merge
+  4. Fresh full-system customer handoff trên merge SHA
+  5. (Optional) Challenger Audit khi teamwork quota reset (~89h)
