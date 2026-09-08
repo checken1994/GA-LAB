@@ -221,12 +221,36 @@ class ShadowSnapshotManager:
             logger.warning(f"[ShadowSnapshot] Could not write final rollback status to manifest: {e}")
 
         # Move to rolled_back directory
+        # Windows: shutil.move fails with WinError 5 when any file handle
+        # inside tx_dir is still open (e.g. pytest basetemp on full suite).
+        # Fallback: copytree → rmtree with a short retry loop.
         dest_dir = self.rolled_back_dir / tx_id
         try:
             if dest_dir.exists():
                 shutil.rmtree(dest_dir, ignore_errors=True)
             shutil.move(str(tx_dir), str(dest_dir))
             logger.info(f"[ShadowSnapshot] Moved transaction {tx_id} to {dest_dir}")
+        except OSError as move_err:
+            logger.warning(
+                f"[ShadowSnapshot] shutil.move failed ({move_err}); "
+                f"falling back to copytree+rmtree for {tx_id}"
+            )
+            try:
+                shutil.copytree(str(tx_dir), str(dest_dir), dirs_exist_ok=True)
+                for _attempt in range(5):
+                    try:
+                        shutil.rmtree(str(tx_dir))
+                        break
+                    except OSError:
+                        time.sleep(0.05 * (_attempt + 1))
+                else:
+                    shutil.rmtree(str(tx_dir), ignore_errors=True)
+                logger.info(f"[ShadowSnapshot] Fallback copy+remove OK for {tx_id}")
+            except Exception as fallback_err:
+                logger.error(
+                    f"[ShadowSnapshot] Failed to move {tx_dir} to {dest_dir}: {fallback_err}"
+                )
+                return False
         except Exception as move_err:
             logger.error(f"[ShadowSnapshot] Failed to move {tx_dir} to {dest_dir}: {move_err}")
             return False
@@ -276,12 +300,34 @@ class ShadowSnapshotManager:
             logger.warning(f"[ShadowSnapshot] Could not write final commit status to manifest: {e}")
 
         # Move to completed directory
+        # Windows: same WinError 5 risk as rollback(); use same fallback.
         dest_dir = self.completed_dir / tx_id
         try:
             if dest_dir.exists():
                 shutil.rmtree(dest_dir, ignore_errors=True)
             shutil.move(str(tx_dir), str(dest_dir))
             logger.info(f"[ShadowSnapshot] Committed transaction {tx_id} to {dest_dir}")
+        except OSError as move_err:
+            logger.warning(
+                f"[ShadowSnapshot] shutil.move failed ({move_err}); "
+                f"falling back to copytree+rmtree for commit {tx_id}"
+            )
+            try:
+                shutil.copytree(str(tx_dir), str(dest_dir), dirs_exist_ok=True)
+                for _attempt in range(5):
+                    try:
+                        shutil.rmtree(str(tx_dir))
+                        break
+                    except OSError:
+                        time.sleep(0.05 * (_attempt + 1))
+                else:
+                    shutil.rmtree(str(tx_dir), ignore_errors=True)
+                logger.info(f"[ShadowSnapshot] Fallback copy+remove OK for commit {tx_id}")
+            except Exception as fallback_err:
+                logger.error(
+                    f"[ShadowSnapshot] Failed to move {tx_dir} to {dest_dir}: {fallback_err}"
+                )
+                return False
         except Exception as move_err:
             logger.error(f"[ShadowSnapshot] Failed to move {tx_dir} to {dest_dir}: {move_err}")
             return False
