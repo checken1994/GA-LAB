@@ -3,12 +3,14 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import re
 import sqlite3
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Awaitable, Callable
+
+from scp.core.verifier_receipt import VerifierReceipt, sign_verifier_receipt
 
 _c3_logger = logging.getLogger("scp.ask_kernel_adapter")
 
@@ -390,7 +392,20 @@ class AskKernelAdapter:
 
         verification = await self.verify_response(req, response, task)
         if verification["verdict"] == "VERIFIED":
-            final_task = self.kernel.commit_verification_result(task_id, lease_id, verification)
+            receipt = sign_verifier_receipt(
+                VerifierReceipt(
+                    task_id=task_id,
+                    verifier_id=str(verification.get("verifier_id", "scp-ask-rag-verifier-v2")),
+                    verdict="VERIFIED",
+                    evidence_ref=str(verification.get("evidence_ref", "")),
+                    issued_at=time.time(),
+                    attempt_id=task.get("attempt_id"),
+                )
+            )
+            verification["task_id"] = task_id
+            verification["issued_at"] = receipt.issued_at
+            verification["signature"] = receipt.signature
+            final_task = self.kernel.commit_verification_result(task_id, lease_id, receipt)
         else:
             self.kernel.transition(
                 task_id,
@@ -423,11 +438,29 @@ class AskKernelAdapter:
             "safe_response": self._safe_response(response, verification),
         }
 
-    def fail(self, task: dict[str, Any], reason: str) -> None:
+    def fail(
+        self,
+        task: dict[str, Any],
+        reason: str,
+        failure_classification: str = "FATAL",
+        indictment_ref: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
         try:
             current = self.kernel.get_task(task["task_id"])
             if current["state"] not in _TERMINAL:
-                self.kernel.transition(task["task_id"], "FAILED", actor="ask-kernel-adapter", reason=reason)
+                lease_id = task.get("lease_id") or current.get("active_lease_id")
+                if lease_id:
+                    self.kernel.commit_failed(
+                        task_id=task["task_id"],
+                        lease_id=lease_id,
+                        actor=task.get("worker_id") or "ask-route-worker",
+                        failure_classification=failure_classification,
+                        indictment_ref=indictment_ref or f"ask://{task['task_id']}/failure/{reason}",
+                        details=details or {"reason": reason},
+                    )
+                else:
+                    self.kernel.set_task_kill(task["task_id"], actor="ask-kernel-adapter")
             with _TRACE_LOCK:
                 self.trace.append(
                     task_id=task["task_id"],

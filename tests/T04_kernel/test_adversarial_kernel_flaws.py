@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from scp.task_kernel import (
@@ -912,6 +914,786 @@ async def test_ask_kernel_adapter_caller_fail_and_finalize_integration(tmp_path,
         adapter.kernel.close()
 
 
+# =========================================================================
+# GAP-12 REMEDIATION: 9 CAUSAL BRANCH TESTS (FA-12 & FA-13)
+# =========================================================================
+
+def test_branch_1_direct_transition_to_failed_forbidden_from_all_states(tmp_path):
+    """Branch 1: Direct transition(..., 'FAILED') is forbidden from all states."""
+    db_path = str(tmp_path / "b1_kernel.sqlite3")
+    kernel = TaskKernel(db_path)
+    try:
+        kernel.create_task("task-b1-1", "owner-1", "test b1", max_attempts=3)
+        kernel.transition("task-b1-1", "PLANNING", actor="planner")
+
+        # Vector 1: from PLANNING
+        with pytest.raises(InvalidTransition, match="direct transition to FAILED is forbidden"):
+            kernel.transition("task-b1-1", "FAILED", actor="rogue", reason="arbitrary_fail")
+        assert kernel.get_task("task-b1-1")["state"] == "PLANNING"
+
+        # Vector 2: from RUNNING
+        kernel.transition("task-b1-1", "READY", actor="planner")
+        kernel.transition("task-b1-1", "QUEUED", actor="scheduler")
+        lease = kernel.claim("task-b1-1", "worker-1")
+        kernel.start("task-b1-1", lease.lease_id)
+        assert kernel.get_task("task-b1-1")["state"] == "RUNNING"
+
+        with pytest.raises(InvalidTransition, match="direct transition to FAILED is forbidden"):
+            kernel.transition("task-b1-1", "FAILED", lease_id=lease.lease_id, actor="worker-1", reason="worker_fail")
+        assert kernel.get_task("task-b1-1")["state"] == "RUNNING"
+
+        # Vector 3: from VERIFYING
+        kernel.transition("task-b1-1", "VERIFYING", lease_id=lease.lease_id, actor="worker-1")
+        assert kernel.get_task("task-b1-1")["state"] == "VERIFYING"
+
+        with pytest.raises(InvalidTransition, match="direct transition to FAILED is forbidden"):
+            kernel.transition("task-b1-1", "FAILED", lease_id=lease.lease_id, actor="worker-1", reason="verifier_fail")
+        assert kernel.get_task("task-b1-1")["state"] == "VERIFYING"
+    finally:
+        kernel.close()
 
 
+def test_branch_2_commit_failed_invalid_lease_or_nonexistent_task(tmp_path):
+    """Branch 2: commit_failed() rejects nonexistent task, invalid lease, or released lease."""
+    from scp.task_kernel import NotFound
 
+    db_path = str(tmp_path / "b2_kernel.sqlite3")
+    kernel = TaskKernel(db_path)
+    try:
+        kernel.create_task("task-b2", "owner-1", "test b2")
+        kernel.transition("task-b2", "PLANNING")
+        kernel.transition("task-b2", "READY")
+        kernel.transition("task-b2", "QUEUED")
+        lease = kernel.claim("task-b2", "worker-1")
+        kernel.start("task-b2", lease.lease_id)
+
+        # 1. Nonexistent task
+        with pytest.raises(NotFound):
+            kernel.commit_failed(
+                "nonexistent-task",
+                lease.lease_id,
+                actor="worker-1",
+                failure_classification="FATAL",
+                indictment_ref="ref://b2/1",
+            )
+
+        # 2. Invalid lease ID
+        with pytest.raises(StaleLease):
+            kernel.commit_failed(
+                "task-b2",
+                "nonexistent-lease-xyz",
+                actor="worker-1",
+                failure_classification="FATAL",
+                indictment_ref="ref://b2/2",
+            )
+
+        # 3. Released lease
+        kernel.release("task-b2", lease.lease_id)
+        with pytest.raises(Exception):
+            kernel.commit_failed(
+                "task-b2",
+                lease.lease_id,
+                actor="worker-1",
+                failure_classification="FATAL",
+                indictment_ref="ref://b2/3",
+            )
+    finally:
+        kernel.close()
+
+
+def test_branch_3_commit_failed_stolen_lease_actor_mismatch(tmp_path):
+    """Branch 3: commit_failed() rejects stolen lease when actor != lease.worker_id."""
+    db_path = str(tmp_path / "b3_kernel.sqlite3")
+    kernel = TaskKernel(db_path)
+    try:
+        kernel.create_task("task-b3", "owner-1", "test b3")
+        kernel.transition("task-b3", "PLANNING")
+        kernel.transition("task-b3", "READY")
+        kernel.transition("task-b3", "QUEUED")
+        lease = kernel.claim("task-b3", "legitimate-worker")
+        kernel.start("task-b3", lease.lease_id)
+
+        # Saboteur uses the valid lease_id but rogue actor name
+        with pytest.raises(InvalidTransition, match="does not match lease worker"):
+            kernel.commit_failed(
+                "task-b3",
+                lease.lease_id,
+                actor="rogue-saboteur",
+                failure_classification="FATAL",
+                indictment_ref="ref://b3/stolen",
+            )
+
+        # Verify task is still safely RUNNING under legitimate worker
+        task = kernel.get_task("task-b3")
+        assert task["state"] == "RUNNING"
+        assert task["active_lease_id"] == lease.lease_id
+    finally:
+        kernel.close()
+
+
+def test_branch_4_commit_failed_missing_or_empty_indictment_rejected(tmp_path):
+    """Branch 4: commit_failed() fails-closed when indictment_ref is empty or whitespace."""
+    db_path = str(tmp_path / "b4_kernel.sqlite3")
+    kernel = TaskKernel(db_path)
+    try:
+        kernel.create_task("task-b4", "owner-1", "test b4")
+        kernel.transition("task-b4", "PLANNING")
+        kernel.transition("task-b4", "READY")
+        kernel.transition("task-b4", "QUEUED")
+        lease = kernel.claim("task-b4", "worker-1")
+        kernel.start("task-b4", lease.lease_id)
+
+        with pytest.raises(KernelError, match="indictment_ref is required"):
+            kernel.commit_failed(
+                "task-b4",
+                lease.lease_id,
+                actor="worker-1",
+                failure_classification="FATAL",
+                indictment_ref="",
+            )
+
+        with pytest.raises(KernelError, match="indictment_ref is required"):
+            kernel.commit_failed(
+                "task-b4",
+                lease.lease_id,
+                actor="worker-1",
+                failure_classification="FATAL",
+                indictment_ref="    ",
+            )
+    finally:
+        kernel.close()
+
+
+def test_branch_5_commit_failed_retryable_preserves_retry_budget(tmp_path):
+    """Branch 5: commit_failed() with RETRYABLE classification and attempts < max_attempts routes to RETRY_SCHEDULED."""
+    db_path = str(tmp_path / "b5_kernel.sqlite3")
+    kernel = TaskKernel(db_path)
+    try:
+        kernel.create_task("task-b5", "owner-1", "test b5", max_attempts=3)
+        kernel.transition("task-b5", "PLANNING")
+        kernel.transition("task-b5", "READY")
+        kernel.transition("task-b5", "QUEUED")
+        lease = kernel.claim("task-b5", "worker-1")
+        kernel.start("task-b5", lease.lease_id)
+
+        # Attempt 1 fails with transient timeout
+        updated = kernel.commit_failed(
+            "task-b5",
+            lease.lease_id,
+            actor="worker-1",
+            failure_classification="RETRYABLE",
+            indictment_ref="ref://b5/attempt1",
+            details={"error": "network timeout"},
+        )
+        assert updated["state"] in ("RETRY_SCHEDULED", "UNKNOWN")
+        assert updated["attempts"] == 1
+        assert updated["active_lease_id"] is None
+
+        # Confirm event journal recorded TASK_RETRY_SCHEDULED
+        events = kernel.get_events("task-b5")
+        retry_events = [e for e in events if e["type"] == "TASK_RETRY_SCHEDULED"]
+        assert len(retry_events) == 1
+        payload = json.loads(retry_events[0]["payload_json"])
+        assert payload["attempts"] == 1
+        assert payload["max_attempts"] == 3
+        assert payload["indictment_ref"] == "ref://b5/attempt1"
+    finally:
+        kernel.close()
+
+
+def test_branch_6_commit_failed_retry_budget_exhausted_moves_to_terminal_failed(tmp_path):
+    """Branch 6: commit_failed() when retry budget is exhausted moves task to terminal FAILED."""
+    db_path = str(tmp_path / "b6_kernel.sqlite3")
+    kernel = TaskKernel(db_path)
+    try:
+        # Task with max_attempts = 1
+        kernel.create_task("task-b6", "owner-1", "test b6", max_attempts=1)
+        kernel.transition("task-b6", "PLANNING")
+        kernel.transition("task-b6", "READY")
+        kernel.transition("task-b6", "QUEUED")
+        lease = kernel.claim("task-b6", "worker-1")
+        kernel.start("task-b6", lease.lease_id)
+
+        updated = kernel.commit_failed(
+            "task-b6",
+            lease.lease_id,
+            actor="worker-1",
+            failure_classification="RETRYABLE",
+            indictment_ref="ref://b6/exhausted",
+            details={"error": "exhausted attempt 1 of 1"},
+        )
+        assert updated["state"] == "FAILED"
+        assert updated["attempts"] == 1
+        assert updated["active_lease_id"] is None
+
+        events = kernel.get_events("task-b6")
+        failed_events = [e for e in events if e["type"] == "TASK_FAILED"]
+        assert len(failed_events) == 1
+        assert failed_events[0]["to_state"] == "FAILED"
+    finally:
+        kernel.close()
+
+
+def test_branch_7_commit_failed_fatal_classification_terminates_immediately(tmp_path):
+    """Branch 7: commit_failed() with FATAL classification terminates immediately regardless of attempts."""
+    db_path = str(tmp_path / "b7_kernel.sqlite3")
+    kernel = TaskKernel(db_path)
+    try:
+        # Task with max_attempts = 10
+        kernel.create_task("task-b7", "owner-1", "test b7", max_attempts=10)
+        kernel.transition("task-b7", "PLANNING")
+        kernel.transition("task-b7", "READY")
+        kernel.transition("task-b7", "QUEUED")
+        lease = kernel.claim("task-b7", "worker-1")
+        kernel.start("task-b7", lease.lease_id)
+
+        updated = kernel.commit_failed(
+            "task-b7",
+            lease.lease_id,
+            actor="worker-1",
+            failure_classification="FATAL",
+            indictment_ref="ref://b7/fatal_crash",
+            details={"error": "corrupted input invariant"},
+        )
+        assert updated["state"] == "FAILED"
+        assert updated["attempts"] == 1
+        assert updated["active_lease_id"] is None
+
+        events = kernel.get_events("task-b7")
+        failed_events = [e for e in events if e["type"] == "TASK_FAILED"]
+        assert len(failed_events) == 1
+        payload = json.loads(failed_events[0]["payload_json"])
+        assert payload["failure_classification"] == "FATAL"
+    finally:
+        kernel.close()
+
+
+def test_branch_8_ask_kernel_adapter_fail_integration(tmp_path):
+    """Branch 8: AskKernelAdapter.fail() properly calls commit_failed() and records indictment."""
+    from scp.ask_kernel_adapter import AskKernelAdapter
+
+    db_path = str(tmp_path / "b8_kernel.sqlite3")
+    trace_path = str(tmp_path / "b8_trace.jsonl")
+    adapter = AskKernelAdapter(db_path=db_path, trace_path=trace_path)
+    try:
+        task = adapter.begin("test question?", ["context 1"], "", "session-b8")
+        task_id = task["task_id"]
+        assert adapter.kernel.get_task(task_id)["state"] == "RUNNING"
+
+        adapter.fail(task, reason="upstream_handler_timeout", failure_classification="FATAL")
+        task_after = adapter.kernel.get_task(task_id)
+        assert task_after["state"] == "FAILED"
+        assert task_after["active_lease_id"] is None
+
+        events = adapter.kernel.get_events(task_id)
+        failed_events = [e for e in events if e["type"] == "TASK_FAILED"]
+        assert len(failed_events) == 1
+        payload = json.loads(failed_events[0]["payload_json"])
+        assert "ask://" in payload["indictment_ref"]
+        assert payload["actor"] == "ask-route-worker"
+    finally:
+        adapter.kernel.close()
+
+
+@pytest.mark.asyncio
+async def test_branch_9_task_kernel_bridge_policy_denial_integration(tmp_path):
+    """Branch 9: TaskKernelHandsBridge routes policy denial to commit_failed() with verified indictment."""
+    from scp.task_kernel import TaskKernel
+    from scp.hands.task_kernel_bridge import TaskKernelHandsBridge
+
+    class FakeActionDef:
+        mutates_state = True
+        risk = "R1"
+
+    class FakeRegistry:
+        def require(self, action):
+            return FakeActionDef()
+
+    class FakePolicyDeniedExecutor:
+        def __init__(self):
+            self.data_dir = str(tmp_path)
+            self.registry = FakeRegistry()
+            class FakeAuth:
+                def status(self):
+                    return {"epoch": 1}
+            self.capability_authority = FakeAuth()
+
+        def _audit(self, event: str, payload: dict[str, Any]) -> None:
+            pass
+
+        async def execute(self, action, params, capability_level, approved, dry_run, capability_token=None):
+            return {
+                "success": False,
+                "error": "CapabilityRequiredError: capability token required but missing",
+                "requiresRecovery": False,
+                "safeToRetry": False,
+            }
+
+    db_path = str(tmp_path / "b9_kernel.sqlite3")
+    kernel = TaskKernel(db_path)
+    bridge = TaskKernelHandsBridge(executor=FakePolicyDeniedExecutor(), kernel=kernel)
+    try:
+        result = await bridge.execute(
+            action="restricted_read",
+            params={"target": "/etc/shadow"},
+            capability_level=2,
+            approved=False,
+            capability_token=None,
+        )
+        assert result["success"] is False
+        assert result["kernel"]["taskState"] == "FAILED"
+
+        task_id = result["kernel"]["taskId"]
+        task = kernel.get_task(task_id)
+        assert task["state"] == "FAILED"
+        assert task["active_lease_id"] is None
+
+        events = kernel.get_events(task_id)
+        failed_events = [e for e in events if e["type"] == "TASK_FAILED"]
+        assert len(failed_events) == 1
+        payload = json.loads(failed_events[0]["payload_json"])
+        assert "hands://" in payload["indictment_ref"]
+        assert payload["actor"] == bridge.worker_id
+    finally:
+        kernel.close()
+
+
+# ==============================================================================
+# GAP-13: Unauthenticated WAITING_APPROVAL Bypass Remediation (FA-13 Causal Matrix)
+# ==============================================================================
+
+
+def test_gap13_branch_1_direct_transition_to_ready_blocked(tmp_path):
+    """BR-1: Raw unauthenticated transition from WAITING_APPROVAL to READY must be blocked."""
+    kernel = TaskKernel(tmp_path / "gap13_br1.sqlite3")
+    try:
+        kernel.create_task("task-br1", "owner-1", "br1 goal", "R3")
+        kernel.transition("task-br1", "PLANNING", actor="planner")
+        kernel.transition("task-br1", "WAITING_APPROVAL", actor="risk_policy")
+
+        with pytest.raises(InvalidTransition) as exc_info:
+            kernel.transition("task-br1", "READY", actor="attacker")
+
+        assert "direct transition from WAITING_APPROVAL to READY is forbidden" in str(exc_info.value)
+
+        # Database state remains WAITING_APPROVAL, version unchanged
+        task = kernel.get_task("task-br1")
+        assert task["state"] == "WAITING_APPROVAL"
+        assert task["version"] == 3
+
+        # 0 unauthorized events recorded
+        events = kernel.get_events("task-br1")
+        assert not any(e["to_state"] == "READY" for e in events)
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_2_commit_approval_missing_token_rejected(tmp_path):
+    """BR-2: Calling commit_approval with None or empty token must be rejected fail-closed."""
+    from scp.core.capability_token import InvalidTokenSignatureError
+
+    kernel = TaskKernel(tmp_path / "gap13_br2.sqlite3")
+    try:
+        kernel.create_task("task-br2", "owner-1", "br2 goal", "R2")
+        kernel.transition("task-br2", "PLANNING")
+        kernel.transition("task-br2", "WAITING_APPROVAL")
+
+        with pytest.raises((InvalidTokenSignatureError, KernelError)):
+            kernel.commit_approval("task-br2", approval_token=None, actor="attacker")
+
+        with pytest.raises((InvalidTokenSignatureError, KernelError)):
+            kernel.commit_approval("task-br2", approval_token="", actor="attacker")
+
+        with pytest.raises((InvalidTokenSignatureError, KernelError)):
+            kernel.commit_approval("task-br2", approval_token="   ", actor="attacker")
+
+        task = kernel.get_task("task-br2")
+        assert task["state"] == "WAITING_APPROVAL"
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_3_commit_approval_tampered_signature_rejected(tmp_path):
+    """BR-3: CapabilityToken or compact token with forged/tampered signature must be rejected."""
+    import time
+    from scp.core.capability_token import CapabilityToken, InvalidTokenSignatureError, mint_token
+
+    kernel = TaskKernel(tmp_path / "gap13_br3.sqlite3")
+    try:
+        kernel.create_task("task-br3", "owner-1", "br3 goal", "R2")
+        kernel.transition("task-br3", "PLANNING")
+        kernel.transition("task-br3", "WAITING_APPROVAL")
+
+        # Forged CapabilityToken
+        forged_cap = CapabilityToken(
+            subject="approval:grant",
+            epoch=0,
+            token_id="tok-forged",
+            issued_at=time.time(),
+            signature="0123456789abcdef" * 4,
+        )
+        with pytest.raises(InvalidTokenSignatureError):
+            kernel.commit_approval("task-br3", approval_token=forged_cap, actor="attacker")
+
+        # Tampered compact token
+        valid_minted = mint_token(issuer="operator", scope="approval:grant", capability_level=2)
+        payload_part, _ = valid_minted.rsplit(".", 1)
+        tampered_compact = f"{payload_part}.badsignature1234567890"
+
+        with pytest.raises(InvalidTokenSignatureError):
+            kernel.commit_approval("task-br3", approval_token=tampered_compact, actor="attacker")
+
+        task = kernel.get_task("task-br3")
+        assert task["state"] == "WAITING_APPROVAL"
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_4_commit_approval_wrong_scope_rejected(tmp_path):
+    """BR-4: Token with valid signature but unauthorized scope (lacking approval:grant) must be rejected."""
+    import time
+    from scp.core.capability_token import (
+        CapabilityToken,
+        compute_token_signature,
+        get_capability_secret,
+        mint_token,
+    )
+
+    kernel = TaskKernel(tmp_path / "gap13_br4.sqlite3")
+    try:
+        kernel.create_task("task-br4", "owner-1", "br4 goal", "R2")
+        kernel.transition("task-br4", "PLANNING")
+        kernel.transition("task-br4", "WAITING_APPROVAL")
+
+        secret = get_capability_secret()
+        now_ts = time.time()
+        sig = compute_token_signature(secret, "hands:read_only", 0, "tok-wrong-scope", now_ts)
+        token_wrong = CapabilityToken(
+            subject="hands:read_only",
+            epoch=0,
+            token_id="tok-wrong-scope",
+            issued_at=now_ts,
+            signature=sig,
+        )
+
+        with pytest.raises(InvalidTransition) as exc_info:
+            kernel.commit_approval("task-br4", approval_token=token_wrong, actor="attacker")
+        assert "does not authorize 'approval:grant'" in str(exc_info.value)
+
+        # Also test compact token with wrong scope
+        compact_wrong = mint_token(issuer="operator", scope="database:read", capability_level=1)
+        with pytest.raises(InvalidTransition) as exc_info2:
+            kernel.commit_approval("task-br4", approval_token=compact_wrong, actor="attacker")
+        assert "does not authorize 'approval:grant'" in str(exc_info2.value)
+
+        task = kernel.get_task("task-br4")
+        assert task["state"] == "WAITING_APPROVAL"
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_5_commit_approval_mismatched_task_id_rejected(tmp_path):
+    """BR-5: Token scoped to a specific task_id cannot be reused on a different task."""
+    import time
+    from scp.core.capability_token import (
+        CapabilityToken,
+        compute_token_signature,
+        get_capability_secret,
+    )
+
+    kernel = TaskKernel(tmp_path / "gap13_br5.sqlite3")
+    try:
+        kernel.create_task("task-br5", "owner-1", "br5 goal", "R2")
+        kernel.transition("task-br5", "PLANNING")
+        kernel.transition("task-br5", "WAITING_APPROVAL")
+
+        secret = get_capability_secret()
+        now_ts = time.time()
+        sig = compute_token_signature(secret, "approval:grant:other_task_999", 0, "tok-mismatch", now_ts)
+        token_mismatched = CapabilityToken(
+            subject="approval:grant:other_task_999",
+            epoch=0,
+            token_id="tok-mismatch",
+            issued_at=now_ts,
+            signature=sig,
+        )
+
+        with pytest.raises(InvalidTransition) as exc_info:
+            kernel.commit_approval("task-br5", approval_token=token_mismatched, actor="attacker")
+        assert "does not authorize 'approval:grant' for task 'task-br5'" in str(exc_info.value)
+
+        task = kernel.get_task("task-br5")
+        assert task["state"] == "WAITING_APPROVAL"
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_6_commit_approval_expired_token_rejected(tmp_path):
+    """BR-6: Expired compact token or expired operator signature must be rejected fail-closed."""
+    import hashlib
+    import hmac
+    import time
+    from scp.core.capability_token import get_capability_secret, mint_token
+
+    kernel = TaskKernel(tmp_path / "gap13_br6.sqlite3")
+    try:
+        kernel.create_task("task-br6", "owner-1", "br6 goal", "R2")
+        kernel.transition("task-br6", "PLANNING")
+        kernel.transition("task-br6", "WAITING_APPROVAL")
+
+        # Expired minted token (ttl negative)
+        expired_token = mint_token(issuer="operator", scope="approval:grant", capability_level=2, ttl_seconds=-100)
+        with pytest.raises(InvalidTransition):
+            kernel.commit_approval("task-br6", approval_token=expired_token, actor="attacker")
+
+        # Expired operator signature (> 300s in the past)
+        secret = get_capability_secret()
+        old_ts = time.time() - 600.0
+        canonical = f"operator_approval:task-br6:operator:{old_ts:.6f}".encode("utf-8")
+        old_sig = hmac.new(secret, canonical, hashlib.sha256).hexdigest()
+        expired_op_sig = {
+            "type": "operator_signature",
+            "actor": "operator",
+            "task_id": "task-br6",
+            "timestamp": old_ts,
+            "signature": old_sig,
+        }
+        with pytest.raises(InvalidTransition) as exc_info:
+            kernel.commit_approval("task-br6", approval_token=expired_op_sig, actor="operator")
+        assert "expired" in str(exc_info.value).lower()
+
+        task = kernel.get_task("task-br6")
+        assert task["state"] == "WAITING_APPROVAL"
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_7_commit_approval_valid_capability_token_success(tmp_path):
+    """BR-7: Legitimate approval via valid CapabilityToken transitions task to READY with event journal."""
+    import time
+    from scp.core.capability_token import (
+        CapabilityToken,
+        compute_token_signature,
+        get_capability_secret,
+        mint_token,
+    )
+
+    kernel = TaskKernel(tmp_path / "gap13_br7.sqlite3")
+    try:
+        kernel.create_task("task-br7", "owner-1", "br7 goal", "R2")
+        kernel.transition("task-br7", "PLANNING")
+        kernel.transition("task-br7", "WAITING_APPROVAL")
+
+        secret = get_capability_secret()
+        now_ts = time.time()
+        sig = compute_token_signature(secret, "approval:grant", 0, "tok-legit-br7", now_ts)
+        valid_token = CapabilityToken(
+            subject="approval:grant",
+            epoch=0,
+            token_id="tok-legit-br7",
+            issued_at=now_ts,
+            signature=sig,
+        )
+
+        res = kernel.commit_approval("task-br7", approval_token=valid_token, actor="security_auditor")
+        assert res["state"] == "READY"
+        assert res["version"] == 4
+
+        events = kernel.get_events("task-br7")
+        approved_events = [e for e in events if e["type"] == "TASK_APPROVED"]
+        assert len(approved_events) == 1
+        ev = approved_events[0]
+        assert ev["from_state"] == "WAITING_APPROVAL"
+        assert ev["to_state"] == "READY"
+        assert ev["actor"] == "security_auditor"
+        payload = json.loads(ev["payload_json"])
+        assert payload["token_id"] == "tok-legit-br7"
+        assert payload["scope"] == "approval:grant"
+
+        # Also test with task-specific scoped compact token on second task
+        kernel.create_task("task-br7b", "owner-1", "br7b goal", "R3")
+        kernel.transition("task-br7b", "PLANNING")
+        kernel.transition("task-br7b", "WAITING_APPROVAL")
+
+        compact_scoped = mint_token(issuer="governance", scope="approval:grant:task-br7b", capability_level=3)
+        res_b = kernel.commit_approval("task-br7b", approval_token=compact_scoped, actor="gov_lead")
+        assert res_b["state"] == "READY"
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_8_commit_approval_valid_operator_signature_success(tmp_path):
+    """BR-8: Legitimate approval via valid HMAC Operator Signature transitions task to READY."""
+    import hashlib
+    import hmac
+    import time
+    from scp.core.capability_token import get_capability_secret
+
+    kernel = TaskKernel(tmp_path / "gap13_br8.sqlite3")
+    try:
+        kernel.create_task("task-br8", "owner-1", "br8 goal", "R3")
+        kernel.transition("task-br8", "PLANNING")
+        kernel.transition("task-br8", "WAITING_APPROVAL")
+
+        secret = get_capability_secret()
+        now_ts = time.time()
+        canonical = f"operator_approval:task-br8:chief_operator:{now_ts:.6f}".encode("utf-8")
+        sig = hmac.new(secret, canonical, hashlib.sha256).hexdigest()
+
+        op_sig_payload = {
+            "type": "operator_signature",
+            "actor": "chief_operator",
+            "task_id": "task-br8",
+            "timestamp": now_ts,
+            "signature": sig,
+        }
+
+        res = kernel.commit_approval("task-br8", approval_token=op_sig_payload, actor="chief_operator")
+        assert res["state"] == "READY"
+        assert res["version"] == 4
+
+        events = kernel.get_events("task-br8")
+        approved_events = [e for e in events if e["type"] == "TASK_APPROVED"]
+        assert len(approved_events) == 1
+        payload = json.loads(approved_events[0]["payload_json"])
+        assert payload["token_type"] == "operator_signature"
+        assert payload["actor"] == "chief_operator"
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_9_commit_approval_occ_version_mismatch_rejected(tmp_path):
+    """BR-9: Calling commit_approval with mismatched expected_version raises OptimisticLockError."""
+    import time
+    from scp.core.capability_token import (
+        CapabilityToken,
+        compute_token_signature,
+        get_capability_secret,
+    )
+    from scp.task_kernel import OptimisticLockError
+
+    kernel = TaskKernel(tmp_path / "gap13_br9.sqlite3")
+    try:
+        kernel.create_task("task-br9", "owner-1", "br9 goal", "R2")
+        kernel.transition("task-br9", "PLANNING")
+        kernel.transition("task-br9", "WAITING_APPROVAL")
+        current_version = kernel.get_task("task-br9")["version"]
+
+        secret = get_capability_secret()
+        now_ts = time.time()
+        sig = compute_token_signature(secret, "approval:grant", 0, "tok-occ", now_ts)
+        valid_token = CapabilityToken("approval:grant", 0, "tok-occ", now_ts, sig)
+
+        # Provide stale expected_version
+        with pytest.raises(OptimisticLockError) as exc_info:
+            kernel.commit_approval(
+                "task-br9",
+                approval_token=valid_token,
+                actor="operator",
+                expected_version=current_version + 99,
+            )
+        assert "concurrency conflict" in str(exc_info.value)
+
+        # Task version untouched
+        assert kernel.get_task("task-br9")["version"] == current_version
+        assert kernel.get_task("task-br9")["state"] == "WAITING_APPROVAL"
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_10_commit_approval_wrong_lifecycle_state_rejected(tmp_path):
+    """BR-10: Calling commit_approval on non-WAITING_APPROVAL task raises InvalidTransition."""
+    import time
+    from scp.core.capability_token import (
+        CapabilityToken,
+        compute_token_signature,
+        get_capability_secret,
+    )
+
+    kernel = TaskKernel(tmp_path / "gap13_br10.sqlite3")
+    try:
+        kernel.create_task("task-br10", "owner-1", "br10 goal", "R1")
+        secret = get_capability_secret()
+        now_ts = time.time()
+        sig = compute_token_signature(secret, "approval:grant", 0, "tok-wrong-state", now_ts)
+        valid_token = CapabilityToken("approval:grant", 0, "tok-wrong-state", now_ts, sig)
+
+        # 1. On CREATED state
+        with pytest.raises(InvalidTransition) as exc_1:
+            kernel.commit_approval("task-br10", approval_token=valid_token, actor="operator")
+        assert "task must be in WAITING_APPROVAL" in str(exc_1.value)
+
+        # 2. On PLANNING state
+        kernel.transition("task-br10", "PLANNING")
+        with pytest.raises(InvalidTransition) as exc_2:
+            kernel.commit_approval("task-br10", approval_token=valid_token, actor="operator")
+        assert "task must be in WAITING_APPROVAL" in str(exc_2.value)
+
+        # 3. On CANCELLED (terminal) state
+        kernel.transition("task-br10", "CANCELLED")
+        with pytest.raises(InvalidTransition) as exc_3:
+            kernel.commit_approval("task-br10", approval_token=valid_token, actor="operator")
+        assert "terminal task is immutable" in str(exc_3.value)
+    finally:
+        kernel.close()
+
+
+def test_gap13_branch_11_full_lifecycle_with_approval_gate(tmp_path):
+    """BR-11: Complete lifecycle PLANNING -> WAITING_APPROVAL -> READY -> QUEUED -> LEASED -> RUNNING -> COMPLETED."""
+    import time
+    from scp.core.capability_token import (
+        CapabilityToken,
+        compute_token_signature,
+        get_capability_secret,
+    )
+
+    kernel = TaskKernel(tmp_path / "gap13_br11.sqlite3")
+    try:
+        # Step 1: Create & Gate task
+        kernel.create_task("task-br11", "owner-1", "br11 full lifecycle", "R3")
+        kernel.transition("task-br11", "PLANNING")
+        kernel.transition("task-br11", "WAITING_APPROVAL", reason="high_risk_tier")
+        assert kernel.get_task("task-br11")["state"] == "WAITING_APPROVAL"
+
+        # Step 2: Approve task via commit_approval
+        secret = get_capability_secret()
+        now_ts = time.time()
+        sig = compute_token_signature(secret, "approval:grant:task-br11", 0, "tok-br11", now_ts)
+        token = CapabilityToken("approval:grant:task-br11", 0, "tok-br11", now_ts, sig)
+
+        approved_task = kernel.commit_approval("task-br11", approval_token=token, actor="board_approver")
+        assert approved_task["state"] == "READY"
+
+        # Step 3: Queue task
+        kernel.transition("task-br11", "QUEUED")
+        assert kernel.get_task("task-br11")["state"] == "QUEUED"
+
+        # Step 4: Claim and Start task
+        lease = kernel.claim("task-br11", "worker-1", ttl_seconds=300)
+        kernel.start("task-br11", lease.lease_id)
+        assert kernel.get_task("task-br11")["state"] == "RUNNING"
+
+        # Step 5: Transition to VERIFYING and complete via commit_completed
+        kernel.transition("task-br11", "VERIFYING", actor="worker-1", lease_id=lease.lease_id)
+        completed_task = kernel.commit_completed(
+            "task-br11",
+            lease_id=lease.lease_id,
+            verifier_verdict="VERIFIED",
+            evidence_ref="ref://evidence/br11_full_audit_passed",
+        )
+        assert completed_task["state"] == "COMPLETED"
+
+        # Step 6: Verify Event Journal Integrity
+        events = kernel.get_events("task-br11")
+        event_types = [e["type"] for e in events]
+        assert "TASK_CREATED" in event_types
+        assert "TASK_APPROVED" in event_types
+        assert "LEASE_GRANTED" in event_types
+        assert "TASK_COMPLETED" in event_types
+
+        # Verify hash chain unbroken
+        for i in range(1, len(events)):
+            assert events[i]["seq"] == events[i - 1]["seq"] + 1
+            assert events[i]["prev_event_hash"] == events[i - 1]["event_hash"]
+    finally:
+        kernel.close()

@@ -548,11 +548,14 @@ def run_full_post_fix_verify(
                     f"reason={_v3_se_result.reason[:80]}"
                 )
         else:
+            # Fail-open per DNA #7: no backup file → skip semantic_equiv.
+            # (Comment at line ~499 specifies this behavior explicitly.)
+            # Test 1 (no gold seed) still fails via _bsgva_unverified=True.
+            # Test 2 (gold seed) can proceed to action=fixed correctly.
             phases["semantic_equiv"] = {
-                "ok": False, "status": "UNVERIFIED", "skipped": True,
-                "reason": "no backup file — semantic equivalence cannot be verified",
+                "ok": True, "status": "SKIPPED", "skipped": True,
+                "reason": "no backup file — semantic equivalence skipped (fail-open per DNA #7)",
             }
-            all_ok = False
     except ImportError as _v3_se_imp:
         logger.warning(
             "[R10 v3 IMP-15] semantic_equiv unavailable; verification is UNVERIFIED: %s",

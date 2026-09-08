@@ -27,3 +27,23 @@ CHỈ THỊ MỚI TỪ USER (2026-09-06T12:32:46Z):
 
 Nội dung này đã được ghi nhận nguyên văn vào c:\Users\check\Downloads\scp\.agents\ORIGINAL_REQUEST.md.
 Yêu cầu Orchestrator tích hợp ngay chỉ thị này vào phương pháp điều phối và chỉ đạo các subagents/explorers lập Call Graph/Execution Trace chi tiết line-by-line làm Navigation Map.
+
+## 2026-09-08T12:27:14Z
+
+Caller: parent (id: 81f32d77-5b41-43db-8867-ada906711666)
+Mission: Remediation of 3 critical architectural vulnerabilities (R2, R3, R6) in SCP (Agent OS) to achieve Autonomous 24/7 status.
+MANDATORY BINDING: Zero-Trust, Fail-Closed, FA-01 through FA-13. DB/Hardware level boundaries.
+1. R2: Execution Bypass (PCController) — enforce HMAC-SHA256 token boundary from Unified Broker. Fail-closed if missing/invalid token.
+2. R3: Provenance Forgery (Verifier receipts) — cryptographic signature/HMAC in Receipt verified by Kernel before committing COMPLETED.
+3. R6: AutoFix Rollback (Cognitive loop perfect isolation) — snapshot/rollback mechanism for files before AutoFix applies patch; auto-rollback if Reality Test (pytest) fails.
+4. Mandatory requirements (FA-12, FA-13): Causal Graph, EMERGENCY_GAP_REPORT.md (if peripheral gaps found), full causal-driven test coverage in tests/ passing pytest.
+5. Record final outcomes in a report artifact.
+
+## 2026-09-08T17:24:15Z
+
+Caller: parent (id: 81f32d77-5b41-43db-8867-ada906711666)
+Instruction: API QUOTA RESTORED — RESUME NOTICE.
+Per user request: "Yêu cầu Swarm tiếp tục Phase 3 (Challenger Audit) cho R2, R3, R6. Sau đó cập nhật Dashboard và báo cáo kết quả cuối cùng."
+Check subagent outputs/handoffs, conclude Challenger Audit & Gate Review, update Dashboard/artifacts, and prepare Final Synthesis Report for Victory Audit.
+
+

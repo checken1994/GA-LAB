@@ -1,0 +1,352 @@
+"""Shadow Snapshot Manager for AutoFix.
+
+Provides durable, atomic snapshot and rollback management at the filesystem level.
+Transactions are tracked under:
+  data/shadow/
+    active/<tx_id>/
+      manifest.json
+      files/
+    completed/<tx_id>/
+    rolled_back/<tx_id>/
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import os
+import shutil
+import time
+import uuid
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+def is_pid_alive(pid: int) -> bool:
+    """Check whether a process with the given PID is currently alive."""
+    if pid <= 0:
+        return False
+    if pid == os.getpid():
+        return True
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError,):
+        return False
+    except PermissionError:
+        # Process exists but cannot signal
+        return True
+    except OSError:
+        # On Windows, non-existent PID raises OSError WinError 87
+        return False
+
+
+class ShadowSnapshotManager:
+    """Manages transactional filesystem snapshots for AutoFix patch operations.
+    
+    Guarantees:
+    - Pre-patch copies are fsynced to disk with SHA256 hashes before any source modification.
+    - Rollback is atomic via temporary file + os.replace.
+    - Zero in-tree backup files (.tier3bak).
+    - Unfinished/abandoned transactions from process crashes can be recovered at startup.
+    """
+
+    def __init__(self, shadow_dir: Path | str = "data/shadow"):
+        self.shadow_dir = Path(shadow_dir).resolve()
+        self.active_dir = self.shadow_dir / "active"
+        self.completed_dir = self.shadow_dir / "completed"
+        self.rolled_back_dir = self.shadow_dir / "rolled_back"
+
+        self.active_dir.mkdir(parents=True, exist_ok=True)
+        self.completed_dir.mkdir(parents=True, exist_ok=True)
+        self.rolled_back_dir.mkdir(parents=True, exist_ok=True)
+
+    def begin(self, target_files: list[Path | str], bug_id: str = "") -> str:
+        """Begin a snapshot transaction for target files.
+        
+        Copies pre-patch files to data/shadow/active/<tx_id>/files/ and writes
+        manifest.json atomically.
+        
+        Returns:
+            tx_id (str): Unique transaction identifier.
+        """
+        tx_id = f"tx_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        tx_dir = self.active_dir / tx_id
+        files_dir = tx_dir / "files"
+        files_dir.mkdir(parents=True, exist_ok=True)
+
+        target_records: list[dict[str, Any]] = []
+        for idx, f in enumerate(target_files):
+            target_path = Path(f).resolve()
+            if target_path.is_file():
+                data = target_path.read_bytes()
+                sha = hashlib.sha256(data).hexdigest()
+                backup_name = f"{idx}_{target_path.name}.bak"
+                backup_file = files_dir / backup_name
+                backup_file.write_bytes(data)
+                target_records.append({
+                    "target_path": str(target_path),
+                    "backup_file": str(backup_file.relative_to(tx_dir).as_posix()),
+                    "pre_sha256": sha,
+                    "exists": True,
+                })
+            else:
+                target_records.append({
+                    "target_path": str(target_path),
+                    "backup_file": None,
+                    "pre_sha256": None,
+                    "exists": False,
+                })
+
+        manifest = {
+            "tx_id": tx_id,
+            "bug_id": bug_id,
+            "status": "PRE_PATCH",
+            "created_at": time.time(),
+            "pid": os.getpid(),
+            "target_files": target_records,
+        }
+
+        manifest_path = tx_dir / "manifest.json"
+        tmp_manifest = tx_dir / f".manifest.json.tmp_{uuid.uuid4().hex[:6]}"
+        with tmp_manifest.open("w", encoding="utf-8") as mf:
+            json.dump(manifest, mf, indent=2)
+            mf.flush()
+            try:
+                os.fsync(mf.fileno())
+            except OSError:
+                pass
+        os.replace(tmp_manifest, manifest_path)
+
+        logger.info(f"[ShadowSnapshot] Began transaction {tx_id} for bug '{bug_id}' with {len(target_records)} file(s)")
+        return tx_id
+
+    def rollback(self, tx_id: str, reason: str = "") -> bool:
+        """Atomically restore files from data/shadow/active/<tx_id>/ to their pre-patch state.
+        
+        Moves transaction directory to data/shadow/rolled_back/<tx_id>/.
+        
+        Returns:
+            bool: True if rollback succeeded, False otherwise.
+        """
+        tx_dir = self.active_dir / tx_id
+        if not tx_dir.is_dir():
+            logger.warning(f"[ShadowSnapshot] Rollback failed: active transaction '{tx_id}' not found at {tx_dir}")
+            return False
+
+        manifest_path = tx_dir / "manifest.json"
+        if not manifest_path.is_file():
+            logger.error(f"[ShadowSnapshot] Rollback failed: manifest.json missing in {tx_dir}")
+            return False
+
+        try:
+            with manifest_path.open("r", encoding="utf-8") as mf:
+                manifest = json.load(mf)
+        except Exception as e:
+            logger.error(f"[ShadowSnapshot] Rollback failed: cannot read manifest in {tx_dir}: {e}")
+            return False
+
+        target_files = manifest.get("target_files", [])
+        restore_errors = []
+
+        for item in target_files:
+            target_path = Path(item["target_path"])
+            exists_before = item.get("exists", False)
+            if exists_before:
+                backup_rel = item.get("backup_file")
+                if not backup_rel:
+                    restore_errors.append(f"Missing backup_file path in manifest for {target_path}")
+                    continue
+                backup_path = tx_dir / backup_rel
+                if not backup_path.is_file():
+                    restore_errors.append(f"Backup file does not exist: {backup_path}")
+                    continue
+                backup_bytes = backup_path.read_bytes()
+                expected_sha = item.get("pre_sha256")
+                actual_sha = hashlib.sha256(backup_bytes).hexdigest()
+                if expected_sha and actual_sha != expected_sha:
+                    restore_errors.append(
+                        f"Checksum mismatch for backup of {target_path}: expected {expected_sha}, got {actual_sha}"
+                    )
+                    continue
+
+                # Atomic restore via temp file in target's directory
+                try:
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    tmp_restore = target_path.with_name(f".{target_path.name}.rb_{uuid.uuid4().hex[:6]}")
+                    with tmp_restore.open("wb") as rf:
+                        rf.write(backup_bytes)
+                        rf.flush()
+                        try:
+                            os.fsync(rf.fileno())
+                        except OSError:
+                            pass
+                    try:
+                        os.replace(tmp_restore, target_path)
+                    except OSError:
+                        shutil.copy2(str(tmp_restore), str(target_path))
+                        try:
+                            tmp_restore.unlink()
+                        except OSError:
+                            pass
+                    logger.info(f"[ShadowSnapshot] Restored {target_path} to pre-patch state (sha: {actual_sha[:8]})")
+                except Exception as restore_err:
+                    restore_errors.append(f"Failed to atomically restore {target_path}: {restore_err}")
+            else:
+                # File did not exist prior to patch; delete if present
+                if target_path.exists():
+                    try:
+                        target_path.unlink()
+                        logger.info(f"[ShadowSnapshot] Removed newly created file {target_path}")
+                    except Exception as unlink_err:
+                        restore_errors.append(f"Failed to remove newly created file {target_path}: {unlink_err}")
+
+        if restore_errors:
+            logger.error(f"[ShadowSnapshot] Rollback encountered errors for {tx_id}: {restore_errors}")
+            return False
+
+        # Update manifest to ROLLED_BACK
+        manifest["status"] = "ROLLED_BACK"
+        manifest["rolled_back_at"] = time.time()
+        manifest["rollback_reason"] = reason
+
+        try:
+            with manifest_path.open("w", encoding="utf-8") as mf:
+                json.dump(manifest, mf, indent=2)
+            if reason:
+                (tx_dir / "failure_reason.txt").write_text(reason, encoding="utf-8")
+        except Exception as e:
+            logger.warning(f"[ShadowSnapshot] Could not write final rollback status to manifest: {e}")
+
+        # Move to rolled_back directory
+        dest_dir = self.rolled_back_dir / tx_id
+        try:
+            if dest_dir.exists():
+                shutil.rmtree(dest_dir, ignore_errors=True)
+            shutil.move(str(tx_dir), str(dest_dir))
+            logger.info(f"[ShadowSnapshot] Moved transaction {tx_id} to {dest_dir}")
+        except Exception as move_err:
+            logger.error(f"[ShadowSnapshot] Failed to move {tx_dir} to {dest_dir}: {move_err}")
+            return False
+
+        return True
+
+    def commit(self, tx_id: str) -> bool:
+        """Mark snapshot transaction as successfully verified and committed.
+        
+        Moves transaction directory to data/shadow/completed/<tx_id>/.
+        
+        Returns:
+            bool: True if commit succeeded, False otherwise.
+        """
+        tx_dir = self.active_dir / tx_id
+        if not tx_dir.is_dir():
+            logger.warning(f"[ShadowSnapshot] Commit failed: active transaction '{tx_id}' not found at {tx_dir}")
+            return False
+
+        manifest_path = tx_dir / "manifest.json"
+        if not manifest_path.is_file():
+            logger.error(f"[ShadowSnapshot] Commit failed: manifest.json missing in {tx_dir}")
+            return False
+
+        try:
+            with manifest_path.open("r", encoding="utf-8") as mf:
+                manifest = json.load(mf)
+        except Exception as e:
+            logger.error(f"[ShadowSnapshot] Commit failed: cannot read manifest in {tx_dir}: {e}")
+            return False
+
+        # Compute post-patch hashes
+        for item in manifest.get("target_files", []):
+            target_path = Path(item["target_path"])
+            if target_path.is_file():
+                item["post_sha256"] = hashlib.sha256(target_path.read_bytes()).hexdigest()
+            else:
+                item["post_sha256"] = None
+
+        manifest["status"] = "COMMITTED"
+        manifest["committed_at"] = time.time()
+
+        try:
+            with manifest_path.open("w", encoding="utf-8") as mf:
+                json.dump(manifest, mf, indent=2)
+        except Exception as e:
+            logger.warning(f"[ShadowSnapshot] Could not write final commit status to manifest: {e}")
+
+        # Move to completed directory
+        dest_dir = self.completed_dir / tx_id
+        try:
+            if dest_dir.exists():
+                shutil.rmtree(dest_dir, ignore_errors=True)
+            shutil.move(str(tx_dir), str(dest_dir))
+            logger.info(f"[ShadowSnapshot] Committed transaction {tx_id} to {dest_dir}")
+        except Exception as move_err:
+            logger.error(f"[ShadowSnapshot] Failed to move {tx_dir} to {dest_dir}: {move_err}")
+            return False
+
+        return True
+
+    def recover_abandoned_transactions(self, force: bool = False) -> list[str]:
+        """Scan data/shadow/active/ and roll back any leftover transactions from prior crashes.
+        
+        Args:
+            force: If True, rolls back all active transactions regardless of owning PID.
+                   If False (default), rolls back transactions whose owning PID is no longer alive
+                   or is not the current process.
+        
+        Returns:
+            list[str]: IDs of recovered transactions.
+        """
+        if not self.active_dir.exists():
+            return []
+
+        recovered: list[str] = []
+        for entry in sorted(self.active_dir.iterdir()):
+            if not entry.is_dir():
+                continue
+            tx_id = entry.name
+            manifest_path = entry / "manifest.json"
+            if not manifest_path.is_file():
+                continue
+
+            try:
+                with manifest_path.open("r", encoding="utf-8") as mf:
+                    manifest = json.load(mf)
+            except Exception as e:
+                logger.warning(f"[ShadowSnapshot] Skipping unreadable manifest in {entry}: {e}")
+                continue
+
+            pid = manifest.get("pid", 0)
+            should_recover = False
+
+            if force:
+                should_recover = True
+            elif pid != os.getpid():
+                # Belongs to a different process: check if that process is dead
+                if not is_pid_alive(pid):
+                    should_recover = True
+                else:
+                    # If external process is dead
+                    should_recover = not is_pid_alive(pid)
+
+            if should_recover:
+                logger.warning(
+                    f"[ShadowSnapshot] Recovering abandoned transaction {tx_id} (owner PID {pid}, dead or orphaned)"
+                )
+                if self.rollback(tx_id, reason="CRASH_RECOVERY_ABANDONED_TRANSACTION"):
+                    recovered.append(tx_id)
+
+        return recovered
+
+
+_DEFAULT_MANAGER: ShadowSnapshotManager | None = None
+
+
+def get_shadow_snapshot_manager(shadow_dir: Path | str = "data/shadow") -> ShadowSnapshotManager:
+    """Get or create singleton instance of ShadowSnapshotManager."""
+    global _DEFAULT_MANAGER
+    if _DEFAULT_MANAGER is None or _DEFAULT_MANAGER.shadow_dir != Path(shadow_dir).resolve():
+        _DEFAULT_MANAGER = ShadowSnapshotManager(shadow_dir=shadow_dir)
+    return _DEFAULT_MANAGER

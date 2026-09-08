@@ -30,22 +30,55 @@ class AutoFixMixin:
         
         try:
             res = self._auto_fix_part1(ctx)
-            if res is not None: return res
+            if res is not None:
+                if res.get("action") != "fixed" and getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                    if (ctx.shadow_mgr.active_dir / ctx.shadow_tx_id).is_dir():
+                        try:
+                            ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"part1 non-fixed: {res.get('reason')}")
+                        except Exception:
+                            pass
+                return res
             
             res = self._auto_fix_part2(ctx)
-            if res is not None: return res
+            if res is not None:
+                if res.get("action") != "fixed" and getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                    if (ctx.shadow_mgr.active_dir / ctx.shadow_tx_id).is_dir():
+                        try:
+                            ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"part2 non-fixed: {res.get('reason')}")
+                        except Exception:
+                            pass
+                return res
             
             res = self._auto_fix_part3(ctx)
-            if res is not None: return res
+            if res is not None:
+                if res.get("action") != "fixed" and getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                    if (ctx.shadow_mgr.active_dir / ctx.shadow_tx_id).is_dir():
+                        try:
+                            ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"part3 non-fixed: {res.get('reason')}")
+                        except Exception:
+                            pass
+                return res
             
         except Exception as e:
             logger.error(f"[AutoFix] Critical error during auto-fix: {e}", exc_info=True)
+            if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                try:
+                    ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"auto-fix crash: {e}")
+                except Exception:
+                    pass
             return {
                 "action": "skipped",
                 "tier": int(ctx.bug.tier),
                 "reason": f"auto-fix crash: {e}",
             }
         
+        if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+            if (ctx.shadow_mgr.active_dir / ctx.shadow_tx_id).is_dir():
+                try:
+                    ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason="fell through")
+                except Exception:
+                    pass
+
         return {"action": "skipped", "reason": "fell through"}
 
     def _auto_fix_gates(self, ctx) -> dict | None:
@@ -311,9 +344,13 @@ class AutoFixMixin:
             return {"action": "skipped", "tier": int(ctx.bug.tier),
                     "reason": f"file not found: {ctx.bug.file}"}
 
-        #  Backup file content BEFORE applying patch — for rollback.
-        # TẠI SAO: _verify_fix có thể phát hiện fix introduce new bugs → cần rollback.
-        # Backup ở đây (pre-patch) để rollback có thể restore chính xác trạng thái cũ.
+        # R6: Durable ShadowSnapshot transaction
+        from scp.autofix.shadow_snapshot import get_shadow_snapshot_manager
+        ctx.shadow_mgr = get_shadow_snapshot_manager(shadow_dir=getattr(self, "data_dir", Path("data")) / "shadow")
+        ctx.shadow_tx_id = ctx.shadow_mgr.begin(
+            target_files=[filepath],
+            bug_id=f"{ctx.bug.file}:{ctx.bug.line}:{ctx.bug.bug_type}",
+        )
         ctx.pre_fix_content: str | None = None
         try:
             # Keep original line endings. The rollback registry hashes
@@ -363,7 +400,14 @@ class AutoFixMixin:
                                 f"SyntaxError post-write — ROLLING BACK: {_syn_err}"
                             )
                             # Rollback
-                            if ctx.pre_fix_content is not None:
+                            if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                                ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"XSS_SYNTAX_ERROR: {_syn_err}")
+                                # Re-open transaction for fall-through LLM fix
+                                ctx.shadow_tx_id = ctx.shadow_mgr.begin(
+                                    target_files=[filepath],
+                                    bug_id=f"{ctx.bug.file}:{ctx.bug.line}:{ctx.bug.bug_type}",
+                                )
+                            elif ctx.pre_fix_content is not None:
                                 filepath.write_text(
                                     ctx.pre_fix_content, encoding="utf-8", newline=""
                                 )
@@ -462,6 +506,8 @@ class AutoFixMixin:
                                     f"[V5.7-WHY] reflect on XSS pattern fix "
                                     f"failed (non-fatal): {_reflect_err}"
                                 )
+                            if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                                ctx.shadow_mgr.commit(ctx.shadow_tx_id)
                             return {
                                 "action": "fixed",
                                 "status": "fixed",
@@ -1140,9 +1186,6 @@ class AutoFixMixin:
             }
 
         
-        import shutil
-        bak_path = filepath.with_suffix(filepath.suffix + ".tier3bak")
-        shutil.copy2(filepath, bak_path)
         patched = agent._apply_fix(filepath, ctx.bug.suggested_fix)
 
         if patched:
@@ -1156,6 +1199,8 @@ class AutoFixMixin:
             except Exception as _inv_err:
                 logger.debug(f" cache invalidate failed (non-fatal): {_inv_err}")
         else:
+            if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason="apply_fix_failed")
             # [OPT-27/28] Record LLM_OUTPUT_FORMAT_ERROR (or queued-for-review)
             # to diagnostic + monitor. WHY: even "queued for review" is a
             # failure mode worth tracking — if many bugs queue for the same
@@ -1204,8 +1249,10 @@ class AutoFixMixin:
                     "file": ctx.bug.file, "line": ctx.bug.line, "bug_type": ctx.bug.bug_type,
                     "reason": _verify_reason,
                 })
-                # Rollback: restore pre-fix content
-                if ctx.pre_fix_content is not None:
+                # Rollback via ShadowSnapshotManager
+                if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                    ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"VERIFY_FIX_FAILED: {_verify_reason}")
+                elif ctx.pre_fix_content is not None:
                     try:
                         filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
                         logger.info(f" Rollback OK for {ctx.bug.file}")
@@ -1277,7 +1324,9 @@ class AutoFixMixin:
                             f" post_fix_verify ROLLBACK for {ctx.bug.file}:{ctx.bug.line}: "
                             f"{_pfv_reason} — restoring pre-fix content"
                         )
-                        if ctx.pre_fix_content is not None:
+                        if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                            ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"POST_FIX_VERIFY_FAILED: {_pfv_reason}")
+                        elif ctx.pre_fix_content is not None:
                             try:
                                 filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
                                 logger.info(f" Rollback OK for {ctx.bug.file}")
@@ -1317,7 +1366,9 @@ class AutoFixMixin:
                     " post_fix_verify unavailable; rolling back unverifiable patch: %s",
                     type(_pfv_imp).__name__,
                 )
-                if ctx.pre_fix_content is not None:
+                if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                    ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"POST_FIX_VERIFY_IMPORT_ERROR: {_pfv_imp}")
+                elif ctx.pre_fix_content is not None:
                     filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
                 self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
                 return {
@@ -1331,7 +1382,9 @@ class AutoFixMixin:
                     " post_fix_verify failed; rolling back unverifiable patch: %s",
                     type(_pfv_err).__name__,
                 )
-                if ctx.pre_fix_content is not None:
+                if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                    ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"POST_FIX_VERIFY_ERROR: {_pfv_err}")
+                elif ctx.pre_fix_content is not None:
                     filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
                 self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
                 return {
@@ -1345,7 +1398,9 @@ class AutoFixMixin:
                 " verifier call failed; rolling back unverifiable patch: %s",
                 type(_verify_call_err).__name__,
             )
-            if ctx.pre_fix_content is not None:
+            if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+                ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"VERIFY_CALL_ERROR: {_verify_call_err}")
+            elif ctx.pre_fix_content is not None:
                 filepath.write_text(ctx.pre_fix_content, encoding="utf-8", newline="")
             self._fixes_this_cycle = max(0, self._fixes_this_cycle - 1)
             return {
@@ -1546,6 +1601,8 @@ class AutoFixMixin:
         # fall back to the audit backup token only when registration failed.
         _result_rollback_token = locals().get("_v4_watch_token") or locals().get("ctx.rollback_token", "n/a")
         _result_rollback_registered = bool(locals().get("_v4_watch_token"))
+        if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
+            ctx.shadow_mgr.commit(ctx.shadow_tx_id)
         return {
             "action": "fixed",
             "tier": int(ctx.bug.tier),

@@ -22,6 +22,14 @@ from enum import IntEnum
 from pathlib import Path
 from typing import Any
 
+from scp.core.capability_token import InvalidTokenSignatureError
+from scp.security.capability_epoch import (
+    CapabilityAuthority,
+    CapabilityRevokedError,
+    CapabilityToken,
+    parse_capability_token,
+)
+
 logger = logging.getLogger("scp.pc_controller")
 
 
@@ -82,7 +90,11 @@ class PCController:
     )
     SENSITIVE_PARTS = {".env", ".private-secrets", "credentials", "secrets"}
 
-    def __init__(self, working_dir: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        working_dir: str | Path | None = None,
+        capability_authority: CapabilityAuthority | None = None,
+    ) -> None:
         project_root = Path(__file__).resolve().parents[2]
         configured = working_dir or os.environ.get("SCP_PC_WORKING_DIR")
         self.working_dir = self._resolve_path(configured or project_root)
@@ -92,6 +104,78 @@ class PCController:
         self.kill_switch_path = self.data_dir / "KILL_SWITCH"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self.capability_authority = capability_authority or CapabilityAuthority(
+            self.data_dir / "capability_state.json"
+        )
+
+    def _verify_token(self, token: Any, required_action: str = "pc.execute") -> CapabilityToken:
+        """Strict Zero-Trust Policy Enforcement Point (PEP) for PCController.
+
+        Validates HMAC-SHA256 signature, epoch, and subject scope fail-closed.
+        Raises InvalidTokenSignatureError or PermissionError immediately if invalid.
+        """
+        if token is None or token == "":
+            self._audit("TOKEN_REJECTED", {"action": required_action, "reason": "missing_token"})
+            raise PermissionError(
+                f"CapabilityRequiredError: Action '{required_action}' requires an authorized capability token (FA-05)"
+            )
+
+        parsed = parse_capability_token(token)
+        if parsed is None:
+            self._audit("TOKEN_REJECTED", {"action": required_action, "reason": "invalid_format"})
+            raise InvalidTokenSignatureError(
+                "InvalidCapabilityTokenError: Capability token format is invalid (FA-04)"
+            )
+
+        # Cryptographic signature check (raises InvalidTokenSignatureError if tampered/unsigned)
+        try:
+            is_valid = self.capability_authority.validate(parsed, required_subject=None)
+        except InvalidTokenSignatureError as exc:
+            self._audit(
+                "TOKEN_REJECTED",
+                {
+                    "action": required_action,
+                    "reason": "signature_verification_failed",
+                    "token_id": getattr(parsed, "token_id", ""),
+                },
+            )
+            raise exc
+
+        if not is_valid:
+            self._audit(
+                "TOKEN_REJECTED",
+                {
+                    "action": required_action,
+                    "reason": "revoked_or_stale_epoch",
+                    "token_id": getattr(parsed, "token_id", ""),
+                    "epoch": getattr(parsed, "epoch", -1),
+                },
+            )
+            raise PermissionError("CapabilityRevokedError: Capability token is revoked or epoch is stale")
+
+        subject = str(getattr(parsed, "subject", "")).strip()
+        allowed_scopes: dict[str, set[str]] = {
+            "pc.execute": {"pc.execute", "pc:execute", "hands:execute", "hands:pc.execute"},
+            "pc.write_file": {"pc.write_file", "pc:write_file", "hands:pc.write_file"},
+            "pc.read_file": {"pc.read_file", "pc:read_file", "hands:pc.read_file"},
+            "pc.rollback": {"pc.rollback", "pc:rollback", "hands:rollback", "hands:pc.rollback"},
+            "pc.clear_kill_switch": {"pc.clear_kill_switch", "pc:clear_kill_switch", "hands:admin", "hands:pc.clear_kill_switch"},
+        }
+
+        is_scope_valid = False
+        valid_set = allowed_scopes.get(required_action, {required_action})
+        if subject in valid_set:
+            is_scope_valid = True
+        elif required_action == "pc.execute" and subject.startswith("hands:pc."):
+            is_scope_valid = True
+
+        if not is_scope_valid:
+            self._audit("TOKEN_REJECTED", {"action": required_action, "reason": "scope_mismatch", "subject": subject})
+            raise PermissionError(
+                f"CapabilityScopeMismatchError: Token subject '{subject}' does not permit action '{required_action}' (INV-AUTH-02)"
+            )
+
+        return parsed
 
     def _resolve_path(self, value: str | Path) -> Path:
         path = Path(value).expanduser().resolve()
@@ -205,9 +289,28 @@ class PCController:
         except OSError as exc:
             return {"success": False, "returnCode": None, "stdout": "", "stderr": str(exc), "durationMs": round((time.perf_counter() - started) * 1000)}
 
-    async def execute(self, command: str, capability_level: int = 0, approved: bool = False, timeout: int = 120) -> dict[str, Any]:
+    async def execute(
+        self,
+        command: str,
+        capability_token: CapabilityToken | str | dict[str, Any] | int | None = None,
+        capability_level: int = 0,
+        approved: bool = False,
+        timeout: int = 120,
+    ) -> dict[str, Any]:
+        if isinstance(capability_token, (int, CapabilityLevel)):
+            capability_level = int(capability_token)
+            capability_token = None
+
+        token_obj = self._verify_token(capability_token, "pc.execute")
+
         decision = self.evaluate(command, capability_level, approved)
-        base = {"command": command, "decision": asdict(decision), "workingDir": str(self.working_dir)}
+        base = {
+            "command": command,
+            "decision": asdict(decision),
+            "workingDir": str(self.working_dir),
+            "tokenId": token_obj.token_id,
+            "epoch": token_obj.epoch,
+        }
         if not decision.allowed:
             self._audit("BLOCK", base)
             return {**base, "success": False, "output": "", "error": decision.reason}
@@ -219,7 +322,18 @@ class PCController:
             return {**base, **result, "executed": True, "auditStatus": "DB_WRITE_FAILED", "error": "Audit write failed after execution"}
         return {**base, **result, "auditStatus": "OK"}
 
-    async def read_file(self, path: str, max_bytes: int = 200_000) -> dict[str, Any]:
+    async def read_file(
+        self,
+        path: str,
+        max_bytes: int = 200_000,
+        capability_token: CapabilityToken | str | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if not isinstance(max_bytes, int) and capability_token is None:
+            capability_token = max_bytes
+            max_bytes = 200_000
+
+        token_obj = self._verify_token(capability_token, "pc.read_file")
+
         target = self._resolve_path(path)
         if not self._inside_root(target):
             return {"success": False, "error": "Path is outside SCP workspace"}
@@ -227,13 +341,32 @@ class PCController:
             return {"success": False, "error": "Sensitive path is not readable by this endpoint"}
         try:
             content = target.read_text(encoding="utf-8")[:max_bytes]
-            result = {"success": True, "path": str(target), "content": content, "truncated": target.stat().st_size > max_bytes}
+            result = {
+                "success": True,
+                "path": str(target),
+                "content": content,
+                "truncated": target.stat().st_size > max_bytes,
+                "tokenId": token_obj.token_id,
+            }
         except OSError as exc:
-            result = {"success": False, "path": str(target), "error": str(exc)}
+            result = {"success": False, "path": str(target), "error": str(exc), "tokenId": token_obj.token_id}
         self._audit("READ_FILE", {key: value for key, value in result.items() if key != "content"})
         return result
 
-    async def write_file(self, path: str, content: str, capability_level: int = 0, approved: bool = False) -> dict[str, Any]:
+    async def write_file(
+        self,
+        path: str,
+        content: str,
+        capability_token: CapabilityToken | str | dict[str, Any] | int | None = None,
+        capability_level: int = 0,
+        approved: bool = False,
+    ) -> dict[str, Any]:
+        if isinstance(capability_token, (int, CapabilityLevel)):
+            capability_level = int(capability_token)
+            capability_token = None
+
+        token_obj = self._verify_token(capability_token, "pc.write_file")
+
         target = self._resolve_path(path)
         if not self._inside_root(target):
             return {"success": False, "error": "Path is outside SCP workspace"}
@@ -242,7 +375,14 @@ class PCController:
         if self.kill_switch_engaged() or capability_level < CapabilityLevel.WORKSPACE or not approved:
             return {"success": False, "error": "Write requires capability >= 3 and explicit approval"}
         content_hash = hashlib.sha256(content.encode("utf-8", "replace")).hexdigest()
-        intent = {"path": str(target), "bytes": len(content.encode("utf-8")), "content_sha256": content_hash, "capability_level": int(capability_level)}
+        intent = {
+            "path": str(target),
+            "bytes": len(content.encode("utf-8")),
+            "content_sha256": content_hash,
+            "capability_level": int(capability_level),
+            "tokenId": token_obj.token_id,
+            "epoch": token_obj.epoch,
+        }
         if not self._audit("WRITE_FILE_INTENT", intent):
             return {"success": False, "error": "Audit storage unavailable; write blocked", "auditStatus": "DB_WRITE_FAILED"}
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -261,7 +401,14 @@ class PCController:
         finally:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)
-        result = {"success": True, "path": str(target), "backupId": backup_id if existed else None, "bytes": len(content.encode("utf-8")), "content_sha256": content_hash}
+        result = {
+            "success": True,
+            "path": str(target),
+            "backupId": backup_id if existed else None,
+            "bytes": len(content.encode("utf-8")),
+            "content_sha256": content_hash,
+            "tokenId": token_obj.token_id,
+        }
         if not self._audit("WRITE_FILE", result):
             try:
                 if existed:
@@ -273,7 +420,14 @@ class PCController:
             return {"success": False, "path": str(target), "error": "Audit write failed; write rolled back", "auditStatus": "DB_WRITE_FAILED"}
         return {**result, "auditStatus": "OK"}
 
-    async def rollback(self, backup_id: str, approved: bool = False, capability_level: int = 3) -> dict[str, Any]:
+    async def rollback(
+        self,
+        backup_id: str,
+        approved: bool = False,
+        capability_level: int = 3,
+        capability_token: CapabilityToken | str | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        token_obj = self._verify_token(capability_token, "pc.rollback")
         if not approved or capability_level < CapabilityLevel.WORKSPACE:
             return {"success": False, "error": "Rollback requires explicit approval and capability >= 3"}
         backup = self.backup_dir / f"{backup_id}.bak"
@@ -290,13 +444,18 @@ class PCController:
             return {"success": True, "killSwitch": True, "reason": reason, "auditStatus": "DB_WRITE_FAILED"}
         return {"success": True, "killSwitch": True, "reason": reason, "auditStatus": "OK"}
 
-    def clear_kill_switch(self, approved: bool = False) -> dict[str, Any]:
+    def clear_kill_switch(
+        self,
+        approved: bool = False,
+        capability_token: CapabilityToken | str | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        token_obj = self._verify_token(capability_token, "pc.clear_kill_switch")
         if not approved:
             return {"success": False, "error": "Clearing kill switch requires explicit approval"}
-        if not self._audit("KILL_SWITCH_CLEAR_INTENT", {}):
+        if not self._audit("KILL_SWITCH_CLEAR_INTENT", {"tokenId": token_obj.token_id}):
             return {"success": False, "killSwitch": True, "error": "Audit storage unavailable; clear blocked", "auditStatus": "DB_WRITE_FAILED"}
         self.kill_switch_path.unlink(missing_ok=True)
-        if not self._audit("KILL_SWITCH_CLEARED", {}):
+        if not self._audit("KILL_SWITCH_CLEARED", {"tokenId": token_obj.token_id}):
             self.kill_switch_path.write_text(json.dumps({"reason": "audit failure fail-closed", "timestamp": time.time()}, ensure_ascii=False), encoding="utf-8")
             return {"success": False, "killSwitch": True, "error": "Audit write failed; kill switch re-engaged", "auditStatus": "DB_WRITE_FAILED"}
         return {"success": True, "killSwitch": False, "auditStatus": "OK"}

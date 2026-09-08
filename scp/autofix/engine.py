@@ -212,6 +212,16 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
         self._tier3_auto_enabled_at: float = 0.0  # 0 = disabled
         self.tier3_auto_audit_log = self.data_dir / TIER3_AUTO_AUDIT_LOG
 
+        # R6: Recover any abandoned transactions from prior crashes on startup
+        try:
+            from scp.autofix.shadow_snapshot import get_shadow_snapshot_manager
+            self.shadow_snapshot_mgr = get_shadow_snapshot_manager(shadow_dir=self.data_dir / "shadow")
+            _recovered = self.shadow_snapshot_mgr.recover_abandoned_transactions()
+            if _recovered:
+                logger.warning(f"[AutoFix] Recovered {len(_recovered)} abandoned transaction(s) on startup: {_recovered}")
+        except Exception as _rec_err:
+            logger.error(f"[AutoFix] Failed to recover abandoned transactions on startup: {_rec_err}", exc_info=True)
+
     def _check_cycle_reset(self) -> None:
         """Reset per-cycle counters when CYCLE_RESET_SECONDS elapsed.
 
@@ -614,23 +624,18 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
         except Exception as _rollback_token_error:
             logger.warning('[AUTOFIX] UUID rollback token generation failed; using legacy backup fallback', exc_info=True)
 
-        # Backup file to .tier3bak.{rollback_token} (per-token, R8-5)
+        # R6: Durable snapshot via ShadowSnapshotManager (zero .tier3bak in source tree)
+        tier3_tx_id = ""
+        shadow_mgr = None
         try:
+            from scp.autofix.shadow_snapshot import get_shadow_snapshot_manager
+            shadow_mgr = get_shadow_snapshot_manager(shadow_dir=self.data_dir / "shadow")
             from pathlib import Path as PathCls
             filepath = PathCls(bug.file)
             if filepath.exists():
-                if _rollback_token:
-                    #  Per-token backup → multi-fix-per-file rollback works.
-                    bak_path = filepath.with_suffix(
-                        filepath.suffix + f".tier3bak.{_rollback_token}"
-                    )
-                else:
-                    # Fail-open: no token → legacy single .tier3bak (back-compat
-                    # with pre-R8-5 audit entries + uuid import failure case).
-                    bak_path = filepath.with_suffix(filepath.suffix + ".tier3bak")
-                bak_path.write_text(filepath.read_text(encoding="utf-8"), encoding="utf-8")
+                tier3_tx_id = shadow_mgr.begin([filepath], bug_id=f"tier3_{bug.file}:{bug.line}")
         except Exception as e:
-            logger.warning(f"[TIER3-AUTO] Backup failed for {bug.file}: {e}")
+            logger.warning(f"[TIER3-AUTO] Shadow snapshot failed for {bug.file}: {e}")
 
         # Apply the fix (use _auto_fix machinery, but mark as tier3_auto)
         result = self._auto_fix(bug, report=True, attack_mode=False)
@@ -667,6 +672,32 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
             except Exception as e:
                 logger.debug(f" after_hash / reality_test compute failed: {e}")
                 _reality_test_result = f"FAIL:hash_compute:{str(e)[:80]}"
+
+            # R6: Fail-closed gate: if reality test is not PASS, immediately rollback!
+            if _reality_test_result != "PASS":
+                logger.error(
+                    f"[TIER3-AUTO] Reality test FAILED ({_reality_test_result}) — ROLLING BACK (fail-closed)"
+                )
+                if tier3_tx_id and shadow_mgr:
+                    shadow_mgr.rollback(tier3_tx_id, reason=f"tier3_reality_test_fail: {_reality_test_result}")
+                self._write_tier3_auto_audit(
+                    bug, "auto_approve_failed_reality_test_rolled_back",
+                    before_hash=_before_hash,
+                    after_hash=_after_hash,
+                    reality_test_result=_reality_test_result,
+                    rollback_token=_rollback_token,
+                )
+                result["action"] = "skipped"
+                result["patched"] = False
+                result["reason"] = f"Reality test failed: {_reality_test_result} (rolled back)"
+                result["reality_test_result"] = _reality_test_result
+                result["rollback_token"] = _rollback_token
+                return result
+
+            # Reality test PASS: commit shadow transaction
+            if tier3_tx_id and shadow_mgr:
+                shadow_mgr.commit(tier3_tx_id)
+
             # Write to dedicated Tier-3 audit log (with R7-13 extended fields).
             # _rollback_token was generated BEFORE backup (R8-5) — reuse here.
             self._write_tier3_auto_audit(
@@ -681,6 +712,10 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
             result["rollback_token"] = _rollback_token
             result["after_hash"] = _after_hash
             result["reality_test_result"] = _reality_test_result
+        else:
+            # Fix was not applied or skipped: roll back tier3 snapshot
+            if tier3_tx_id and shadow_mgr:
+                shadow_mgr.rollback(tier3_tx_id, reason="tier3_autofix_not_fixed")
         return result
 
     def _write_tier3_auto_audit(self, bug: BugReport, action: str,

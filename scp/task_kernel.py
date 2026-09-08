@@ -170,6 +170,7 @@ def as_json(value: Any) -> str:
 from .task_kernel_parts import taskkernel as _taskkernel_part
 _taskkernel_part.__dict__.update(globals())
 TaskKernel = _taskkernel_part.TaskKernel
+verify_approval_authority = _taskkernel_part.verify_approval_authority
 
 def _idempotency_claim_fenced(
     self: Any,
@@ -418,4 +419,5 @@ __all__ = [
     "InvalidTransition", "StaleLease", "OptimisticLockError", "KillSwitchActive",
     "CheckpointCorrupt", "NotFound", "STATES", "TERMINAL",
     "ALLOWED_TRANSITIONS", "now_iso", "stable_hash", "as_json",
+    "verify_approval_authority",
 ]

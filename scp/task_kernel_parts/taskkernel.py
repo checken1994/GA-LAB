@@ -1,6 +1,7 @@
 # Auto-extracted from task_kernel.py
 from __future__ import annotations
 import hashlib
+import hmac
 import json
 import re
 import secrets
@@ -34,7 +35,125 @@ class OptimisticLockError(RuntimeError):
             message = f"{message} (table={table}, entity_id={entity_id}, expected_version={expected_version})"
         super().__init__(message)
 
-__all__ = ["TaskKernel", "OptimisticLockError"]
+
+def verify_approval_authority(
+    token: Any,
+    task_id: str,
+    secret: bytes,
+    max_skew_seconds: float = 300.0,
+) -> dict[str, Any]:
+    """Verify an approval token or operator signature fail-closed (GAP-13).
+
+    Returns a dict with verification metadata:
+        {"token_type": str, "token_id": str, "actor": str, "scope": str, "signature": str}
+    Raises InvalidTokenSignatureError, InvalidTransition, or PermissionError on any failure.
+    """
+    from scp.core.capability_token import InvalidTokenSignatureError
+    from scp.task_kernel import InvalidTransition
+
+    if token is None or token == "":
+        raise InvalidTokenSignatureError("Approval token is missing or empty (GAP-13/FA-04)")
+    if isinstance(token, str) and not token.strip():
+        raise InvalidTokenSignatureError("Approval token is missing or empty (GAP-13/FA-04)")
+
+    # Branch A: Compact string token (mint_token format "payload_b64.sig")
+    if isinstance(token, str) and "." in token and not token.strip().startswith("{"):
+        from scp.core.capability_token import verify_token
+
+        res = verify_token(token.strip(), required_scope="*")
+        if not res.get("valid"):
+            err_msg = res.get("error", "Invalid capability token")
+            if "expired" in err_msg.lower():
+                raise InvalidTransition(f"Capability token has expired: {err_msg}")
+            raise InvalidTokenSignatureError(f"Invalid capability token: {err_msg}")
+        payload = res.get("payload", {})
+        scope = payload.get("scope", "")
+        if scope not in {"approval:grant", f"approval:grant:{task_id}", "*"}:
+            raise InvalidTransition(
+                f"Capability token scope '{scope}' does not authorize 'approval:grant' for task '{task_id}'"
+            )
+        now_ts = time.time()
+        iat = float(payload.get("iat", 0.0))
+        if iat > now_ts + 60.0:
+            raise InvalidTokenSignatureError("Token issue time is in the future")
+        return {
+            "token_type": "compact_mint_token",
+            "token_id": str(payload.get("iat", "")),
+            "actor": payload.get("iss", "unknown"),
+            "scope": scope,
+            "signature": token.strip().split(".", 1)[1],
+        }
+
+    # Branch B: CapabilityToken instance, dict, or JSON string with epoch
+    from scp.security.capability_epoch import parse_capability_token
+
+    cap_token = parse_capability_token(token)
+    if cap_token is not None:
+        if not cap_token.signature or not cap_token.signature.strip():
+            raise InvalidTokenSignatureError("Capability token is unsigned (GAP-08/FA-04)")
+        from scp.core.capability_token import verify_token_signature
+
+        verify_token_signature(
+            secret=secret,
+            subject=cap_token.subject,
+            epoch=cap_token.epoch,
+            token_id=cap_token.token_id,
+            issued_at=cap_token.issued_at,
+            signature=cap_token.signature,
+        )
+        if cap_token.subject not in {"approval:grant", f"approval:grant:{task_id}", "*"}:
+            raise InvalidTransition(
+                f"CapabilityToken subject '{cap_token.subject}' does not authorize 'approval:grant' for task '{task_id}'"
+            )
+        now_ts = time.time()
+        if cap_token.issued_at > now_ts + 60.0:
+            raise InvalidTokenSignatureError("Capability token issued_at is in the future")
+        return {
+            "token_type": "capability_token_epoch",
+            "token_id": cap_token.token_id,
+            "actor": "capability_authority",
+            "scope": cap_token.subject,
+            "signature": cap_token.signature,
+        }
+
+    # Branch C: Operator Signature Dictionary
+    if isinstance(token, dict) and "signature" in token:
+        actor = str(token.get("actor") or token.get("operator", "")).strip()
+        sig = str(token.get("signature", "")).strip()
+        ts_val = token.get("timestamp")
+        task_in_token = token.get("task_id")
+        if task_in_token and str(task_in_token).strip() != task_id:
+            raise InvalidTransition(
+                f"Operator signature task_id '{task_in_token}' does not match '{task_id}'"
+            )
+        if not actor or not sig or ts_val is None:
+            raise InvalidTokenSignatureError("Malformed operator signature structure")
+        try:
+            timestamp = float(ts_val)
+        except (TypeError, ValueError):
+            raise InvalidTokenSignatureError("Invalid timestamp in operator signature")
+        now_ts = time.time()
+        if now_ts - timestamp > max_skew_seconds:
+            raise InvalidTransition("Operator approval signature has expired")
+        if timestamp > now_ts + 60.0:
+            raise InvalidTokenSignatureError("Operator approval timestamp is in the future")
+
+        canonical = f"operator_approval:{task_id}:{actor}:{timestamp:.6f}".encode("utf-8")
+        expected_sig = hmac.new(secret, canonical, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected_sig):
+            raise InvalidTokenSignatureError("Operator approval signature verification failed")
+        return {
+            "token_type": "operator_signature",
+            "token_id": f"op_{actor}_{int(timestamp)}",
+            "actor": actor,
+            "scope": "approval:grant",
+            "signature": sig,
+        }
+
+    raise InvalidTokenSignatureError("Unsupported or malformed approval token format")
+
+
+__all__ = ["TaskKernel", "OptimisticLockError", "verify_approval_authority"]
 
 class TaskKernel:
     """Small durable kernel. The journal is authoritative; tasks is a rebuildable projection.
@@ -90,12 +209,14 @@ class TaskKernel:
                 risk_tier TEXT NOT NULL,
                 deadline_ms INTEGER NOT NULL,
                 max_attempts INTEGER NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
                 input_hash TEXT NOT NULL,
                 priority INTEGER NOT NULL DEFAULT 5,
                 state TEXT NOT NULL,
                 version INTEGER NOT NULL DEFAULT 1,
                 active_lease_id TEXT,
                 active_fencing_token INTEGER NOT NULL DEFAULT 0,
+                error TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -173,6 +294,10 @@ class TaskKernel:
             self.conn.execute('ALTER TABLE tasks ADD COLUMN active_fencing_token INTEGER NOT NULL DEFAULT 0')
         if 'version' not in task_columns:
             self.conn.execute('ALTER TABLE tasks ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+        if 'attempts' not in task_columns:
+            self.conn.execute('ALTER TABLE tasks ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0')
+        if 'error' not in task_columns:
+            self.conn.execute('ALTER TABLE tasks ADD COLUMN error TEXT')
 
         for table in ('leases', 'idempotency', 'queue_accounts'):
             cols = {row['name'] for row in self.conn.execute(f'PRAGMA table_info({table})').fetchall()}
@@ -250,9 +375,9 @@ class TaskKernel:
     ) -> dict[str, Any]:
         if to_state not in STATES and to_state != "WAITING_APPROVAL":
             raise InvalidTransition(f"unknown target state {to_state}")
-        if to_state == "COMPLETED":
+        if to_state in ("COMPLETED", "FAILED"):
             raise InvalidTransition(
-                "direct transition to COMPLETED is forbidden; use commit_completed() with valid evidence"
+                f"direct transition to {to_state} is forbidden; use commit_{to_state.lower()}() with valid evidence"
             )
         self._begin()
         try:
@@ -275,6 +400,10 @@ class TaskKernel:
                 )
             cur_version = int(task["version"])
             old = task["state"]
+            if old == "WAITING_APPROVAL" and to_state == "READY":
+                raise InvalidTransition(
+                    "direct transition from WAITING_APPROVAL to READY is forbidden; use commit_approval() with valid capability token"
+                )
             if to_state not in ALLOWED_TRANSITIONS.get(old, set()):
                 raise InvalidTransition(f"{old}->{to_state}")
             if old in TERMINAL:
@@ -461,7 +590,7 @@ class TaskKernel:
             raise StaleLease(lease_id)
         return row
 
-    def _assert_lease(self, lease_id: str, task_id: str) -> Any:
+    def _assert_lease(self, lease_id: str, task_id: str, actor: str | None = None) -> Any:
         lease = self._lease(lease_id)
         control = self._control()
         now = time.time()
@@ -476,6 +605,9 @@ class TaskKernel:
         latest = self.conn.execute('SELECT COALESCE(MAX(fencing_token), 0) AS n FROM leases WHERE task_id=?', (task_id,)).fetchone()['n']
         if int(lease['fencing_token']) != int(latest):
             raise StaleLease(lease_id)
+        if actor is not None and str(actor).strip():
+            if lease['worker_id'] != str(actor).strip():
+                raise InvalidTransition(f"actor '{actor}' does not match lease worker '{lease['worker_id']}'")
         return lease
 
     def start(self, task_id: str, lease_id: str) -> dict[str, Any]:
@@ -909,21 +1041,84 @@ class TaskKernel:
             self._rollback()
             raise
 
-    def commit_verification_result(self, task_id: str, lease_id: str, verification_result: dict[str, Any]) -> dict[str, Any]:
-        if not isinstance(verification_result, dict) or verification_result.get('verdict') != 'VERIFIED':
-            raise KernelError('completion requires verifier verdict VERIFIED')
-        if not verification_result.get('verifier_id') or not verification_result.get('evidence_ref'):
-            raise KernelError('completion requires verifier identity and evidence')
-        return self.commit_completed(task_id, lease_id, 'VERIFIED', str(verification_result['evidence_ref']))
+    def commit_verification_result(self, task_id: str, lease_id: str, verification_result: Any) -> dict[str, Any]:
+        from scp.core.verifier_receipt import (
+            VerifierReceipt,
+            InvalidReceiptSignatureError,
+            verify_verifier_receipt,
+        )
 
-    def commit_completed(self, task_id: str, lease_id: str, verifier_verdict: str, evidence_ref: str) -> dict[str, Any]:
-        if verifier_verdict != 'VERIFIED' or not evidence_ref:
-            raise KernelError('completion requires independent VERIFIED verdict and evidence')
+        if not task_id or not str(task_id).strip():
+            raise KernelError("task_id is required")
+        if not lease_id or not str(lease_id).strip():
+            raise KernelError("lease_id is required")
+
+        self._assert_lease(lease_id, task_id)
+        is_system = getattr(self, "_system_authority", False)
+        bound = getattr(self, "_bound_leases", {}).get(task_id)
+        if not is_system:
+            if not bound:
+                raise StaleLease(f"kernel instance does not possess active lease authority to complete task {task_id}")
+            if bound != lease_id:
+                raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
+
+        task = self._task(task_id)
+        if task['state'] != 'VERIFYING':
+            raise InvalidTransition(f"{task['state']}->COMPLETED")
+
+        if not isinstance(verification_result, (VerifierReceipt, dict)):
+            raise InvalidReceiptSignatureError("verification_result must be a VerifierReceipt or dict (R3/FA-04)")
+
+        verify_verifier_receipt(verification_result, task_id=task_id)
+        return self.commit_completed(task_id, lease_id, receipt=verification_result)
+
+    def commit_completed(
+        self,
+        task_id: str,
+        lease_id: str,
+        verifier_verdict: Any = 'VERIFIED',
+        evidence_ref: str | None = None,
+        *,
+        receipt: Any = None,
+    ) -> dict[str, Any]:
+        from scp.core.verifier_receipt import (
+            VerifierReceipt,
+            InvalidReceiptSignatureError,
+            verify_verifier_receipt,
+        )
+
+        if receipt is None and isinstance(verifier_verdict, (VerifierReceipt, dict)):
+            receipt = verifier_verdict
+
+        if receipt is not None:
+            verify_verifier_receipt(receipt, task_id=task_id)
+            if hasattr(receipt, "verifier_id"):
+                actual_verifier_id = receipt.verifier_id
+                actual_evidence_ref = receipt.evidence_ref
+                actual_verdict = receipt.verdict
+                sig = receipt.signature
+                issued_at = receipt.issued_at
+            else:
+                actual_verifier_id = str(receipt.get("verifier_id", "")).strip()
+                actual_evidence_ref = str(receipt.get("evidence_ref", "")).strip()
+                actual_verdict = str(receipt.get("verdict", "")).strip()
+                sig = str(receipt.get("signature", "")).strip()
+                issued_at = float(receipt.get("issued_at", 0.0))
+            signature_digest = f"sha256:{sig[:16]}..." if sig else None
+        else:
+            if verifier_verdict != 'VERIFIED' or not evidence_ref:
+                raise KernelError('completion requires independent VERIFIED verdict and evidence')
+            actual_verifier_id = 'verifier'
+            actual_evidence_ref = str(evidence_ref).strip()
+            actual_verdict = 'VERIFIED'
+            signature_digest = None
+            issued_at = None
+
         self._begin()
         try:
             self._assert_lease(lease_id, task_id)
             task = self._task(task_id)
-            if task['state'] not in {'VERIFYING', 'RUNNING'}:
+            if task['state'] != 'VERIFYING':
                 raise InvalidTransition(f"{task['state']}->COMPLETED")
             if task['active_lease_id'] != lease_id:
                 raise StaleLease(f"completion lease {lease_id} does not match active task lease {task['active_lease_id']}")
@@ -938,11 +1133,260 @@ class TaskKernel:
             cur = self.conn.execute("UPDATE tasks SET state='COMPLETED',version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?", (now_iso(), task_id, task['version']))
             if cur.rowcount != 1:
                 raise StaleLease(f"concurrency conflict completing task {task_id}")
-            self._append_event(task_id, 'TASK_COMPLETED', old, 'COMPLETED', 'verifier', 'postcondition_verified', {'evidence_ref': evidence_ref, 'verifier_verdict': verifier_verdict, 'lease_id': lease_id})
+
+            event_payload = {
+                'evidence_ref': actual_evidence_ref,
+                'verifier_verdict': actual_verdict,
+                'lease_id': lease_id,
+                'verifier_id': actual_verifier_id,
+            }
+            if signature_digest:
+                event_payload['signature_digest'] = signature_digest
+            if issued_at is not None:
+                event_payload['issued_at'] = issued_at
+
+            self._append_event(
+                task_id,
+                'TASK_COMPLETED',
+                old,
+                'COMPLETED',
+                actual_verifier_id,
+                'postcondition_verified',
+                event_payload,
+            )
             self.conn.execute('UPDATE leases SET released=1,version=version+1 WHERE lease_id=? AND released=0', (lease_id,))
             self.conn.execute('UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?', (task['owner'],))
             if hasattr(self, '_bound_leases'):
                 self._bound_leases.pop(task_id, None)
+            self._commit()
+            return self.get_task(task_id)
+        except Exception:
+            self._rollback()
+            raise
+
+    def commit_approval(
+        self,
+        task_id: str,
+        approval_token: Any,
+        actor: str = "operator",
+        details: dict[str, Any] | None = None,
+        expected_version: int | None = None,
+    ) -> dict[str, Any]:
+        """Atomically commit an authenticated approval to transition WAITING_APPROVAL -> READY.
+
+        Enforces:
+        - Task existence and state == WAITING_APPROVAL.
+        - Global kill switch check.
+        - Strict cryptographic verification of approval_token (CapabilityToken or operator signature).
+        - Scope authorization for 'approval:grant'.
+        - OCC version check at database level.
+        - Append-only event journaling ('TASK_APPROVED').
+        - WAL disk durability commit.
+        """
+        from scp.core.capability_token import InvalidTokenSignatureError, get_capability_secret
+
+        if not task_id or not str(task_id).strip():
+            raise KernelError("task_id is required")
+        if approval_token is None or approval_token == "":
+            raise InvalidTokenSignatureError("approval_token is required")
+        if isinstance(approval_token, str) and not approval_token.strip():
+            raise InvalidTokenSignatureError("approval_token is required")
+        if not actor or not str(actor).strip():
+            raise KernelError("actor is required")
+
+        self._begin()
+        try:
+            self._assert_not_killed()
+            task = self._task(task_id)
+            current_state = task["state"]
+
+            if current_state in TERMINAL:
+                raise InvalidTransition("terminal task is immutable")
+            if current_state != "WAITING_APPROVAL":
+                raise InvalidTransition(
+                    f"task {task_id} in state '{current_state}' cannot be approved; task must be in WAITING_APPROVAL"
+                )
+
+            cur_version = int(task["version"])
+            if expected_version is not None and cur_version != expected_version:
+                raise OptimisticLockError(
+                    f"concurrency conflict approving task {task_id}: expected version {expected_version}, found {cur_version}",
+                    table="tasks",
+                    entity_id=task_id,
+                    expected_version=expected_version,
+                )
+
+            # Cryptographic verification via capability secret
+            secret = get_capability_secret()
+            verification_meta = verify_approval_authority(approval_token, task_id, secret)
+
+            # Atomic SQLite OCC Mutation
+            now_str = now_iso()
+            cur = self.conn.execute(
+                "UPDATE tasks SET state='READY', version=version+1, updated_at=? WHERE task_id=? AND version=? AND state='WAITING_APPROVAL'",
+                (now_str, task_id, cur_version),
+            )
+            if cur.rowcount != 1:
+                raise OptimisticLockError(
+                    f"concurrency conflict committing approval on task {task_id}: expected version {cur_version}",
+                    table="tasks",
+                    entity_id=task_id,
+                    expected_version=cur_version,
+                )
+
+            # Immutable Event Journaling
+            event_payload = {
+                "token_type": verification_meta["token_type"],
+                "token_id": verification_meta["token_id"],
+                "scope": verification_meta["scope"],
+                "signature_digest": (
+                    verification_meta["signature"][:16] + "..."
+                    if verification_meta["signature"]
+                    else ""
+                ),
+                "actor": actor,
+                "details": details or {},
+            }
+            self._append_event(
+                task_id,
+                "TASK_APPROVED",
+                "WAITING_APPROVAL",
+                "READY",
+                actor,
+                "approval_granted",
+                event_payload,
+            )
+
+            self._commit()
+            return self.get_task(task_id)
+        except Exception:
+            self._rollback()
+            raise
+
+    def commit_failed(
+        self,
+        task_id: str,
+        lease_id: str,
+        actor: str,
+        failure_classification: str,
+        indictment_ref: str,
+        details: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Commit an authenticated, verified failure or route to retry/recovery.
+
+        Enforces:
+        - Input validation: non-empty task_id, lease_id, actor, failure_classification, indictment_ref.
+        - Strict lease validity and worker actor ownership matching.
+        - Retry budget preservation: if failure is retryable and attempts < max_attempts,
+          transitions to RETRY_SCHEDULED (or UNKNOWN); otherwise transitions to FAILED.
+        - Atomic SQLite persistence: updates tasks, appends immutable journal event,
+          releases lease, and decrements queue active count with OCC version checks.
+        """
+        if not task_id or not str(task_id).strip():
+            raise KernelError("task_id is required")
+        if not lease_id or not str(lease_id).strip():
+            raise StaleLease("lease_id is required")
+        if not actor or not str(actor).strip():
+            raise KernelError("actor is required")
+        if not failure_classification or not str(failure_classification).strip():
+            raise KernelError("failure_classification is required")
+        if not indictment_ref or not str(indictment_ref).strip():
+            raise KernelError("indictment_ref is required; failure commitment requires verifiable failure evidence")
+
+        self._begin()
+        try:
+            task = self._task(task_id)
+            lease = self._assert_lease(lease_id, task_id, actor=actor)
+
+            old_state = task["state"]
+            if old_state in TERMINAL:
+                raise InvalidTransition("terminal task is immutable")
+            if old_state not in {"RUNNING", "WAITING_TOOL", "VERIFYING", "LEASED", "CHECKPOINTED", "UNKNOWN"}:
+                raise InvalidTransition(f"{old_state}->commit_failed")
+            if task["active_lease_id"] != lease_id:
+                raise StaleLease(f"failure lease {lease_id} does not match active task lease {task['active_lease_id']}")
+
+            is_system = getattr(self, "_system_authority", False)
+            bound = getattr(self, "_bound_leases", {}).get(task_id)
+            if not is_system:
+                if not bound:
+                    raise StaleLease(f"kernel instance does not possess active lease authority to fail task {task_id}")
+                if bound != lease_id:
+                    raise StaleLease(f"caller lease {lease_id} does not match bound instance lease {bound}")
+
+            cur_version = int(task["version"])
+            current_attempts = int(task["attempts"]) if ("attempts" in task.keys() and task["attempts"] is not None) else 0
+            max_attempts = int(task["max_attempts"]) if ("max_attempts" in task.keys() and task["max_attempts"] is not None) else 3
+            new_attempts = current_attempts + 1
+
+            classification_upper = failure_classification.strip().upper()
+            retryable_classes = {"RETRYABLE", "TRANSIENT", "TIMEOUT", "NETWORK_ERROR", "TEMPORARY"}
+            uncertain_classes = {"UNKNOWN", "UNCERTAIN", "LOST_RESPONSE", "CRASH_AFTER_SUBMIT"}
+
+            if classification_upper in uncertain_classes:
+                target_state = "UNKNOWN"
+                event_type = "TASK_UNKNOWN_STATE"
+                reason = f"uncertain_state:{classification_upper.lower()}"
+            elif (classification_upper in retryable_classes) and (new_attempts < max_attempts):
+                target_state = "RETRY_SCHEDULED"
+                event_type = "TASK_RETRY_SCHEDULED"
+                reason = f"retryable_failure:{classification_upper.lower()}"
+            else:
+                target_state = "FAILED"
+                event_type = "TASK_FAILED"
+                reason = f"terminal_failure:{classification_upper.lower()}"
+
+            error_payload = {
+                "classification": classification_upper,
+                "indictment_ref": indictment_ref,
+                "details": details or {},
+                "attempts": new_attempts,
+                "max_attempts": max_attempts,
+            }
+            error_json = json.dumps(error_payload, ensure_ascii=False, sort_keys=True)
+
+            cur = self.conn.execute(
+                "UPDATE tasks SET state=?,attempts=?,error=?,version=version+1,active_lease_id=NULL,active_fencing_token=0,updated_at=? WHERE task_id=? AND version=?",
+                (target_state, new_attempts, error_json, now_iso(), task_id, cur_version),
+            )
+            if cur.rowcount != 1:
+                raise OptimisticLockError(
+                    f"concurrency conflict failing task {task_id}: expected version {cur_version}",
+                    table="tasks",
+                    entity_id=task_id,
+                    expected_version=cur_version,
+                )
+
+            event_payload = {
+                "lease_id": lease_id,
+                "actor": actor,
+                "failure_classification": classification_upper,
+                "indictment_ref": indictment_ref,
+                "details": details or {},
+                "attempts": new_attempts,
+                "max_attempts": max_attempts,
+            }
+            self._append_event(
+                task_id,
+                event_type,
+                old_state,
+                target_state,
+                actor,
+                reason,
+                payload=event_payload,
+            )
+
+            self.conn.execute(
+                "UPDATE leases SET released=1,version=version+1 WHERE lease_id=? AND released=0",
+                (lease_id,),
+            )
+            self.conn.execute(
+                "UPDATE queue_accounts SET active=CASE WHEN active>0 THEN active-1 ELSE 0 END,version=version+1 WHERE owner=?",
+                (task["owner"],),
+            )
+            if hasattr(self, "_bound_leases"):
+                self._bound_leases.pop(task_id, None)
+
             self._commit()
             return self.get_task(task_id)
         except Exception:

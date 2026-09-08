@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from scp.core.capability_token import InvalidTokenSignatureError
 from scp.pc_control.pc_controller import PCController
 from scp.api._shared import verify_admin
 
@@ -23,6 +24,8 @@ class PlanRequest(BaseModel):
     command: str = Field(min_length=1, max_length=2000)
     capabilityLevel: int = Field(default=0, ge=0, le=5)
     approved: bool = False
+    capability_token: str | None = None
+    capabilityToken: str | None = None
 
 
 class ExecuteRequest(PlanRequest):
@@ -32,6 +35,8 @@ class ExecuteRequest(PlanRequest):
 class ReadRequest(BaseModel):
     path: str = Field(min_length=1, max_length=1000)
     maxBytes: int = Field(default=200_000, ge=1_000, le=1_000_000)
+    capability_token: str | None = None
+    capabilityToken: str | None = None
 
 
 class WriteRequest(BaseModel):
@@ -39,6 +44,8 @@ class WriteRequest(BaseModel):
     content: str = Field(max_length=2_000_000)
     capabilityLevel: int = Field(default=0, ge=0, le=5)
     approved: bool = False
+    capability_token: str | None = None
+    capabilityToken: str | None = None
 
 
 class KillRequest(BaseModel):
@@ -47,6 +54,8 @@ class KillRequest(BaseModel):
 
 class ClearKillRequest(BaseModel):
     approved: bool = False
+    capability_token: str | None = None
+    capabilityToken: str | None = None
 
 
 def _is_local(request: Request) -> bool:
@@ -81,23 +90,62 @@ async def pc_plan(payload: PlanRequest, request: Request, x_scp_pc_token: str | 
 
 @router.post("/execute")
 @traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=True, action="pc_execute")
-async def pc_execute(payload: ExecuteRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+async def pc_execute(
+    payload: ExecuteRequest,
+    request: Request,
+    x_scp_pc_token: str | None = Header(default=None),
+    x_scp_capability_token: str | None = Header(default=None),
+) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _controller.execute(payload.command, payload.capabilityLevel, payload.approved, payload.timeout)
+    token = x_scp_capability_token or payload.capability_token or payload.capabilityToken
+    try:
+        return await _controller.execute(
+            payload.command,
+            capability_token=token,
+            capability_level=payload.capabilityLevel,
+            approved=payload.approved,
+            timeout=payload.timeout,
+        )
+    except (PermissionError, InvalidTokenSignatureError) as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
 
 
 @router.post("/read")
 @traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=False, action="pc_read")
-async def pc_read(payload: ReadRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+async def pc_read(
+    payload: ReadRequest,
+    request: Request,
+    x_scp_pc_token: str | None = Header(default=None),
+    x_scp_capability_token: str | None = Header(default=None),
+) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _controller.read_file(payload.path, payload.maxBytes)
+    token = x_scp_capability_token or payload.capability_token or payload.capabilityToken
+    try:
+        return await _controller.read_file(payload.path, payload.maxBytes, capability_token=token)
+    except (PermissionError, InvalidTokenSignatureError) as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
 
 
 @router.post("/write")
 @traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=True, action="pc_write")
-async def pc_write(payload: WriteRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+async def pc_write(
+    payload: WriteRequest,
+    request: Request,
+    x_scp_pc_token: str | None = Header(default=None),
+    x_scp_capability_token: str | None = Header(default=None),
+) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return await _controller.write_file(payload.path, payload.content, payload.capabilityLevel, payload.approved)
+    token = x_scp_capability_token or payload.capability_token or payload.capabilityToken
+    try:
+        return await _controller.write_file(
+            payload.path,
+            payload.content,
+            capability_token=token,
+            capability_level=payload.capabilityLevel,
+            approved=payload.approved,
+        )
+    except (PermissionError, InvalidTokenSignatureError) as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
 
 
 @router.post("/kill")
@@ -109,6 +157,15 @@ async def pc_kill(payload: KillRequest, request: Request, x_scp_pc_token: str | 
 
 @router.post("/kill/clear")
 @traced_request(_PC_CONTROLLER_ROUTES_LEDGER, require_write=True, action="pc_clear_kill")
-async def pc_clear_kill(payload: ClearKillRequest, request: Request, x_scp_pc_token: str | None = Header(default=None)) -> dict[str, Any]:
+async def pc_clear_kill(
+    payload: ClearKillRequest,
+    request: Request,
+    x_scp_pc_token: str | None = Header(default=None),
+    x_scp_capability_token: str | None = Header(default=None),
+) -> dict[str, Any]:
     _guard(request, x_scp_pc_token)
-    return _controller.clear_kill_switch(payload.approved)
+    token = x_scp_capability_token or payload.capability_token or payload.capabilityToken
+    try:
+        return _controller.clear_kill_switch(payload.approved, capability_token=token)
+    except (PermissionError, InvalidTokenSignatureError) as exc:
+        raise HTTPException(status_code=403, detail=str(exc))

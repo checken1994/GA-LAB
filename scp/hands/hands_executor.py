@@ -15,7 +15,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 from scp.pc_control.pc_controller import CapabilityLevel, PCController
-from scp.security.capability_epoch import CapabilityAuthority, CapabilityRevokedError, CapabilityToken
+from scp.security.capability_epoch import CapabilityAuthority, CapabilityRevokedError, CapabilityToken, parse_capability_token
 from scp.web_control.web_navigator import WebNavigator
 
 from .action_registry import ActionDefinition, ActionRegistry
@@ -40,17 +40,19 @@ class HandsExecutor:
 
     def __init__(self, controller: PCController | None = None, navigator: WebNavigator | None = None, capability_authority: CapabilityAuthority | None = None, data_dir: Path | None = None) -> None:
         project_root = Path(__file__).resolve().parents[2]
-        self.controller = controller or PCController()
+        self.data_dir = Path(data_dir) if data_dir is not None else (project_root / "data" / "hands")
+        self.capability_authority = capability_authority or CapabilityAuthority(self.data_dir / "capability_state.json")
+        self.controller = controller or PCController(capability_authority=self.capability_authority)
+        if getattr(self.controller, "capability_authority", None) is None or (controller is not None and capability_authority is not None):
+            self.controller.capability_authority = self.capability_authority
         self.navigator = navigator or WebNavigator()
         self.registry = ActionRegistry()
-        self.data_dir = Path(data_dir) if data_dir is not None else (project_root / "data" / "hands")
         self.processes = ManagedProcessManager(self.data_dir, project_root)
         self.audit_path = self.data_dir / "audit.jsonl"
         self.checkpoint_path = self.data_dir / "checkpoints.jsonl"
         self.backup_dir = self.data_dir / "backups"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
-        self.capability_authority = capability_authority or CapabilityAuthority(self.data_dir / "capability_state.json")
 
     def _audit(self, event: str, payload: dict[str, Any]) -> None:
         record = {"timestamp": time.time(), "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "event": event, **payload}
@@ -98,8 +100,8 @@ class HandsExecutor:
             return next((item for item in pages if url_contains in str(item.get("url", "")).lower()), None)
         return pages[0] if pages else None
 
-    async def _pc_command(self, command: str, definition: ActionDefinition) -> dict[str, Any]:
-        result = await self.controller.execute(command, capability_level=0, approved=False, timeout=30)
+    async def _pc_command(self, command: str, definition: ActionDefinition, capability_token: CapabilityToken | None = None) -> dict[str, Any]:
+        result = await self.controller.execute(command, capability_token=capability_token, capability_level=0, approved=False, timeout=30)
         evidence = {"returnCode": result.get("returnCode"), "stdout": str(result.get("stdout", ""))[-5000:], "stderr": str(result.get("stderr", ""))[-2000:]}
         passed = bool(result.get("success"))
         return {"success": passed, "evidence": evidence, "verification": {"passed": passed, "rule": definition.verifier}, "error": result.get("error", "")}
@@ -107,6 +109,10 @@ class HandsExecutor:
     async def execute(self, action: str, params: dict[str, Any] | None = None, capability_level: int = 0, approved: bool = False, dry_run: bool = False, capability_token: CapabilityToken | None = None) -> dict[str, Any]:
         params = params or {}
         started = time.perf_counter()
+        if capability_token is None:
+            raw_token = params.get("capability_token") or params.get("capabilityToken")
+            if raw_token is not None:
+                capability_token = parse_capability_token(raw_token)
         if capability_token is None:
             result = {
                 "success": False,
@@ -151,7 +157,7 @@ class HandsExecutor:
                 status_data = self.controller.status()
                 result = {"success": True, "data": status_data, "evidence": {"controller": status_data.get("controller")}, "verification": {"passed": status_data.get("controller") == "online", "rule": definition.verifier}}
             elif action == "pc.read_file":
-                result = await self.controller.read_file(str(params.get("path", "")), int(params.get("maxBytes", 200_000)))
+                result = await self.controller.read_file(str(params.get("path", "")), int(params.get("maxBytes", 200_000)), capability_token=capability_token)
                 result["verification"] = {"passed": bool(result.get("success")), "rule": definition.verifier}
             elif action == "pc.list_dir":
                 target = self.controller._resolve_path(str(params.get("path", self.controller.working_dir)))
@@ -164,7 +170,7 @@ class HandsExecutor:
                     result = {"success": True, "path": str(target), "entries": entries, "evidence": {"count": len(entries)}}
                 result["verification"] = {"passed": bool(result.get("success")), "rule": definition.verifier}
             elif action == "pc.process_snapshot":
-                result = await self._pc_command("tasklist /FO CSV", definition)
+                result = await self._pc_command("tasklist /FO CSV", definition, capability_token=capability_token)
             elif action == "pc.process_list_owned":
                 result = self.processes.list_owned()
                 result["verification"] = {"passed": bool(result.get("success")), "rule": definition.verifier}
@@ -178,9 +184,9 @@ class HandsExecutor:
                 result = self.processes.stop(int(params.get("pid", 0)))
                 result["verification"] = {"passed": bool(result.get("success")) and bool(result.get("owned")), "rule": definition.verifier}
             elif action == "pc.service_snapshot":
-                result = await self._pc_command("sc.exe query", definition)
+                result = await self._pc_command("sc.exe query", definition, capability_token=capability_token)
             elif action == "pc.workspace_diff_check":
-                raw = await self.controller.execute("git diff --check", capability_level=0, approved=False, timeout=30)
+                raw = await self.controller.execute("git diff --check", capability_token=capability_token, capability_level=0, approved=False, timeout=30)
                 clean = raw.get("returnCode") == 0
                 result = {"success": raw.get("returnCode") is not None, "evidence": {"returnCode": raw.get("returnCode"), "stdout": str(raw.get("stdout", ""))[-5000:], "stderr": str(raw.get("stderr", ""))[-2000:], "clean": clean}, "verification": {"passed": raw.get("returnCode") is not None, "rule": definition.verifier}}
             elif action == "pc.file_hash":
@@ -230,7 +236,7 @@ class HandsExecutor:
                 result = {"success": root.is_dir() and self.controller._inside_root(root), "path": str(root), "entries": entries, "evidence": {"count": len(entries), "maxDepth": max_depth}}
                 result["verification"] = {"passed": bool(result.get("success")), "rule": definition.verifier}
             elif action == "pc.git_status":
-                raw = await self.controller.execute("git status --short --branch", capability_level=0, approved=False, timeout=30)
+                raw = await self.controller.execute("git status --short --branch", capability_token=capability_token, capability_level=0, approved=False, timeout=30)
                 result = {"success": raw.get("returnCode") is not None, "evidence": {"returnCode": raw.get("returnCode"), "stdout": str(raw.get("stdout", ""))[-5000:], "stderr": str(raw.get("stderr", ""))[-2000:]}, "verification": {"passed": raw.get("returnCode") is not None, "rule": definition.verifier}}
             elif action == "pc.validate_jsonl":
                 target = self.controller._resolve_path(str(params.get("path", "")))
@@ -252,7 +258,7 @@ class HandsExecutor:
                 target = self.controller._resolve_path(str(params.get("path", "")))
                 existed = target.exists()
                 prior_hash = self._sha256(target) if existed and target.is_file() else None
-                write_result = await self.controller.write_file(str(target), str(params.get("content", "")), capability_level=capability_level, approved=approved)
+                write_result = await self.controller.write_file(str(target), str(params.get("content", "")), capability_token=capability_token, capability_level=capability_level, approved=approved)
                 if write_result.get("success"):
                     backup_id = write_result.get("backupId")
                     backup_source = str(self.controller.backup_dir / f"{backup_id}.bak") if backup_id else None

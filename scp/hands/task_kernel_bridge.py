@@ -442,18 +442,13 @@ class TaskKernelHandsBridge:
 
             if self._policy_blocked_before_dispatch(result):
 
-                self.kernel.transition(
-
-                    task_id,
-
-                    "FAILED",
-
-                    actor="hands-kernel-bridge",
-
-                    reason="hands_policy_denied_before_dispatch",
-
-                    payload={"action": action},
-
+                self.kernel.commit_failed(
+                    task_id=task_id,
+                    lease_id=lease.lease_id,
+                    actor=self.worker_id,
+                    failure_classification="FATAL",
+                    indictment_ref=f"hands://{task_id}/policy_denied/{action}",
+                    details={"action": action, "reason": "hands_policy_denied_before_dispatch"},
                 )
 
                 lease_active = False
@@ -475,22 +470,24 @@ class TaskKernelHandsBridge:
 
                 self.kernel.idempotency_complete(logical_key, evidence_ref)
 
+                import time
+
+                from scp.core.verifier_receipt import VerifierReceipt, sign_verifier_receipt
+
+                receipt = sign_verifier_receipt(
+                    VerifierReceipt(
+                        task_id=task_id,
+                        verifier_id="hands-kernel-result-verifier-v1",
+                        verdict="VERIFIED",
+                        evidence_ref=evidence_ref,
+                        issued_at=time.time(),
+                    )
+                )
+
                 final_task = self.kernel.commit_verification_result(
-
                     task_id,
-
                     lease.lease_id,
-
-                    {
-
-                        "verdict": "VERIFIED",
-
-                        "verifier_id": "hands-kernel-result-verifier-v1",
-
-                        "evidence_ref": evidence_ref,
-
-                    },
-
+                    receipt,
                 )
 
                 lease_active = False
@@ -579,18 +576,13 @@ class TaskKernelHandsBridge:
 
                 if lease_id and lease_active:
 
-                    self.kernel.transition(
-
-                        task_id,
-
-                        "FAILED",
-
-                        actor="hands-kernel-bridge",
-
-                        reason="hands_bridge_pre_dispatch_failure",
-
-                        payload={"errorType": type(exc).__name__},
-
+                    self.kernel.commit_failed(
+                        task_id=task_id,
+                        lease_id=lease_id,
+                        actor=self.worker_id,
+                        failure_classification="FATAL",
+                        indictment_ref=f"hands://{task_id}/pre_dispatch_failure/{type(exc).__name__}",
+                        details={"error": str(exc), "errorType": type(exc).__name__},
                     )
 
             except Exception:

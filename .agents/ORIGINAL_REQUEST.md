@@ -1,236 +1,31 @@
 # Original User Request
 
-## 2026-09-07T11:59:14Z
+## 2026-09-08T12:26:38Z
 
-# Teamwork Project Prompt — GAP-05 + GAP-06 + GAP-08 + GAP-09
+# Teamwork Project Prompt — R2, R3, R6 Remediation
 
-Dự án SCP (Agent OS) đang trong quá trình vá các Tử huyệt bảo mật nghiêm trọng
-được phát hiện trong Delta Audit. GAP-01, 02, 03, 04, 07 đã được vá và xác nhận
-thực tế (450 tests PASS). Nhiệm vụ này xử lý 4 GAP tiếp theo theo thứ tự ưu tiên.
+Dự án SCP (Agent OS) đang cần vá 3 lỗ hổng kiến trúc nghiêm trọng cuối cùng (R2, R3, R6) để đạt trạng thái Autonomous 24/7.
 
 Working directory: c:\Users\check\Downloads\scp
-Branch: omega/gap-01-remediation
-Integrity mode: benchmark
+Branch hiện tại: omega/gap-01-remediation (hoặc main tuỳ bạn checkout, hãy tạo nhánh mới nếu cần, ví dụ: remediation/R2-R3-R6).
 
-MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles.
-You MUST adhere to FA-01 through FA-10. You are FORBIDDEN from self-granting
-authority or simulating PASS results. Any code modifications must explicitly enforce
-boundaries at the Database/Hardware level, not via RAM/Variables.
+MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-13. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables.
 
----
+## Lỗ hổng cần vá
 
-## Requirements
+### R2: Execution Bypass (PCController)
+- Vấn đề: `PCController` có các phương thức thực thi trực tiếp (VD: chạy command) mà thiếu boundary kiểm tra token hợp lệ từ Unified Broker.
+- Yêu cầu: Thêm token boundary vào `PCController`. Bất kỳ request thực thi nào cũng phải có token (HMAC-SHA256 signature hợp lệ) được cấp phát đúng thẩm quyền. Chặn fail-closed nếu thiếu/sai token.
 
-### R1. GAP-05: Xác minh và loại bỏ RLock Placebo
+### R3: Provenance Forgery (Verifier receipts)
+- Vấn đề: Các biên lai `verification.passed` (verifier receipts) đang thiếu độc lập (cryptographic provenance). Worker có thể tự giả mạo biên lai thành công để lừa Kernel.
+- Yêu cầu: Thêm chữ ký số (cryptographic signature/HMAC) vào Receipt. Kernel phải verify chữ ký này trước khi commit trạng thái `COMPLETED`.
 
-Kiểm tra toàn bộ `scp/kernel_storage.py` và toàn bộ codebase `scp/` xem có
-`threading.RLock()` nào còn tồn tại không (dùng `with self._lock:` bao quanh
-logic đọc/ghi). Nếu còn tồn tại: xóa bỏ, chứng minh hệ thống vẫn an toàn
-nhờ OCC. Nếu không còn: lập báo cáo bằng chứng thực tế (FA-09 Exploit Mandate
-— phải chứng minh không tồn tại, không phải giả định).
+### R6: AutoFix Rollback (Cognitive loop perfect isolation)
+- Vấn đề: Vòng lặp Cognitive/AutoFix thiếu cơ chế perfect isolation và rollback. Nếu AI áp dụng code lỗi, hệ thống bị hỏng (catastrophic corruption).
+- Yêu cầu: Xây dựng cơ chế snapshot/rollback (có thể dùng `data/shadow/` hoặc git stash/restore) cho file trước khi AutoFix áp dụng patch. Tự động rollback nếu Reality Test (pytest) thất bại sau khi patch.
 
-### R2. GAP-06: SQLite SPOF Documentation + Guard
-
-`make_storage()` trong `kernel_storage.py` chỉ hỗ trợ SQLite — đây là
-Single Point of Failure cho môi trường distributed. Yêu cầu:
-- Thêm WARNING rõ ràng trong docstring của `make_storage()`.
-- Thêm `SCP_STORAGE_BACKEND` environment variable check: nếu set giá trị
-  khác `sqlite` thì raise `NotImplementedError` với hướng dẫn rõ ràng.
-- Viết test kiểm tra guard này hoạt động đúng.
-
-### R3. GAP-08: CapabilityToken HMAC Signing
-
-`scp/core/capability_token.py`: `CapabilityToken` hiện là plain dataclass,
-không có chữ ký. Bất kỳ ai cũng có thể forge token tùy ý.
-Yêu cầu:
-- Thêm HMAC-SHA256 signing khi `issue()` token.
-- Thêm signature verification khi `validate()` token.
-- Token thiếu/sai chữ ký → `InvalidTokenSignatureError` (fail-closed).
-- Backward compat: token cũ không có sig → bị reject, không silently accept.
-
-### R4. GAP-09: Xóa Hardcoded Fallback Secret
-
-`scp/core/capability_token.py` có hardcoded fallback:
-`b"dev-secret-do-not-use-in-prod-12345"`.
-Yêu cầu:
-- Xóa fallback secret.
-- Nếu `SCP_CAPABILITY_SECRET` không được set → raise `MissingSecretError`
-  ngay khi import module (fail-closed hoàn toàn).
-- Cập nhật `.env.example` với hướng dẫn set secret.
-- Cập nhật test fixtures để inject secret đúng cách.
-
----
-
-## Acceptance Criteria
-
-### Anti-Placebo (FA-09 bắt buộc)
-- [ ] Mỗi GAP phải có script/probe chứng minh trạng thái RED trước khi sửa
-  (hoặc bằng chứng thực tế rằng GAP đã không còn tồn tại nếu đã được fix trước).
-- [ ] Sau khi sửa: probe chuyển GREEN, không phải chỉ static analysis.
-
-### Test Suite
-- [ ] `pytest tests/ -q` PASS 100% (>= 450 tests), exit code 0.
-- [ ] `python tools/t00_meta_audit.py` PASS, 0 new regressions.
-
-### Adversarial Review
-- [ ] Ít nhất 1 Challenger thử forge token, bypass secret check, hoặc
-  inject payload qua environment variable.
-- [ ] Kết quả Challenger: tất cả bị chặn (fail-closed).
-
-### Handoff
-- [ ] Báo cáo handoff tại `.agents/sentinel_4/handoff.md` với đầy đủ
-  HEAD_SHA, TREE_HASH, runtime version, evidence links.
-
-## 2026-09-07T12:23:07Z
-
-# Teamwork Project Prompt — GAP-05 + GAP-06 + GAP-08 + GAP-09
-
-Dự án SCP (Agent OS) đang trong quá trình vá các Tử huyệt bảo mật nghiêm trọng
-được phát hiện trong Delta Audit. GAP-01, 02, 03, 04, 07 đã được vá và xác nhận
-thực tế (482 tests PASS). Nhiệm vụ này xử lý 4 GAP tiếp theo.
-
-Working directory: c:\Users\check\Downloads\scp
-Branch: omega/gap-01-remediation
-Integrity mode: benchmark
-
-MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles.
-You MUST adhere to FA-01 through FA-10. You are FORBIDDEN from self-granting
-authority or simulating PASS results. Any code modifications must explicitly enforce
-boundaries at the Database/Hardware level, not via RAM/Variables.
-
-CONTEXT: Một đợt teamwork trước đã hoàn thành Milestone 1 (GAP-05 xác nhận + GAP-06 guard)
-nhung bị ngắt do quota. Kiểm tra lại kết quả Milestone 1 trước, rồi tiếp tục Milestone 2+3.
-
-## Requirements
-
-### R1. GAP-05: Xác minh RLock Placebo đã vắng mặt
-Kiểm tra toàn bộ `scp/` xem có `threading.RLock()` nào còn tồn tại không.
-Nếu không còn: lập báo cáo bằng chứng thực tế (chạy grep/rg thực tế trên shell).
-
-### R2. GAP-06: SQLite SPOF Guard
-`make_storage()` trong `kernel_storage.py` phải:
-- Có WARNING trong docstring.
-- Kiểm tra env var `SCP_STORAGE_BACKEND`: nếu khác `sqlite` → raise `NotImplementedError`.
-- Có test bảo vệ guard này.
-Nếu Milestone 1 đã làm xong: xác nhận bằng chạy pytest — không giả định.
-
-### R3. GAP-09: Xóa Hardcoded Fallback Secret
-`scp/core/capability_token.py` có hardcoded fallback `b"dev-secret-do-not-use-in-prod-12345"`.
-- Xóa fallback secret hoàn toàn.
-- Nếu `SCP_CAPABILITY_SECRET` không set → raise `MissingSecretError` (fail-closed).
-- Cập nhật `.env.example`.
-- Cập nhật test fixtures inject secret đúng cách.
-
-### R4. GAP-08: CapabilityToken HMAC-SHA256 Signing
-`scp/core/capability_token.py`:
-- Thêm HMAC-SHA256 signing khi `issue()` token.
-- Thêm signature verification trong `validate()`.
-- Token sai/thiếu chữ ký → `InvalidTokenSignatureError` (fail-closed).
-- Token cũ không có sig → bị reject (không silently accept).
-
-## Acceptance Criteria
-- [ ] Anti-Placebo: mỗi GAP có probe RED trước / GREEN sau (hoặc bằng chứng thực tế không tồn tại).
-- [ ] `pytest tests/ -q` PASS 100% (>= 482 tests), exit 0.
-- [ ] `python tools/t00_meta_audit.py` PASS, 0 new regressions.
-- [ ] Challenger thử forge token + bypass secret → bị chặn hoàn toàn.
-- [ ] Handoff tại `.agents/sentinel_4/handoff.md` với HEAD_SHA, TREE_HASH, evidence links.
-
-## 2026-09-07T17:32:22Z
-
-This is a single self-contained fix; keep it small and focused. Sửa lỗ hổng GAP-11 (Fake PASS Bypass) trong `TaskKernel` và áp dụng quy trình nghiệm thu nhân quả FA-12.
-
-Working directory: c:\Users\check\Downloads\scp
-Integrity mode: benchmark
-
-MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principles. You MUST adhere to FA-01 through FA-12. You are FORBIDDEN from self-granting authority or simulating PASS results. Any code modifications must explicitly enforce boundaries at the Database/Hardware level, not via RAM/Variables.
-
-## Requirements
-
-### R1. Tiêu diệt GAP-11
-Sửa hàm `transition()` trong `scp/task_kernel_parts/taskkernel.py` để chặn đứng hành vi chuyển thẳng sang trạng thái `COMPLETED`. Mọi nỗ lực gọi `transition(..., "COMPLETED")` phải văng lỗi `InvalidTransition`. Trạng thái `COMPLETED` CHỈ được phép đạt tới qua `commit_completed()` với bằng chứng hợp lệ.
-
-### R2. Quét ngoại vi (FA-11) & Bản đồ nhân quả
-Vẽ Sơ đồ Nhân quả (Mermaid Causal Graph) cho toàn bộ file `taskkernel.py`. Dựa vào đó, quét xem ngoài `COMPLETED`, các trạng thái khác (như `FAILED`, `CANCELLED`, `WAITING_APPROVAL`) có đang bị hở sườn tương tự không. Nếu phát hiện GAP mới, lập `EMERGENCY_GAP_REPORT.md` nhưng KHÔNG lén lút sửa — báo cáo Orchestrator và chờ lệnh.
-
-### R3. Bằng chứng Thực thi (FA-12)
-Không được nghiệm thu chỉ bằng Unit Test. Bắt buộc:
-1. Chạy `python tools/probes/probe_gap11.py` trên terminal và lấy output thực tế.
-2. Đọc raw SQLite data để chứng minh transition bị chặn ở tầng DB.
-3. Báo cáo End-to-End: chuỗi nhân quả của fix ĐÃ THỰC SỰ ĐƯỢC GỌI thành công.
-
-## Acceptance Criteria
-
-### Security & Integrity
-- [ ] Lệnh `python tools/probes/probe_gap11.py` trả về GREEN (cụ thể: `InvalidTransition` được ném ra).
-- [ ] Hàm `transition()` ném `InvalidTransition` nếu `to_state == "COMPLETED"`.
-- [ ] Causal Graph (Mermaid) của toàn bộ `taskkernel.py` được tạo thành công.
-- [ ] Không có Scope Creep: không sửa bất kỳ GAP mới nào chưa được Orchestrator duyệt.
-
-### Regression
-- [ ] `pytest tests/T04_kernel/ -q` PASS 100% (66/66 tests).
-- [ ] `python tools/t00_meta_audit.py` PASS, 0 new regressions.
-
-### Traceability Binding
-- [ ] Nếu file `spec/scp_target_test_coverage.yaml` có SHA của `taskkernel.py`, cập nhật SHA đó để khớp với file đã sửa.
-- [ ] Báo cáo handoff đầy đủ HEAD SHA, bằng chứng probe GREEN.
-
-### Merge
-- [ ] Commit fix với message chuẩn: `fix(security): GAP-11 block raw COMPLETED transition`
-- [ ] Push thẳng lên `main` (`git push origin main`).
-
-## 2026-09-07T17:59:53Z
-
-FA-13 COVERAGE AUDIT — Orchestrator Feedback:
-
-Sau khi đối chiếu Causal Graph trong EMERGENCY_GAP_REPORT.md với test suite hiện tại, phát hiện các UNPROVEN_BRANCH chưa được phủ test:
-
-1. GAP-12 branches (transition → FAILED không có evidence):
-   - Từ PLANNING → FAILED: UNPROVEN
-   - Từ RUNNING → FAILED: UNPROVEN  
-   - Từ VERIFYING → FAILED: UNPROVEN
-   - Rogue worker sabotage scenario: UNPROVEN
-
-2. GAP-13 branch (WAITING_APPROVAL → READY bypass): UNPROVEN
-
-Theo FA-13, bắt buộc một trong hai:
-A) Viết test cho các UNPROVEN_BRANCH trên (ưu tiên)
-B) Ghi nhận chính thức từng branch là UNPROVEN_BRANCH với lý do, và nhận duyệt từ Orchestrator trước khi close
-
-Nếu chọn B: GAP-12 và GAP-13 là lỗ hổng chưa được vá → các test cho chúng sẽ RED → không thể commit test RED mà không vi phạm FA-01/FA-02. Vì vậy đề xuất: ghi nhận UNPROVEN_BRANCH trong handoff report với lý do rõ ràng (GAP-12/13 chưa được Orchestrator authorize fix), và Victory Audit sẽ chấp nhận điều đó.
-
-Hãy cập nhật handoff report với Coverage Matrix đầy đủ trước khi Victory Audit.
-
-## 2026-09-07T18:01:17Z
-
-FA-13 ESCALATION — Mandatory Full Causal Coverage:
-
-Orchestrator feedback nâng cấp: 3 test adversarial chưa đủ. Yêu cầu:
-
-Mọi test bổ sung vào `taskkernel.py` PHẢI bao phủ TOÀN BỘ chuỗi nhân quả của file đó và các file liên quan, không chỉ nhánh vừa fix.
-
-Dựa vào Causal Graph trong EMERGENCY_GAP_REPORT.md, Coverage Matrix bắt buộc phải có:
-
-NHÓM 1 — Lifecycle transitions (đã có một phần, cần verify đủ):
-- CREATED → PLANNING → READY → QUEUED → LEASED → RUNNING → VERIFYING
-- RUNNING → CHECKPOINTED → VERIFYING
-- RUNNING → WAITING_TOOL → VERIFYING
-- RUNNING → UNKNOWN → RECOVERING → RECONCILING → QUEUED/CHECKPOINTED/HUMAN_REVIEW
-
-NHÓM 2 — Terminal gates (GAP-11 đã cover COMPLETED):
-- transition(FAILED) từ MỌI trạng thái cho phép: test phải chứng minh nó đang bị HỞ (UNPROVEN_PROBE) — ghi nhận là probe, không phải pytest test đỏ
-- transition(CANCELLED) từ mọi trạng thái hợp lệ
-
-NHÓM 3 — WAITING_APPROVAL gate (GAP-13):
-- PLANNING → WAITING_APPROVAL → READY bypass: ghi nhận là UNPROVEN_PROBE
-
-NHÓM 4 — Các file liên quan gọi vào taskkernel.py:
-- ask_kernel_adapter.py: hàm fail() gọi transition(FAILED) → phải có test
-- Mọi caller khác của commit_completed() → verify đường đi hợp lệ còn hoạt động
-
-Hành động yêu cầu:
-1. Bổ sung test/probe cho các nhánh còn thiếu trong Coverage Matrix
-2. UNPROVEN_BRANCH phải được ghi nhận rõ ràng với lý do (GAP-12/13 chưa được authorize fix)
-3. Handoff report phải có Coverage Matrix đầy đủ trước khi tuyên bố Victory
-
-KHÔNG được tuyên bố Victory nếu Coverage Matrix còn trống ô.
-
+## Yêu cầu Bắt buộc (FA-12, FA-13)
+- Vẽ Causal Graph và tạo file báo cáo `EMERGENCY_GAP_REPORT.md` (nếu phát hiện lỗ hổng lân cận).
+- Phủ test cho toàn bộ nhân quả (Causal-Driven Test Generation) trong thư mục `tests/`. Chạy `pytest` phải xanh.
+- Cuối cùng, tổng hợp kết quả (Fix steps, Test outcomes) vào artifact báo cáo.

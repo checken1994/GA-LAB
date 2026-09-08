@@ -1,13 +1,16 @@
-# Gate Status — Milestone M4 (Adversarial Review & Forensic Audit)
+# Gate Status — Iteration 1
 
-## Gate — Iteration 1
-| Agent | Role | Verdict | Source | Notes |
-|---|---|---|---|---|
-| reviewer_m4_1 | Architecture & Invariants Reviewer | APPROVE | handoff.md | Verified R1, R3, and Call Graph Navigation Map |
-| reviewer_m4_2 | Reality Scan & Evolution Reviewer | APPROVE | handoff.md | Verified 12 GAPs and R4 Evolution Path |
-| challenger_m4_1 | Kernel Concurrency Challenger | APPROVE | handoff.md | Confirmed Rogue Worker hijack & missing OCC via terminal |
-| challenger_m4_2 | Security & Sandbox Challenger | APPROVE | handoff.md | Confirmed self-granting, .env exfiltration & tautology |
-| auditor_m4_1 | Forensic Integrity Auditor | CLEAN | handoff.md | Full FA-01 to FA-10 compliance confirmed; binary veto clean |
+## Evaluation Matrix
+| Agent | Role | Subsystem | Verdict | Source | Notes |
+|---|---|---|---|---|---|
+| worker_m1_r2 | Worker | R2 Execution Bypass | DONE (Pass) | handoff.md | 15/15 unit tests pass, 100/100 T03 pass, probe blocked |
+| worker_m2_r3 | Worker | R3 Provenance Forgery | DONE (Pass) | handoff.md | 22/22 unit tests pass, 162/162 T04 pass, 26/26 T06 pass |
+| worker_m3_r6 | Worker | R6 AutoFix Shadow Rollback | DONE (Pass) | handoff.md | 12/12 unit tests pass, 24/24 T07 pass, clean workspace |
+| reviewer_1 | Reviewer | R2 & R3 Verification | PENDING | - | Assessing R2 & R3 implementations |
+| reviewer_2 | Reviewer | R6 Verification | PENDING | - | Assessing R6 implementation & workspace |
+| challenger_1 | Challenger | R2 & R3 Penetration | PENDING | - | Adversarial token & receipt probing |
+| challenger_2 | Challenger | R6 Chaos Testing | PENDING | - | Adversarial crash, corruption, rollback |
+| auditor_1 | Forensic Auditor | Full Audit (FA-01 to FA-13) | PENDING | - | Independent integrity verification |
 
-Gate Result: **PASS**
-
+## Gate Verdict
+Gate Result: **PENDING** (Awaiting Reviewers, Challengers, and Forensic Auditor verdicts)
