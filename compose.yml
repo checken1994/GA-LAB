@@ -8,18 +8,33 @@ services:
       context: .
       dockerfile: Dockerfile
     image: scp-api:local
+    command: ["8000"]
+    env_file:
+      - .env
     environment:
+      SCP_AUTH_PASSWORD_FILE: ''
       SCP_HOST: 0.0.0.0
       SCP_PORT: 8000
       SCP_MODE: isolated
-      # Local candidate default. Set to 1 only with a real secret supplied
-      # outside git and an external TLS gateway.
-      SCP_PRODUCTION_MODE: ${SCP_PRODUCTION_MODE:-0}
+      # Local candidate default per this file's header. .env may carry
+      # SCP_PRODUCTION_MODE=1 for native runs; compose interpolation reads
+      # .env, which silently activated the production guard inside Docker and
+      # demanded a TLS gateway this stack does not have. Pin local-candidate
+      # mode; switch deliberately for a production compose deployment.
+      SCP_PRODUCTION_MODE: "0"
       SCP_EGRESS_MODE: deny
-      SCP_FORCE_HTTPS: "1"
+      # No TLS gateway exists in this stack; FORCE_HTTPS=1 redirected every
+      # request (incl. /health) to https://host:port that nothing serves.
+      SCP_FORCE_HTTPS: "0"
       SCP_SKIP_STARTUP_GATE: "0"
       SCP_AUTO_APPROVE_TIER3: "0"
       SCP_DATA_DIR: /var/lib/scp/data
+      SCP_PC_WORKING_DIR: /var/lib/scp
+      # Converge ask-kernel adapter + hands bridge + RetryPolicy onto ONE
+      # kernel DB (hands bridge uses $SCP_DATA_DIR/task_kernel.sqlite3);
+      # without this the adapter defaults to /app/data/ask_task_kernel.sqlite3
+      # — same volume, but a second, divergent kernel file.
+      SCP_KERNEL_DB_PATH: /var/lib/scp/data/task_kernel.sqlite3
       # Optional provider/bridge URL. Keep credentials out of this file.
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
     ports:
@@ -29,7 +44,11 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
+      # Named volume (ext4, Docker Desktop native) — NTFS bind mount does not
+      # support SQLite WAL (disk I/O error on PRAGMA journal_mode=WAL), which
+      # crash-looped the container at import time (hands_routes -> TaskKernel).
       - scp-data:/var/lib/scp/data
+      - scp-data:/app/data
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=64m
@@ -47,6 +66,7 @@ services:
     working_dir: /workspace/mini-services/loop-scheduler
     command: ["bun", "index.ts"]
     environment:
+      SCP_AUTH_PASSWORD_FILE: ''
       SCP_BASE_URL: http://scp-api:8000
       LLM_BRIDGE_URL: ${LLM_BRIDGE_URL:-http://host.docker.internal:11434}
       LOOP_SCHEDULER_PORT: 3030
@@ -58,7 +78,8 @@ services:
       LOOP_STATE_PATH: /var/lib/scp/data/scheduler-state.json
     volumes:
       - ./mini-services/loop-scheduler:/workspace/mini-services/loop-scheduler:ro
-      - scp-data:/var/lib/scp/data
+      - ./data:/var/lib/scp/data
+      - ./data:/app/data
     ports:
       - "127.0.0.1:3030:3030"
     depends_on:
@@ -79,9 +100,11 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
+      SCP_AUTH_PASSWORD_FILE: ''
       SCP_BASE_URL: http://scp-api:8000
     volumes:
-      - scp-data:/var/lib/scp/data
+      - ./data:/var/lib/scp/data
+      - ./data:/app/data
     depends_on:
       scp-api:
         condition: service_started

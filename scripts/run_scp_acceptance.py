@@ -258,14 +258,18 @@ class RuntimeHarness:
                 "SCP_PC_CONTROLLER_TOKEN": "acceptance-pc-token",
                 "SCP_JWT_SECRET": "acceptance-jwt-secret-not-for-production",
                 "SCP_ADMIN_KEY": "acceptance-admin-key",
-                "OPENROUTER_API_KEY": "acceptance-loopback-key",
+                # [MACH1-FIX-5] No credentials in source: read from the operator
+                # environment. Both point at the local loopback provider, which
+                # does not validate keys, so an empty value stays functional.
+                "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY", ""),
                 "OPENROUTER_BASE_URL": f"http://127.0.0.1:{self.provider_port}/v1",
                 "OPENROUTER_MODEL": "acceptance-chat-primary",
                 "OPENROUTER_MODEL_CHAT": "acceptance-chat-fallback",
                 "OPENROUTER_MODEL_JUDGE": "acceptance-judge-primary",
                 "OPENROUTER_MODEL_JUDGE_PRIMARY": "acceptance-judge-fallback",
                 "OPENROUTER_MODEL_AUTOFIX": "acceptance-autofix-fallback",
-                "OPENAI_API_KEY": "acceptance-openai-compat-key",
+                # [MACH1-FIX-5] No credentials in source (same rationale as above).
+                "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
                 "OPENAI_BASE_URL": f"http://127.0.0.1:{self.provider_port}/v1",
                 "OPENAI_MODEL": "acceptance-judge-secondary",
                 "SCP_LLM_BREAKER_THRESHOLD": "3",

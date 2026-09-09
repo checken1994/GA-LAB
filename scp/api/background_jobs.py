@@ -59,10 +59,16 @@ class BackgroundJob:
             if self._stop_event.wait(self.initial_delay_seconds):
                 return
             logger.info("[BackgroundJob] %s: started (interval=%.0fs)", self.name, self.interval_seconds)
+            _first_execution_logged = False
             while not self._stop_event.is_set():
                 try:
                     self.fn()
                     self._error_count = 0
+                    if not _first_execution_logged:
+                        # [MACH1-FIX-1] one-line evidence that the job body really
+                        # executed (not just that its thread was scheduled).
+                        logger.info("[BackgroundJob] %s: first execution completed", self.name)
+                        _first_execution_logged = True
                 except Exception as exc:
                     self._error_count += 1
                     logger.warning(
@@ -75,6 +81,15 @@ class BackgroundJob:
                             self.name, self._error_count
                         )
                 self._stop_event.wait(self.interval_seconds)
+
+        # For required jobs with no initial delay, run once synchronously to fail fast
+        if self.required and self.initial_delay_seconds <= 0:
+            try:
+                self.fn()
+                self._error_count = 0
+            except Exception as exc:
+                logger.error("[BackgroundJob] %s: required job failed synchronously — %s", self.name, exc)
+                raise
 
         self._thread = threading.Thread(
             target=_loop,
@@ -192,6 +207,37 @@ registry = BackgroundJobRegistry()
 # Đăng ký các jobs BẮT BUỘC của SCP kernel
 # =============================================================================
 
+def _get_kernel_or_none():
+    """Resolve the live shared TaskKernel, or None if the app has not opened one yet.
+
+    [MACH1-FIX-1] Reality check (DNA #26): ``scp.api._shared`` never defined
+    ``get_kernel`` (its PEP 562 delegation list does not include it), so the old
+    ``from scp.api._shared import get_kernel`` raised ImportError on every cycle
+    and the required watchdogs silently no-op'd (ImportError → pass). Resolution
+    order now:
+      1. scp.api._shared.get_kernel — future contract, kept first.
+      2. scp.api_server._ASK_KERNEL_ADAPTERS — reuse kernels already opened by
+         the running app. Reuse only: never triggers adapter initialization
+         side effects (integrity check/backup) from a watchdog thread.
+    """
+    try:
+        from scp.api._shared import get_kernel  # type: ignore[attr-defined]
+        kernel = get_kernel()
+        if kernel is not None:
+            return kernel
+    except (ImportError, AttributeError):
+        pass
+    try:
+        from scp import api_server  # runtime import — safe after boot
+        for adapter in list(getattr(api_server, "_ASK_KERNEL_ADAPTERS", {}).values()):
+            kernel = getattr(adapter, "kernel", None)
+            if kernel is not None:
+                return kernel
+    except Exception:
+        pass
+    return None
+
+
 @registry.register(
     name="kernel_lease_expiry",
     interval_seconds=30,
@@ -200,15 +246,13 @@ registry = BackgroundJobRegistry()
 )
 def _kernel_lease_expiry_tick() -> None:
     """Hết hạn các lease bị timeout — ngăn owner lockout vĩnh viễn."""
-    try:
-        from scp.api._shared import get_kernel  # type: ignore[import]
-        k = get_kernel()
-        if k is not None:
-            expired = k.expire_leases()
-            if expired:
-                logger.info("[Watchdog] expire_leases: %d expired", len(expired))
-    except ImportError:
-        pass  # _shared chưa khởi tạo — sẽ retry sau 30s
+    # [MACH1-FIX-1] resolve the real live kernel instead of the broken
+    # _shared.get_kernel import; None = app has not opened a kernel yet.
+    kernel = _get_kernel_or_none()
+    if kernel is not None:
+        expired = kernel.expire_leases()
+        if expired:
+            logger.info("[Watchdog] expire_leases: %d expired", len(expired))
 
 
 @registry.register(
@@ -219,15 +263,12 @@ def _kernel_lease_expiry_tick() -> None:
 )
 def _kernel_orphan_reconcile_tick() -> None:
     """Reconcile các task orphan (crash, mất kết nối) → RECONCILING state."""
-    try:
-        from scp.api._shared import get_kernel  # type: ignore[import]
-        k = get_kernel()
-        if k is not None:
-            orphans = k.auto_reconcile_orphans()
-            if orphans:
-                logger.info("[Watchdog] auto_reconcile_orphans: %d reconciled", len(orphans))
-    except ImportError:
-        pass
+    # [MACH1-FIX-1] same resolver fix as _kernel_lease_expiry_tick.
+    kernel = _get_kernel_or_none()
+    if kernel is not None:
+        orphans = kernel.auto_reconcile_orphans()
+        if orphans:
+            logger.info("[Watchdog] auto_reconcile_orphans: %d reconciled", len(orphans))
 
 
 @registry.register(

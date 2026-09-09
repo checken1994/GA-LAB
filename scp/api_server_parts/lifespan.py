@@ -46,6 +46,13 @@ async def lifespan(app: FastAPI):
     logger.info('=' * 60)
     logger.info(f'{RELEASE_LABEL} API Server starting...')
     logger.info('=' * 60)
+    # [MACH1-FIX-2] Boot config gate — fail-closed (DNA #6, #22): validate the
+    # environment contract BEFORE any subsystem starts. Deliberately NOT inside
+    # try/except: a ConfigContractError must propagate and abort boot instead of
+    # being swallowed into a half-initialized server.
+    from scp.core.config_contract import validate_boot_config
+    validate_boot_config()
+    logger.info('[MACH1-FIX-2] Boot config contract validated (fail-closed)')
     app.state.judge_ready = False
     app.state.startup_status = 'starting'
     app.state.readiness_reason = 'judge_initialization_pending'
@@ -159,14 +166,13 @@ async def lifespan(app: FastAPI):
     app.state.deep_audit_started = False
     app.state.attack_monitor_started = False
     try:
-        import threading as _threading
-        import time as _time
+        from scp.api.background_jobs import registry
         from scp.autofix.runner import run_deep_audit
         from scp.core.subsystem_telemetry import SubsystemTelemetry, heartbeat_sleep
         _audit_telemetry = SubsystemTelemetry('deep_audit', os.environ.get('SCP_DATA_DIR', 'data'))
         _audit_telemetry.start(mode='background', config={'interval_seconds': 86400})
         _audit_telemetry.tick(status='IDLE')
-        _audit_stop = _threading.Event()
+        _audit_stop = threading.Event()
         _audit_state = {'status': 'STARTING'}
         app.state.deep_audit_stop = _audit_stop
 
@@ -178,12 +184,12 @@ async def lifespan(app: FastAPI):
                     logger.warning('[AUTO] deep-audit heartbeat tick failed: %s', exc)
                 if _audit_stop.wait(15):
                     return
-        _threading.Thread(target=_deep_audit_heartbeat_loop, daemon=True, name='scp-deep-audit-heartbeat').start()
+        threading.Thread(target=_deep_audit_heartbeat_loop, daemon=True, name='scp-deep-audit-heartbeat').start()
 
         def _deep_audit_loop():
             heartbeat_sleep(_audit_telemetry, 60, status='IDLE')
             while not _audit_stop.is_set():
-                run_id = f'deep-audit-{_time.time_ns()}'
+                run_id = f'deep-audit-{time.time_ns()}'
                 _audit_state['status'] = 'RUNNING'
                 _audit_telemetry.cycle_started(run_id, trigger='interval')
                 try:
@@ -199,10 +205,13 @@ async def lifespan(app: FastAPI):
                     _audit_telemetry.cycle_failed(run_id, exc, status='PROVIDER_FAILED')
                 _audit_state['status'] = 'IDLE'
                 heartbeat_sleep(_audit_telemetry, 86400, status='IDLE')
-        _audit_thread = _threading.Thread(target=_deep_audit_loop, daemon=True, name='scp-deep-audit-scheduler')
-        _audit_thread.start()
+
+        @registry.register(name="deep_audit_scheduler", interval_seconds=86400, required=False, initial_delay_seconds=60)
+        def _deep_audit_job():
+            _deep_audit_loop()
+
         app.state.deep_audit_started = True
-        logger.info('[AUTO] Deep audit scheduler started before lifespan yield (24h interval)')
+        logger.info('[AUTO] Deep audit scheduler registered in background job registry (24h interval)')
     except Exception as exc:
         logger.warning('[AUTO] Deep audit scheduler failed to start: %s', exc)
     try:
@@ -211,7 +220,7 @@ async def lifespan(app: FastAPI):
         _attack_telemetry = SubsystemTelemetry('attack_monitor', os.environ.get('SCP_DATA_DIR', 'data'))
         _attack_telemetry.start(mode='background', config={'interval_seconds': 300})
         _attack_telemetry.tick(status='IDLE')
-        _attack_stop = _threading.Event()
+        _attack_stop = threading.Event()
         _attack_state = {'status': 'STARTING'}
         app.state.attack_monitor_stop = _attack_stop
 
@@ -223,25 +232,25 @@ async def lifespan(app: FastAPI):
                     logger.warning('[AUTO] attack-monitor heartbeat tick failed: %s', exc)
                 if _attack_stop.wait(15):
                     return
-        _threading.Thread(target=_attack_heartbeat_loop, daemon=True, name='scp-attack-monitor-heartbeat').start()
+        threading.Thread(target=_attack_heartbeat_loop, daemon=True, name='scp-attack-monitor-heartbeat').start()
 
         def _attack_mode_monitor():
             heartbeat_sleep(_attack_telemetry, 120, status='IDLE')
             while not _attack_stop.is_set():
-                run_id = f'attack-monitor-{_time.time_ns()}'
+                run_id = f'attack-monitor-{time.time_ns()}'
                 _attack_state['status'] = 'RUNNING'
                 _attack_telemetry.cycle_started(run_id, trigger='interval')
                 try:
                     eng = get_autofix_engine()
                     notif = getattr(_judge, 'notifications', None)
-                    cutoff = _time.time() - 600
+                    cutoff = time.time() - 600
                     kill_count = notif.count_recent_by_type('governance_kill', cutoff) if notif is not None else 0
                     if kill_count > 20 and (not eng.in_attack_mode):
                         eng.set_attack_mode(True)
-                        logger.warning('[AUTO] Attack mode ENABLED â€” %s KILLs in 10min', kill_count)
+                        logger.warning('[AUTO] Attack mode ENABLED — %s KILLs in 10min', kill_count)
                     elif kill_count < 5 and eng.in_attack_mode:
                         eng.set_attack_mode(False)
-                        logger.info('[AUTO] Attack mode DISABLED â€” %s KILLs in 10min', kill_count)
+                        logger.info('[AUTO] Attack mode DISABLED — %s KILLs in 10min', kill_count)
                     _attack_telemetry.cycle_completed(run_id, 'SUCCESS', asked=kill_count, verified=1)
                 except TimeoutError as exc:
                     logger.warning('[AUTO] Attack mode monitor timeout: %s', exc)
@@ -251,10 +260,13 @@ async def lifespan(app: FastAPI):
                     _attack_telemetry.cycle_failed(run_id, exc, status='PROVIDER_FAILED')
                 _attack_state['status'] = 'IDLE'
                 heartbeat_sleep(_attack_telemetry, 300, status='IDLE')
-        _attack_thread = _threading.Thread(target=_attack_mode_monitor, daemon=True, name='scp-attack-mode-monitor')
-        _attack_thread.start()
+
+        @registry.register(name="attack_mode_monitor", interval_seconds=300, required=False, initial_delay_seconds=120)
+        def _attack_mode_monitor_job():
+            _attack_mode_monitor()
+
         app.state.attack_monitor_started = True
-        logger.info('[AUTO] Attack mode monitor started before lifespan yield (5min interval)')
+        logger.info('[AUTO] Attack mode monitor registered in background job registry (5min interval)')
     except Exception as exc:
         logger.warning('[AUTO] Attack mode monitor failed to start: %s', exc)
     try:
@@ -278,6 +290,81 @@ async def lifespan(app: FastAPI):
         logger.info('[DOUBT] Cronjob of Doubt started (interval=%ss)', _doubt.interval)
     except Exception as exc:
         logger.warning('[DOUBT] Cronjob of Doubt failed to start (non-fatal): %s', exc)
+
+    # --- [MACH1-FIX-3] RetryPolicy background worker — REAL kernel wiring ---
+    # Previously this block built RetryPolicy around empty stubs (_get_waiting_plans
+    # returned [], _retry_plan was `pass`) and targeted `_retry_policy.run_background`
+    # which did not exist in scp/policy/retry_policy.py → AttributeError swallowed by
+    # the broad except below → the retry worker never actually ran. Now wired to the
+    # real TaskKernel DB: poll RETRY_SCHEDULED tasks, requeue them when the retry
+    # timeout expires (transition validated by the kernel state machine).
+    try:
+        from scp.policy.retry_policy import RetryPolicy
+
+        _retry_db_path = os.environ.get(
+            'SCP_KERNEL_DB_PATH',
+            os.path.join(os.environ.get('SCP_DATA_DIR', 'data'), 'ask_task_kernel.sqlite3'),
+        )
+
+        def _get_waiting_plans():
+            """Real poll: tasks the kernel parked in RETRY_SCHEDULED."""
+            if not os.path.exists(_retry_db_path):
+                return []
+            from scp.task_kernel import TaskKernel
+            try:
+                _rk = TaskKernel(_retry_db_path)
+            except Exception as poll_exc:
+                logger.warning('[RETRY-POLICY] kernel open failed: %s', poll_exc)
+                return []
+            try:
+                rows = _rk.conn.execute(
+                    "SELECT task_id, state FROM tasks WHERE state='RETRY_SCHEDULED'"
+                ).fetchall()
+                return [{'planId': row['task_id'], 'state': row['state']} for row in rows]
+            finally:
+                _rk.close()
+
+        def _retry_plan(task_id, retry_reason):
+            from scp.task_kernel import TaskKernel
+            _rk = TaskKernel(_retry_db_path)
+            try:
+                _rk.transition(task_id, 'QUEUED', actor='retry_policy', reason='retry_policy_background')
+                logger.info('[RETRY-POLICY] task %s requeued to QUEUED (%s)', task_id, retry_reason)
+            finally:
+                _rk.close()
+
+        _retry_policy = RetryPolicy(get_plans_fn=_get_waiting_plans, retry_fn=_retry_plan)
+        _retry_stop = threading.Event()
+        app.state.retry_policy_stop = _retry_stop
+        _retry_thread = threading.Thread(
+            target=_retry_policy.run_background,
+            kwargs={
+                'interval_sec': float(os.environ.get('SCP_RETRY_POLL_SEC', '60')),
+                'stop_event': _retry_stop,
+            },
+            daemon=True,
+            name='scp-retry-policy',
+        )
+        _retry_thread.start()
+        app.state.retry_policy = _retry_policy
+        logger.info('[RESTORED-SYSTEMS] RetryPolicy background thread started (real kernel wiring, db=%s)', _retry_db_path)
+    except Exception as exc:
+        logger.warning('[RESTORED-SYSTEMS] RetryPolicy failed to start: %s', exc)
+    # ------------------------------------------------------------------
+
+    # [MACH1-FIX-1] Start all registered background jobs. The registry already
+    # enforces the fail-closed contract: a required job that fails to start
+    # raises RuntimeError from start_all() and aborts boot (correct behavior for
+    # required=True). Jobs: kernel_lease_expiry, kernel_orphan_reconcile (required),
+    # canary_token_cleanup, deep_audit_scheduler, attack_mode_monitor (optional).
+    try:
+        from scp.api.background_jobs import registry as _bg_registry
+        _bg_registry.start_all()
+        logger.info('[MACH1-FIX-1] Background job registry started (%d jobs: %s)', len(_bg_registry._jobs), ', '.join(sorted(_bg_registry._jobs)))
+    except Exception as exc:
+        # Required-job failure must abort boot — re-raise, do not swallow.
+        logger.error('[MACH1-FIX-1] Background job registry failed to start: %s', exc)
+        raise
     yield
     app.state.judge_ready = False
     app.state.startup_status = 'stopping'
@@ -295,7 +382,7 @@ async def lifespan(app: FastAPI):
     os.environ['SCP_WHY_LLM_ENABLED'] = _orig_why_llm
     os.environ['SCP_EVOLUTION_AUTO'] = _orig_evo_auto
     logger.info(f'[STARTUP] WHY LLM + Evolution AUTO restored (why={_orig_why_llm}, evo={_orig_evo_auto})')
-    for _stop_event in (getattr(app.state, 'deep_audit_stop', None), getattr(app.state, 'attack_monitor_stop', None)):
+    for _stop_event in (getattr(app.state, 'deep_audit_stop', None), getattr(app.state, 'attack_monitor_stop', None), getattr(app.state, 'retry_policy_stop', None)):
         if _stop_event is not None:
             _stop_event.set()
     for _task in (_scheduler_bootstrap_task, _evolution_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
@@ -306,4 +393,11 @@ async def lifespan(app: FastAPI):
         get_doubt_cron(data_dir=os.environ.get('SCP_DATA_DIR', 'data')).stop()
     except Exception:
         pass
+    # Stop all background jobs registered in the global registry
+    try:
+        from scp.api.background_jobs import registry
+        registry.stop_all(timeout=10.0)
+        logger.info('All background jobs stopped')
+    except Exception as exc:
+        logger.warning('Error stopping background jobs: %s', exc)
     logger.info(f'{RELEASE_LABEL} API Server shutting down...')

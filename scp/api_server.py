@@ -95,17 +95,24 @@ def _scp_service_identity() -> dict:
     if not _mode:
         _mode = "production" if _port == 8000 else "test" if _port == 8001 else "unknown"
     if _CACHED_COMMIT is None:
-        try:
-            _creationflags = getattr(_subprocess, "CREATE_NO_WINDOW", 0) if _sys.platform == "win32" else 0
-            _commit = _subprocess.check_output(
-                ["git", "-C", str(_Path(__file__).resolve().parent.parent), "rev-parse", "HEAD"],
-                text=True,
-                stderr=_subprocess.DEVNULL,
-                timeout=2,
-                creationflags=_creationflags,
-            ).strip()
-        except Exception:
-            _commit = "unknown"
+        # [MACH1-FIX-6] Docker images have no .git — prefer the build-time
+        # SCP_GIT_SHA ARG (baked into the image ENV) so the running container
+        # can bind its runtime evidence to the exact source SHA.
+        _env_sha = os.environ.get("SCP_GIT_SHA", "").strip()
+        if _env_sha and _env_sha != "unknown":
+            _commit = _env_sha
+        else:
+            try:
+                _creationflags = getattr(_subprocess, "CREATE_NO_WINDOW", 0) if _sys.platform == "win32" else 0
+                _commit = _subprocess.check_output(
+                    ["git", "-C", str(_Path(__file__).resolve().parent.parent), "rev-parse", "HEAD"],
+                    text=True,
+                    stderr=_subprocess.DEVNULL,
+                    timeout=2,
+                    creationflags=_creationflags,
+                ).strip()
+            except Exception:
+                _commit = "unknown"
         _CACHED_COMMIT = _commit or "unknown"
     if _CACHED_CONFIG_HASH is None:
         _env_path = _Path(os.environ.get("SCP_ENV_FILE", _Path(__file__).resolve().parent.parent / ".env"))
@@ -359,6 +366,7 @@ try:
     from scp.api.routes.v102_v103_routes import router as v102_v103_router
     from scp.api.routes.v104_routes import router as v104_router
     from scp.api.routes.v105_routes import router as v105_router
+    from scp.api.routes.swe_bench_routes import router as swe_bench_router
     _EXTRA_ROUTERS_AVAILABLE = True
 except ImportError as e:
     logger.warning("[Task 9-B] V102-V105/import routers unavailable: %s", e)
@@ -370,6 +378,13 @@ if _EXTRA_ROUTERS_AVAILABLE:
         app.include_router(v102_v103_router)
         app.include_router(v104_router)
         app.include_router(v105_router)
+        app.include_router(swe_bench_router)
+        try:
+            from scp.api.routes.v106_routes import audit_router, capability_router
+            app.include_router(audit_router)
+            app.include_router(capability_router)
+        except ImportError:
+            pass
     if _route_enabled("import"):
         app.include_router(import_router)
 
@@ -389,6 +404,13 @@ for _group, _module_name, _router_name, _tags in (
     ("threat", "scp.api.routes.threat_routes", "router", ["threats"]),
     ("audit", "scp.api.routes.audit_routes", "router", ["audit"]),
     ("prediction", "scp.api.routes.prediction_routes", "router", ["predictions"]),
+    # Wave-1: Restored subsystems
+    ("risk_intelligence", "scp.api.routes.risk_routes", "router", ["risk-intelligence"]),
+    ("world_state", "scp.api.routes.world_state_routes", "router", ["world-state"]),
+    # Wave-2: Restored subsystems
+    ("calibration", "scp.api.routes.calibration_routes", "router", ["calibration"]),
+    ("forecast", "scp.api.routes.forecast_routes", "router", ["forecast"]),
+    ("history", "scp.api.routes.history_routes", "router", ["history"]),
 ):
     try:
         if _route_enabled(_group):
@@ -458,6 +480,19 @@ def login_for_access_token(req: TokenRequest, request: Request):
 @traced_request(_REQUEST_RUN_LEDGER)
 async def ask(req: AskRequest, request: Request, current_user: str = Depends(get_current_user)):
     REQUEST_COUNT.labels(method="POST", endpoint="/ask").inc()
+    # [MACH1-FIX-4] Fail-closed judge gate (matches the /readiness contract and
+    # the lifespan comment "/ask returns 503 until ready"). Without this, a
+    # request arriving before the judge is ready triggered a blocking 30-60s
+    # lazy init inside the request path.
+    if not getattr(app.state, "judge_ready", False):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "judge_initializing",
+                "reason": getattr(app.state, "readiness_reason", None) or "judge_initialization_pending",
+                "retry_after_seconds": 5,
+            },
+        )
     if not _ask_kernel_enabled(req):
         return _kernel_gate_unavailable_response(req, RuntimeError("rag_kernel_disabled"))
     adapter = _get_ask_kernel_adapter()
@@ -624,3 +659,4 @@ except Exception as e:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("scp.api_server:app", host="127.0.0.1", port=8000, reload=False, log_level="info")
+

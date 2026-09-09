@@ -30,7 +30,10 @@ class RetryPolicy:
         plan_id = str(plan.get("planId", ""))
         state = str(plan.get("state", ""))
         with self._lock:
-            if state == "WAITING_APPROVAL":
+            # [MACH1-FIX-3] RETRY_SCHEDULED = tasks the TaskKernel parked for a
+            # later retry; treat them as waiting so the background loop can
+            # requeue them once the retry timeout expires.
+            if state in ("WAITING_APPROVAL", "RETRY_SCHEDULED"):
                 self._waiting_since.setdefault(plan_id, time.monotonic())
             else:
                 self._waiting_since.pop(plan_id, None)
@@ -54,9 +57,9 @@ class RetryPolicy:
             if not plan:
                 continue
             step = next((s for s in plan.get("steps", []) if s.get("state") == "WAITING_APPROVAL"), None)
-            if not step:
-                continue
-            step_id = str(step.get("stepId", ""))
+            # [MACH1-FIX-3] Kernel-sourced plans are flat task dicts without a
+            # `steps` list — retry them with an empty step id instead of skipping.
+            step_id = str(step.get("stepId", "")) if step else ""
             logger.info("[retry_policy] auto-retry plan=%s step=%s (attempt %d/%d)", plan_id, step_id, self._retry_counts[plan_id], MAX_AUTO_RETRIES)
             try:
                 self._retry_fn(plan_id, step_id)
@@ -64,6 +67,32 @@ class RetryPolicy:
             except Exception:
                 logger.exception("[retry_policy] retry_fn failed plan=%s step=%s", plan_id, step_id)
         return retried
+
+    def run_background(self, interval_sec: float = 60.0, stop_event: threading.Event | None = None) -> None:
+        """Background loop: poll waiting plans and auto-retry expired ones.
+
+        [MACH1-FIX-3] Previously the lifespan started a thread targeting this
+        method, but it did not exist on RetryPolicy → AttributeError swallowed by
+        a broad except → the retry worker never ran. Each cycle now observes the
+        plans returned by get_plans_fn (the real source of truth — e.g. the
+        TaskKernel `tasks` table), then runs check_and_retry: after
+        RETRY_TIMEOUT_SEC since first observation, a waiting task is requeued
+        via retry_fn (up to MAX_AUTO_RETRIES).
+        """
+        logger.info("[retry_policy] background loop started (interval=%.2fs)", interval_sec)
+        while True:
+            if stop_event is not None:
+                if stop_event.wait(interval_sec):
+                    return
+            else:
+                time.sleep(interval_sec)
+            try:
+                plans = self._get_plans() or []
+                for plan in plans:
+                    self.observe(plan)
+                self.check_and_retry()
+            except Exception:
+                logger.exception("[retry_policy] background cycle failed")
 
 
 def start_retry_monitor(get_plans_fn: Callable[[], list], retry_fn: Callable[[str, str], None], interval_sec: float = 60.0) -> RetryPolicy:
