@@ -81,14 +81,23 @@ def _scp_service_identity() -> dict:
 
     _port = None
     if "SCP_PORT" in os.environ:
+        _raw_port = os.environ["SCP_PORT"]
         try:
-            _port = int(os.environ["SCP_PORT"])
+            _port = int(_raw_port)
         except (TypeError, ValueError) as _port_err:
             # [MACH1-FIX-8 / D6 fail-loudly] A malformed SCP_PORT silently
             # changed the advertised identity/port match — surface it.
+            # [MACH1-FIX-9 / F7 log hygiene] Never log the raw env value, and
+            # never log the exception message (ValueError embeds the raw value
+            # in its text). Keep a length-bounded, control-character-free
+            # preview so untrusted text cannot inject log lines.
+            _port_text = _raw_port if isinstance(_raw_port, str) else f"<{type(_raw_port).__name__}>"
+            _port_preview = "".join(
+                _ch if _ch.isprintable() else "?" for _ch in _port_text[:24]
+            )
             logger.warning(
-                "[MACH1-FIX-8] SCP_PORT=%r is not an integer (%s) — falling back to argv/default",
-                os.environ["SCP_PORT"], _port_err,
+                "[MACH1-FIX-8] SCP_PORT is not an integer (%s, len=%d, preview=%r) — falling back to argv/default",
+                type(_port_err).__name__, len(_port_text), _port_preview,
             )
     if _port is None:
         for _arg in _sys.argv[1:]:

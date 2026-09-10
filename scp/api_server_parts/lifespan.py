@@ -41,6 +41,13 @@ from scp.core.real_learning_engine import RealLearningEngine
 from scp.api.route_profile import resolve_api_profile, route_group_enabled
 from pydantic import BaseModel
 
+# [MACH1-FIX-9 / F821] Bind this module's logger explicitly. In production these
+# functions are re-bound into scp/api_server.py's globals (which defines
+# `logger`), but a raw import / static analysis / refactor would hit NameError
+# exactly on the fail-loudly branches. Same logger name as api_server -> same
+# logger object, so no duplicate handlers and no double emit.
+logger = logging.getLogger("scp.api")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _background_task

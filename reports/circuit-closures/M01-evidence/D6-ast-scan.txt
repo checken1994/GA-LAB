@@ -1,7 +1,11 @@
-# D6 fail-loudly AST scan — M1 Boot & Background
-# git HEAD at run: 6328d513f53daf2cba03bf2d56a0bb380735f609
-# run at: 2026-09-10T19:20:09+07:00
-# command: py -3.12 <scanner from D6.1, saved as /tmp/scp_m1_ast_scan.py> scp/api_server_parts/lifespan.py scp/api/background_jobs.py scp/policy/retry_policy.py scp/api_server.py scripts/run_scp_acceptance.py tests/T01_boot/test_flow_01_boot_background_scp_standard.py
+# D6 fail-loudly AST scan — M1 Boot & Background — RE-PIN RUN
+# git HEAD at run: bae6196e64d101a51308e074264247883673a6dc (parent of sha_pin)
+# worktree at run: carries the re-pin fixes = F821 logger binding in
+#   scp/api_server_parts/lifespan.py + F7 log hygiene in scp/api_server.py
+# run at: 2026-09-10T19:52:14+07:00
+# command: py -3.12 <scanner> scp/api_server_parts/lifespan.py scp/api/background_jobs.py scp/policy/retry_policy.py scp/api_server.py scripts/run_scp_acceptance.py tests/T01_boot/test_flow_01_boot_background_scp_standard.py
+# scanner sha256: db91c0f995e0f4fc56c9a635dc76dfc33657d101ac02306f1de1b9f825182860 (byte-identical to the
+#   scanner embedded in the previous D6 run; re-read from the same temp path, source embedded in D6.1 below)
 # AST only — no target code is imported or executed.
 
 ## D6.1 Scanner source (self-contained, copy-paste reproducible)
@@ -95,9 +99,9 @@ if __name__ == "__main__":
 OK         scp/api_server_parts/lifespan.py  (0 except:pass handlers, 0 out-of-scope fallback handlers)
 OK         scp/api/background_jobs.py  (0 except:pass handlers, 0 out-of-scope fallback handlers)
 OK         scp/policy/retry_policy.py  (0 except:pass handlers, 0 out-of-scope fallback handlers)
-INFO       scp/api_server.py:567  except Exception  (fallback/action without log)
-INFO       scp/api_server.py:120  except Exception  (fallback/action without log)
-INFO       scp/api_server.py:134  except Exception  (fallback/action without log)
+INFO       scp/api_server.py:576  except Exception  (fallback/action without log)
+INFO       scp/api_server.py:129  except Exception  (fallback/action without log)
+INFO       scp/api_server.py:143  except Exception  (fallback/action without log)
 OK         scp/api_server.py  (0 except:pass handlers, 3 out-of-scope fallback handlers)
 INFO       scripts/run_scp_acceptance.py:383  except ValueError  (fallback/action without log)
 INFO       scripts/run_scp_acceptance.py:421  except Exception  (fallback/action without log)
@@ -116,10 +120,20 @@ SCANNED_FILES=6
 
 EXIT_CODE=0
 
-## D6.3 Scanned source sha256 (bind this result to exact bytes)
-ac47e4333c3b4809cd74745a4770b83826f9db85261244fe8aa76e7a929e0ecc scp/api_server_parts/lifespan.py
+# DELTA vs previous run (6328d51): still 0 contract violations. The three
+# out-of-scope INFO lines in scp/api_server.py moved by +9 lines (120/134/567 ->
+# 129/143/576) because the F7 hardening added 9 lines to _scp_service_identity();
+# the same 3 handlers remain, none of them is a D6 contract violation.
+
+## D6.3 Scanned source sha256 (worktree bytes, bind this result to exact bytes)
+2251ca187df0773066da89d67c866ce7b69eb3c52f92de44c1b027b8f4329dd9 scp/api_server_parts/lifespan.py
 56b98da21e37e65bc14583999512900e8c9573892bf6edcc70be542010be6531 scp/api/background_jobs.py
 5671d328af93b1fb85a4bfb8323fbf4c90358c08927a6730d706bc38cd4bb906 scp/policy/retry_policy.py
-57b5cbac9f0cadca5d03c48afba67749f3ef891981365c54a1128c7e709725b8 scp/api_server.py
+ac085d53cb0a62190effbef8ec078a9127cd127f61f17c1fe19e92634256b199 scp/api_server.py
 ca5c96c0347d98f38c8865b5471dc89610a75017bfefff53f5f0130dcb16da77 scripts/run_scp_acceptance.py
 056d11da1d52adc73d3f9ba9f30b2bc4362ebe9f9b3898a197d0785aa7e72629 tests/T01_boot/test_flow_01_boot_background_scp_standard.py
+
+# F821 independent cross-check (different tool, ruff, not the D6 scanner):
+#   git show bae6196:scp/api_server_parts/lifespan.py | ruff check --select F821 -  -> "Found 52 errors"
+#   ruff check --select F821 scp/api_server_parts/lifespan.py (worktree)           -> "All checks passed!"
+# i.e. the F821 defect (52 undefined `logger` uses) is closed by the re-pin fix.
