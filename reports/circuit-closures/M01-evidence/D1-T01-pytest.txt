@@ -1,0 +1,18 @@
+# D1 contract tests — T01_boot (M1)
+# command: py -3.12 -m pytest tests/T01_boot/ -q --no-header
+# git HEAD at run: 6328d513f53daf2cba03bf2d56a0bb380735f609
+# run at: 2026-09-10T19:18:49+07:00
+
+C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!
+  warnings.warn(
+...................................                                      [100%]
+35 passed in 8.40s
+Exception while exporting Span.
+Traceback (most recent call last):
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\opentelemetry\sdk\_shared_internal\__init__.py", line 179, in _export
+    self._exporter.export(
+  File "C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\opentelemetry\sdk\trace\export\__init__.py", line 307, in export
+    self.out.write(self.formatter(span))
+ValueError: I/O operation on closed file.
+
+EXIT_CODE=0

@@ -1,0 +1,11 @@
+# D3 adversarial — kernel flaws + chaos matrix
+# command: py -3.12 -m pytest tests/T04_kernel/test_adversarial_kernel_flaws.py tests/T10_recovery/test_adversarial_chaos_matrix.py -q --no-header
+# git HEAD at run: 6328d513f53daf2cba03bf2d56a0bb380735f609
+# run at: 2026-09-10T19:19:09+07:00
+
+C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!
+  warnings.warn(
+...............................................                          [100%]
+47 passed in 4.18s
+
+EXIT_CODE=0

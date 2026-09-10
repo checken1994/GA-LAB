@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M1 Boot & Background — STATUS: CLOSED (closure: reports/circuit-closures/M01-closure.json)
 """
 scp/api/background_jobs.py
 ===========================
@@ -225,16 +226,20 @@ def _get_kernel_or_none():
         kernel = get_kernel()
         if kernel is not None:
             return kernel
-    except (ImportError, AttributeError):
-        pass
+    except (ImportError, AttributeError) as exc:
+        # [MACH1-FIX-8 / D6 fail-loudly] Expected until scp.api._shared exposes
+        # get_kernel — debug level keeps the fallback observable without noise.
+        logger.debug("[MACH1-FIX-1] scp.api._shared.get_kernel unavailable (%s) — using adapter kernels", exc)
     try:
         from scp import api_server  # runtime import — safe after boot
         for adapter in list(getattr(api_server, "_ASK_KERNEL_ADAPTERS", {}).values()):
             kernel = getattr(adapter, "kernel", None)
             if kernel is not None:
                 return kernel
-    except Exception:
-        pass
+    except Exception as exc:
+        # [MACH1-FIX-8 / D6 fail-loudly] A broken fallback means the required
+        # watchdogs would silently no-op — this must be visible.
+        logger.warning("[MACH1-FIX-1] kernel resolver fallback failed: %s", exc, exc_info=True)
     return None
 
 
@@ -287,5 +292,8 @@ def _canary_cleanup_tick() -> None:
             removed = cm.cleanup_expired()
             if removed:
                 logger.info("[Watchdog] canary_cleanup: removed %d expired tokens", removed)
-    except Exception:
-        pass
+    except Exception as exc:
+        # [MACH1-FIX-8 / D6 fail-loudly] The job is optional (required=False), so
+        # a failure must not abort boot — but it must be observable, otherwise
+        # expired tokens leak and the registry error counter is the only trace.
+        logger.warning("[Watchdog] canary_cleanup failed: %s", exc, exc_info=True)

@@ -1,0 +1,29 @@
+# D7 wiring/docs scan — M1 Boot & Background
+# git HEAD at run: 6328d513f53daf2cba03bf2d56a0bb380735f609
+# run at: 2026-09-10T19:20:00+07:00
+
+## D7.1 TODO/FIXME/XXX scan
+# command: grep -n 'TODO\|FIXME\|XXX' <6 scope files>
+(no output — 0 matches)
+TODO_SCAN=0_MATCHES
+
+## D7.2 SCP CIRCUIT header in the 4 scope modules
+# command: grep -n '^# SCP CIRCUIT: M1 Boot & Background' <4 modules>
+scp/api_server_parts/lifespan.py:2:# SCP CIRCUIT: M1 Boot & Background — STATUS: CLOSED (closure: reports/circuit-closures/M01-closure.json)
+scp/api/background_jobs.py:1:# SCP CIRCUIT: M1 Boot & Background — STATUS: CLOSED (closure: reports/circuit-closures/M01-closure.json)
+scp/policy/retry_policy.py:2:# SCP CIRCUIT: M1 Boot & Background — STATUS: CLOSED (closure: reports/circuit-closures/M01-closure.json)
+scp/api_server.py:1:# SCP CIRCUIT: M1 Boot & Background — STATUS: CLOSED (closure: reports/circuit-closures/M01-closure.json)
+
+## D7.3 Wiring docs
+# command: ls -l reports/circuit-closures/CIRCUIT-FLOW-MAP.md reports/circuit-closures/M01-runbook.md
+-rw-r--r-- 1 check 197609 4125 Sep 10 19:19 reports/circuit-closures/CIRCUIT-FLOW-MAP.md
+-rw-r--r-- 1 check 197609 6702 Sep 10 19:19 reports/circuit-closures/M01-runbook.md
+
+## D7.4 Source file sha256 (bind scan to bytes)
+ac47e4333c3b4809cd74745a4770b83826f9db85261244fe8aa76e7a929e0ecc scp/api_server_parts/lifespan.py
+56b98da21e37e65bc14583999512900e8c9573892bf6edcc70be542010be6531 scp/api/background_jobs.py
+5671d328af93b1fb85a4bfb8323fbf4c90358c08927a6730d706bc38cd4bb906 scp/policy/retry_policy.py
+57b5cbac9f0cadca5d03c48afba67749f3ef891981365c54a1128c7e709725b8 scp/api_server.py
+ca5c96c0347d98f38c8865b5471dc89610a75017bfefff53f5f0130dcb16da77 scripts/run_scp_acceptance.py
+056d11da1d52adc73d3f9ba9f30b2bc4362ebe9f9b3898a197d0785aa7e72629 tests/T01_boot/test_flow_01_boot_background_scp_standard.py
+D7_SCAN_EXIT=0

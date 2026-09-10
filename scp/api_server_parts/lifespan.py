@@ -1,4 +1,5 @@
 # Auto-extracted from api_server.py
+# SCP CIRCUIT: M1 Boot & Background — STATUS: CLOSED (closure: reports/circuit-closures/M01-closure.json)
 from __future__ import annotations
 from scp.security.env_loader import load_selected_env
 from fastapi import Depends
@@ -391,8 +392,10 @@ async def lifespan(app: FastAPI):
     try:
         from scp.core.doubt_cron import get_doubt_cron
         get_doubt_cron(data_dir=os.environ.get('SCP_DATA_DIR', 'data')).stop()
-    except Exception:
-        pass
+    except Exception as exc:
+        # [MACH1-FIX-8 / D6 fail-loudly] Shutdown must not swallow: a failed stop
+        # leaves the doubt-cron thread running after the server is gone.
+        logger.warning('[DOUBT] Cronjob of Doubt stop failed (non-fatal): %s', exc, exc_info=True)
     # Stop all background jobs registered in the global registry
     try:
         from scp.api.background_jobs import registry

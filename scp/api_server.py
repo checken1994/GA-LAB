@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M1 Boot & Background — STATUS: CLOSED (closure: reports/circuit-closures/M01-closure.json)
 """SCP API server composition root.
 
 High-coupling request execution and lifespan orchestration live in
@@ -82,8 +83,13 @@ def _scp_service_identity() -> dict:
     if "SCP_PORT" in os.environ:
         try:
             _port = int(os.environ["SCP_PORT"])
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as _port_err:
+            # [MACH1-FIX-8 / D6 fail-loudly] A malformed SCP_PORT silently
+            # changed the advertised identity/port match — surface it.
+            logger.warning(
+                "[MACH1-FIX-8] SCP_PORT=%r is not an integer (%s) — falling back to argv/default",
+                os.environ["SCP_PORT"], _port_err,
+            )
     if _port is None:
         for _arg in _sys.argv[1:]:
             if _arg.isdigit() and 1 <= int(_arg) <= 65535:
@@ -383,8 +389,10 @@ if _EXTRA_ROUTERS_AVAILABLE:
             from scp.api.routes.v106_routes import audit_router, capability_router
             app.include_router(audit_router)
             app.include_router(capability_router)
-        except ImportError:
-            pass
+        except ImportError as _v106_err:
+            # [MACH1-FIX-8 / D6 fail-loudly] A missing v106 module silently
+            # drops the audit/capability route group — operators must see it.
+            logger.warning("[Task 9-B] v106 audit/capability routers unavailable: %s", _v106_err)
     if _route_enabled("import"):
         app.include_router(import_router)
 
