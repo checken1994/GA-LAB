@@ -1,0 +1,25 @@
+# D6 runtime probe — does the new fail-loudly log ACTUALLY emit?
+# git HEAD: 62afcd707ea94ffc72ab755232b29eddad69b8d3
+# run at: 2026-09-10T19:30:30+07:00
+# probe: set SCP_PORT to a non-integer, then call scp.api_server._scp_service_identity()
+# expectation pre-fix: silent fallback (no log). post-fix: WARNING + fallback still applied (behaviour preserved).
+
+# command: SCP_PORT=not-a-number py -3.12 -c "..."
+INFO    | scp.api | [Security] HTTPS redirect disabled (set SCP_FORCE_HTTPS=1 in prod)
+INFO    | scp.api | [Security] CSRF protection: Bearer token auth
+C:\Users\check\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (6.0.0.post1)/charset_normalizer (3.4.3) doesn't match a supported version!
+  warnings.warn(
+DEBUG   | scp.autofix.engine_v2 | [IMP-6/9] injected rollback_fix_by_token into AutoFixEngine
+DEBUG   | scp.autofix.engine_v2 | [IMP-6/9] injected list_rollback_tokens into AutoFixEngine
+DEBUG   | scp.autofix.engine_v2 | [IMP-6/9] injected register_fix_for_rollback into AutoFixEngine
+DEBUG   | scp.autofix.engine_v2 | [IMP-6/9] injected preview_fix_dry_run into AutoFixEngine
+DEBUG   | scp.autofix.engine_v2 | [IMP-6/9] injected apply_dry_run into AutoFixEngine
+DEBUG   | scp.autofix.engine_v2 | [IMP-6/9] injected rollback_registry_stats into AutoFixEngine
+INFO    | scp.autofix | [R7-Full] IMP-6 (rollback token) + IMP-9 (dry-run) injected into AutoFixEngine
+INFO    | scp.api | [OTel] tracing disabled: SCP_OTEL_ENABLED=0
+WARNING | scp.api | [MACH1-FIX-8] SCP_PORT='not-a-number' is not an integer (invalid literal for int() with base 10: 'not-a-number') — falling back to argv/default
+RESULT configured_port = 8000
+RESULT commit          = 62afcd707ea94ffc72ab755232b29eddad69b8d3
+BEHAVIOUR_PRESERVED_fallback_to_default_or_argv = True
+
+EXIT_CODE=0

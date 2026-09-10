@@ -5,14 +5,20 @@
 >
 > Quy tắc trạng thái (không được nới):
 > - `CLOSED` chỉ khi có đủ D0–D7 trên **cùng một SHA pin** + closure record trong `reports/circuit-closures/`.
+> - `CLOSED_WITH_KNOWN_GAP` = hợp lệ nhưng có ít nhất một mục mang `EVIDENCE_GAP` đã ghi rõ trong closure record. **Không** được đọc thành "đã xong hoàn hảo".
 > - `NOT_VERIFIED` = chưa có bằng chứng runtime trên SHA pin. **Không** đồng nghĩa "hỏng", và **không** được đọc thành "đã xong".
 > - `EVIDENCE_GAP` = đã chạy nhưng thiếu/không hợp lệ một mục bắt buộc.
+>
+> M1 hiện chỉ đạt `CLOSED_WITH_KNOWN_GAP` vì D4 (ratchet scan) là `EVIDENCE_GAP`: hook ledger báo
+> `runStatus=inconclusive`, `scanned_files=0`, 6/6 file phạm vi `scanner_failed`. Bản deep scan có seal
+> (phủ 1360/1360 file, 0 finding trong 6 file phạm vi M1) là bằng chứng bổ trợ, **không** nâng D4 thành PASS
+> vì chính scan đó có `runStatus=inconclusive` / `completeness=partial`.
 
 Bảng dưới là trạng thái tại lần cập nhật gần nhất; luôn đối chiếu lại với closure record thật trong `reports/circuit-closures/` thay vì tin bảng này.
 
 | Mạch | Tên | Suite chính | Runtime probe | Trạng thái |
 |---|---|---|---|---|
-| M1 | Boot & Background | `tests/T01_boot/` | watchdog `first execution completed` log; `GET /health` (service_identity.commit == SHA pin); `GET /readiness` (judge/background_scheduler = ok) | **CLOSED** (`reports/circuit-closures/M01-closure.json`) |
+| M1 | Boot & Background | `tests/T01_boot/` | watchdog `first execution completed` log; `GET /health` (service_identity.commit == SHA pin); `GET /readiness` (judge/background_scheduler = ok) | **CLOSED_WITH_KNOWN_GAP** (`reports/circuit-closures/M01-closure.json`, D4 = EVIDENCE_GAP) |
 | M2 | Ask & Chat | `tests/T02_contract/test_flow_02_ask_chat_scp_standard.py` | WS probe thật; trace `ask_task_kernel` | NOT_VERIFIED |
 | M3 | OpenAI-compat | `tests/T02_contract/test_flow_03_openai_compat_scp_standard.py` | chưa thực hiện | NOT_VERIFIED |
 | M4 | Control & Hands | `tests/T03_capability/test_flow_04_control_hands_scp_standard.py` + `tests/T03_capability/` | chưa thực hiện | NOT_VERIFIED |

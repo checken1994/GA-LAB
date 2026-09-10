@@ -6,6 +6,12 @@ Bản đồ 14 mạch: `reports/circuit-closures/CIRCUIT-FLOW-MAP.md`.
 Runbook này dùng để **tái lập bằng chứng runtime** cho M1 và để chẩn đoán khi boot hỏng.
 Không thay thế closure record; nếu kết quả chạy khác kỳ vọng bên dưới thì mạch **không** còn CLOSED.
 
+> [!IMPORTANT]
+> M1 đang ở trạng thái `CLOSED_WITH_KNOWN_GAP`, không phải `CLOSED` sạch: **D4 (ratchet scan) = EVIDENCE_GAP**
+> (hook ledger `inconclusive`, `scanned_files=0`, 6/6 file phạm vi `scanner_failed`). Chi tiết và các known gap
+> khác nằm trong `reports/circuit-closures/M01-closure.json` và `reports/circuit-closures/M01-evidence/CORRECTIONS-AND-HASHES.md`.
+> Bước 8 (regression clause) vì vậy vẫn hiệu lực đầy đủ.
+
 ---
 
 ## 0. Tiền đề (fail-closed, phải kiểm trước)
