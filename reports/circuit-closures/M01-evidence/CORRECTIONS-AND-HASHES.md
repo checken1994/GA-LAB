@@ -114,3 +114,26 @@ mot con so scan da kiem chung. Closure record dung so cua deep scan co seal.
 fallback ve 8000 (hanh vi khong doi). 5 nhanh log moi con lai KHONG duoc kich hoat trong boot sach cua D2
 (`MATCH_COUNT=0` cho `MACH1-FIX-8` trong log container) => D6 co bang chung tinh (AST) + 1 bang chung runtime,
 khong phai ca 6.
+
+## C6. PHU LUC RE-PIN (2026-09-10, sha_pin MOI 765075312bdc55373a86d9c5577ac62140c7ad64)
+
+DOC MUC NAY TRUOC KHI DUNG BANG HASH O C2 / C1 / C5.
+
+- C3 DA DUOC XU LY tai PIN2: `import logging` da co san trong `scp/api_server_parts/lifespan.py` va
+  dong `logger = logging.getLogger("scp.api")` da duoc them. Cross-check bang tool doc lap (ruff, khac
+  scanner D6): `ruff check --select F821` -> TRUOC 52 loi `Undefined name logger`, SAU `All checks passed!`.
+  Import truc tiep module tra ve `<Logger scp.api (INFO)>` va la CUNG object voi `scp.api_server.logger`
+  (`m.logger is a.logger == True`) nen khong co double-emit / khong them handler.
+- F7 CUNG DA DUOC XU LY tai PIN2: dong log SCP_PORT khong con dua raw env value va khong con dua message
+  cua exception (voi `ValueError`, message CHUA chinh raw value) vao log. No chi con type loi + do dai +
+  preview da cat 24 ky tu va da thay control char bang `?`. Probe case B (value chua newline + dong log
+  gia `CRITICAL`): ghi ra dung 1 dong vat ly, payload khong lot vao log. Hanh vi fallback ve 8000 KHONG doi
+  (case A/B/C deu `configured_port=8000`).
+- BANG HASH O C2 (va cac so lieu C1/C5) CHI CON HIEU LUC TAI sha_pin CU `62afcd7`. Sau PIN2, hash cua
+  `scp/api_server_parts/lifespan.py`, `scp/api_server.py` va cua D1/D3/D6-ast/D6-runtime-probe/D7 DA DOI.
+  Nguon hash CO THAM QUYEN cho trang thai hien tai la `reports/circuit-closures/M01-closure.json`
+  (muc `checklist` + `evidence`, ghi ca `sha256` LF va `sha256_worktree`).
+- C4 giu nguyen hieu luc: khong dung 194 nhu mot con so scan da kiem chung.
+- GHI CHU PROVENANCE: phu luc nay do chinh chuoi re-pin tu ghi sau khi do lai, KHONG phai mot bai review
+  doc lap. PIN2 chua qua D5 doc lap (xem `known_gaps` trong M01-closure.json).
+

@@ -2,8 +2,10 @@
   "circuit": "M01",
   "name": "Boot & Background",
   "status": "CLOSED_WITH_KNOWN_GAP",
-  "status_note": "D0,D1,D2,D3,D5,D6,D7 = PASS; D4_ratchet = EVIDENCE_GAP. Trang thai nay KHONG phai CLOSED sach. Doc known_gaps truoc khi dung lai ket qua nay.",
-  "sha_pin": "62afcd707ea94ffc72ab755232b29eddad69b8d3",
+  "status_note": "F821 (logger) va F7 (SCP_PORT log hygiene) DA XU LY tai pin nay. D0,D1,D2,D3,D5,D6,D7 = PASS; D4_ratchet = EVIDENCE_GAP (giu nguyen, xem known_gaps). Trang thai nay KHONG phai CLOSED sach. Doc known_gaps truoc khi dung lai ket qua nay.",
+  "sha_pin": "765075312bdc55373a86d9c5577ac62140c7ad64",
+  "sha_pin_previous": "62afcd707ea94ffc72ab755232b29eddad69b8d3",
+  "re_pin_reason": "Dong 2 known_gap sua duoc: (1) F821 - scp/api_server_parts/lifespan.py thieu binding `logger` (52 tham chieu); (2) F7 - dong log SCP_PORT dua raw env value vao log. Ca hai da sua + do lai D1/D2/D3/D6/D7 tai pin moi.",
   "branch": "audit/runtime-guard-AUDIT-20260909",
   "scope_files": [
     "scp/api_server_parts/lifespan.py",
@@ -17,37 +19,40 @@
     "tests/T01_boot/test_flow_01_boot_background_scp_standard.py",
     "reports/circuit-closures/**"
   ],
-  "owner": "fix chain: zcode-agent (6328d51) + closure pass nay (sha_pin 62afcd7 + ban ghi nay)",
+  "owner": "fix chain: zcode-agent (6328d51 -> 62afcd7 -> 7650753). Re-pin pass nay: zcode-agent, sha_pin 7650753 + ban ghi nay.",
   "checklist": {
     "D0_scope_lock": {
       "status": "PASS",
-      "evidence": "git show --name-status 62afcd707ea94ffc72ab755232b29eddad69b8d3",
-      "note": "12 file trong sha_pin, 0 file ngoai scope (reviewer 1 T5 xac nhan doc lap). LUU Y: D0 o day la scope cua sha_pin; khong co artifact phe duyet D0 do owner ky trong repo."
+      "evidence": "git show --name-status 765075312bdc55373a86d9c5577ac62140c7ad64 (8 file) + git show --name-status 62afcd707ea94ffc72ab755232b29eddad69b8d3 (12 file)",
+      "note": "Commit PIN2 chi cham 8 file: 2 file .py trong scope + 6 file reports/circuit-closures/** (CLOSURE-CONTRACT.md + 5 evidence). 0 file ngoai whitelist M1. LUU Y: D0 o day la scope cua sha_pin; khong co artifact phe duyet D0 do owner ky trong repo."
     },
     "D1_contract_tests": {
       "status": "PASS",
       "evidence": "reports/circuit-closures/M01-evidence/D1-T01-pytest.txt",
-      "sha256": "6e1b9e7a06b31e56a3506965f602451109eb9c95dd260c8340586c6034d2fe5d",
-      "sha256_worktree": "ad35d25e29c75e3f1e3050ad0d67c11e48e3ec54367219459fa9936fabc5421c",
-      "note": "py -3.12 -m pytest tests/T01_boot/ -q --no-header -> 35 passed, exit 0; reviewer 1 tu chay lai duoc 35 passed (T4). GIOI HAN: chay tren working tree tai HEAD 6328d51 (parent cua pin), khong phai tren checkout sach cua pin - xem known_gaps."
+      "sha256": "71a2b3db5c4f1db147818b094b1c5be4f3faa774265359274ceb254d3b2d53a6",
+      "sha256_worktree": "657f61974bbdf74700804fb1cf31c0973daf7c51fd58a22db13dad9af4e07834",
+      "note": "py -3.12 -m pytest tests/T01_boot/ -q --no-header -> 35 passed, exit 0 (RE-PIN RUN 19:53:02, ghi de ban cu). Chay tren worktree tai HEAD bae6196 (parent cua PIN2) dang mang 2 fix cua pin nay. GIOI HAN: khong phai checkout sach cua PIN2 (tests/conftest.py van uncommitted, thuoc mach khac) - xem known_gaps. Bu lai, D2.8 chung minh 9/9 file pham vi M1 tren dia giong noi dung PIN2 sau chuan hoa EOL."
     },
     "D2_runtime_proof": {
       "status": "PASS",
       "evidence": "reports/circuit-closures/M01-evidence/D2-docker.txt",
-      "sha256": "6d16bc55a921e51d49b91314ca28724572b8d4f948ac0e464238b9a2ae008e1f",
-      "sha256_worktree": "9146cff8a769bf1463f322f00d12d1bd527a9b07dd2ef59831121326046e6bb8",
-      "service_identity_commit": "62afcd707ea94ffc72ab755232b29eddad69b8d3",
-      "image_id": "c3754994939f",
-      "checks": "service_identity.commit == sha_pin TRUE; /health HTTP 200; /readiness HTTP 200 status=ready judge=ok background_scheduler=ok",
-      "log_lines": "[MACH1-FIX-1] 5 jobs; [MACH1-FIX-2] boot config validated; [RESTORED-SYSTEMS] RetryPolicy background thread started; kernel_lease_expiry + kernel_orphan_reconcile first execution completed",
-      "note": "SHOULD build tu working tree, khong phai checkout sach cua pin => SHA la nhan identity duoc inject qua build arg, khong phai content digest. 9/9 file pham vi M1 tren dia giong noi dung pin (CORRECTIONS C1.1). Xem known_gaps."
+      "sha256": "7eb4760ed0829515b9c6dd6a9ab472be5ebaa4618c2f14c4a3147a8326c90288",
+      "sha256_worktree": "7eb4760ed0829515b9c6dd6a9ab472be5ebaa4618c2f14c4a3147a8326c90288",
+      "service_identity_commit": "765075312bdc55373a86d9c5577ac62140c7ad64",
+      "container_image_digest": "sha256:7f02c6d61d2ce6a67a4c87d2d66e136ee384e8a5bf3d9489a61156e6d5307bb7",
+      "image_config_digest": "sha256:1ac652ba238e8c8932662417948fecd4402108423f53fa327b9c67bb4e4e2275",
+      "image_layer_manifest": "sha256:85c7351cdf950ad50ed5295bf2688dbf107e9c0037da9f528222b97187704dca",
+      "checks": "service_identity.commit == sha_pin TRUE; /health HTTP 200; /readiness HTTP 200 status=ready judge=ok background_scheduler=ok; service LISTENING 127.0.0.1:8000->8000/tcp; container 56dd7f8618de",
+      "log_lines": "[MACH1-FIX-1] 5 jobs; [MACH1-FIX-2] boot config validated; [RESTORED-SYSTEMS] RetryPolicy background thread started; kernel_lease_expiry + kernel_orphan_reconcile first execution completed (D2.7a-b)",
+      "adversarial_scan": "0 traceback / 0 CRITICAL / 0 BYPASSED; 101 free_catalog WARNING (pre-existing egress-deny, y het so cua lan D2 truoc); 12 dong span-JSON status_code=ERROR - da phan tich: 27 span, TAT CA chi thuoc GET /readiness (8 request) + GET /health (1 request), 12 span ERROR la 503 luc service dang khoi dong (fail-closed readiness dung thiet ke), khong span nao tu duong loi M1 (D2.7e).",
+      "note": "SHOULD build tu working tree, khong phai checkout sach cua pin => SHA la nhan identity inject qua build arg, KHONG phai content digest (xem known_gaps). Container dang chay giu digest 7f02c6d6...; rebuild cached tao index digest be1ee0e7... nhung config + layer manifest Y HET (chi khac attestation manifest) => noi dung image khong doi."
     },
     "D3_adversarial": {
       "status": "PASS",
       "evidence": "reports/circuit-closures/M01-evidence/D3-adversarial-pytest.txt",
-      "sha256": "51a4b92c55a407f118a8823cec2baab4b98026b695c3039cc92937b61b993f34",
-      "sha256_worktree": "06a2aa9ad0fd399aba15a82d1e791f13611327b174e97dd4e3799cae9ab4ebb1",
-      "note": "py -3.12 -m pytest tests/T04_kernel/test_adversarial_kernel_flaws.py tests/T10_recovery/test_adversarial_chaos_matrix.py -q --no-header -> 47 passed, exit 0; reviewer 2 tu chay lai khop 47 passed. Cung gioi han tai lieu nhu D1."
+      "sha256": "804ec982d63c014b6057cb43fa1e9dc9f06a1202316ede21c751654b806b03b4",
+      "sha256_worktree": "804ec982d63c014b6057cb43fa1e9dc9f06a1202316ede21c751654b806b03b4",
+      "note": "py -3.12 -m pytest tests/T04_kernel/test_adversarial_kernel_flaws.py tests/T10_recovery/test_adversarial_chaos_matrix.py -q --no-header -> 47 passed, exit 0 (RE-PIN RUN 19:53:13, ghi de ban cu). Cung gioi han tai lieu nhu D1. Bo sung probe khai thac that cho 2 file vua sua: D6-runtime-probe.txt case B (log-injection) va case C (clean env, khong false positive)."
     },
     "D4_ratchet": {
       "status": "EVIDENCE_GAP",
@@ -56,9 +61,10 @@
       "sha256_worktree": "cf9a00eff0874ea139fe92db6d7e8d3c5f8781b09dd80b1d3150a4d72e311d45",
       "sha256_second": "6bbafc16f51563dea1b0630939e34dccae8608f50222a65aab112d54fe76fdfd",
       "sha256_second_worktree": "fb8f180bbdd62b302ad373f823aecc3a57ce1d44ce3a0a6c24f9a72550781ef8",
-      "hook_ledger": "runStatus=inconclusive, scanned_files=0, failed_files=6/6 (scanner_failed ETIMEDOUT), revision=fe4bc8d (truoc pin)",
+      "hook_ledger": "runStatus=inconclusive, scanned_files=0, failed_files=6/6 (scanner_failed ETIMEDOUT), revision=fe4bc8d (truoc pin) - KHONG doi trong lan re-pin nay",
+      "hook_block_at_repin": "19:55 (2026-09-10) Mimosa L3 chan commit 5a: tu bao 194 high / 9 medium / 99 low toan du an (khac so cua deep scan co seal: 184/14/98). 0 finding trong 6 file pham vi M1. Xem known_gaps (Mimosa gate).",
       "deep_scan": "seal sha256:e344a9599b8fbb667f1c32fe4dd87c4b4640ac283d8a15d58a2e3a6f820b20af, selectedFiles=1360 parsedFiles=1360 readFailures=0 parseFailures=0, totals high=184 medium=14 low=98 businessLogic=1, findings trong 6 file pham vi M1 = 0",
-      "note": "KHONG duoc nang thanh PASS: (a) hook ledger khong do duoc gi (0 file) va o revision truoc pin; (b) deep scan co source coverage day du va 0 finding trong pham vi M1, nhung chinh scan do bao runStatus=inconclusive/completeness=partial. Ket luan ratchet chi o muc: khong quan sat thay HIGH moi trong pham vi M1 - khong phai 'sach'."
+      "note": "KHONG duoc nang thanh PASS: (a) hook ledger khong do duoc gi (0 file) va o revision truoc pin; (b) deep scan co source coverage day du va 0 finding trong pham vi M1, nhung chinh scan do bao runStatus=inconclusive/completeness=partial; (c) ratchet doi hoi 'HIGH toan du an khong tang so moc truoc' - moc truoc chua bao gio duoc do bang chung day du. Ket luan ratchet chi o muc: khong quan sat thay HIGH moi trong pham vi M1 - khong phai 'sach'."
     },
     "D5_independent_review": {
       "status": "PASS",
@@ -69,81 +75,108 @@
         "m1_static_verifier (read-only, doc lap): APPROVE_WITH_LIMITS - T1 DUNG (6 pass-only truoc -> 0 sau, multiset exception type khong doi), T2/T4/T5 DUNG, T3 dung dinh dang, T6 dung noi dung sai byte tho (CRLF)",
         "m1_dod_auditor (read-only, doc lap): REJECT cho tuyen bo 'M1 CLOSED' - G1..G12"
       ],
-      "note": "Review CHAY THAT va verdict REJECT duoc giu nguyen, khong lam mem. Digest nay do ben duoc review tu tong hop; full transcript nam trong session log ZCode, KHONG luu trong repo -> gioi han provenance."
+      "note": "PHAM VI REVIEW: 2 reviewer nay review chuoi fix tai 6328d51 / 62afcd7 (TRUOC pin nay) va chinh ho la nguon cua F821 (reviewer 1 - F2) + F7 (reviewer 2 - F7). PIN MOI 7650753 KHONG duoc reviewer doc lap nao review lai: thay doi tai pin nay chi gom 2 fix do chinh reviewer chi ra + ban ghi/tai lieu, va da duoc do lai D1/D2/D3/D6/D7, nhung day la self-verify cho phan re-pin, KHONG tinh la D5 cho pin moi. Digest nay do ben duoc review tu tong hop; full transcript nam trong session log ZCode (sess_59cd1d3c-1419-4a90-9164-7120c1262090), KHONG luu trong repo -> gioi han provenance."
     },
     "D6_fail_loudly": {
       "status": "PASS",
       "evidence": "reports/circuit-closures/M01-evidence/D6-ast-scan.txt + D6-runtime-probe.txt",
-      "sha256": "0542fb4b7444552a4e8ec608f5bb4b9c5ae5889fd70e1cec331eb9ae7a960433",
-      "sha256_worktree": "0186da7e691f707b5db4077aff2c6e77155db4650f6b060a5bc2f9f5aa8997c7",
-      "sha256_second": "4f8a03f8bd5ec6f61fba388c3e54c0c945edfb79d7936de921bceee0bb246607",
-      "sha256_second_worktree": "2e7d2fdf7265746b5bda4802e21853cda5332b52f8a61f5baf13a29bb511040e",
-      "note": "AST scan tren 6 file pham vi: CONTRACT_VIOLATIONS_EXCEPT_PASS_WITHOUT_LOG=0 (exit 0). Runtime: 1/6 nhanh duoc kich hoat that (SCP_PORT sai -> WARNING [MACH1-FIX-8] + fallback 8000, hanh vi khong doi). 5 nhanh con lai khong xuat hien trong boot sach cua D2. 11 handler fallback-khong-log con lai la pre-existing, NGOAI hop dong 6 vi tri except:pass. Reviewer 1 xac nhan doc lap 0 pass-only."
+      "sha256": "84056e8587d29ffbb045b98ab57db043d21d210b454c244ab0269969bb2a46eb",
+      "sha256_worktree": "84056e8587d29ffbb045b98ab57db043d21d210b454c244ab0269969bb2a46eb",
+      "sha256_second": "319a1eb57be70c9c922c4be535bf81a21e3a99d0f01f625019fe3ec61e80a99e",
+      "sha256_second_worktree": "98f4bd4a319b8bb45878072bbc97ef5a19c22aede11a5ff99718d44d5f8a3931",
+      "note": "AST scan tren 6 file pham vi (RE-PIN RUN): CONTRACT_VIOLATIONS_EXCEPT_PASS_WITHOUT_LOG=0 (exit 0), OUT_OF_SCOPE_FALLBACK_NO_LOG=11 y nguyen; 3 dong INFO trong api_server.py doi so dong +9 do F7 them 9 dong. Runtime probe MOI (3 case, PROBE_RESULT=PASS, exit 0): (A) SCP_PORT sai -> WARNING [MACH1-FIX-8] + fallback 8000 giu nguyen; (B) SCP_PORT chua newline + dong log gia CRITICAL -> ghi ra DUNG 1 dong vat ly, newline bi thay bang '?', preview cat 24 ky tu, payload khong lot vao log; (C) env sach -> khong phat warning nao (khong false positive). Cross-check doc lap F821 bang ruff (khac scanner): 52 loi F821 truoc -> 'All checks passed!' sau. LUU Y: 5/6 nhanh log moi khac khong xuat hien trong boot sach cua D2 (xem known_gaps F6)."
     },
     "D7_wiring_docs": {
       "status": "PASS",
-      "evidence": "reports/circuit-closures/M01-evidence/D7-todo-scan.txt + CIRCUIT-FLOW-MAP.md + M01-runbook.md",
-      "sha256": "ce9a0d1004670126de92c4004d97449ee0651763f0adc993409717912da92feb",
-      "sha256_worktree": "31fb183a3a18d8c6f74aa672c421ad4bad64bfd53bcc2ffca6e84851115de28a",
-      "note": "0 TODO/FIXME/XXX trong 6 file pham vi; header SCP CIRCUIT co o 4 module; 2 tai lieu wiring ton tai. Reviewer 1 T2/T3 xac nhan doc lap."
+      "evidence": "reports/circuit-closures/M01-evidence/D7-todo-scan.txt + CIRCUIT-FLOW-MAP.md + M01-runbook.md + CLOSURE-CONTRACT.md",
+      "sha256": "19196a7cc0d76d3c0af6d32302103ee20a106dbb9ac4cc5ec74681a12a93a33a",
+      "sha256_worktree": "19196a7cc0d76d3c0af6d32302103ee20a106dbb9ac4cc5ec74681a12a93a33a",
+      "note": "0 TODO/FIXME/XXX trong 6 file pham vi (RE-PIN RUN); header SCP CIRCUIT co o 4 module; 3 tai lieu wiring ton tai. MOI tai pin nay: reports/circuit-closures/CLOSURE-CONTRACT.md (nguyen van hop dong D0-D8 v1) - LUU Y provenance: day la ban ghi lai hop dong duoc tham chieu tu truoc, KHONG phai authority co san tu truoc; khong co chu ky owner tren file nay."
     },
     "D8_closure_record": {
       "status": "PASS",
       "evidence": "reports/circuit-closures/M01-closure.json (chinh file nay)",
-      "note": "Record duoc commit ngay sau sha_pin; noi dung phan anh dung ket qua 2 reviewer, ke ca REJECT."
+      "note": "Record duoc cap nhat ngay sau sha_pin PIN2 (commit docs rieng, chi cham reports/circuit-closures/**). Giu nguyen verdict REJECT/APPROVE_WITH_LIMITS cua 2 reviewer va ghi ro pham vi review la 6328d51/62afcd7, khong phai PIN2."
     }
   },
   "known_gaps": [
-    "F821 logger (reviewer 1 F2): scp/api_server_parts/lifespan.py KHONG dinh nghia `logger` (52 tham chieu, 0 getLogger). Module chi chay duoc vi scp/api_server.py:289 rebind bang globals cua api_server. Dong log MOI them (lifespan.py:398) nam trong nhom nay: goi module truc tiep (raw import/refactor/static analysis) se NameError dung tai nhanh fail-loudly. Day la khuyet diem CO SAN (51 cho truoc commit, 1 cho moi) va ngoai hop dong 6 vi tri except:pass. KHONG sua trong commit nay vi se doi SHA pin da do runtime. Follow-up: them logger = logging.getLogger(\"scp.api\").",
-    "D1/D3 khong tai lap duoc tu sha_pin: chung chay tren working tree tai HEAD 6328d51 (parent cua pin) va phu thuoc tests/conftest.py dang uncommitted (SCP_API_PROFILE=full) - file thuoc mach khac, ngoai scope lock. Con so 35/47 pass la do that nhung gan voi tree do, khong gan voi checkout sach cua pin.",
-    "D2 image duoc build tu working tree (con nguyen nhieu file dirty ngoai scope + nhieu file untracked; vi du scp/api/routes/v106_routes.py va risk_routes.py co git ls-files = 0). Vi vay SHA trong /health la nhan identity duoc inject qua build arg, KHONG phai content digest, va image KHONG byte-identical voi tree cua pin. Da tu phoi tai D2.9.",
-    "EOL: worktree la CRLF (core.autocrlf=true, khong co .gitattributes) nen sha256 byte tho cua 12/16 file pham vi/evidence KHAC blob trong pin (chi khac EOL; noi dung giong nhau - reviewer 1 T6: 14/14 bang nhau sau chuan hoa). Closure record ghi ca sha256_lf (on dinh) va sha256_worktree. D6-ast-scan.txt ghi 'Scanned source sha256' theo bytes worktree.",
-    "Evidence D1/D3/D6/D7 ghi 'git HEAD at run: 6328d51' (parent cua pin) vi duoc thu truoc khi commit sha_pin (reviewer 1 F3). Vat chat van dung (hash noi dung khop pin sau chuan hoa EOL) nhung khong khop ve van ban voi chuan 'cung mot SHA pin'.",
-    "D2-docker.txt, D4-mimosa-deepscan.json, D6-runtime-probe.txt, CORRECTIONS-AND-HASHES.md, D5-reviewer-digest.md duoc tao SAU sha_pin nen duoc commit trong commit closure (reviewer 1 F4 / reviewer 2 G3). Evidence set vi vay khong frozen tai mot commit duy nhat.",
-    "D5 digest khong phai nguyen van: full transcript cua 2 reviewer chi nam trong session log ZCode (sess_59cd1d3c-1419-4a90-9164-7120c1262090), khong duoc luu thanh file trong repo.",
-    "D4 EVIDENCE_GAP (xem checklist). Khong co bang chung 'project HIGH = 0'; so HIGH project-wide cua deep scan co seal la 184 - con rat xa muc de co the bat lai L3 gate bat buoc theo ghi chu cua owner.",
-    "Mimosa L3 git-gate bi vo hieu hoa cho 2 commit nay theo uy quyen truc tiep cua owner trong session nay (lua chon 'Dung MIMOSA_NO_GIT_GATE=1'). KHONG co artifact phe duyet trong repo. Cach thuc: tam thoi tro 2 entry Bash cua plugin mimosa sang no-op script, sau do RESTORE byte-exact: hooks.json sha256 8887077f06f206e91578961096bb4919eb04e1da6d0b5ac11e8ea68692e75f63, payload/hooks/git-gate-hook.mjs sha256 7e8b5cc044ef330a3811745b9ba350feaa3d792d9f5499b4ce746c2dac36a941. Do la thay doi NGOAI repo, khong thuoc commit nay.",
-    "So 194 HIGH trong commit message la so do hook L3 tu bao; deep scan co seal bao 184 high (medium=14, low=98, businessLogic=1). Hai nguon khac nhau; con so dung cho moi danh gia la 184.",
-    "F6: 1/6 nhanh log moi o muc DEBUG (resolver ImportError) nen khong hien o muc INFO mac dinh - dung theo yeu cau hop dong nhung 'fail loudly' khong tron cho nhanh do.",
-    "F7: dong log moi cua SCP_PORT dung %r voi gia tri env. Khong phai secret va %r escape duoc log injection, nhung la pattern dua raw env value vao log.",
-    "F9: con 11 handler fallback-khong-log trong 6 file pham vi (3 o api_server.py:120/134/567, 8 o scripts/run_scp_acceptance.py). Khong phai except:pass, pre-existing, ngoai pham vi hop dong D6.",
+    "D4 EVIDENCE_GAP (xem checklist): khong co bang chung 'project HIGH = 0'. Deep scan co seal bao 184 high toan du an; hook L3 tu bao 194 high khi chan commit 5a; ca hai deu khong do duoc pham vi M1 co HIGH nao moi. Khong duoc dung con so nao de tuyen bo 'sach'.",
+    "D2 image duoc build tu working tree (con nguyen nhieu file dirty ngoai scope + nhieu file untracked; vi du scp/api/routes/v106_routes.py va risk_routes.py co git ls-files = 0). Vi vay SHA trong /health la nhan identity duoc inject qua build arg, KHONG phai content digest, va image KHONG byte-identical voi tree cua pin. Da tu phoi tai D2.9. Them: attestation manifest (va do do index digest) khac nhau giua 2 lan build cung noi dung - da ghi ro digest cua container dang chay.",
+    "EOL: worktree la CRLF (core.autocrlf=true, khong co .gitattributes) nen sha256 byte tho cua nhieu file pham vi/evidence KHAC blob trong pin (chi khac EOL; noi dung giong nhau - D2.8: 9/9 file pham vi M1 same_after_lf_normalise=True). Closure record ghi ca sha256 (LF, on dinh) va sha256_worktree. D6-ast-scan.txt ghi 'Scanned source sha256' theo bytes worktree.",
+    "Evidence D1/D3/D6/D7 cua lan re-pin nay ghi 'git HEAD at run: bae6196' (parent cua PIN2) vi duoc thu truoc khi commit PIN2. Vat chat dung (D2.8 chung minh 9/9 file pham vi tren dia == noi dung PIN2 sau chuan hoa EOL) nhung nhan van ban khong khop tieu chi 'cung mot SHA pin'.",
+    "D2-docker.txt duoc tao SAU sha_pin nen nam trong commit docs (5b), khong nam trong commit PIN2 => evidence set khong frozen tai mot commit duy nhat (van de nay da co tu ban ghi truoc, giu nguyen).",
+    "D5 digest khong phai nguyen van: full transcript cua 2 reviewer chi nam trong session log ZCode (sess_59cd1d3c-1419-4a90-9164-7120c1262090), khong duoc luu thanh file trong repo. Va: PIN2 chua duoc reviewer doc lap review.",
+    "F6: 1/6 nhanh log moi o muc DEBUG (resolver ImportError) nen khong hien o muc INFO mac dinh - dung theo yeu cau hop dong nhung 'fail loudly' khong tron cho nhanh do. 5/6 nhanh con lai khong xuat hien trong boot sach cua D2 (D2.7c: MATCH_COUNT=0 cho MACH1-FIX-8).",
+    "F9: con 11 handler fallback-khong-log trong 6 file pham vi (3 o api_server.py:129/143/576 sau khi dich +9 dong, 8 o scripts/run_scp_acceptance.py). Khong phai except:pass, pre-existing, ngoai pham vi hop dong D6.",
+    "Lint pre-existing: ruff bao 28 error o scp/api_server.py (TRUOC = SAU khi sua F7) va 49 error o lifespan.py (TRUOC 102, giam 53 = 52 F821 + 1 unused-import) - khong them loi moi, nhung 49+28 loi cu (E402/F811...) khong thuoc pham vi mach nay.",
     "G10: neu tinh ca 6328d51 vao mach M1 thi commit do chua reports/expert-panel/A-mach1-boot-fixes.md - NGOAI whitelist scope lock cua task nay.",
-    "G12: khong co spec D0-D8 hay STATUS-LEDGER trong repo (chi duoc tham chieu); con file rac .tmp-m1-t01-run1.txt (untracked) trong reports/circuit-closures/ do phien truoc de lai - khong duoc add vao commit.",
-    "Khong co artifact D5 tu truoc cho tuyen bo 'Agent B code verify: MACH1_FIX_APPROVED' trong commit 6328d51 - chi la tuyen bo trong commit message, khong kiem chung duoc. Bai review doc lap trong ban ghi nay la D5 THAY THE, khong xac nhan tuyen bo cu."
+    "F7 (log hygiene) da harden tai pin nay cho RIENG call site SCP_PORT: khong log raw env value va khong log message cua exception (ValueError chua raw value). DAY KHONG phai mot tong kiem tra: cac call site khac trong codebase van co the log gia tri tu env.",
+    "Mimosa L3 git-gate: (a) o 2 commit truoc pin: bi vo hieu hoa theo uy quyen truc tiep cua owner trong session truoc (da restore byte-exact); (b) o lan re-pin nay: gate CHAN commit 5a (tu bao 194 high toan du an), owner da cho phep bypass trong session nay (lua chon 'Cho phep bypass tam'), cach lam: backup byte-exact payload/hooks/git-gate-hook.mjs (847 bytes, sha256 7e8b5cc044ef330a3811745b9ba350feaa3d792d9f5499b4ce746c2dac36a941) va hooks/hooks.json (sha256 8887077f06f206e91578961096bb4919eb04e1da6d0b5ac11e8ea68692e75f63), thay git-gate-hook.mjs bang stub no-op (sha256 d49e833c8c16611b377e8d759712d15281a4ed81e44b523a970352e1e58fbaa0) trong luc commit 5a + 5b, roi restore lai byte-exact. TAI THOI DIEM COMMIT BAN GHI NAY, viec restore CHUA duoc thuc hien (commit can bypass dang hoat dong) - output verify hash nam trong session log, KHONG co artifact trong repo. Day la thay doi NGOAI repo, khong thuoc commit nao.",
+    "Khong co artifact D5 tu truoc cho tuyen bo 'Agent B code verify: MACH1_FIX_APPROVED' trong commit 6328d51 - chi la tuyen bo trong commit message, khong kiem chung duoc. Bai review doc lap trong ban ghi nay la D5 THAY THE, khong xac nhan tuyen bo cu.",
+    "G12 (mot phan da xu ly): file rac reports/circuit-closures/.tmp-m1-t01-run1.txt DA XOA tai phien nay; van ban hop dong D0-D8 nay DA co trong repo (CLOSURE-CONTRACT.md) thay vi chi duoc tham chieu - nhung do la ban ghi lai, khong phai authority goc co chu ky."
   ],
-  "regression_clause": "Commit sau cham file pham vi M1 bat buoc chay lai D1 + D2 + D4. Rieng viec sua F821 (them logger) se doi SHA pin => phai build lai image co pin moi va do lai /health + /readiness.",
-  "falsification_status": "PARTIALLY_FALSIFIED_AT_PIN - KHONG phai NONE_FAILED. D4_ratchet = EVIDENCE_GAP (hook ledger 0 file, 6/6 file failed, revision truoc pin). Reviewer 2: REJECT (G1,G2 da duoc xu ly bang ban ghi nay; G3,G4,G8 da duoc xu ly bang cach commit D2 + dinh chinh + ghi 2 loai hash; G5,G7,G9,G10,G11,G12 con nguyen trong known_gaps). Reviewer 1: APPROVE_WITH_LIMITS (F2 F821 logger va F3 nhan SHA con nguyen).",
+  "regression_clause": "Closure hieu luc tai sha_pin 7650753. Commit sau cham file pham vi M1 bat buoc chay lai toi thieu D1 + D2 + D4; doi kien truc phai dong lai toan bo D1-D8. Rieng 2 fix cua pin nay (them logger; doi noi dung 1 dong log) da duoc do lai day du D1/D2/D3/D6/D7 tai pin nay.",
+  "falsification_status": "PARTIALLY_FALSIFIED_AT_PIN - KHONG phai NONE_FAILED. D4_ratchet = EVIDENCE_GAP (hook ledger 0 file / 6-6 failed / revision truoc pin; moc 'HIGH toan du an' chua bao gio do day du). PIN2 chua qua D5 doc lap. Reviewer 1 (tai 6328d51/62afcd7): APPROVE_WITH_LIMITS - F2 (F821 logger) va F3 (nhan SHA) nay DA xu ly mot phan: F821 da sua + verify bang ruff 52->0; F3 van con (evidence ghi HEAD = parent cua pin). Reviewer 2: REJECT cho tuyen bo 'M1 CLOSED' - cac G con lai duoc liet ke trong known_gaps.",
   "reviewer_signature": {
     "independent": true,
     "at": "2026-09-10T19:38:48+07:00",
+    "scope": "6328d51 / 62afcd7 (KHONG phai PIN2 7650753)",
     "note": "2 subagent doc lap, read-only, khong chia se ngu canh voi chuoi fix; verdict nguyen ven (1 REJECT, 1 APPROVE_WITH_LIMITS). Digest: M01-evidence/D5-reviewer-digest.md; full transcript: session log sess_59cd1d3c-1419-4a90-9164-7120c1262090 (khong luu trong repo)."
   },
   "evidence": [
     {
       "file": "reports/circuit-closures/M01-evidence/D1-T01-pytest.txt",
       "status": "PASS",
-      "note": "35 passed, exit 0",
-      "sha256": "6e1b9e7a06b31e56a3506965f602451109eb9c95dd260c8340586c6034d2fe5d",
-      "sha256_worktree": "ad35d25e29c75e3f1e3050ad0d67c11e48e3ec54367219459fa9936fabc5421c"
+      "note": "RE-PIN RUN: 35 passed, exit 0",
+      "sha256": "71a2b3db5c4f1db147818b094b1c5be4f3faa774265359274ceb254d3b2d53a6",
+      "sha256_worktree": "657f61974bbdf74700804fb1cf31c0973daf7c51fd58a22db13dad9af4e07834"
     },
     {
       "file": "reports/circuit-closures/M01-evidence/D2-docker.txt",
       "status": "PASS",
-      "note": "commit == sha_pin, readiness ready/ok, required log lines, + D2.9 limitation",
-      "sha256": "6d16bc55a921e51d49b91314ca28724572b8d4f948ac0e464238b9a2ae008e1f",
-      "sha256_worktree": "9146cff8a769bf1463f322f00d12d1bd527a9b07dd2ef59831121326046e6bb8"
+      "note": "RE-PIN RUN: commit == sha_pin PIN2, readiness ready/ok, required log lines, span analysis, + D2.9 limitation",
+      "sha256": "7eb4760ed0829515b9c6dd6a9ab472be5ebaa4618c2f14c4a3147a8326c90288",
+      "sha256_worktree": "7eb4760ed0829515b9c6dd6a9ab472be5ebaa4618c2f14c4a3147a8326c90288"
     },
     {
       "file": "reports/circuit-closures/M01-evidence/D3-adversarial-pytest.txt",
       "status": "PASS",
-      "note": "47 passed, exit 0",
-      "sha256": "51a4b92c55a407f118a8823cec2baab4b98026b695c3039cc92937b61b993f34",
-      "sha256_worktree": "06a2aa9ad0fd399aba15a82d1e791f13611327b174e97dd4e3799cae9ab4ebb1"
+      "note": "RE-PIN RUN: 47 passed, exit 0",
+      "sha256": "804ec982d63c014b6057cb43fa1e9dc9f06a1202316ede21c751654b806b03b4",
+      "sha256_worktree": "804ec982d63c014b6057cb43fa1e9dc9f06a1202316ede21c751654b806b03b4"
+    },
+    {
+      "file": "reports/circuit-closures/M01-evidence/D6-ast-scan.txt",
+      "status": "PASS",
+      "note": "RE-PIN RUN: 0 except:pass without log, exit 0; kem cross-check ruff F821 52->0",
+      "sha256": "84056e8587d29ffbb045b98ab57db043d21d210b454c244ab0269969bb2a46eb",
+      "sha256_worktree": "84056e8587d29ffbb045b98ab57db043d21d210b454c244ab0269969bb2a46eb"
+    },
+    {
+      "file": "reports/circuit-closures/M01-evidence/D6-runtime-probe.txt",
+      "status": "PASS",
+      "note": "RE-PIN RUN (moi): 3 case - malformed/injection/clean, PROBE_RESULT=PASS, exit 0",
+      "sha256": "319a1eb57be70c9c922c4be535bf81a21e3a99d0f01f625019fe3ec61e80a99e",
+      "sha256_worktree": "98f4bd4a319b8bb45878072bbc97ef5a19c22aede11a5ff99718d44d5f8a3931"
+    },
+    {
+      "file": "reports/circuit-closures/M01-evidence/D7-todo-scan.txt",
+      "status": "PASS",
+      "note": "RE-PIN RUN: 0 TODO, header 4 module, 3 docs",
+      "sha256": "19196a7cc0d76d3c0af6d32302103ee20a106dbb9ac4cc5ec74681a12a93a33a",
+      "sha256_worktree": "19196a7cc0d76d3c0af6d32302103ee20a106dbb9ac4cc5ec74681a12a93a33a"
+    },
+    {
+      "file": "reports/circuit-closures/CLOSURE-CONTRACT.md",
+      "status": "PASS",
+      "note": "MOI: nguyen van hop dong dong mach D0-D8 v1 (ban ghi lai, khong chu ky)",
+      "sha256": "c1ee8b8be9b29d014dfc760d5b0169c561c0075932e7d13e90ca84ade02f2f33",
+      "sha256_worktree": "c1ee8b8be9b29d014dfc760d5b0169c561c0075932e7d13e90ca84ade02f2f33"
     },
     {
       "file": "reports/circuit-closures/M01-evidence/D4-mimosa-latest.json",
       "status": "EVIDENCE_GAP",
-      "note": "hook ledger copy nguyen van + analysis block",
+      "note": "hook ledger copy nguyen van + analysis block (khong doi tai lan re-pin)",
       "sha256": "323f1d2680286641e8577365b9b66f0039cc55b63b13357cfdaeb9c6e15e82d6",
       "sha256_worktree": "cf9a00eff0874ea139fe92db6d7e8d3c5f8781b09dd80b1d3150a4d72e311d45"
     },
@@ -157,37 +190,16 @@
     {
       "file": "reports/circuit-closures/M01-evidence/D5-reviewer-digest.md",
       "status": "PASS",
-      "note": "digest 2 reviewer doc lap",
+      "note": "digest 2 reviewer doc lap (pham vi 6328d51/62afcd7, KHONG phai PIN2)",
       "sha256": "7b76aba3cbaf6b9262662ac84adbf2c01a943e70f95f0244c792f9c5926e0929",
       "sha256_worktree": "7b76aba3cbaf6b9262662ac84adbf2c01a943e70f95f0244c792f9c5926e0929"
     },
     {
-      "file": "reports/circuit-closures/M01-evidence/D6-ast-scan.txt",
-      "status": "PASS",
-      "note": "0 except:pass without log, exit 0",
-      "sha256": "0542fb4b7444552a4e8ec608f5bb4b9c5ae5889fd70e1cec331eb9ae7a960433",
-      "sha256_worktree": "0186da7e691f707b5db4077aff2c6e77155db4650f6b060a5bc2f9f5aa8997c7"
-    },
-    {
-      "file": "reports/circuit-closures/M01-evidence/D6-runtime-probe.txt",
-      "status": "PASS",
-      "note": "WARNING [MACH1-FIX-8] phat ra that + fallback 8000 giu nguyen",
-      "sha256": "4f8a03f8bd5ec6f61fba388c3e54c0c945edfb79d7936de921bceee0bb246607",
-      "sha256_worktree": "2e7d2fdf7265746b5bda4802e21853cda5332b52f8a61f5baf13a29bb511040e"
-    },
-    {
-      "file": "reports/circuit-closures/M01-evidence/D7-todo-scan.txt",
-      "status": "PASS",
-      "note": "0 TODO, header 4 module, 2 docs",
-      "sha256": "ce9a0d1004670126de92c4004d97449ee0651763f0adc993409717912da92feb",
-      "sha256_worktree": "31fb183a3a18d8c6f74aa672c421ad4bad64bfd53bcc2ffca6e84851115de28a"
-    },
-    {
       "file": "reports/circuit-closures/M01-evidence/CORRECTIONS-AND-HASHES.md",
       "status": "PASS",
-      "note": "dinh chinh D2.8 + bang hash EOL + F821 + so 194/184",
-      "sha256": "0ead4a95410fb8c86d9ada485572d15c01d6f0fe7a4960391a825c555a3f1ffd",
-      "sha256_worktree": "dc854788de5883824b5a46b6c5cace76a60f5c73a2c51130e8c2e06c3e8e929a"
+      "note": "dinh chinh D2.8 + bang hash EOL + F821 + so 194/184 + PHU LUC C6 RE-PIN (dong C3/F7 tai PIN2, danh dau bang hash C2 chi con hieu luc tai 62afcd7)",
+      "sha256": "0ef433e6b35b788369612237e078acf357ee76aed72ff00e546984110aae9f8f",
+      "sha256_worktree": "f9765b14b7585aa737b0f9bf27534c1f4554b19e23027332c1a49cbf25be3829"
     },
     {
       "file": "reports/circuit-closures/CIRCUIT-FLOW-MAP.md",
@@ -202,5 +214,5 @@
       "sha256_worktree": "9727e3c996b7a65cb7007175f4d4410496719f2ca234027584a9ce0cb8833bde"
     }
   ],
-  "commit_pattern_note": "3 commit: (1) 6328d51 = fix goc cua mach; (2) 62afcd707ea94ffc72ab755232b29eddad69b8d3 = code D6/D7 + evidence D1/D3/D4/D6/D7, day la sha_pin va la SHA da duoc do runtime; (3) commit nay = closure record + cac evidence buoc phai sinh SAU pin (D2 runtime, deep scan, digest reviewer) + dinh chinh docs. Commit nay chi cham reports/circuit-closures/** nen khong vo hieu hoa pin. Ly do phai tach: sha_pin phai bat bien truoc khi do runtime, ma D2 chi co the chay sau khi biet sha_pin."
+  "commit_pattern_note": "5 commit tren nhanh: (1) 6328d51 = fix goc cua mach; (2) 62afcd7 = code D6/D7 + evidence (sha_pin CU); (3) bae6196 = closure record cu; (4) 7650753 = PIN2: 2 fix F821/F7 (scp/api_server.py, scp/api_server_parts/lifespan.py) + evidence D1/D3/D6/D7 do lai + CLOSURE-CONTRACT.md; (5) commit nay = cap nhat closure record + D2-docker.txt (evidence phai sinh SAU pin vi phai build theo dung SHA pin). Commit (5) chi cham reports/circuit-closures/** nen khong vo hieu hoa pin. Ly do phai tach: sha_pin phai bat bien truoc khi do runtime, ma D2 chi co the chay sau khi biet sha_pin."
 }
