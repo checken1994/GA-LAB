@@ -19,6 +19,17 @@
     "tests/T01_boot/test_flow_01_boot_background_scp_standard.py",
     "reports/circuit-closures/**"
   ],
+  "skill_binding": {
+    "required": "scp-dna + scp-runtime-audit + scp-reality-verifier + scp-release-evidence-gate",
+    "read_at": "2026-09-12, HEAD 4f451df (branch audit/runtime-guard-AUDIT-20260909) - backfill bo sung boi DNA-2 compliance pass",
+    "skill_sha256": {
+      ".agents/skills/scp-dna/SKILL.md": "4aada0be4873598dc50c3a7f38d90151429bb5263c511a838ed1cdcb4d594d10",
+      ".agents/skills/scp-runtime-audit/SKILL.md": "63680fd1f1826b967f0c71367836ce0c773894f21bbf8abb33d43b005184851f",
+      ".agents/skills/scp-reality-verifier/SKILL.md": "a9d65ce53b18f8310ceeb302b18b341a0e1b8b19cddc7f46d4fa6ee99432269e",
+      ".agents/skills/scp-release-evidence-gate/SKILL.md": "81b2cc0e3b3be91d7780a28b5fd8a4757f05cb46fba33eab9904e056cba63ce6"
+    },
+    "note": "F1 backfill (DNA-2, 2026-09-12): M01 dong mach ngay 2026-09-10, TRUOC khi skill_sha256 tro thanh truong bat buoc cua mau closure (M02 tro di moi co day du). SHA256 o tren duoc do truc tiep tren worktree tai HEAD 4f451df hom nay; KHONG co bang chung cho viec doc skill ngay truoc khi dong mach M1 (gap nho da ghi ro, khong lam doi verdict nao trong checklist)."
+  },
   "owner": "fix chain: zcode-agent (6328d51 -> 62afcd7 -> 7650753). Re-pin pass: zcode-agent, sha_pin 7650753. Ban ghi nay (commit 6): cap nhat D5 theo 4 ban review doc lap (ban nguyen van duoc thu thap/luu vao repo trong lan nay) + reviewer_limits + disclosures; nguoi viet ban ghi: zcode-agent.",
   "checklist": {
     "D0_scope_lock": {
