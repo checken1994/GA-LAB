@@ -198,6 +198,61 @@ class TestFlow11AdminImport:
         app.dependency_overrides.clear()
         app.dependency_overrides[verify_admin] = mock_unauthorized # restore
 
+    def test_import_jsonl_reads_real_judge_dict_contract(self):
+        """[IMPORT-5][M11-FIX 8fc3560] import/jsonl consumes the REAL
+        RealityJudge dict contract, not attributes.
+
+        Regression pin: the handler read ``v.verdict`` / ``v.confidence`` /
+        ``v.evidence`` as ATTRIBUTES while ``RealityJudge.judge()`` returns a
+        plain dict (scp/runtime/judge.py -> dict[str, Any]) -> AttributeError
+        on EVERY question, so every import row degraded into {"error": ...}
+        with HTTP 200 (fail-silently, probe-proven at :8010 during the M11
+        closure). The judge seam below returns the REAL dict shape —
+        deliberately NOT a MagicMock, whose auto-attributes would silently
+        satisfy the legacy fallback branch instead of the production dict
+        branch this pin owns. The endpoint must derive verdict / confidence /
+        falsification / governance / elapsed_ms from the dict.
+        """
+        class _RealDictJudgeStub:
+            def judge(self, question, ai_answer, cycle_count=0):
+                return {
+                    "verdict": "FAIL",
+                    "confidence": 0.42,
+                    "evidence": {
+                        "falsification_status": "FALSIFIED",
+                        "governance_decision": "BLOCK",
+                        "v100_phase_timings": {"total_ms": 123.4},
+                    },
+                }
+
+        app.dependency_overrides[verify_admin] = lambda: True
+        try:
+            with TestClient(app) as client:
+                with patch(
+                    "scp.api.routes.import_routes.get_judge",
+                    return_value=_RealDictJudgeStub(),
+                ):
+                    payload = "\n".join([
+                        json.dumps({"question": "M11 dict contract probe 1", "ai_answer": "so san pham = 41"}),
+                        json.dumps({"question": "M11 dict contract probe 2", "ai_answer": "so san pham = 42"}),
+                    ])
+                    response = client.post("/import/jsonl", content=payload.encode("utf-8"))
+            assert response.status_code == 200, response.text
+            data = response.json()
+            assert data["summary"]["total"] == 2, data
+            assert data["summary"]["errors"] == 0, data["results"]
+            assert data["summary"]["pass"] == 0, data["summary"]
+            assert data["summary"]["fail"] == 2, data["summary"]
+            for row in data["results"]:
+                assert row["verdict"] == "FAIL", row
+                assert row["confidence"] == 0.42, row
+                assert row["falsification"] == "FALSIFIED", row
+                assert row["governance"] == "BLOCK", row
+                assert row["elapsed_ms"] == 123.4, row
+        finally:
+            app.dependency_overrides.clear()
+            app.dependency_overrides[verify_admin] = mock_unauthorized # restore
+
     # =========================================================================
     # 4. WEBHOOK ROUTES
     # =========================================================================
