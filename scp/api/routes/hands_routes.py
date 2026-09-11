@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
+from scp.core.capability_token import InvalidTokenSignatureError
 from scp.api._shared import verify_admin
 from scp.hands.goal_parser import GoalParser
 from scp.hands.hands_executor import HandsExecutor
@@ -161,15 +162,23 @@ async def hands_execute(payload: HandsActionRequest, request: Request, x_scp_pc_
     _guard(request, x_scp_pc_token)
     request_key = request.headers.get("X-SCP-Idempotency-Key") or request.headers.get("Idempotency-Key")
     token = parse_capability_token(payload.capabilityToken)
-    return await _active_bridge().execute(
-        payload.action,
-        payload.params,
-        payload.capabilityLevel,
-        payload.approved,
-        payload.dryRun,
-        request_key=request_key,
-        capability_token=token,
-    )
+    try:
+        return await _active_bridge().execute(
+            payload.action,
+            payload.params,
+            payload.capabilityLevel,
+            payload.approved,
+            payload.dryRun,
+            request_key=request_key,
+            capability_token=token,
+        )
+    except (PermissionError, InvalidTokenSignatureError) as exc:
+        # [M4 FIX 2026-09-11] The kernel bridge is fail-closed at the PEP:
+        # a missing/invalid capability token raises PermissionError BEFORE
+        # any action resolution or kernel mutation (FA-05). At the HTTP
+        # boundary that is an authorization failure (403), mirroring the
+        # pc_controller_routes convention — never a 500.
+        raise HTTPException(status_code=403, detail=str(exc))
 
 
 @router.post("/rollback")

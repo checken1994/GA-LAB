@@ -337,6 +337,32 @@ class TestFlow04ControlHands:
         assert "actions" in data
         assert "version" in data
 
+    def test_hands_execute_missing_capability_token_returns_403(self, app_with_pc_token, pc_token):
+        """
+        [HANDS-6] POST /v3/hands/execute with a valid PC token but NO
+        capability token → HTTP 403 with the CapabilityRequiredError contract,
+        never a 500.
+
+        [M4 FIX 2026-09-11] PRODUCT fix (hands_routes.hands_execute): the
+        kernel bridge raises PermissionError before any kernel mutation
+        (FA-05 ordering), and the route previously leaked that as an unhandled
+        500. The route now maps PermissionError/InvalidTokenSignatureError to
+        HTTP 403, mirroring the pc_controller_routes convention. This test
+        pins the HTTP boundary of the fail-closed ordering.
+        """
+        response = app_with_pc_token.post(
+            "/v3/hands/execute",
+            json={
+                "action": "pc.write_file",
+                "params": {"path": "unauthorized.txt", "content": "x"},
+                "capabilityLevel": 3,
+                "approved": True,
+            },
+            headers={"X-SCP-PC-Token": pc_token},
+        )
+        assert response.status_code == 403
+        assert "CapabilityRequiredError" in response.json()["detail"]
+
     def test_hands_plan_requires_token(self, app_with_pc_token, pc_token):
         """
         [HANDS-5] POST /v3/hands/plan requires token.
