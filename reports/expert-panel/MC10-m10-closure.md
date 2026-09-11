@@ -82,16 +82,24 @@ bị chạm, không stash.
 - D8: `M10-closure.json` (sha_pin `1691f7f…`, falsification_status
   PARTIALLY_FALSIFIED_AT_PIN, 9 known_gaps) + file này.
 
-## ⚠️ Anomaly G9 — mất evidence cuối session (nguyên nhân UNPROVEN)
+## ⚠️ Anomaly G9 — mất evidence + revert WIP cuối session (nguyên nhân UNPROVEN)
 
 Sau khi toàn bộ D1–D8 hoàn tất lần đầu (evidence đã được sha256sum xác nhận
 tồn tại), khoảng thời gian ngắn trước commit: `M10-evidence/` (6 file),
 bản `M10-closure.json` đầu tiên và 3 edit STATUS-LEDGER.md BIẾN KHỎI DISK —
-STATUS-LEDGER quay về đúng trạng thái HEAD. Đã kiểm tra: không container nào
-mount `reports/` (scp-scp-api-1 dùng named volume; stack scp_v2-* chỉ mount
-/tmp/active); không có git operation nào chạy xóa file; dung lượng disk bình
-thường (64G free). Nguyên nhân KHÔNG được xác minh — không suy diễn thành
-chắc chắn (DNA #26/#31).
+STATUS-LEDGER quay về đúng trạng thái HEAD. Kéo theo (cùng lô, mtime batch
+~3ms lúc **16:36:58**): 3 file WIP của stream khác
+(`tests/T00_integrity/test_test_infrastructure_fail_closed.py`,
+`tests/T03_capability/test_flow_11_admin_import_scp_standard.py`,
+`tests/T03_capability/test_security_sweep_s6.py`) bị REVERT về HEAD — mất WIP
+chưa commit. Đã kiểm tra: không container nào mount `reports/` hay `tests/`
+(scp-scp-api-1 dùng named volume; stack scp_v2-* chỉ mount /tmp/active);
+không có git operation nào do MC10 chạy có thể revert (git add luôn theo
+đường dẫn cụ thể; stash không đụng — stash list nguyên vẹn);
+`uncommitted_changes.patch` KHÔNG chứa diff của 3 file đó → WIP đó (nếu không
+có backup ngoài) không thể khôi phục bởi MC10; việc khôi phục thuộc owner
+của stream đó. Nguyên nhân KHÔNG được xác minh — không suy diễn thành chắc
+chắn (DNA #26/#31).
 
 Phản ứng theo DNA (không im lặng, không bịa nguyên nhân):
 1. Giữ nguyên hiện trạng, ghi nhận anomaly.
@@ -101,6 +109,8 @@ Phản ứng theo DNA (không im lặng, không bịa nguyên nhân):
    — deterministic), D6/D7 scan lại.
 3. Backup evidence ra ngoài repo (`%TEMP%/m10probe/backup/`).
 4. Commit NGAY sau khi verify file tồn tại, để bất biến hóa trong git.
+5. Báo cáo WIP-revert cho coordinator/người dùng ở mục GUARD STATUS — đây là
+   thông tin bắt buộc phải biết để khôi phục WIP của stream kia.
 
 ## Probe-harness corrections (không đổi product)
 
