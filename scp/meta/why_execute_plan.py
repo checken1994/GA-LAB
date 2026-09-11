@@ -174,15 +174,33 @@ def execute_plan(engine, plan, ai_answer: str) -> dict[str, Any]:
             result["reasoning"] = f"Sources disagree: {len(unique)} different values"
 
     # UPDATE plan status in DB
+    # [M12-FIX PF-3] The previous statement was
+    #   UPDATE ... WHERE question=? AND status='pending' ORDER BY id DESC LIMIT 1
+    # which raises sqlite3.OperationalError ("near ORDER: syntax error") on
+    # standard SQLite builds (no SQLITE_ENABLE_UPDATE_DELETE_LIMIT) — verified
+    # on sqlite 3.49.1. The except below only logged at debug, so every plan
+    # stayed status='pending' FOREVER after execution (the "5,356 plans stuck
+    # in pending" bug this module claims to fix was still live, fail-silently).
+    # Fix: exact id-based UPDATE when the plan was claimed from the DB
+    # (plan_id set by execute_pending_plans); fallback uses an id-subquery
+    # that works on every SQLite build with identical "latest row" semantics.
     try:
         ts = datetime.now().astimezone().isoformat()
-        db_exec(
-            "UPDATE why_verification_plans SET status='executed', verdict=?, executed_at=? "
-            "WHERE question=? AND status='pending' ORDER BY id DESC LIMIT 1",
-            (result["verdict"], ts, plan.question)
-        )
+        if getattr(plan, "plan_id", None) is not None:
+            db_exec(
+                "UPDATE why_verification_plans SET status='executed', verdict=?, executed_at=? "
+                "WHERE id=?",
+                (result["verdict"], ts, plan.plan_id)
+            )
+        else:
+            db_exec(
+                "UPDATE why_verification_plans SET status='executed', verdict=?, executed_at=? "
+                "WHERE id = (SELECT id FROM why_verification_plans "
+                "WHERE question=? AND status='pending' ORDER BY id DESC LIMIT 1)",
+                (result["verdict"], ts, plan.question)
+            )
     except Exception as e:
-        logger.debug(f"WHY execute: update status failed: {e}")
+        logger.warning(f"WHY execute: update status failed: {e}")
 
     # [V5.3-WIRE] MetaWhyMonitor — passive pattern monitoring (no env var).
     # TẠI SAO: record mỗi WHY plan executed để MetaWhyMonitor detect:

@@ -22,9 +22,15 @@ _NASA_API_KEY = os.environ.get("NASA_API_KEY", "DEMO_KEY")
 def query_nasa(target: str) -> str | None:
     """Query NASA APOD."""
     try:
-        url = f"https://api.nasa.gov/planetary/apod?api_key={_NASA_API_KEY}"
+        # [M12-FIX PF-5] Endpoint seam (same trust level as OPENAI_BASE_URL):
+        # SCP_WHY_NASA_BASE redirects the API host (default unchanged:
+        # https://api.nasa.gov). When overridden, loopback/private targets are
+        # explicitly allowed; default path keeps SSRF protection.
+        _base_override = os.environ.get("SCP_WHY_NASA_BASE")
+        _nasa_base = _base_override or "https://api.nasa.gov"
+        url = f"{_nasa_base}/planetary/apod?api_key={_NASA_API_KEY}"
         req = urllib.request.Request(url, headers={"User-Agent": "SCP-WHY/1.0"})
-        with safe_urlopen(req, timeout=8) as resp:
+        with safe_urlopen(req, timeout=8, allow_internal=bool(_base_override)) as resp:
             data = _json.loads(resp.read().decode('utf-8'))
             return data.get("title", "") + ": " + data.get("explanation", "")[:100]
         return None

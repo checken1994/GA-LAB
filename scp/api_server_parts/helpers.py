@@ -289,6 +289,20 @@ def get_judge() -> RealityJudge:
             logger.warning(f"V104.36 PredictiveOrchestrator init failed: {e}")
             _predictive_engine = None
 
+        # [M12-FIX PF-4a] Wire WHY Engine onto the judge singleton.
+        # TẠI SAO: RealityJudge has no `why_engine` attribute at all, so the
+        # background WHY verify loop (`_why_verify_loop`, guard:
+        # getattr(judge, "why_engine", None)) could NEVER find an engine —
+        # deferred why_verification_plans piled up pending forever (R6-3
+        # wiring claim was PASS-without-reality). Guarded non-fatal: WHY
+        # engine init failure must not take down the judge.
+        try:
+            from scp.meta.why_engine_parts.whyengine import WhyEngine as _WhyEngine
+            _judge.why_engine = _WhyEngine()
+            logger.info("WHY Engine wired to production judge (deferred verification active)")
+        except Exception as e:
+            logger.warning(f"WHY Engine init failed (non-fatal, deferred verification disabled): {e}")
+
         # [V5.6-FIX] TẠI SAO: toàn bộ init dưới đây nằm NGOÀI `if _judge is None:`
         # → mỗi request /ask gọi get_judge() → spawn thêm thread + start learning
         # engine + reload patterns → thread explosion → CPU 100% → crash.

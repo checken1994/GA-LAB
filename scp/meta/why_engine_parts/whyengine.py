@@ -20,6 +20,12 @@ from scp.meta.why_sources.rest_countries import query_rest_countries as _why_que
 from scp.meta.why_sources.wikidata import query_wikidata as _why_query_wikidata
 from scp.meta.why_sources.wikipedia import query_wikipedia as _why_query_wikipedia
 
+# [M12-FIX PF-2] logger was USED throughout this module (_save_plan except,
+# _query_source except, execute_pending_plans warnings, LLM classifier paths)
+# but NEVER defined -> every error/debug path raised NameError INSIDE an
+# except handler, masking the original failure (fail-silently -> crash).
+logger = logging.getLogger("scp.meta.why_engine")
+
 class WhyEngine:
     """
     WHY Engine — biến câu hỏi Neo thành VerificationPlan.
@@ -348,7 +354,7 @@ class WhyEngine:
         stats = {'executed': 0, 'passed': 0, 'failed': 0, 'conflicts': 0, 'unknowns': 0}
         for row in pending:
             try:
-                plan = VerificationPlan(question=row['question'], target=row['target'], target_type='entity', evidence_type=row['evidence_type'], proof_criteria=row['proof_criteria'], falsification_criteria=row['falsification_criteria'], verification_strategy=row['verification_strategy'], sources_to_query=json.loads(row['sources_to_query']) if row['sources_to_query'] else [], expected_answer_type='string', confidence_threshold=row['confidence_threshold'] or 0.5, reasoning='')
+                plan = VerificationPlan(question=row['question'], target=row['target'], target_type='entity', evidence_type=row['evidence_type'], proof_criteria=row['proof_criteria'], falsification_criteria=row['falsification_criteria'], verification_strategy=row['verification_strategy'], sources_to_query=json.loads(row['sources_to_query']) if row['sources_to_query'] else [], expected_answer_type='string', confidence_threshold=row['confidence_threshold'] or 0.5, reasoning='', plan_id=row['id'])
                 result = self.execute_plan(plan, ai_answer='')
                 stats['executed'] += 1
                 v = result.get('verdict', 'UNKNOWN')

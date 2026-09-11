@@ -30,6 +30,13 @@ class VerificationPlan:
     expected_answer_type: str
     confidence_threshold: float
     reasoning: str
+    # [M12-FIX PF-3] DB row id when the plan was claimed from
+    # why_verification_plans (execute_pending_plans). None for freshly built
+    # plans that have not been persisted. execute_plan uses it for an exact
+    # id-based status UPDATE (the previous UPDATE ... ORDER BY id DESC LIMIT 1
+    # raised OperationalError on standard SQLite builds -> status silently
+    # stayed 'pending' forever, fail-silently).
+    plan_id: int | None = None
 
 
 _METAWHY_MONITOR_SINGLETON = None

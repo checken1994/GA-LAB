@@ -19,6 +19,13 @@ from scp.meta.why_sources.rest_countries import query_rest_countries as _why_que
 from scp.meta.why_sources.wikidata import query_wikidata as _why_query_wikidata
 from scp.meta.why_sources.wikipedia import query_wikipedia as _why_query_wikipedia
 
+# [M12-FIX PF-1] logger was USED here (except handler) but NEVER defined ->
+# WhyEngine.__init__ crashed with NameError on every fresh DB (CREATE TABLE
+# already ships claimed_by/claimed_at, so the ALTER TABLE migration below
+# always hits "duplicate column" and the handler referenced the missing
+# logger). WhyEngine was 100% un-instantiable on fresh environments.
+logger = logging.getLogger("scp.meta.why_engine.init_why_db")
+
 def init_why_db():
     """Tạo WHY Engine tables."""
     db_exec("\n        CREATE TABLE IF NOT EXISTS why_verification_plans (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            timestamp TEXT NOT NULL,\n            question TEXT NOT NULL,\n            target TEXT,\n            evidence_type TEXT,\n            proof_criteria TEXT,\n            falsification_criteria TEXT,\n            verification_strategy TEXT,\n            sources_to_query TEXT,\n            status TEXT DEFAULT 'pending',\n            verdict TEXT,\n            executed_at TEXT,\n            claimed_by TEXT,\n            claimed_at REAL\n        )\n    ")
@@ -29,6 +36,9 @@ def init_why_db():
         logger.debug(f'[why_engine.py:130] silenced: {e}')
     try:
         db_exec('ALTER TABLE why_verification_plans ADD COLUMN claimed_at REAL')
-    except Exception:
-        pass
+    except Exception as e:
+        # [M12-FIX PF-1b/D6] was bare `except Exception: pass` (fail-silently,
+        # D6 violation in scope). "duplicate column" is the EXPECTED idempotent
+        # migration outcome — log it at debug so it stays observable.
+        logger.debug(f'[init_why_db] claimed_at column already present (idempotent): {e}')
     db_exec('CREATE INDEX IF NOT EXISTS idx_why_claimed ON why_verification_plans(claimed_by)')

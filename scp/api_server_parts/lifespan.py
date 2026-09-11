@@ -299,6 +299,42 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning('[DOUBT] Cronjob of Doubt failed to start (non-fatal): %s', exc)
 
+    # --- [M12-FIX PF-4b] Background WHY verify loop — wiring into the ACTIVE
+    # lifespan. TẠI SAO: the only implementation of this loop lived in
+    # scp/api/_lifespan.py, which is NOT the lifespan api_server.py uses
+    # (api_server.py binds scp.api_server_parts.lifespan) — so the deferred
+    # WHY verification scheduler never ran in the real deployment while the
+    # comment block claimed it was fixed (R6-3 pattern: PASS ≠ TRUE).
+    # Cadence matches R5's recommendation (3min warm-up, 5min cycle); the
+    # engine arrives via the judge singleton wired in helpers.get_judge()
+    # ([M12-FIX PF-4a]); every failure is logged, never raised.
+    try:
+        def _why_verify_loop():
+            time.sleep(180)  # warm-up: let judge fully init + first verdicts land
+            while True:
+                try:
+                    _j = None
+                    try:
+                        _j = get_judge()
+                    except Exception as _judge_exc:
+                        logger.debug('[WHY-VERIFY] get_judge not ready: %r', _judge_exc)
+                    _we = getattr(_j, 'why_engine', None) if _j else None
+                    if _we is not None and hasattr(_we, 'run_pending_verification_cycle'):
+                        _stats = _we.run_pending_verification_cycle(limit=10)
+                        if isinstance(_stats, dict) and _stats.get('executed', 0) > 0:
+                            logger.info('[WHY-VERIFY] cycle: %s', _stats)
+                except Exception as _loop_exc:
+                    logger.warning('[WHY-VERIFY] cycle failed (non-fatal): %s', _loop_exc)
+                time.sleep(300)  # 5min (R5 recommended cadence)
+
+        _why_thread = threading.Thread(target=_why_verify_loop, daemon=True,
+                                       name="scp-why-verify-scheduler")
+        _why_thread.start()
+        app.state.why_verify_thread = _why_thread
+        logger.info('[WHY-VERIFY] Background WHY verification scheduler started (5min interval)')
+    except Exception as exc:
+        logger.warning('[WHY-VERIFY] scheduler failed to start (non-fatal): %s', exc)
+
     # --- [MACH1-FIX-3] RetryPolicy background worker — REAL kernel wiring ---
     # Previously this block built RetryPolicy around empty stubs (_get_waiting_plans
     # returned [], _retry_plan was `pass`) and targeted `_retry_policy.run_background`

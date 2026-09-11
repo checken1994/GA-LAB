@@ -133,6 +133,14 @@ def _fetch_wikipedia_pages(target: str) -> dict | None:
         return None
 
     # 3) Retry loop with exponential backoff.
+    # [M12-FIX PF-5] Endpoint seam (same trust level as OPENAI_BASE_URL):
+    # SCP_WHY_WIKIPEDIA_BASE redirects the API host (default unchanged:
+    # https://en.wikipedia.org). When overridden, loopback/private targets are
+    # explicitly allowed — an operator-set env IS the choice of endpoint; the
+    # default path keeps SSRF protection (allow_internal=False).
+    _base_override = _os.environ.get("SCP_WHY_WIKIPEDIA_BASE")
+    _wiki_base = _base_override or "https://en.wikipedia.org"
+    _allow_internal = bool(_base_override)
     url = None
     last_err: str | None = None
     for attempt in range(3):
@@ -145,14 +153,14 @@ def _fetch_wikipedia_pages(target: str) -> dict | None:
                 "format": "json",
                 "exchars": "500",
             })
-            url = f"https://en.wikipedia.org/w/api.php?{params}"
+            url = f"{_wiki_base}/w/api.php?{params}"
             req = urllib.request.Request(url, headers={  # noqa: S310
                 "User-Agent": _os.environ.get(
                     "WIKIPEDIA_USER_AGENT",
                     "SCP-V3/1.0 (scp-research@example.com)",
                 )
             })
-            with safe_urlopen(req, timeout=10) as resp:
+            with safe_urlopen(req, timeout=10, allow_internal=_allow_internal) as resp:
                 # safe_urlopen raises HTTPError for 4xx/5xx — a non-exception
                 # response here is 2xx.
                 status = getattr(resp, "status", None) or getattr(resp, "code", 200)
