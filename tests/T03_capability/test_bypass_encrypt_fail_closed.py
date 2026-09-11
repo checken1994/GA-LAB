@@ -46,6 +46,24 @@ def _deterministic_key(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.delenv("SCP_ENCRYPT_BYPASSES", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _why_gate_allow(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test isolation: WHY gate có singleton state chéo từ các flow test chạy
+    trước trong cùng process (từ chối write "learning") → pin WHY=ALLOW.
+    Fault-isolation seam: WHY không phải subject under test của file này
+    (file này test fail-closed của encrypt path)."""
+    from scp.meta.why_gate import WhyDecision, WhyResult
+
+    class _AllowGate:
+        def gate(self, *_args, **_kwargs) -> WhyResult:
+            return WhyResult(
+                decision=WhyDecision.ALLOW,
+                necessity_reason="test isolation — WHY pinned ALLOW",
+            )
+
+    monkeypatch.setattr("scp.meta.why_gate.get_why_gate", lambda: _AllowGate())
+
+
 def _simulate_missing_cryptography(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fault-injection seam: buộc import `cryptography` raise ImportError như
     khi package thật sự không được cài. Phải block CẢ package gốc lẫn submodule
