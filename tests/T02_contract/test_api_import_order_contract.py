@@ -56,7 +56,15 @@ def test_extra_routers_survive_both_import_orders():
     # [2026-08-29] v104: 17 → 21 (additive free-API warehouse + TOP-1%
     # learning routes: top-systems status/learn/advise + free-apis/search).
     # v104: 21 → 23 (additive: /v104/doubt/status + /v104/doubt/run — Cronjob of Doubt)
-    expected = {"v102": 2, "v103": 6, "v104": 23, "import": 3}
+    # [AUDIT-20260909 M3] v104: 23 → 24 (additive: /v104/learn/consolidate,
+    # landed with the Step-0 autofix work between the previous pin and
+    # 1f00d00). Count drift is documented here per the additive-changelog
+    # guard contract; the exact-equality pin itself is unchanged.
+    # [AUDIT-20260909 M3] This test previously failed for a PRODUCT reason:
+    # v105_routes.py used `request: Request` without importing Request, so
+    # app.openapi() crashed with PydanticUserError "class not fully defined"
+    # in both import orders. Fixed at the product (import added).
+    expected = {"v102": 2, "v103": 6, "v104": 24, "import": 3}
     for mode in ("canonical", "route_first"):
         result, stderr = _run_import_probe(mode)
         assert result["path_count"] >= 135

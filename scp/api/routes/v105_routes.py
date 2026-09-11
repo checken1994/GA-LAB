@@ -22,7 +22,11 @@ import logging
 import os
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+# [AUDIT-20260909 M3] `Request` is REQUIRED here: rag_query(request: Request)
+# relies on it, but with `from __future__ import annotations` the missing
+# import left an unresolvable ForwardRef that made app.openapi() fail with
+# PydanticUserError "class not fully defined" (import-order contract probe).
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 # Import shared deps from api_server (same pattern as api/chat.py + admin_v98.py)

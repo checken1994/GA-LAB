@@ -49,9 +49,30 @@ async def openai_chat(request: Request, current_user: str = Depends(get_current_
     # precision (monotonic, not wall-clock).
     _t0 = time.perf_counter()
 
-    body = await request.json()
+    # [AUDIT-20260909 M3] Malformed bodies used to escape as an unstructured
+    # 500 (Request.json() JSONDecodeError) at an OpenAI-compat boundary that
+    # PyRIT/garak fuzz by design. Fail closed with the OpenAI error envelope.
+    try:
+        body = await request.json()
+    except Exception:
+        logger.warning("[openai_compat] request body is not valid JSON")
+        return JSONResponse(
+            {"error": {"message": "Invalid JSON body", "type": "invalid_request"}},
+            status_code=400,
+        )
     messages = body.get("messages", [])
     model = body.get("model", CANONICAL_MODEL_ID)
+
+    # [AUDIT-20260909 M3] A wrongly-shaped `messages` (string / non-dict
+    # items) previously reached the extraction loop and crashed with
+    # AttributeError ('str' object has no attribute 'get') → unstructured
+    # 500. Same fail-closed envelope as above.
+    if not isinstance(messages, list) or not all(isinstance(m, dict) for m in messages):
+        logger.warning("[openai_compat] rejected malformed messages payload")
+        return JSONResponse(
+            {"error": {"message": "messages must be a list of message objects", "type": "invalid_request"}},
+            status_code=400,
+        )
 
     # Extract last user message
     question = ""
@@ -70,11 +91,22 @@ async def openai_chat(request: Request, current_user: str = Depends(get_current_
     # [V104.41 #AA] Táº I SAO: was calling judge.judge() synchronously in async def
     # â†’ blocks event loop when SLM/API slow. PyRIT/garak parallel requests â†’ server hang.
     # Fix: use asyncio.to_thread (same as /ask path).
-    v = await asyncio.to_thread(
-        judge.judge,
-        question=question, ai_answer="", cycle_count=0, source="openai_compat",
-        v98_context=v98_context
-    )
+    # [AUDIT-20260909 M3][ERR-1] A judge pipeline failure must surface as a
+    # structured OpenAI 503 — never an unstructured 500, never an internal
+    # message leak (same posture as the M2 BUG 4 fix). Logged at ERROR so the
+    # failure stays loud (D6 fail-loudly).
+    try:
+        v = await asyncio.to_thread(
+            judge.judge,
+            question=question, ai_answer="", cycle_count=0, source="openai_compat",
+            v98_context=v98_context
+        )
+    except Exception:
+        logger.exception("[openai_compat] judge pipeline failure")
+        return JSONResponse(
+            {"error": {"message": "Upstream judge pipeline unavailable", "type": "server_error"}},
+            status_code=503,
+        )
 
     # [V104.41 #AC] Táº I SAO: DoS record_verdict never called â†’ verdict-quality circuit dead.
     # Fix: record verdict after judge completes.
