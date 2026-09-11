@@ -16,28 +16,30 @@
 > (phủ 1360/1360 file, 0 finding trong 6 file phạm vi M1) là bằng chứng bổ trợ, **không** nâng D4 thành PASS
 > vì chính scan đó có `runStatus=inconclusive` / `completeness=partial`.
 
-Bảng dưới là trạng thái tại lần cập nhật gần nhất; luôn đối chiếu lại với closure record thật trong `reports/circuit-closures/` thay vì tin bảng này.
+Bảng dưới là trạng thái tại lần cập nhật gần nhất (**2026-09-12, DNA-2** — đồng bộ theo `STATUS-LEDGER.md` + 14 closure record); luôn đối chiếu lại với closure record thật trong `reports/circuit-closures/` thay vì tin bảng này.
 
 | Mạch | Tên | Suite chính | Runtime probe | Trạng thái |
 |---|---|---|---|---|
-| M1 | Boot & Background | `tests/T01_boot/` | watchdog `first execution completed` log; `GET /health` (service_identity.commit == SHA pin); `GET /readiness` (judge/background_scheduler = ok) | **CLOSED_WITH_KNOWN_GAP** (`reports/circuit-closures/M01-closure.json`, D4 = EVIDENCE_GAP) |
-| M2 | Ask & Chat | `tests/T02_contract/test_flow_02_ask_chat_scp_standard.py` | WS probe thật; trace `ask_task_kernel` | **D1_FAIL** (exit 1: 3 failed, 30 passed — `INVENTORY/M2.txt`) |
-| M3 | OpenAI-compat | `tests/T02_contract/test_flow_03_openai_compat_scp_standard.py` | chưa thực hiện | **D1_FAIL** (exit 1: 7 failed, 21 passed — `INVENTORY/M3.txt`) |
-| M4 | Control & Hands | `tests/T03_capability/test_flow_04_control_hands_scp_standard.py` + `tests/T03_capability/` | chưa thực hiện | **D1_FAIL** (exit 1: 7 failed, 50 passed — `INVENTORY/M4.txt`) |
-| M5 | Agent/Call | `tests/T03_capability/test_flow_05_agent_call_scp_standard.py` | chưa thực hiện | **D1_PASS__NOT_CLOSED** (exit 0: 35 passed — `INVENTORY/M5.txt`) |
-| M6 | Prediction | `tests/T03_capability/test_flow_06_prediction_scp_standard.py` | chưa thực hiện | **D1_FAIL** (exit 1: 6 failed, 12 passed — `INVENTORY/M6.txt`) |
-| M7 | AutoFix & Policy | `tests/T03_capability/test_flow_07_autofix_scp_standard.py` | chưa thực hiện | **D1_PASS__NOT_CLOSED** (exit 0: 43 passed — `INVENTORY/M7.txt`) |
-| M8 | Audit/Benchmark | `tests/T03_capability/test_flow_08_audit_benchmark_scp_standard.py` | chưa thực hiện | **D1_PASS__NOT_CLOSED** (exit 0: 25 passed — `INVENTORY/M8.txt`) |
-| M9 | Threat & Counter | `tests/T03_capability/test_flow_09_threat_analysis_scp_standard.py` | chưa thực hiện | **D1_PASS__NOT_CLOSED** (exit 0: 23 passed — `INVENTORY/M9.txt`) |
-| M10 | Streaming | `tests/T03_capability/test_flow_10_streaming_scp_standard.py` | chưa thực hiện | **D1_FAIL** (exit 1: 5 failed, 7 passed — `INVENTORY/M10.txt`) |
-| M11 | Admin/Import | `tests/T03_capability/test_flow_11_admin_import_scp_standard.py` | chưa thực hiện | **D1_PASS__NOT_CLOSED** (exit 0: 35 passed — `INVENTORY/M11.txt`) |
-| M12 | Background WHY | `tests/T03_capability/test_flow_12_background_why_scp_standard.py` | chưa thực hiện | **D1_FAIL** (exit 1: 10 failed, 16 passed — `INVENTORY/M12.txt`) |
-| M13 | Data sources & Learning | `tests/T03_capability/test_flow_13_free_api_learning_scp_standard.py` | chưa thực hiện | **D1_PASS__NOT_CLOSED** (exit 0: 27 passed — `INVENTORY/M13.txt`) |
-| M14 | v106 Audit/Self-model | `tests/T03_capability/test_flow_17_self_model_capability_scp_standard.py` + `tests/T11_release/` | chưa thực hiện | **D1_PASS__NOT_CLOSED** (exit 0: 1 passed + 69 passed — `INVENTORY/M14a.txt`, `INVENTORY/M14b.txt`) |
+| M1 | Boot & Background | `tests/T01_boot/` | **đã** — /health commit==pin `7650753…`, /readiness ready, watchdog `first execution completed` | **CLOSED_WITH_KNOWN_GAP** (`M01-closure.json`, pin `7650753…`; D4 = EVIDENCE_GAP) |
+| M2 | Ask & Chat | `tests/T02_contract/test_flow_02_ask_chat_scp_standard.py` | **đã** — 34 passed tại pin `1f00d00…`; /health + /readiness + WS/idempotency probes trên instance standard tạm | **CLOSED_WITH_KNOWN_GAP** (`M02-closure.json`, pin `1f00d00…`; D3–D7 = PASS_WITH_LIMITS) |
+| M3 | OpenAI-compat | `tests/T02_contract/test_flow_03_openai_compat_scp_standard.py` (+ import-order) | **đã** — 28 passed tại pin `3f29c18…`; 11 probe HTTP thật trên instance tạm full-profile (401/400/withheld) | **CLOSED_WITH_KNOWN_GAP** (`M03-closure.json`, pin `3f29c18…`; D4–D7 = PASS_WITH_LIMITS) |
+| M4 | Control & Hands | `tests/T03_capability/test_flow_04_control_hands_scp_standard.py` | **đã** — 58 passed tại pin `e13fad4…`; 13/13 probe (6 token-only 403 + 2 PEP 403 + golden hands/execute COMPLETED) | **CLOSED_WITH_KNOWN_GAP** (`M04-closure.json`, pin `e13fad4…`; D3–D7 = PASS_WITH_LIMITS) |
+| M5 | Agent/Call | `tests/T03_capability/test_flow_05_agent_call_scp_standard.py` | **đã** — 35 passed tại pin `6cdb424…`; 8/8 probe (401/403 + golden status/plan/sessions/dry-run) | **CLOSED_WITH_KNOWN_GAP** (`M05-closure.json`, pin `6cdb424…`; D4–D7 = PASS_WITH_LIMITS) |
+| M6 | Prediction | `tests/T03_capability/test_flow_06_prediction_scp_standard.py` | **đã** — 23 passed tại pin `75e994f…`; 14/14 probe (401, 429 lockout, golden run-cycle + /verify) | **CLOSED_WITH_KNOWN_GAP** (`M06-closure.json`, pin `75e994f…`; D3/D4/D5/D7 = PASS_WITH_LIMITS) |
+| M7 | AutoFix & Policy | `tests/T03_capability/test_flow_07_autofix_scp_standard.py` | **đã** — 43 passed tại pin `554f43e…`; 8/8 probe (401 + golden stats/permissions/attack-mode/run-audit observe) | **CLOSED_WITH_KNOWN_GAP** (`M07-closure.json`, pin `554f43e…`; D4–D7 = PASS_WITH_LIMITS) |
+| M8 | Audit/Benchmark | `tests/T03_capability/test_flow_08_audit_benchmark_scp_standard.py` | **đã** — 25 passed tại pin `c0f5f6f…`; 9/9 probe (401/403 + batch benchmark thật + SSRF 400 fail-closed) | **CLOSED_WITH_KNOWN_GAP** (`M08-closure.json`, pin `c0f5f6f…`; D4/D5/D7 = PASS_WITH_LIMITS) |
+| M9 | Threat & Counter | `tests/T03_capability/test_flow_09_threat_analysis_scp_standard.py` | **đã** — 23 passed tại pin `b4134ac…`; 8/8 probe (401 auth-first + golden admin stats/ledger) | **CLOSED_WITH_KNOWN_GAP** (`M09-closure.json`, pin `b4134ac…`; D4/D5/D7 = PASS_WITH_LIMITS) |
+| M10 | Streaming | `tests/T03_capability/test_flow_10_streaming_scp_standard.py` | **đã** — 12 passed tại pin `1691f7f…`; 12/12 probe ×2 lần độc lập (401, 429, SSE thật 6 frame) | **CLOSED_WITH_KNOWN_GAP** (`M10-closure.json`, pin `1691f7f…`; D3/D4/D5/D7 = PASS_WITH_LIMITS) |
+| M11 | Admin/Import | `tests/T03_capability/test_flow_11_admin_import_scp_standard.py` | **đã** — 35 passed ×2 tại pin `4f5e1bf…` rồi `8fc3560…`; 8/8 probe (401 + judge thật UNKNOWN/ESCALATE) | **CLOSED_WITH_KNOWN_GAP** (`M11-closure.json`, pin `8fc3560…`; D4/D5/D7 = PASS_WITH_LIMITS) |
+| M12 | Background WHY | `tests/T03_capability/test_flow_12_background_why_scp_standard.py` | **đã** — 27 passed tại pin `fa9da62…`; probe deployment chính (doubt_ledger, why_gate_audit, WHY-VERIFY cycle 180s) | **CLOSED_WITH_KNOWN_GAP** (`M12-closure.json`, pin `fa9da62…`; D3/D4/D5 = PASS_WITH_LIMITS). **DNA-2 2026-09-12:** multi-source empty-evidence fix (DNA #22) — 29 passed @`4f451df` |
+| M13 | Data sources & Learning | `tests/T03_capability/test_flow_13_free_api_learning_scp_standard.py` | **đã** — 28 passed tại pin `76b7624…`; P1–P6 probe (consolidate 200, top-systems fetch GitHub/Wikipedia thật) | **CLOSED_WITH_KNOWN_GAP** (`M13-closure.json`, pin `76b7624…`; D4/D5 = PASS_WITH_LIMITS) |
+| M14 | v106 Audit/Self-model | `tests/T03_capability/test_flow_17_self_model_capability_scp_standard.py` + `tests/T11_release/` | **đã** — 3 passed (flow_17) + 69 passed (T11) tại pin `cf34778…`; 7/7 probe (401 sau fix BFLA) | **CLOSED_WITH_KNOWN_GAP** (`M14-closure.json`, pin `cf34778…`; D4/D5 = PASS_WITH_LIMITS) |
 
 Chi tiết đầy đủ (danh sách test FAILED, việc còn lại cho từng mạch, thứ tự đề xuất, giới hạn bằng chứng): `reports/circuit-closures/STATUS-LEDGER.md`.
 
-> ⚠️ Cột Trạng thái ở bảng trên phản ánh **D1 inventory chạy trên working tree (dirty, chưa pin SHA)** do AutoCoder thực hiện — đây là baseline để lập kế hoạch, **không phải bằng chứng đóng mạch**. Riêng M1 giữ nguyên `CLOSED_WITH_KNOWN_GAP` theo `M01-closure.json`. **Suite xanh ≠ mạch đóng; phải có D0–D8.**
+> ⚠️ Bảng trên đồng bộ trạng thái **từ 14 closure record** (mỗi mạch `CLOSED_WITH_KNOWN_GAP` tại SHA pin riêng). KHÔNG mạch nào được đọc thành `CLOSED` sạch; mọi mạch còn known_gaps đã ghi trong closure record tương ứng (đọc trước khi dùng lại kết quả). **Suite xanh ≠ mạch đóng; phải có D0–D8.**
+>
+> **Cập nhật 2026-09-12 (DNA-2):** (1) refresh bảng theo STATUS-LEDGER + closure records; (2) M12: multi-source empty-evidence fix (DNA #22, commit `4f451df`) — nhánh multi-source của `why_execute_plan.py` không còn auto-PASS với `ai_answer=''`, test pin đổi từ PASS → UNKNOWN + `empty_evidence` (strictness TĂNG) kèm control PASS cho match thật; flow_12 = 29 passed @`4f451df`; (3) D7: header `# SCP CIRCUIT: MXX — STATUS: CLOSED_WITH_KNOWN_GAP` đã thêm vào 69 file scope .py của M02–M14 (commit `514f1c9`) — commit này CHẠM file phạm vi của các mạch nên theo regression clause phải chạy lại tối thiểu D1+D2+D4 cho từng mạch: D1 của M12+M02 đã chạy lại (63 passed, exit 0); D2/D4 còn nợ owner. Header của 4 module M1 giữ nguyên (đã có từ M01, để tránh vô hiệu hoá pin 7650753 thêm lần nữa — reviewer_limits L5).
 
 ## Ghi chú về cột "Suite chính"
 
