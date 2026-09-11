@@ -400,7 +400,11 @@ async def deterministic_worker_job(job_id: str):
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(500, f"Worker job status error: {exc}") from exc
+        # [AUDIT-20260909 MACH2-R2-3] Trước đây leak str(exc) vào response
+        # (message nội bộ lộ ra client). Log full ở server, client chỉ nhận
+        # 500 generic.
+        logger.warning("worker job status failed", exc_info=True)
+        raise HTTPException(500, "internal error") from exc
 
 
 @router.get("/v105/autofix/monitor", dependencies=[Depends(verify_admin)])
@@ -428,7 +432,11 @@ async def autofix_monitor():
             "recent_attempts": recent,
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        # [AUDIT-20260909 MACH2-R2-3] Trước đây trả {"status":"error",
+        # "message":str(e)} kèm HTTP 200 — lỗi nội bộ masquerade thành success
+        # và leak message. Chuyển sang log server-side + 500 generic.
+        logger.warning("autofix_monitor failed", exc_info=True)
+        raise HTTPException(500, "internal error") from e
 
 
 @router.post("/v105/autofix/cleanup-cache", dependencies=[Depends(verify_admin)])
@@ -697,3 +705,17 @@ async def v105_autofix_rollback(rollback_token: str):
         "original_audit_timestamp": matching_entry.get("timestamp"),
         "message": f"File {file_path_str} reverted to before_hash state.",
     }
+
+@router.post("/v105/rag/query", dependencies=[Depends(verify_admin)])
+@traced_request(_V105_ROUTES_LEDGER, require_write=False, action="rag_query")
+async def rag_query(request: Request):
+    """Query RAG via canonical retriever (Wave 3)."""
+    from scp.rag.canonical_retriever import HybridRetriever
+    body = await request.json()
+    query = str(body.get("query", ""))
+    limit = int(body.get("limit", 3))
+    
+    # Init retriever (usually needs a path, defaulting to local)
+    retriever = HybridRetriever()
+    results = retriever.search(query, top_k=limit)
+    return {"query": query, "results": results}

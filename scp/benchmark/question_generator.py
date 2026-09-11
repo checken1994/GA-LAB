@@ -336,13 +336,14 @@ def generate_random_questions(
 
 def save_questions_to_jsonl(questions: list[dict], attacks: list[dict], path: str) -> None:
     """Save generated questions to JSONL files (for reproducibility)."""
+    from pathlib import Path as _Path
     import os
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    with _Path(path).open("w", encoding="utf-8") as f:
         for q in questions:
             f.write(json.dumps(q, ensure_ascii=False) + "\n")
     atk_path = path.replace(".jsonl", "_attacks.jsonl")
-    with open(atk_path, "w", encoding="utf-8") as f:
+    with _Path(atk_path).open("w", encoding="utf-8") as f:
         for a in attacks:
             f.write(json.dumps(a, ensure_ascii=False) + "\n")
 

@@ -10,14 +10,39 @@ License: See LICENSE file
 WeatherDataSource - Data source cho Thời tiết & Khí hậu
 Bao gồm: local climate data + API fallbacks (Open-Meteo, OpenWeatherMap).
 """
+import json
 import logging
+import math
+import urllib.parse
+import urllib.request
 from typing import Any, Optional
 
-import requests
-
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 
 logger = logging.getLogger(__name__)
+
+# [AUDIT-20260909 SSRF-S1] Host cố định cho Open-Meteo fetch.
+_OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+
+def build_open_meteo_url(lat: float, lon: float) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — lat/lon PHẢI là số hữu hạn
+    (float) và được urlencode vào query. Input xấu → ValueError TRƯỚC KHI
+    fetch. Host cố định api.open-meteo.com."""
+    try:
+        lat_f = float(lat)
+        lon_f = float(lon)
+    except (TypeError, ValueError):
+        raise ValueError(f"invalid_coordinates:{lat!r},{lon!r}")
+    if not (math.isfinite(lat_f) and math.isfinite(lon_f)):
+        raise ValueError(f"non_finite_coordinates:{lat!r},{lon!r}")
+    query = urllib.parse.urlencode({
+        "latitude": lat_f,
+        "longitude": lon_f,
+        "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
+    })
+    return f"{_OPEN_METEO_FORECAST_URL}?{query}"
 
 
 class WeatherDataSource(IDataSource):
@@ -163,25 +188,28 @@ class WeatherDataSource(IDataSource):
     def _fetch_from_open_meteo(self, lat: float, lon: float) -> Optional[dict[str, Any]]:
         """Lấy thời tiết hiện tại từ Open-Meteo."""
         try:
-            url = (
-                f"https://api.open-meteo.com/v1/forecast"
-                f"?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code"
-            )
-            response = requests.get(url, timeout=8)
-            if response.status_code == 200:
-                data = response.json()
-                cur = data.get('current', {})
-                return {
-                    'value': cur.get('temperature_2m'),
-                    'source': 'Open-Meteo API',
-                    'metadata': {
-                        'temperature_c': cur.get('temperature_2m'),
-                        'humidity_pct': cur.get('relative_humidity_2m'),
-                        'wind_speed_kmh': cur.get('wind_speed_10m'),
-                        'weather_code': cur.get('weather_code'),
-                        'method': 'open_meteo',
-                    }
+            # [AUDIT-20260909 SSRF-S1] URL build (encode + validate) tách khỏi
+            # fetch; fetch qua safe_urlopen thay raw requests.get.
+            url = build_open_meteo_url(lat, lon)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Weather/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=8) as response:
+                if getattr(response, "status", 200) != 200:
+                    return None
+                data = json.loads(response.read().decode("utf-8", errors="replace"))
+            cur = data.get('current', {})
+            return {
+                'value': cur.get('temperature_2m'),
+                'source': 'Open-Meteo API',
+                'metadata': {
+                    'temperature_c': cur.get('temperature_2m'),
+                    'humidity_pct': cur.get('relative_humidity_2m'),
+                    'wind_speed_kmh': cur.get('wind_speed_10m'),
+                    'weather_code': cur.get('weather_code'),
+                    'method': 'open_meteo',
                 }
+            }
         except Exception as e:
             logger.warning(f"[Weather] Open-Meteo fetch failed: {e}")
         return None

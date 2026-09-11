@@ -13,13 +13,37 @@ Contact: scp-vietnam@example.com
 Batch API Processor - Xử lý nhiều API calls trong 1 request
 Tối ưu cho: Currency, Crypto, Weather, NASA data
 """
+import json
 import logging
+import re
 import time
+import urllib.parse
+import urllib.request
 from typing import Optional
 
-import requests
+from scp.security.url_safety import safe_urlopen
 
 logger = logging.getLogger(__name__)
+
+# [AUDIT-20260909 S6a] Bảo vệ outbound fetch: mọi giá trị query chỉ được chứa
+# ký tự an toàn (chữ/số/dấu phân cách), hostname phải khớp endpoint dự kiến,
+# và request đi qua safe_urlopen (validate scheme + chặn IP nội bộ/loopback).
+_QUERY_VALUE_SAFE = re.compile(r"^[A-Za-z0-9._,-]{1,120}$")
+
+
+def _http_get_json(url: str, expected_host: str, timeout: int) -> dict:
+    """Fetch JSON từ upstream: kiểm tra host + giá trị query, rồi fetch an toàn."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname != expected_host:
+        raise ValueError("Unexpected upstream endpoint")
+    for _key, value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True):
+        if not _QUERY_VALUE_SAFE.match(value):
+            raise ValueError("Unsafe query parameter")
+    req = urllib.request.Request(url, headers={"User-Agent": "SCP-Batch/1.0"})  # noqa: S310 — validated by safe_urlopen
+    with safe_urlopen(req, timeout=timeout) as resp:
+        if getattr(resp, "status", 200) != 200:
+            raise ValueError("Upstream returned non-success status")
+        return json.loads(resp.read().decode("utf-8"))
 
 
 class BatchAPIProcessor:
@@ -75,25 +99,23 @@ class BatchAPIProcessor:
             url = f"https://api.frankfurter.app/latest?from={base}&to={targets_str}"
 
             try:
-                response = requests.get(url, timeout=self.timeout)
-                if response.status_code == 200:
-                    data = response.json()
-                    for target in targets:
-                        rate = data.get('rates', {}).get(target)
-                        if rate:
-                            results[(base, target)] = rate
+                data = _http_get_json(url, "api.frankfurter.app", self.timeout)
+                for target in targets:
+                    rate = data.get('rates', {}).get(target)
+                    if rate:
+                        results[(base, target)] = rate
 
-                    # Cache the result
-                    # [V104.36 #67] TẠI SAO: dict(results) snapshots ALL accumulated
-                    # rates from earlier groups → cache poisoning. On later cache hit,
-                    # caller receives rates they never asked for.
-                    # Fix: snapshot only THIS group's contributions.
-                    group_rates = {(base, t): data.get('rates', {}).get(t)
-                                   for t in targets if data.get('rates', {}).get(t)}
-                    self._cache[cache_key] = {
-                        'rates': group_rates,
-                        'time': time.time()
-                    }
+                # Cache the result
+                # [V104.36 #67] TẠI SAO: dict(results) snapshots ALL accumulated
+                # rates from earlier groups → cache poisoning. On later cache hit,
+                # caller receives rates they never asked for.
+                # Fix: snapshot only THIS group's contributions.
+                group_rates = {(base, t): data.get('rates', {}).get(t)
+                               for t in targets if data.get('rates', {}).get(t)}
+                self._cache[cache_key] = {
+                    'rates': group_rates,
+                    'time': time.time()
+                }
             except Exception as e:
                 logger.warning(f"Batch fetch failed for {base}: {e}")
                 # Fallback: individual fetches
@@ -108,10 +130,8 @@ class BatchAPIProcessor:
         """Fallback: fetch single rate."""
         try:
             url = f"https://api.frankfurter.app/latest?from={from_curr}&to={to_curr}"
-            response = requests.get(url, timeout=self.timeout)
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('rates', {}).get(to_curr)
+            data = _http_get_json(url, "api.frankfurter.app", self.timeout)
+            return data.get('rates', {}).get(to_curr)
         except Exception as e:
             logger.warning(f"Silent except: {e}")
         return None
@@ -135,16 +155,14 @@ class BatchAPIProcessor:
         try:
             ids = ','.join(symbols).lower()
             url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd"
-            response = requests.get(url, timeout=self.timeout)
+            data = _http_get_json(url, "api.coingecko.com", self.timeout)
 
-            if response.status_code == 200:
-                data = response.json()
-                for symbol in symbols:
-                    symbol_lower = symbol.lower()
-                    if symbol_lower in data:
-                        price = data[symbol_lower].get('usd')
-                        if price:
-                            results[symbol] = price
+            for symbol in symbols:
+                symbol_lower = symbol.lower()
+                if symbol_lower in data:
+                    price = data[symbol_lower].get('usd')
+                    if price:
+                        results[symbol] = price
         except Exception as e:
             logger.warning(f"Batch crypto fetch failed: {e}")
             # Fallback to individual fetches
@@ -159,10 +177,8 @@ class BatchAPIProcessor:
         """Fallback: fetch single crypto."""
         try:
             url = f"https://api.coingecko.com/api/v3/simple/price?ids={symbol.lower()}&vs_currencies=usd"
-            response = requests.get(url, timeout=self.timeout)
-            if response.status_code == 200:
-                data = response.json()
-                return data.get(symbol.lower(), {}).get('usd')
+            data = _http_get_json(url, "api.coingecko.com", self.timeout)
+            return data.get(symbol.lower(), {}).get('usd')
         except Exception as e:
             logger.warning(f"Silent except: {e}")
         return None
@@ -207,12 +223,10 @@ class BatchAPIProcessor:
             for city_name, lat, lon in matched_cities:
                 url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
                 try:
-                    response = requests.get(url, timeout=self.timeout)
-                    if response.status_code == 200:
-                        data = response.json()
-                        temp = data.get('current_weather', {}).get('temperature')
-                        if temp is not None:
-                            results[city_name] = temp
+                    data = _http_get_json(url, "api.open-meteo.com", self.timeout)
+                    temp = data.get('current_weather', {}).get('temperature')
+                    if temp is not None:
+                        results[city_name] = temp
                 except Exception as e:
                     logger.debug(f"Weather fetch failed for {city_name}: {e}")
 

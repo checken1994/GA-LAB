@@ -42,6 +42,9 @@ AUDIT_BASE = f"http://127.0.0.1:{AUDIT_PORT}"
 REPORT_DIR = ROOT / "reports" / "audit"
 
 
+from scp.security.url_safety import safe_urlopen
+
+
 def _sha(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()[:32]
 
@@ -78,10 +81,16 @@ def step_boot_and_probe(env_file: str) -> dict:
         "SCP_ENV_FILE": env_file,
         "PYTHONUTF8": "1",
     }
+    # [SEC-S4] Containment: boot log must resolve inside the system temp dir.
+    _boot_log = os.path.join(tempfile.gettempdir(), f"audit-boot-{int(time.time())}.log")
+    if not Path(_boot_log).resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
+        raise ValueError(f"rejected unsafe boot log path: {_boot_log}")
+    # [SEC-S6] Log handle comes from pathlib Path.open after the guard above.
+    _log_handle = Path(_boot_log).open("w")
     proc = subprocess.Popen(
         [sys.executable, "-X", "utf8", "-m", "scp", str(AUDIT_PORT)],
         cwd=str(ROOT), env=env,
-        stdout=open(os.path.join(tempfile.gettempdir(), f"audit-boot-{int(time.time())}.log"), "w"),
+        stdout=_log_handle,
         stderr=subprocess.STDOUT,
     )
     findings = {}
@@ -89,7 +98,8 @@ def step_boot_and_probe(env_file: str) -> dict:
     def _get(url, timeout=5):
         try:
             req = urllib.request.Request(url)
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            # [SEC-S6] SSRF guard: audit probes target the loopback audit server.
+            with safe_urlopen(req, timeout=timeout, allow_internal=True) as resp:
                 return resp.status, json.loads(resp.read().decode("utf-8", errors="replace"))
         except urllib.error.HTTPError as exc:
             return exc.code, {}
@@ -101,7 +111,8 @@ def step_boot_and_probe(env_file: str) -> dict:
         req = urllib.request.Request(url, data=data, method="POST",
                                      headers={"Content-Type": "application/json", **(headers or {})})
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            # [SEC-S6] SSRF guard: audit posts target the loopback audit server.
+            with safe_urlopen(req, timeout=timeout, allow_internal=True) as resp:
                 return resp.status, json.loads(resp.read().decode("utf-8", errors="replace"))
         except urllib.error.HTTPError as exc:
             return exc.code, {}

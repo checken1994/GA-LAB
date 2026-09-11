@@ -334,10 +334,15 @@ def test_pc_controller_routes_rejects_missing_capability_token(monkeypatch, tmp_
 def test_pc_controller_routes_succeeds_with_valid_capability_token(monkeypatch, tmp_path: Path):
     """POST /v3/pc/execute with valid capability token returns HTTP 200."""
     from scp.api.routes import pc_controller_routes
+    from scp.security.capability_epoch import CapabilityAuthority
 
     cap_state = tmp_path / "capability_state.json"
     authority = CapabilityAuthority(cap_state)
     pc_controller_routes._controller.capability_authority = authority
+    # Clear any kill switch engaged by earlier tests (module-level singleton uses project_root data_dir)
+    if pc_controller_routes._controller.kill_switch_engaged():
+        token = authority.issue("pc.clear_kill_switch")
+        pc_controller_routes._controller.clear_kill_switch(approved=True, capability_token=token)
 
     monkeypatch.setenv("SCP_PC_CONTROLLER_TOKEN", "mock_pc_token")
     app = FastAPI()

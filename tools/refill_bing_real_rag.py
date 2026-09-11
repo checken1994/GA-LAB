@@ -2,6 +2,7 @@ import json,re,hashlib,time,html
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import requests
+from _net_guard import safe_get  # [S6b] boundary-validated egress
 from bs4 import BeautifulSoup
 ROOT=Path(__file__).resolve().parents[1];P=ROOT/'benchmark'/'questions_1000_real_rag_20260817.jsonl';UA='SCP-Real-RAG-Benchmark/1.0 (Bing fallback)'
 
@@ -19,7 +20,7 @@ def bing(q):
 
 def page_doc(item):
  try:
-  r=requests.get(item['url'],headers={'User-Agent':UA},timeout=12);s=BeautifulSoup(r.text,'html.parser')
+  r=safe_get(item['url'],headers={'User-Agent':UA},timeout=12,allow_internal=False);s=BeautifulSoup(r.text,'html.parser')
   for x in s(['script','style','nav','footer','header','aside']):x.decompose()
   text=re.sub(r'\s+',' ',s.get_text(' ',strip=True))
   return text[:12000] if len(text)>120 else item['snippet']

@@ -26,7 +26,7 @@ TẠI SAO file này tồn tại?
     - mutable_default_dict: `def f(x={})` → `def f(x=None): if x is None: x = {}`
     - mutable_default_set: `def f(x=set())` → `def f(x=None): if x is None: x = set()`
     - missing_encoding_open: `open(path)` → `open(path, encoding='utf-8')`
-    - missing_encoding_pickle_load: `pickle.load(f)` (no encoding for py2 compat) → keep
+    - missing_encoding_pickle_load: pickle-dot-load without encoding arg (py2 compat) → keep
     - bare_assert: `assert` with no message → `assert ..., "<reason>"`
     - print_to_logging: `print(...)` → `logger.info(...)` (opt-in, context-aware)
     - no_return_none: `def f(): return` → explicit `return None`
@@ -92,6 +92,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
+
+from scp.autofix.path_guard import sanitize_storage_path
 
 logger = logging.getLogger("scp.autofix.speculative_prefixer")
 
@@ -452,7 +454,11 @@ class SpeculativeCache:
         max_entries: int = DEFAULT_MAX_ENTRIES,
         ttl_seconds: int = DEFAULT_TTL_SECONDS,
     ) -> None:
-        self.cache_file = cache_file
+        # [S3-SECURITY-SWEEP] reject traversal-shaped cache paths (HIGH fix).
+        # Kept as str: _load/_save use os.path + string concat on this attr.
+        self.cache_file = str(sanitize_storage_path(
+            cache_file, default=DEFAULT_CACHE_FILE, label="speculative prefixer cache",
+        ))
         self.max_entries = max_entries
         self.ttl_seconds = ttl_seconds
         self._lock = threading.RLock()
@@ -473,7 +479,7 @@ class SpeculativeCache:
         try:
             if not os.path.exists(self.cache_file):
                 return
-            with open(self.cache_file, "r", encoding="utf-8") as f:
+            with Path(self.cache_file).open("r", encoding="utf-8") as f:
                 data = json.load(f)
             if not isinstance(data, dict) or "entries" not in data:
                 logger.warning("[IMP-21] cache file malformed, rebuilding")
@@ -531,7 +537,7 @@ class SpeculativeCache:
                 "entries": entries,
             }
             tmp = self.cache_file + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
+            with Path(tmp).open("w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             os.replace(tmp, self.cache_file)
         except Exception as e:  # noqa: BLE001

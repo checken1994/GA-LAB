@@ -49,6 +49,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scp.autofix.path_guard import sanitize_storage_path
+
 logger = logging.getLogger("scp.autofix.engine_v2")
 
 
@@ -65,8 +67,14 @@ class RollbackTokenRegistry:
     """
 
     def __init__(self, data_dir: str | Path = "data"):
-        self.data_dir = Path(data_dir)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
+        # [S3-SECURITY-SWEEP] reject traversal-shaped data dirs (HIGH fix).
+        self.data_dir = sanitize_storage_path(
+            data_dir, default="data", label="rollback registry data dir",
+        )
+        try:
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.warning(f"[IMP-6] mkdir failed for data dir: {e}")
         self.registry_file = self.data_dir / "rollback_tokens.json"
         self._registry: dict[str, dict[str, Any]] = self._load()
 
@@ -74,7 +82,7 @@ class RollbackTokenRegistry:
         if not self.registry_file.exists():
             return {}
         try:
-            with open(self.registry_file, encoding="utf-8") as f:
+            with Path(self.registry_file).open(encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"[IMP-6] rollback registry load failed: {e}")
@@ -83,7 +91,7 @@ class RollbackTokenRegistry:
     def _save(self) -> None:
         try:
             tmp = self.registry_file.with_suffix(".tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
+            with Path(tmp).open("w", encoding="utf-8") as f:
                 json.dump(self._registry, f, ensure_ascii=False, indent=2)
             tmp.replace(self.registry_file)  # atomic on POSIX
         except OSError as e:

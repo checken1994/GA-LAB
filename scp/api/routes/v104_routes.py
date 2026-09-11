@@ -118,10 +118,11 @@ async def v104_image_check(
         # other async requests, including /health).
         result = await asyncio.to_thread(_shared._image_detector.detect, image_bytes=image_bytes)
     elif image_url:
-        # [FIX-A P0-2] Was urllib.request.urlopen(image_url) │Ă¢â€Â¬Ă¢â‚¬Â accepted
-        # file:// (LFI), http://169.254.169.254/ (SSRF), internal IPs, followed
-        # redirects, no size cap, blocked event loop. Now: _shared._safe_fetch_url +
-        # asyncio.to_thread + generic 400 on policy violation (no URL echo).
+        # [FIX-A P0-2] Was a raw urlopen-style fetch on the client-supplied
+        # URL — accepted file:// (LFI), cloud-metadata (169.254.169.254) and
+        # internal-IP SSRF, followed redirects, no size cap, blocked the event
+        # loop. Now: _shared._safe_fetch_url + asyncio.to_thread + generic 400
+        # on policy violation (no URL echo).
         try:
             image_bytes = await asyncio.to_thread(_shared._safe_fetch_url, image_url)
             # [Fix 4-a-015] same fix │Ă¢â€Â¬Ă¢â‚¬Â detect() is blocking CPU work.
@@ -508,3 +509,14 @@ async def v104_doubt_run(_admin: bool = Depends(verify_admin)):
 
     report = await asyncio.to_thread(run_doubt_cycle, _os.environ.get("SCP_DATA_DIR", "data"))
     return JSONResponse(report, status_code=200 if report["verdict"] == "CLEAN" else 503)
+
+@router.post("/v104/learn/consolidate", dependencies=[Depends(verify_admin)])
+@traced_request(_V104_ROUTES_LEDGER, require_write=True, action="consolidate_knowledge")
+async def consolidate_knowledge():
+    """Trigger knowledge consolidator (Wave 2)."""
+    from scp.consolidator.consolidator import KnowledgeConsolidator
+    from scp.meta.knowledge_arbiter import KnowledgeArbiter
+    arbiter = KnowledgeArbiter()
+    consolidator = KnowledgeConsolidator(arbiter)
+    result = consolidator.consolidate_unverified()
+    return {"status": "ok", "result": result}

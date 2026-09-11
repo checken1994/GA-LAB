@@ -79,7 +79,7 @@ def save_results(results: list[dict]) -> Path:
     path = RESULTS_DIR / f"benchmark_{ts}.csv"
     if not results:
         return path
-    with open(path, "w", newline="", encoding="utf-8") as f:
+    with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(results[0].keys()))
         writer.writeheader()
         writer.writerows(results)

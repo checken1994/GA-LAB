@@ -12,14 +12,27 @@ Contact: scp-vietnam@example.com
 """
 GeographyDataSource - Data source cho Địa lý
 """
+import json
 import logging
+import urllib.parse
+import urllib.request
 from typing import Any, Optional
 
-import requests
-
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 
 logger = logging.getLogger(__name__)
+
+# [AUDIT-20260909 SSRF-S1] Host cố định cho REST Countries fetch.
+_RESTCOUNTRIES_BASE = "https://restcountries.com/v3.1/name"
+
+
+def build_restcountries_url(entity: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — entity (input động) được
+    quote(safe='') → '/', '..', '?', '&' bị encode, không thể đổi host hay
+    thêm path segment. Host cố định restcountries.com."""
+    quoted = urllib.parse.quote(str(entity or ""), safe="")
+    return f"{_RESTCOUNTRIES_BASE}/{quoted}"
 
 
 class GeographyDataSource(IDataSource):
@@ -145,38 +158,44 @@ class GeographyDataSource(IDataSource):
             return None
 
         try:
-            url = f"https://restcountries.com/v3.1/name/{entity}"
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                if data:
-                    country = data[0]
-                    capital_val = country.get('capital', [''])[0] if country.get('capital') else ''
-                    population_val = country.get('population', 0) or 0
-                    area_val = country.get('area', 0) or 0
-                    region_val = country.get('region', '')
+            # [AUDIT-20260909 SSRF-S1] entity (input động) được quote(safe='')
+            # TRƯỚC khi vào URL path → không thể đổi host hay thêm path segment.
+            url = build_restcountries_url(entity)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Geography/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=5) as response:
+                if getattr(response, "status", 200) != 200:
+                    return None
+                data = json.loads(response.read().decode("utf-8", errors="replace"))
+            if data:
+                country = data[0]
+                capital_val = country.get('capital', [''])[0] if country.get('capital') else ''
+                population_val = country.get('population', 0) or 0
+                area_val = country.get('area', 0) or 0
+                region_val = country.get('region', '')
 
-                    if target_field == 'capital':
-                        value = capital_val
-                    elif target_field == 'population':
-                        value = population_val if population_val > 0 else None
-                    elif target_field == 'area':
-                        value = area_val if area_val > 0 else None
-                    elif target_field == 'region':
-                        value = region_val if region_val else None
-                    else:
-                        value = None
+                if target_field == 'capital':
+                    value = capital_val
+                elif target_field == 'population':
+                    value = population_val if population_val > 0 else None
+                elif target_field == 'area':
+                    value = area_val if area_val > 0 else None
+                elif target_field == 'region':
+                    value = region_val if region_val else None
+                else:
+                    value = None
 
-                    return {
-                        'value': value,
-                        'source': 'REST Countries API',
-                        'metadata': {
-                            'population': population_val if population_val > 0 else None,
-                            'area': area_val if area_val > 0 else None,
-                            'capital': capital_val,
-                            'region': region_val,
-                        }
+                return {
+                    'value': value,
+                    'source': 'REST Countries API',
+                    'metadata': {
+                        'population': population_val if population_val > 0 else None,
+                        'area': area_val if area_val > 0 else None,
+                        'capital': capital_val,
+                        'region': region_val,
                     }
+                }
         except Exception as e:
             logger.warning(f"[Geography] API fetch failed: {e}")
         return None
@@ -191,8 +210,13 @@ class GeographyDataSource(IDataSource):
             return self._cache[cache_key]
         api_ok = False
         try:
-            response = requests.get("https://restcountries.com/v3.1/name/vietnam?fields=capital", timeout=3)
-            api_ok = response.status_code == 200
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen cho health ping (URL cố định).
+            req = urllib.request.Request(
+                "https://restcountries.com/v3.1/name/vietnam?fields=capital",
+                headers={"User-Agent": "SCP-Geography/1.0"},
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=3) as response:
+                api_ok = getattr(response, "status", 200) == 200
         except Exception:
             api_ok = False
         healthy = api_ok or bool(self._local_data)

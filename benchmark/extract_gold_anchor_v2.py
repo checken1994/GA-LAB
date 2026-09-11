@@ -7,11 +7,26 @@ SCP Gold Anchor Extractor v2 - Fill remaining 20 rows to reach 50 total.
 import json, sys, hashlib, re, time, urllib.request, urllib.parse, os
 from datetime import datetime, timezone
 
+# [AUDIT-20260909 S6a] Bootstrap repo root onto sys.path so the standalone
+# script can reach scp.security.url_safety (same pattern as run_humaneval.py).
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 sys.stdout.reconfigure(encoding='utf-8')
 
 GOLD_PATH = str(Path(__file__).resolve().parent / "benchmark" / "gold_anchor_50_v1.jsonl")
 JSONL_PATH = str(Path(__file__).resolve().parent / "SCP_PHASE3_DELIVERABLES_20260818" / "phase3_candidate_enrichment_full_v2_sanitized.jsonl")
 OUTPUT_REPORT = str(Path(__file__).resolve().parent / "benchmark" / "gold_anchor_50_v1_report.json")
+
+def _contained_in_repo(p: str) -> bool:
+    """[SEC-S4] Containment guard: every file this script touches must resolve
+    inside the repository benchmark tree (paths are __file__-derived, this
+    blocks traversal if the derivation is ever made configurable)."""
+    return Path(p).resolve().is_relative_to(Path(__file__).resolve().parent.parent)
+
+if not (_contained_in_repo(GOLD_PATH) and _contained_in_repo(JSONL_PATH) and _contained_in_repo(OUTPUT_REPORT)):
+    raise SystemExit("SEC-S4: derived path escapes repository benchmark tree")
 REVIEWER_ID = 'SCP-AUTO-EXTRACTOR-v2'
 EXTRACTION_TS = datetime.now(timezone.utc).isoformat()
 
@@ -28,11 +43,16 @@ def sha256_str(s): return hashlib.sha256(s.encode('utf-8')).hexdigest()
 def truncate(s, n=200): return s[:n]
 
 def fetch_wiki(lang, title, max_chars=2000):
+    # [AUDIT-20260909 S6a] Fetch qua safe_urlopen — validate scheme + chặn
+    # private/loopback IP; lang được giới hạn giá trị hợp lệ trước khi dựng URL.
+    from scp.security.url_safety import safe_urlopen
+    if lang not in ('en', 'vi'):
+        raise ValueError('Unsupported wiki language')
     enc = urllib.parse.quote(title)
     url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{enc}"
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'SCP-Research/1.0'})
-        with urllib.request.urlopen(req, timeout=10) as r:
+        req = urllib.request.Request(url, headers={'User-Agent': 'SCP-Research/1.0'})  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=10) as r:
             d = json.loads(r.read().decode('utf-8'))
             return {'text': d.get('extract','')[:max_chars],
                     'url': d.get('content_urls',{}).get('desktop',{}).get('page', url),
@@ -247,11 +267,11 @@ for qid, lang, title in WIKI_FILL:
     time.sleep(0.3)
 
 # Save final 50-row file
-with open(GOLD_PATH, 'w', encoding='utf-8') as f:
+with Path(GOLD_PATH).open('w', encoding='utf-8') as f:
     for r in gold_rows:
         f.write(json.dumps(r, ensure_ascii=False) + '\n')
 
-with open(GOLD_PATH, 'rb') as f:
+with Path(GOLD_PATH).open('rb') as f:
     dataset_hash = hashlib.sha256(f.read()).hexdigest()
 
 report = {
@@ -262,7 +282,7 @@ report = {
     'gate_status': 'OPEN_FOR_RAGAS' if len(gold_rows) >= 50 else f'PARTIAL_{len(gold_rows)}',
     'ragas_gate': 'OPEN' if len(gold_rows) >= 50 else 'BLOCKED',
 }
-with open(OUTPUT_REPORT, 'w', encoding='utf-8') as f:
+with Path(OUTPUT_REPORT).open('w', encoding='utf-8') as f:
     json.dump(report, f, ensure_ascii=False, indent=2)
 
 print(f"\n{'='*60}")

@@ -9,13 +9,30 @@ gap left by Cornell LII (statutes only).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.courtlistener")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_CL_SEARCH_URL = "https://www.courtlistener.com/api/rest/v4/o/"
+
+
+def build_courtlistener_search_url(query: str, page_size: int = 5) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — query được urlencode thành
+    query value (không thể đổi host/path); host cố định www.courtlistener.com."""
+    return _CL_SEARCH_URL + "?" + urllib.parse.urlencode({
+        "search": str(query or ""),
+        "page_size": int(page_size),
+    })
 
 
 class CourtListenerDataSource(IDataSource):
@@ -83,18 +100,17 @@ class CourtListenerDataSource(IDataSource):
             return None
 
     def _search_opinions(self, query: str) -> dict | None:
-        import httpx
         try:
             headers = {"User-Agent": "SCP-Verifier/1.0 (educational)"}
             if self.api_key:
                 headers["Authorization"] = f"Token {self.api_key}"
-            r = httpx.get(f"{self.BASE_URL}/o/",
-                          params={"search": query, "page_size": 5},
-                          headers=headers, timeout=10)
-            if r.status_code != 200:
-                logger.debug(f"[CourtListener] search returned {r.status_code}")
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get — validate
+            # scheme + chặn private IP trước khi fetch; non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_courtlistener_search_url(query), headers=headers
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             results = data.get("results", [])
             if not results:
                 return None

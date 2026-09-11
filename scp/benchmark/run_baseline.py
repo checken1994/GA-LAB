@@ -20,12 +20,31 @@ import os
 import sys
 import time
 import statistics
+import urllib.request
 from pathlib import Path
 
-import requests
+# [AUDIT-20260909 S6a] Gọi OpenRouter qua safe_urlopen — validate scheme +
+# chặn private/loopback IP; không còn HTTP client thô trong file này.
+from scp.security.url_safety import safe_urlopen
 
 BENCHMARK_DIR = Path(__file__).parent
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> tuple[int, str]:
+    """POST JSON qua safe_urlopen; trả (status_code, body). HTTPError coi như response."""
+    from urllib.error import HTTPError
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers=headers, method="POST")  # noqa: S310 — validated by safe_urlopen
+    try:
+        with safe_urlopen(req, timeout=timeout) as resp:
+            return getattr(resp, "status", resp.code), resp.read().decode("utf-8", errors="replace")
+    except HTTPError as e:
+        try:
+            text = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            text = ""
+        return e.code, text
 
 #  Load .env file — BEFORE: OPENROUTER_API_KEY not set → script fails.
 # AFTER: walk up from benchmark/ to find .env (project root is 2 levels up).
@@ -87,15 +106,15 @@ def call_openrouter(api_key: str, model: str, question: str, timeout: int = 60) 
     }
     t0 = time.time()
     try:
-        resp = requests.post(OPENROUTER_URL, json=payload, headers=headers, timeout=timeout)
+        status_code, resp_text = _post_json(OPENROUTER_URL, payload, headers, timeout)
         latency_ms = (time.time() - t0) * 1000
-        if resp.status_code == 429:
+        if status_code == 429:
             # Rate limited — wait and retry once
             time.sleep(2)
-            resp = requests.post(OPENROUTER_URL, json=payload, headers=headers, timeout=timeout)
-        if not resp.ok:
-            return {"answer": "", "latency_ms": latency_ms, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
-        data = resp.json()
+            status_code, resp_text = _post_json(OPENROUTER_URL, payload, headers, timeout)
+        if not (200 <= status_code < 300):
+            return {"answer": "", "latency_ms": latency_ms, "error": f"HTTP {status_code}: {resp_text[:200]}"}
+        data = json.loads(resp_text)
         answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         return {"answer": answer, "latency_ms": latency_ms}
     except Exception as e:
@@ -262,7 +281,7 @@ def main():
         "question_results": q_results,
         "attack_results": a_results,
     }
-    with open(args.output, "w", encoding="utf-8") as f:
+    with Path(args.output).open("w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
     print(f"\n📄 Results saved to: {args.output}")
 

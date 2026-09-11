@@ -271,15 +271,29 @@ class DomainKnowledgeStore:
                 q_tokens = {w for w in q_lower.split() if len(w) > 2}
                 r_tokens = {w for w in r_lower.split() if len(w) > 2}
                 # [V104.43 #BJ] TẠI SAO: was "at least 1 overlapping token" →
-                # "capital of France" vs "population of France" → token "france" →
-                # false hit. Fix: require ≥2 overlapping tokens (3+ chars) OR exact match.
+                # "capital of France" → token "france" → false hit. Fix: require ≥2.
                 if q_tokens and r_tokens:
                     overlap = q_tokens & r_tokens
-                    # Require at least 2 overlapping tokens (3+ chars) OR exact match
                     if (len(overlap) >= 2) or q_lower == r_lower:
                         results.append(r)
                 elif q_lower == r_lower:
                     results.append(r)
+
+        # --- RESTORED SUBSYSTEM (Wave 3): experience/semantic_kb fallback ---
+        if not results:
+            try:
+                from scp.experience.semantic_kb import compute_tf_idf
+                # Pack all active records into dictionary for the fallback scorer
+                all_active = []
+                for dom in domains_to_search:
+                    all_active.extend([r for r in self._cache.get(dom, []) if not is_expired(r)])
+                if all_active:
+                    docs = [{"content": r.question, "record": r} for r in all_active]
+                    fallback_results = compute_tf_idf(question, docs)
+                    results = [d["record"] for d in fallback_results]
+            except ImportError:
+                pass
+        # --------------------------------------------------------------------
 
         # Sort by trust tier (lower = better), then by confidence, then by recency
         results.sort(key=lambda r: (r.source_tier, -r.confidence, -r.collected_at))
@@ -318,7 +332,7 @@ class DomainKnowledgeStore:
         lock = self._get_lock(domain)
         try:
             with lock:
-                with open(f, "w", encoding="utf-8") as fp:
+                with Path(f).open("w", encoding="utf-8") as fp:
                     for r in records:
                         fp.write(json.dumps(r.to_dict(), ensure_ascii=False) + "\n")
         except Exception as e:

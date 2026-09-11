@@ -56,6 +56,10 @@ import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createHash } from "crypto";
+// [S5 security sweep] SSRF gate for outbound LLM fetches (see egress-guard.ts).
+import { isAllowedLlmEgressUrl } from "./egress-guard";
+// [S6b security sweep] Validated base-URL resolver (env read + allowlist in egress-url.ts, no sink there).
+import { resolveOpenRouterBaseUrl } from "./egress-url";
 
 function _loadEnvFile() {
   // Require an explicit env file; never silently load repository .env.
@@ -90,6 +94,13 @@ const OPENROUTER_API_KEY =
   "";
 const OPENROUTER_BASE_URL =
   process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+// [S5 security sweep] Additional egress hosts approved by the operator
+// (comma-separated). OPENROUTER_BASE_URL/GROQ_BASE_URL may point at a
+// self-hosted proxy — add its hostname here or the fetch will be denied.
+const LLM_EGRESS_EXTRA_HOSTS = (process.env.LLM_EGRESS_ALLOWED_HOSTS ?? "")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
 const OPENROUTER_MODEL =
   process.env.OPENROUTER_MODEL || "openrouter/free";
 
@@ -349,12 +360,23 @@ const LLM_FETCH_TIMEOUT_MS = Number(process.env.LLM_FETCH_TIMEOUT_MS ?? 60_000);
  * [Fix 4-d-006] Run a fetch with an AbortController-based timeout.
  * Returns the Response on success; throws an Error with .name === 'AbortError'
  * on timeout (so callers can distinguish timeout from network error).
+ *
+ * [S5 security sweep] SSRF gate (CWE-918): this function is the single egress
+ * sink for LLM calls (callZaiChat + callProviderDirect). Before any fetch the
+ * target URL is validated against the egress allowlist (openrouter.ai,
+ * api.groq.com, + LLM_EGRESS_ALLOWED_HOSTS). A blocked host throws a plain
+ * Error (non-AbortError) so callers treat it as non-retryable and the normal
+ * provider fallback chain still applies.
  */
 async function fetchWithTimeout(
   url: string,
   init: RequestInit,
   timeoutMs: number,
 ): Promise<Response> {
+  const egress = isAllowedLlmEgressUrl(url, LLM_EGRESS_EXTRA_HOSTS);
+  if (!egress.allowed) {
+    throw new Error(`[llm-bridge] egress blocked by host allowlist: ${egress.reason}`);
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -513,7 +535,12 @@ async function callProviderDirect(
 
   // Ollama uses /api/chat with different format
   if (provider.name === "ollama") {
-    const response = await fetch(`${provider.url}/api/chat`, {
+    // [S6b security sweep] This branch now goes through fetchWithTimeout — the
+    // single egress sink of this file (egress-allowlist gated inside). The
+    // previous duplicated gate + plain fetch() here kept an env-derived URL
+    // flowing into a fetch() sink in the same scope, which the scanner
+    // continued to flag as SSRF even with the S5 gate present.
+    const response = await fetchWithTimeout(`${provider.url}/api/chat`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -521,7 +548,7 @@ async function callProviderDirect(
         messages: cleaned,
         stream: false,
       }),
-    });
+    }, LLM_FETCH_TIMEOUT_MS);
     if (!response.ok) {
       throw new Error(`${provider.name} API ${response.status}: ${await response.text().catch(() => "")}`);
     }
@@ -623,8 +650,11 @@ async function callZaiChat(messages: ChatMsg[], model?: string, maxTokens?: numb
         const _mt = maxTokens && maxTokens > 0 ? maxTokens : LLM_MAX_TOKENS_DEFAULT;
         let response: Response;
         try {
+          // [S6b security sweep] Base URL resolved + egress-allowlist validated
+          // in egress-url.ts (no fetch sink there); the sink stays behind the
+          // same fetchWithTimeout gate as before.
           response = await fetchWithTimeout(
-            `${OPENROUTER_BASE_URL}/chat/completions`,
+            `${resolveOpenRouterBaseUrl()}/chat/completions`,
             {
               method: "POST",
               headers: {

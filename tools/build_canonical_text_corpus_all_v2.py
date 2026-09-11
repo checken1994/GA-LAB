@@ -2,6 +2,7 @@ import json,re,hashlib,datetime,concurrent.futures
 from pathlib import Path
 from bs4 import BeautifulSoup
 import requests
+from _net_guard import safe_get  # [S6b] boundary-validated egress
 ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_canonical_fetch_results_v1_20260817.jsonl';OUT=ROOT/'data'/'rag_corpus'/'canonical-v2-20260817';OUT.mkdir(parents=True,exist_ok=True);CORP=OUT/'corpus_all_fetched.jsonl'
 def load_records(p):
  s=p.read_text(encoding='utf-8');dec=json.JSONDecoder();i=0
@@ -17,7 +18,7 @@ def one(r):
  u=r.get('final_url') or r.get('canonical_url');base={'question_id':r.get('question_id'),'question':r.get('question'),'source_url':u,'source_title':r.get('title',''),'fetch_status':r.get('fetch_status'),'chunks':[],'gold_status':'NO_GOLD','review_required':True}
  if r.get('fetch_status')!='FETCHED' or not u:return base
  try:
-  resp=requests.get(u,timeout=25,headers={'User-Agent':'SCP-Canonical-Corpus/1.0'},allow_redirects=True)
+  resp=safe_get(u,timeout=25,headers={'User-Agent':'SCP-Canonical-Corpus/1.0'},allow_redirects=True,allow_internal=False)
   if not resp.ok:return base
   soup=BeautifulSoup(resp.text,'html.parser')
   for z in soup(['script','style','noscript','svg']):z.decompose()

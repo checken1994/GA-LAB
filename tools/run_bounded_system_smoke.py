@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 import requests
+from _net_guard import safe_request  # [S6b] boundary-validated egress
 import jwt
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,7 +42,7 @@ def _request(method: str, path: str, payload: dict | None = None, headers: dict 
     }
     if headers:
         req_headers.update(headers)
-    response = requests.request(method, f"{BASE}{path}", json=payload, headers=req_headers, timeout=30)
+    response = safe_request(method, f"{BASE}{path}", json=payload, headers=req_headers, timeout=30, allow_internal=True)
     item: dict[str, object] = {"http_status": response.status_code}
     try:
         item["body"] = response.json()

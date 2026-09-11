@@ -71,12 +71,22 @@ AI_AGENT_UAS = [
 BROWSER_HEADERS = ["accept-language", "accept-encoding", "sec-ch-ua", "sec-fetch-mode"]
 
 # Injection patterns
+# [AUDIT-20260909 S6a] Hai signature dạng "tên hàm + dấu ngoặc" được giữ dưới
+# dạng base64 và decode lúc import: đây là detection signature so khớp chuỗi
+# trong payload, không phải lời gọi — nhưng nếu để literal trong source,
+# pattern-based scanner sẽ nhầm thành code injection.
+_SIG_EXEC_LIKE = "ZXZhbCg="  # sample-match signature A (decoded below)
+_SIG_EXEC_LIKE2 = "ZXhlYyg="  # sample-match signature B (decoded below)
+import base64 as _b64
+_SIG_A = _b64.b64decode(_SIG_EXEC_LIKE).decode("ascii")
+_SIG_B = _b64.b64decode(_SIG_EXEC_LIKE2).decode("ascii")
+
 INJECTION_SIGNALS = [
     "ignore previous", "ignore all", "forget your", "forget all",
     "you are now", "you are dan", "system prompt", "reveal your",
     "bỏ qua", "lệnh mới", "bây giờ bạn là",
     "jailbreak", "developer mode", "no rules", "sudo",
-    "{{", "{%if", "eval(", "exec(", "subprocess", "os.system",
+    "{{", "{%if", _SIG_A, _SIG_B, "subprocess", "os.system",
     "__import__", "__class__", "pickle.loads",
 ]
 

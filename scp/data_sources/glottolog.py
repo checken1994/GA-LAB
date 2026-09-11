@@ -9,12 +9,53 @@ fills the linguistics gap entirely.
 """
 from __future__ import annotations
 
+import json
 import logging
+import re
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.glottolog")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_GLOTTOLOG_LANGUOID_URL = "https://glottolog.org/api/v1/languoid/"
+_GLOTTOLOG_LANGUAGE_URL = "https://glottolog.org/api/v1/language"
+
+# Glottocode: 4 chữ thường + 4 chữ số (vd abcd1234).
+_GLOTTICODE_RE = re.compile(r"^[a-z]{4}\d{4}$")
+# ISO 639-3: 3 chữ thường.
+_ISO6393_RE = re.compile(r"^[a-z]{3}$")
+
+
+def build_glottocode_url(glottocode: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — glottocode PHẢI fullmatch
+    [a-z]{4}\\d{4}; input xấu → ValueError TRƯỚC KHI fetch (fail-closed)."""
+    code = str(glottocode or "").strip()
+    if not _GLOTTICODE_RE.fullmatch(code):
+        raise ValueError(f"invalid_glottocode:{code[:32]!r}")
+    return _GLOTTOLOG_LANGUOID_URL + code
+
+
+def build_glottolog_language_url(iso639_3: str = None,
+                                 query: str = None) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — iso639_3 PHẢI fullmatch
+    [a-z]{3}; query được urlencode thành query value. Host cố định
+    glottolog.org. Ít nhất một trong hai param phải có."""
+    if iso639_3 is not None:
+        iso = str(iso639_3 or "").strip()
+        if not _ISO6393_RE.fullmatch(iso):
+            raise ValueError(f"invalid_iso639_3:{iso[:32]!r}")
+        return _GLOTTOLOG_LANGUAGE_URL + "?" + urllib.parse.urlencode(
+            {"iso639_3": iso})
+    if query is None:
+        raise ValueError("glottolog_language_url_requires_iso_or_query")
+    return _GLOTTOLOG_LANGUAGE_URL + "?" + urllib.parse.urlencode(
+        {"q": str(query or "")})
 
 
 class GlottologDataSource(IDataSource):
@@ -96,15 +137,15 @@ class GlottologDataSource(IDataSource):
             return None
 
     def _fetch_glottocode(self, glottocode: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(f"{self.BASE_URL}/languoid/{glottocode}",
-                          timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0"})
-            if r.status_code != 200:
-                logger.debug(f"[Glottolog] glottocode {glottocode} returned {r.status_code}")
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder fullmatch regex + safe_urlopen
+            # thay raw httpx.get; input xấu → ValueError, non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_glottocode_url(glottocode),
+                headers={"User-Agent": "SCP-Verifier/1.0"},
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             return {
                 "value": data.get("name", glottocode),
                 "source": "glottolog",
@@ -127,15 +168,14 @@ class GlottologDataSource(IDataSource):
             return None
 
     def _fetch_iso639(self, iso: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(f"{self.BASE_URL}/language",
-                          params={"iso639_3": iso},
-                          timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0"})
-            if r.status_code != 200:
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder fullmatch regex + safe_urlopen.
+            req = urllib.request.Request(
+                build_glottolog_language_url(iso639_3=iso),
+                headers={"User-Agent": "SCP-Verifier/1.0"},
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             results = data.get("results") or data if isinstance(data, list) else []
             if isinstance(results, list) and results:
                 top = results[0]
@@ -155,16 +195,15 @@ class GlottologDataSource(IDataSource):
             return None
 
     def _search_language(self, query: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(f"{self.BASE_URL}/language",
-                          params={"q": query},
-                          timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0"})
-            if r.status_code != 200:
-                logger.debug(f"[Glottolog] search returned {r.status_code}")
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen;
+            # non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_glottolog_language_url(query=query),
+                headers={"User-Agent": "SCP-Verifier/1.0"},
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             results = data.get("results") if isinstance(data, dict) else data
             if not results or (isinstance(results, list) and not results):
                 return None

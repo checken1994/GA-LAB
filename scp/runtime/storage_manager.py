@@ -263,13 +263,14 @@ class StorageManager:
                     conn = sqlite3.connect(str(db_path))
                     # VACUUM INTO creates a new DB from the corrupted one,
                     # skipping bad pages. Available since SQLite 3.27.0 (2019).
-                    # [AUTOFIX-T2-SEC] Was f-string with path → SQL injection risk if
-                    # db_path came from user input. VACUUM INTO doesn't support parameter
-                    # binding for the filename, so we validate the path is within allowed dirs.
+                    # [SEC-S4] VACUUM INTO accepts a bound parameter for the
+                    # filename — never interpolate the path into the SQL text.
+                    # The char allowlist below stays as defense-in-depth so a
+                    # corrupted config cannot smuggle exotic paths.
                     _rec_str = str(recovered_path)
                     if not _rec_str.replace("/", "").replace(".", "").replace("_", "").replace("-", "").isalnum():
                         raise ValueError(f"recovered_path contains unsafe characters: {_rec_str}")
-                    conn.execute(f"VACUUM INTO '{_rec_str}'")
+                    conn.execute('VACUUM INTO ?', (_rec_str,))
                     conn.close()
 
                     # Swap: original -> .broken.<timestamp>, recovered -> original
@@ -311,8 +312,20 @@ class StorageManager:
                             try:
                                 import gzip
                                 import shutil
+                                # [SEC-S4] Containment guard: the restored
+                                # backup must live inside data_dir/backups and
+                                # the target must stay inside data_dir — a
+                                # crafted filename must never escape them.
+                                if not latest.resolve().is_relative_to(backup_dir.resolve()):
+                                    raise ValueError(
+                                        f"backup path escapes backups dir: {latest}"
+                                    )
+                                if not db_path.resolve().is_relative_to(self.data_dir.resolve()):
+                                    raise ValueError(
+                                        f"db path escapes data dir: {db_path}"
+                                    )
                                 with gzip.open(latest, "rb") as src, \
-                                        open(db_path, "wb") as dst:
+                                        Path(db_path).open("wb") as dst:
                                     shutil.copyfileobj(src, dst)
                                 size_mb = db_path.stat().st_size / (1024 * 1024)
                                 logger.info(

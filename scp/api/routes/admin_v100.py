@@ -147,3 +147,12 @@ async def h8_analyses(limit: int = 20):
     if not judge.h8_redteam:
         raise HTTPException(status_code=503, detail="H8RedTeamBridge not available")
     return {"analyses": judge.h8_redteam.get_recent_analyses(limit)}
+
+@router.get("/v100/release/evidence", dependencies=[Depends(verify_admin)])
+@traced_request(_ADMIN_V100_LEDGER, require_write=False, action="release_evidence")
+async def release_evidence():
+    """Release evidence authority endpoint (Wave 1)."""
+    from scp.release.evidence_authority import ReleaseEvidenceAuthority
+    auth = ReleaseEvidenceAuthority(Path("data") / "evidence.sqlite")
+    evidence = auth.generate_release_claim()
+    return {"evidence": evidence}

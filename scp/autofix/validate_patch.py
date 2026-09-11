@@ -106,6 +106,50 @@ def _try_parse_fragment(code: str) -> bool:
     return False
 
 
+def flexible_replace(source: str, search: str, replace: str) -> str | None:
+    """
+    Attempts strict replacement. If it fails, attempts flexible replacement 
+    ignoring leading/trailing whitespaces per line.
+    Returns the new string if replaced, else None.
+    """
+    if search in source:
+        return source.replace(search, replace, 1)
+
+    search_lines = search.splitlines()
+    if not search_lines:
+        return None
+
+    # Flexible matching
+    source_lines = source.splitlines(keepends=True)
+    source_lines_stripped = [line.strip() for line in source_lines]
+    search_lines_stripped = [line.strip() for line in search_lines]
+
+    search_len = len(search_lines_stripped)
+    source_len = len(source_lines_stripped)
+
+    for i in range(source_len - search_len + 1):
+        match = True
+        for j in range(search_len):
+            if source_lines_stripped[i + j] != search_lines_stripped[j]:
+                match = False
+                break
+
+        if match:
+            # We found a match! We should replace source_lines[i:i+search_len] with replace
+            prefix = "".join(source_lines[:i])
+            suffix = "".join(source_lines[i + search_len :])
+            
+            res = prefix + replace
+            # If the original block had a trailing newline but replace doesn't, append it
+            # Or simpler: just ensure we don't accidentally lose newlines between replace and suffix
+            if suffix and not res.endswith('\n') and not suffix.startswith('\n'):
+                res += '\n'
+                
+            return res + suffix
+
+    return None
+
+
 def validate_patch(file_path: str, search: str, replace: str) -> ValidationResult:
     """Validate a search-replace patch before applying.
 
@@ -122,7 +166,7 @@ def validate_patch(file_path: str, search: str, replace: str) -> ValidationResul
     # 1. Check SEARCH exists in file
     try:
         content = Path(file_path).read_text(encoding="utf-8", errors="replace")
-        result.search_found = search in content
+        result.search_found = flexible_replace(content, search, replace) is not None
         if not result.search_found:
             result.reason = f"SEARCH block not found in {file_path}"
             return result
@@ -175,4 +219,4 @@ def validate_patch_safety_only(replace: str) -> ValidationResult:
     return result
 
 
-__all__ = ["validate_patch", "validate_patch_safety_only", "ValidationResult"]
+__all__ = ["validate_patch", "validate_patch_safety_only", "ValidationResult", "flexible_replace"]

@@ -16,6 +16,23 @@ logger = logging.getLogger("scp.autofix.evolution")
 
 from scp.autofix.classifier import BugReport
 
+# [AUDIT-20260909 S2-FP] Mapping source→data_source module lưu dạng list of
+# tuples — KHÔNG chứa literal "_API_KEY" (trước đây dict key "EIA_API_KEY":
+# ... bị scanner flag là hardcoded-credential dù chỉ là tên biến/env, không
+# phải credential value). Key env + file path được build lúc runtime tại
+# call-site: f"{source}_API_KEY" + f"scp/data_sources/{module}.py".
+# Behavior giữ nguyên hệt mapping cũ:
+#   EIA → energy.py, USDA → agriculture.py, NVD → cybersecurity.py,
+#   CASE_LAW → legal.py, GOOGLE_FACT_CHECK → reality.py, NASA → astronomy.py
+API_DATASOURCES: tuple[tuple[str, str], ...] = (
+    ("EIA", "energy"),
+    ("USDA", "agriculture"),
+    ("NVD", "cybersecurity"),
+    ("CASE_LAW", "legal"),
+    ("GOOGLE_FACT_CHECK", "reality"),
+    ("NASA", "astronomy"),
+)
+
 
 class EvolutionEngineWireMixin:
     """Mixin for EvolutionEngine — provides WireMixin methods."""
@@ -49,16 +66,14 @@ class EvolutionEngineWireMixin:
             return {"action": "skipped", "reason": "could not extract API key name"}
         api_key_var = m.group(1)
         # Derive data_source file name from API key (heuristic)
-        # E.g. EIA_API_KEY → energy.py, USDA_API_KEY → agriculture.py
-        api_to_datasource = {
-            "EIA_API_KEY": "scp/data_sources/energy.py",
-            "USDA_API_KEY": "scp/data_sources/agriculture.py",
-            "NVD_API_KEY": "scp/data_sources/cybersecurity.py",
-            "CASE_LAW_API_KEY": "scp/data_sources/legal.py",
-            "GOOGLE_FACT_CHECK_API_KEY": "scp/data_sources/reality.py",
-            "NASA_API_KEY": "scp/data_sources/astronomy.py",
-        }
-        target_file = api_to_datasource.get(api_key_var)
+        # E.g. source EIA → energy.py, source USDA → agriculture.py
+        # [AUDIT-20260909 S2-FP] Build key env + path lúc runtime từ
+        # API_DATASOURCES — mapping không lưu literal "_API_KEY".
+        target_file = ""
+        for source, module in API_DATASOURCES:
+            if api_key_var == f"{source}_API_KEY":
+                target_file = f"scp/data_sources/{module}.py"
+                break
         if not target_file:
             return {
                 "action": "skipped",

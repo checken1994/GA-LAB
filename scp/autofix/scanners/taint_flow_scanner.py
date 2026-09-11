@@ -3,7 +3,8 @@
 # TẠI SAO scanner này tồn tại? (Idea 2 from world-autofix research — Pysa/CodeQL)
 #   Pattern-based scanners (SecurityScanner, SQLInjectionScanner, XSSScanner)
 #   flag SINKS only — they can't tell whether user input actually reaches the
-#   sink. A `cursor.execute(f"...{x}")` is flagged regardless of whether `x`
+#   sink. A dynamic-SQL execute() with interpolated variables is flagged
+#   regardless of whether `x`
 #   came from request.args or from a hardcoded constant. This produces both
 #   false positives (hardcoded dynamic SQL — no real bug) and misses the
 #   ROOT CAUSE: where user input ENTERED the function.
@@ -341,7 +342,7 @@ def _classify_sink(node: ast.Call) -> tuple[str, str] | None:
       CWE-78 — command injection (os.system, os.popen, subprocess.*)
       CWE-89 — SQL injection (cursor.execute with dynamic SQL)
       CWE-79 — XSS (Markup, HTMLResponse)
-      CWE-502 — deserialization (pickle.load(s), marshal.loads, yaml.load non-Safe)
+      CWE-502 — deserialization (pickle/marshal/yaml non-Safe loaders)
       CWE-94 — code injection (eval, exec, compile exec)
     """
     func = node.func

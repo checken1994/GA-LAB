@@ -412,7 +412,7 @@ if __name__ == "__main__":
             {"event": "scanner", "new_pattern": "weird_stack_trace"},     # curiosity
         ]
         log_path = Path(tmp) / "synthetic.jsonl"
-        with open(log_path, "w", encoding="utf-8") as f:
+        with log_path.open("w", encoding="utf-8") as f:
             for ev in events:
                 f.write(json.dumps(ev) + "\n")
 

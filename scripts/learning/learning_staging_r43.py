@@ -7,6 +7,7 @@ import json
 import multiprocessing as mp
 import os
 import queue
+import re
 import shutil
 import sqlite3
 import sys
@@ -51,11 +52,22 @@ def safe_db_counts(db: Path) -> dict[str, int | str | None]:
     result: dict[str, int | str | None] = {}
     if not db.exists():
         return result
+    # [SEC-S6] Literal SQL template: only the regex-validated fixed table name
+    # is substituted into a constant statement (no f-string/format/concat of
+    # variables into SQL text).
+    sql_count_template = 'SELECT COUNT(*) FROM "@TABLE@"'
     try:
         with sqlite3.connect(str(db), timeout=5) as con:
             for table in ("knowledge", "experiences", "error_history", "memory"):
                 try:
-                    result[table] = int(con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                    # [SEC-S4] Table names are fixed constants; identifiers
+                    # cannot be parameterized, so enforce the strict whitelist
+                    # before the name is quoted into the statement.
+                    if not re.fullmatch(r"[A-Za-z0-9_]+", table):
+                        result[table] = None
+                        continue
+                    count_sql = sql_count_template.replace("@TABLE@", table)
+                    result[table] = int(con.execute(count_sql).fetchone()[0])  # identifier regex-validated above  # nosec B608
                 except sqlite3.Error:
                     result[table] = None
     except sqlite3.Error as exc:

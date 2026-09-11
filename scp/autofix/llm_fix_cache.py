@@ -36,6 +36,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scp.autofix.path_guard import sanitize_storage_path
+
 logger = logging.getLogger("scp.autofix.llm_fix_cache")
 
 
@@ -137,7 +139,10 @@ class LLMFixCache:
         ttl_seconds: int = _DEFAULT_TTL_SECONDS,
         max_entries: int = _DEFAULT_MAX_ENTRIES,
     ):
-        self.cache_file = Path(cache_file)
+        # [S3-SECURITY-SWEEP] reject traversal-shaped cache paths (HIGH fix).
+        self.cache_file = sanitize_storage_path(
+            cache_file, default=_DEFAULT_CACHE_FILE, label="llm_fix cache",
+        )
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)
         self.ttl_seconds = ttl_seconds
         self.max_entries = max_entries
@@ -147,7 +152,7 @@ class LLMFixCache:
         if not self.cache_file.exists():
             return {"entries": {}, "stats": {"hits": 0, "misses": 0, "evictions": 0}}
         try:
-            with open(self.cache_file, encoding="utf-8") as f:
+            with Path(self.cache_file).open(encoding="utf-8") as f:
                 loaded = json.load(f)
             # Fail-closed shape normalization: legacy/corrupt cache files must
             # never make invalidation/stats crash with KeyError('entries').
@@ -173,7 +178,7 @@ class LLMFixCache:
     def _save(self) -> None:
         try:
             tmp = self.cache_file.with_suffix(".tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
+            with Path(tmp).open("w", encoding="utf-8") as f:
                 json.dump(self._data, f, ensure_ascii=False)
             tmp.replace(self.cache_file)  # atomic
         except OSError as e:

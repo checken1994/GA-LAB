@@ -1,6 +1,7 @@
 import json,re,hashlib
 from pathlib import Path
 import requests
+from _net_guard import safe_get  # [S6b] boundary-validated egress
 from bs4 import BeautifulSoup
 ROOT=Path(__file__).resolve().parents[1];P=ROOT/'benchmark'/'questions_1000_real_rag_20260817.jsonl';UA='SCP-Real-RAG-Benchmark/1.0 (source independence repair)'
 def clean(q):
@@ -20,7 +21,7 @@ for r in rows:
  if not hits:continue
  title,url,snip=hits[0];text=snip
  try:
-  rr=requests.get(url,headers={'User-Agent':UA},timeout=12);ss=BeautifulSoup(rr.text,'html.parser')
+  rr=safe_get(url,headers={'User-Agent':UA},timeout=12,allow_internal=False);ss=BeautifulSoup(rr.text,'html.parser')
   for x in ss(['script','style','nav','footer','header','aside']):x.decompose()
   text=re.sub(r'\s+',' ',ss.get_text(' ',strip=True))[:6000] or snip
  except Exception:pass

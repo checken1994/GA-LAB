@@ -8,13 +8,30 @@ Requires NOAA_API_KEY (free token at https://www.ncdc.noaa.gov/cdo-web/token).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.noaa")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_NOAA_DATA_URL = "https://www.ncdc.noaa.gov/cdo-web/api/v2/data"
+
+
+def build_noaa_data_url(params: dict) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — mọi param (datasetid,
+    startdate, enddate, locationid...) được urlencode; host cố định
+    www.ncdc.noaa.gov. locationid chỉ nhận CDO location format `FIPS:nn`
+    hoặc `CITY:...` từ LOCATION_MAP nội bộ."""
+    clean = {str(k): v for k, v in (params or {}).items()}
+    return _NOAA_DATA_URL + "?" + urllib.parse.urlencode(clean)
 
 
 class NOAADataSource(IDataSource):
@@ -107,7 +124,6 @@ class NOAADataSource(IDataSource):
             return None
 
     def _query_data(self, question: str) -> dict | None:
-        import httpx
         try:
             q = question.lower()
             # Pick dataset
@@ -131,14 +147,14 @@ class NOAADataSource(IDataSource):
             }
             if location_id:
                 params["locationid"] = location_id
-            r = httpx.get(f"{self.BASE_URL}/data",
-                          params=params,
-                          headers={"token": self.api_key},
-                          timeout=10)
-            if r.status_code != 200:
-                logger.debug(f"[NOAA] data query returned {r.status_code}")
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_noaa_data_url(params),
+                headers={"token": self.api_key},
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             results = data.get("results", [])
             if not results:
                 return None

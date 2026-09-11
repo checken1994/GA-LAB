@@ -28,14 +28,55 @@ Per the G3-full-B task hard rule: modify each listed file. Actions taken:
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.core.wikipedia_client import fetch_summary as _wiki_fetch_summary  # [G3-CONSOLIDATE RE-05]
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.wikiart")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builders.
+_WIKIART_ARTIST_URL = "https://www.wikiart.org/en/App/Artist/GetArtist"
+_WIKIART_PAINTING_SEARCH_URL = "https://www.wikiart.org/en/App/Painting/Search"
+
+# Artist slug: chỉ chữ/số/dấu gạch (từ artist name → slug nội bộ).
+_ARTIST_SLUG_RE = None  # lazy import re để giữ import-time nhẹ
+
+
+def build_wikiart_artist_url(slug: str, api_key: Optional[str] = None) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — slug được urlencode thành
+    query value (kể cả '/', '../' thành %2F); host cố định www.wikiart.org."""
+    import re as _re
+    global _ARTIST_SLUG_RE
+    if _ARTIST_SLUG_RE is None:
+        # \w unicode-aware: nhận cả letter có dấu (giữ behavior cũ cho slug
+        # tiếng Việt/unicode); vẫn chặn '/', '?', '#', '@', '%', '.' → không
+        # thể tạo path traversal hay đổi host qua giá trị artistUrl.
+        _ARTIST_SLUG_RE = _re.compile(r"^[\w\-]{1,128}$", _re.UNICODE)
+    s = str(slug or "").strip().lower()
+    if not _ARTIST_SLUG_RE.fullmatch(s):
+        raise ValueError(f"invalid_artist_slug:{s[:64]!r}")
+    params = {"artistUrl": s}
+    if api_key:
+        params["authSessionKey"] = api_key
+    return _WIKIART_ARTIST_URL + "?" + urllib.parse.urlencode(params)
+
+
+def build_wikiart_painting_search_url(term: str,
+                                      api_key: Optional[str] = None) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — term được urlencode thành
+    query value; host cố định www.wikiart.org."""
+    params = {"term": str(term or "")}
+    if api_key:
+        params["authSessionKey"] = api_key
+    return _WIKIART_PAINTING_SEARCH_URL + "?" + urllib.parse.urlencode(params)
 
 
 class WikiArtDataSource(IDataSource):
@@ -114,20 +155,17 @@ class WikiArtDataSource(IDataSource):
             return None
 
     def _query_artist(self, artist: str) -> dict | None:
-        import httpx
         try:
             # WikiArt API uses artist URL slug; convert spaces to dashes
             slug = artist.lower().replace(" ", "-").replace(".", "")
-            params = {}
-            if self.api_key:
-                params["authSessionKey"] = self.api_key
-            r = httpx.get(f"{self.BASE_URL}/Artist/GetArtist",
-                          params={"artistUrl": slug, **params}, timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0"})
-            if r.status_code != 200:
-                logger.debug(f"[WikiArt] artist '{slug}' returned {r.status_code}")
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder fullmatch regex + safe_urlopen
+            # thay raw httpx.get; input xấu → ValueError, non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_wikiart_artist_url(slug, api_key=self.api_key or None),
+                headers={"User-Agent": "SCP-Verifier/1.0"},
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             result = {
                 "value": data.get("artistName", artist),
                 "source": "wikiart",
@@ -174,17 +212,15 @@ class WikiArtDataSource(IDataSource):
         return None
 
     def _search_paintings(self, query: str) -> dict | None:
-        import httpx
         try:
-            params = {"term": query}
-            if self.api_key:
-                params["authSessionKey"] = self.api_key
-            r = httpx.get(f"{self.BASE_URL}/Painting/Search",
-                          params=params, timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0"})
-            if r.status_code != 200:
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_wikiart_painting_search_url(query, api_key=self.api_key or None),
+                headers={"User-Agent": "SCP-Verifier/1.0"},
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             results = data.get("data") or data.get("results") or []
             if not results:
                 return None

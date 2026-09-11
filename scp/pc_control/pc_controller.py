@@ -98,7 +98,7 @@ class PCController:
         project_root = Path(__file__).resolve().parents[2]
         configured = working_dir or os.environ.get("SCP_PC_WORKING_DIR")
         self.working_dir = self._resolve_path(configured or project_root)
-        self.data_dir = project_root / "data" / "pc_controller"
+        self.data_dir = self.working_dir / "data" / "pc_controller"
         self.audit_path = self.data_dir / "audit.jsonl"
         self.backup_dir = self.data_dir / "backups"
         self.kill_switch_path = self.data_dir / "KILL_SWITCH"

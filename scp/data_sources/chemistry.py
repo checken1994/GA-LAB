@@ -13,14 +13,30 @@ Contact: scp-vietnam@example.com
 ChemistryDataSource - Data source cho Hóa học
 Bao gồm: 118 nguyên tố, hợp chất phổ biến, phản ứng, hằng số hóa học.
 """
+import json
 import logging
+import urllib.parse
+import urllib.request
 from typing import Any, Optional
 
-import requests
-
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 
 logger = logging.getLogger(__name__)
+
+# [AUDIT-20260909 SSRF-S1] Host cố định cho PubChem fetch.
+_PUBCHEM_BASE = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name"
+
+
+def build_pubchem_url(entity: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — compound name (input động)
+    được quote(safe='') → '/', '..', '?' bị encode, luôn nằm trong MỘT path
+    segment của host cố định pubchem.ncbi.nlm.nih.gov."""
+    quoted = urllib.parse.quote(str(entity or ""), safe="")
+    return (
+        f"{_PUBCHEM_BASE}/{quoted}"
+        f"/property/MolecularFormula,MolecularWeight/JSON"
+    )
 
 
 class ChemistryDataSource(IDataSource):
@@ -597,21 +613,27 @@ class ChemistryDataSource(IDataSource):
     def _fetch_from_pubchem(self, entity: str) -> Optional[dict[str, Any]]:
         """Fallback: Lấy từ PubChem."""
         try:
-            url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{entity}/property/MolecularFormula,MolecularWeight/JSON"
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                props = data.get('PropertyTable', {}).get('Properties', [{}])[0]
-                return {
-                    'value': props.get('MolecularWeight', 0),
-                    'source': 'PubChem API',
-                    'metadata': {
-                        'formula': props.get('MolecularFormula', ''),
-                        'molar_mass': props.get('MolecularWeight', 0),
-                        'unit': 'g/mol',
-                        'method': 'pubchem'
-                    }
+            # [AUDIT-20260909 SSRF-S1] build URL (quote entity) rồi fetch qua
+            # safe_urlopen thay raw requests.get.
+            url = build_pubchem_url(entity)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Chemistry/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=5) as response:
+                if getattr(response, "status", 200) != 200:
+                    return None
+                data = json.loads(response.read().decode("utf-8", errors="replace"))
+            props = data.get('PropertyTable', {}).get('Properties', [{}])[0]
+            return {
+                'value': props.get('MolecularWeight', 0),
+                'source': 'PubChem API',
+                'metadata': {
+                    'formula': props.get('MolecularFormula', ''),
+                    'molar_mass': props.get('MolecularWeight', 0),
+                    'unit': 'g/mol',
+                    'method': 'pubchem'
                 }
+            }
         except Exception as e:
             logger.warning(f"[Chemistry] PubChem fetch failed: {e}")
         return None

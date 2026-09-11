@@ -29,6 +29,8 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from pathlib import Path
 from typing import Any, Callable
 
@@ -206,7 +208,9 @@ class TopSystemsLearner:
             raise RuntimeError("egress disabled by SCP_TOP_SYSTEMS_EGRESS=0")
         merged = {"User-Agent": _USER_AGENT, **(headers or {})}
         req = urllib.request.Request(url, headers=merged)  # noqa: S310 — scheme+host allowlisted above
-        with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 — fixed https host from ALLOWED_HOSTS
+        # [AUDIT-20260909 SSRF-S1] safe_urlopen thay raw urlopen — thêm lớp
+        # validate scheme + chặn private/loopback IP sau allowlist host.
+        with safe_urlopen(req, timeout=20) as resp:  # noqa: S310 — validated by safe_urlopen
             return json.loads(resp.read(2_000_000).decode("utf-8", errors="replace"))
 
     def _get_json(self, url: str, headers: dict[str, str] | None = None) -> dict[str, Any]:
@@ -223,7 +227,9 @@ class TopSystemsLearner:
             raise RuntimeError("egress disabled by SCP_TOP_SYSTEMS_EGRESS=0")
         merged = {"User-Agent": _USER_AGENT, **(headers or {})}
         req = urllib.request.Request(url, headers=merged)  # noqa: S310 — scheme+host allowlisted above
-        with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 — fixed https host from ALLOWED_HOSTS
+        # [AUDIT-20260909 SSRF-S1] safe_urlopen thay raw urlopen — thêm lớp
+        # validate scheme + chặn private/loopback IP sau allowlist host.
+        with safe_urlopen(req, timeout=20) as resp:  # noqa: S310 — validated by safe_urlopen
             return resp.read(max_bytes).decode("utf-8", errors="replace")
 
     def _get_raw(self, url: str, headers: dict[str, str] | None = None) -> str:

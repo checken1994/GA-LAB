@@ -35,6 +35,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scp.autofix.path_guard import sanitize_storage_path
+
 logger = logging.getLogger("scp.autofix.diff_rescan")
 
 
@@ -53,7 +55,7 @@ def _file_signature(path: Path) -> dict[str, Any]:
         # Hash only first 8KB — large files would be slow to fully hash.
         # 8KB is enough to detect most edits; combined with mtime+size, very robust.
         h = hashlib.new(_HASH_ALGO)
-        with open(path, "rb") as f:
+        with Path(path).open("rb") as f:
             h.update(f.read(8192))
         return {
             "mtime": stat.st_mtime,
@@ -80,7 +82,10 @@ class DiffRescanCache:
     """
 
     def __init__(self, cache_file: str | Path = _DEFAULT_CACHE_FILE):
-        self.cache_file = Path(cache_file)
+        # [S3-SECURITY-SWEEP] reject traversal-shaped cache paths (HIGH fix).
+        self.cache_file = sanitize_storage_path(
+            cache_file, default=_DEFAULT_CACHE_FILE, label="diff_rescan cache",
+        )
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)
         self._data: dict[str, Any] = self._load()
 
@@ -88,7 +93,7 @@ class DiffRescanCache:
         if not self.cache_file.exists():
             return {"last_full_scan": 0.0, "incremental_count": 0, "files": {}}
         try:
-            with open(self.cache_file, encoding="utf-8") as f:
+            with Path(self.cache_file).open(encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"[IMP-12] cache load failed, starting fresh: {e}")
@@ -96,7 +101,7 @@ class DiffRescanCache:
 
     def _save(self) -> None:
         try:
-            with open(self.cache_file, "w", encoding="utf-8") as f:
+            with Path(self.cache_file).open("w", encoding="utf-8") as f:
                 json.dump(self._data, f)
         except OSError as e:
             logger.warning(f"[IMP-12] cache save failed: {e}")

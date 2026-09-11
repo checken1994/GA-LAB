@@ -7,13 +7,46 @@ Free API: https://fred.stlouisfed.org/docs/api/api_key.html
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.fred")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_FRED_OBS_URL = "https://api.stlouisfed.org/fred/series/observations"
+
+# FRED series_id: chữ hoa + chữ số, 2–20 ký tự (vd GDP, GS10, CPIAUCSL,
+# A191RL1Q225SBEA) — chặn dấu chấm/gạch chéo (path traversal).
+_FRED_SERIES_RE = None  # lazy import re để giữ import-time nhẹ
+
+
+def build_fred_observations_url(series_id: str, api_key: str,
+                                limit: int = 1) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — series_id PHẢI fullmatch
+    [A-Z0-9]{2,20} (input xấu → ValueError TRƯỚC KHI fetch, fail-closed);
+    api_key được urlencode. Host cố định api.stlouisfed.org."""
+    global _FRED_SERIES_RE
+    if _FRED_SERIES_RE is None:
+        import re as _re
+        _FRED_SERIES_RE = _re.compile(r"^[A-Z0-9]{2,20}$")
+    sid = str(series_id or "").strip()
+    if not _FRED_SERIES_RE.fullmatch(sid):
+        raise ValueError(f"invalid_fred_series_id:{sid[:32]!r}")
+    return _FRED_OBS_URL + "?" + urllib.parse.urlencode({
+        "series_id": sid,
+        "api_key": api_key,
+        "file_type": "json",
+        "sort_order": "desc",
+        "limit": int(limit),
+    })
 
 
 class FREDDataSource(IDataSource):
@@ -93,18 +126,14 @@ class FREDDataSource(IDataSource):
             return None
 
     def _query_series(self, series_id: str, label: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(f"{self.BASE_URL}/series/observations",
-                          params={
-                              "series_id": series_id,
-                              "api_key": self.api_key,
-                              "file_type": "json",
-                              "sort_order": "desc",
-                              "limit": 1,
-                          }, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder fullmatch regex + safe_urlopen
+            # thay raw httpx.get; input xấu → ValueError, non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_fred_observations_url(series_id, api_key=self.api_key)
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             observations = data.get("observations", [])
             if observations:
                 obs = observations[0]

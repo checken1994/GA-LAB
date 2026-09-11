@@ -93,6 +93,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from scp.autofix.path_guard import ensure_within, sanitize_filename_stem
+
 logger = logging.getLogger("scp.autofix.shadow_canary")
 
 
@@ -431,12 +433,23 @@ def _write_shadow(source: str, original_filename: str) -> tuple[str, types.Modul
     try:
         shadow_dir = DEFAULT_SHADOW_DIR
         os.makedirs(shadow_dir, exist_ok=True)
-        base = Path(original_filename).stem or "shadow"
+        # [S3-SECURITY-SWEEP] original_filename comes from findings (external
+        # data): sanitize the stem to a safe charset and enforce containment
+        # inside shadow_dir (HIGH path-traversal fix).
+        base = sanitize_filename_stem(original_filename, fallback="shadow")
         # Use a unique suffix to avoid module-name collisions.
         import uuid
         suffix = uuid.uuid4().hex[:8]
         shadow_path = os.path.join(shadow_dir, f"{base}_shadow_{suffix}.py")
-        with open(shadow_path, "w", encoding="utf-8") as f:
+        contained = ensure_within(shadow_dir, shadow_path)
+        if contained is None:
+            logger.warning(
+                "[IMP-23] shadow path escaped shadow_dir — refusing write: %r",
+                shadow_path,
+            )
+            return "", None
+        shadow_path = str(contained)
+        with Path(shadow_path).open("w", encoding="utf-8") as f:
             f.write(source)
         # Import as a fresh module (don't pollute sys.modules).
         mod_name = f"_shadow_{suffix}"

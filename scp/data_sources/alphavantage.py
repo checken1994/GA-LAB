@@ -5,13 +5,30 @@ AlphaVantage provides stocks + forex + crypto (free tier: 25 calls/day).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.alphavantage")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder,
+# caller không thể đổi host.
+_ALPHAVANTAGE_API_URL = "https://www.alphavantage.co/query"
+
+
+def build_alphavantage_url(params: dict) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — mọi param động (symbol,
+    currency, apikey) được urlencode thành query values, không thể đổi
+    host/path. Raises TypeError trên params không phải dict (fail-closed)."""
+    if not isinstance(params, dict):
+        raise TypeError("params must be a dict")
+    return f"{_ALPHAVANTAGE_API_URL}?{urllib.parse.urlencode(params)}"
 
 
 class AlphaVantageDataSource(IDataSource):
@@ -84,15 +101,19 @@ class AlphaVantageDataSource(IDataSource):
         return m.group(1).upper() if m else ""
 
     def _query_stock(self, symbol: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(self.BASE_URL, params={
+            url = build_alphavantage_url({
                 "function": "GLOBAL_QUOTE",
                 "symbol": symbol,
                 "apikey": self.api_key,
-            }, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            })
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get; non-200
+            # raise HTTPError → except dưới giữ behavior cũ (return None).
+            with safe_urlopen(
+                urllib.request.Request(url, headers={"User-Agent": "SCP-Verifier/1.0"}),
+                timeout=10,
+            ) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
             quote = data.get("Global Quote", {})
             if quote:
                 return {
@@ -107,21 +128,23 @@ class AlphaVantageDataSource(IDataSource):
     def _query_forex(self, question: str) -> dict | None:
         import re
 
-        import httpx
         m = re.search(r'\b(USD|EUR|JPY|GBP|VND|CNY|KRW)\b', question, re.I)
         if not m:
             return None
         from_curr = m.group(1).upper()
         to_curr = "USD" if from_curr != "USD" else "EUR"
         try:
-            r = httpx.get(self.BASE_URL, params={
+            url = build_alphavantage_url({
                 "function": "CURRENCY_EXCHANGE_RATE",
                 "from_currency": from_curr,
                 "to_currency": to_curr,
                 "apikey": self.api_key,
-            }, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            })
+            with safe_urlopen(
+                urllib.request.Request(url, headers={"User-Agent": "SCP-Verifier/1.0"}),
+                timeout=10,
+            ) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
             rate = data.get("Realtime Currency Exchange Rate", {})
             if rate:
                 return {
@@ -134,16 +157,18 @@ class AlphaVantageDataSource(IDataSource):
         return None
 
     def _query_crypto(self) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(self.BASE_URL, params={
+            url = build_alphavantage_url({
                 "function": "CURRENCY_EXCHANGE_RATE",
                 "from_currency": "BTC",
                 "to_currency": "USD",
                 "apikey": self.api_key,
-            }, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            })
+            with safe_urlopen(
+                urllib.request.Request(url, headers={"User-Agent": "SCP-Verifier/1.0"}),
+                timeout=10,
+            ) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
             rate = data.get("Realtime Currency Exchange Rate", {})
             if rate:
                 return {

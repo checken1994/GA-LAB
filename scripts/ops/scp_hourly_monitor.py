@@ -13,13 +13,20 @@ import hashlib
 import json
 import os
 import socket
+import sys
 import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from scp.security.url_safety import safe_urlopen
 
 DEFAULT_ENDPOINTS = {
     "backend": "http://127.0.0.1:8000/health",
@@ -65,7 +72,10 @@ def probe_http(url: str, method: str = "GET", payload: dict[str, Any] | None = N
             data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
             headers["Content-Type"] = "application/json"
         response_request = Request(url, data=data, headers=headers, method=method)
-        with urlopen(response_request, timeout=timeout) as response:
+        # [SEC-S6] SSRF guard: probes go through safe_urlopen. The monitored
+        # endpoints are intentional loopback targets, so internal hosts are
+        # explicitly allowed here.
+        with safe_urlopen(response_request, timeout=timeout, allow_internal=True) as response:
             status = int(response.status)
             body = response.read(1_048_576)
     except HTTPError as exc:

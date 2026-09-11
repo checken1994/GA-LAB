@@ -9,12 +9,28 @@ earthquake_magnitude_check antibody (added in Task 29-B).
 """
 from __future__ import annotations
 
+import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.usgs")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_USGS_QUERY_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+
+
+def build_usgs_query_url(params: dict) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — mọi param (starttime,
+    endtime, minmagnitude...) được urlencode; host cố định earthquake.usgs.gov.
+    starttime/enddate chỉ nhận YYYY-MM-DD (từ strftime nội bộ)."""
+    clean = {str(k): v for k, v in (params or {}).items()}
+    return _USGS_QUERY_URL + "?" + urllib.parse.urlencode(clean)
 
 
 class USGSDataSource(IDataSource):
@@ -100,23 +116,21 @@ class USGSDataSource(IDataSource):
     def _query_min_magnitude(self, min_mag: float) -> dict | None:
         from datetime import datetime, timedelta, timezone
 
-        import httpx
         try:
             end = datetime.now(timezone.utc)
             start = end - timedelta(days=30)
-            r = httpx.get(f"{self.BASE_URL}/query",
-                          params={
-                              "format": "geojson",
-                              "starttime": start.strftime("%Y-%m-%d"),
-                              "endtime": end.strftime("%Y-%m-%d"),
-                              "minmagnitude": min_mag,
-                              "limit": 5,
-                              "orderby": "magnitude",
-                          }, timeout=10)
-            if r.status_code != 200:
-                logger.debug(f"[USGS] query returned {r.status_code}")
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(build_usgs_query_url({
+                "format": "geojson",
+                "starttime": start.strftime("%Y-%m-%d"),
+                "endtime": end.strftime("%Y-%m-%d"),
+                "minmagnitude": min_mag,
+                "limit": 5,
+                "orderby": "magnitude",
+            }))
+            with safe_urlopen(req, timeout=10) as r:  # noqa: S310 — validated by safe_urlopen
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             features = data.get("features", [])
             if not features:
                 return None
@@ -150,22 +164,21 @@ class USGSDataSource(IDataSource):
     def _query_recent(self, days: int = 7) -> dict | None:
         from datetime import datetime, timedelta, timezone
 
-        import httpx
         try:
             end = datetime.now(timezone.utc)
             start = end - timedelta(days=days)
-            r = httpx.get(f"{self.BASE_URL}/query",
-                          params={
-                              "format": "geojson",
-                              "starttime": start.strftime("%Y-%m-%d"),
-                              "endtime": end.strftime("%Y-%m-%d"),
-                              "minmagnitude": 2.5,
-                              "limit": 10,
-                              "orderby": "time",
-                          }, timeout=10)
-            if r.status_code != 200:
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(build_usgs_query_url({
+                "format": "geojson",
+                "starttime": start.strftime("%Y-%m-%d"),
+                "endtime": end.strftime("%Y-%m-%d"),
+                "minmagnitude": 2.5,
+                "limit": 10,
+                "orderby": "time",
+            }))
+            with safe_urlopen(req, timeout=10) as r:  # noqa: S310 — validated by safe_urlopen
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             features = data.get("features", [])
             if not features:
                 return None

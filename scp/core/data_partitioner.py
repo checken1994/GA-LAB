@@ -210,7 +210,7 @@ if __name__ == "__main__":
         print("\nTest 5: Migration")
         # Create fake old files
         old_bypass = data_dir / "bypass_log.jsonl"
-        with open(old_bypass, "w") as f:
+        with old_bypass.open("w") as f:
             f.write(json.dumps({"timestamp": time.time(), "type": "BYPASS"}) + "\n")
             f.write(json.dumps({"timestamp": time.time() - 86400,
                                   "type": "BYPASS"}) + "\n")

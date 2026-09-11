@@ -10,13 +10,33 @@ API: https://factchecktools.googleapis.com/v1alpha1/claims:search
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.google_factcheck")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_GC_FACTCHECK_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+
+
+def build_google_factcheck_url(query: str, api_key: str,
+                               max_age_days: int = 365) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — query + api_key được
+    urlencode thành query values; host cố định factchecktools.googleapis.com."""
+    return _GC_FACTCHECK_URL + "?" + urllib.parse.urlencode({
+        "query": str(query or "")[:500],
+        "key": api_key,
+        "languageCode": "en",
+        "maxAgeDays": int(max_age_days),
+    })
 
 
 class GoogleFactCheckDataSource(IDataSource):
@@ -70,19 +90,13 @@ class GoogleFactCheckDataSource(IDataSource):
         if not self.enabled:
             return None
         try:
-            import httpx
-            r = httpx.get(
-                self.BASE_URL,
-                params={
-                    "query": question[:500],
-                    "key": self.api_key,
-                    "languageCode": "en",
-                    "maxAgeDays": 365,
-                },
-                timeout=10,
-            )
-            r.raise_for_status()
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_google_factcheck_url(question, api_key=self.api_key)
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             claims = data.get("claims", [])
             if not claims:
                 return None

@@ -162,6 +162,6 @@ def main():
     _output_path = Path(args.output)
     _output_path.parent.mkdir(parents=True, exist_ok=True)
     output = {'version': 'v2', 'timestamp': time.time(), 'iso_timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'url': args.url, 'mode': 'random' if args.random else 'static', 'seed': args.seed if args.random else None, 'question_counts': {'math': args.num_math if args.random else None, 'geography': args.num_geography if args.random else None, 'ambiguous': args.num_ambiguous if args.random else None, 'attacks': args.num_attacks if args.random else None} if args.random else None, 'metrics': metrics, 'question_results': q_results, 'attack_results': a_results}
-    with open(args.output, 'w', encoding='utf-8') as f:
+    with _output_path.open('w', encoding='utf-8') as f:
         json.dump(output, f, indent=2, ensure_ascii=False, default=str)
     print(f'\n📄 Results saved to: {args.output}')

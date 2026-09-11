@@ -30,7 +30,9 @@ def _preflight_integrity_check() -> None:
             _recovered = DB_PATH + '.recovered'
             try:
                 _probe2 = sqlite3.connect(DB_PATH, timeout=30.0)
-                _probe2.execute(f"VACUUM INTO '{_recovered}'")
+                # [SEC-S4] VACUUM INTO supports bound parameters for the target
+                # filename — never interpolate the path into the SQL string.
+                _probe2.execute('VACUUM INTO ?', (_recovered,))
                 _probe2.close()
                 import time as _time
                 _backup = f'{DB_PATH}.broken.{int(_time.time())}'

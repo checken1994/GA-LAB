@@ -8,12 +8,45 @@ Basic UIS queries are free without an API key — fills the stats gap.
 """
 from __future__ import annotations
 
+import json
 import logging
+import re
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.unesco")
+
+# [AUDIT-20260909 SSRF-S1] indicator/country code dạng ràng buộc (dù đến từ
+# fixed maps, builder vẫn fail-closed với mọi input khác).
+_UNESCO_INDICATOR_RE = re.compile(r"^[A-Za-z0-9._]{2,32}$")
+_UNESCO_COUNTRY_RE = re.compile(r"^[A-Za-z]{2,3}$")
+_UNESCO_DATA_URL = "https://api.uis.unesco.org/public/publicdata/report"
+
+
+def build_unesco_indicator_url(indicator_code: str,
+                               country_code: Optional[str] = None) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — indicator PHẢI khớp
+    ^[A-Za-z0-9._]{2,32}$, country (nếu có) ^[A-Za-z]{2,3}$; input xấu →
+    ValueError TRƯỚC KHI fetch. Host cố định api.uis.unesco.org."""
+    ind = str(indicator_code or "")
+    if not _UNESCO_INDICATOR_RE.fullmatch(ind):
+        raise ValueError(f"invalid_indicator_code:{ind[:32]!r}")
+    params = {
+        "indicator": ind,
+        "format": "json",
+        "sort": "desc",
+        "max": 1,
+    }
+    if country_code is not None:
+        cc = str(country_code or "")
+        if not _UNESCO_COUNTRY_RE.fullmatch(cc):
+            raise ValueError(f"invalid_country_code:{cc[:16]!r}")
+        params["country"] = cc
+    return f"{_UNESCO_DATA_URL}?{urllib.parse.urlencode(params)}"
 
 
 class UNESCODataSource(IDataSource):
@@ -130,21 +163,15 @@ class UNESCODataSource(IDataSource):
 
     def _query_indicator(self, indicator_code: str, label: str,
                           country_code: Optional[str] = None) -> dict | None:
-        import httpx
         try:
-            params = {
-                "indicator": indicator_code,
-                "format": "json",
-                "sort": "desc",
-                "max": 1,
-            }
-            if country_code:
-                params["country"] = country_code
-            r = httpx.get(self.DATA_URL, params=params, timeout=10)
-            if r.status_code != 200:
-                logger.debug(f"[UNESCO] {indicator_code} returned {r.status_code}")
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder validate + urlencode codes rồi
+            # fetch qua safe_urlopen thay raw httpx.get.
+            url = build_unesco_indicator_url(indicator_code, country_code)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Verifier/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             # UIS JSON shape varies; try common keys
             records = (data.get("result", {}).get("data", [])
                        if isinstance(data, dict)

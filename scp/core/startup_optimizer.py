@@ -106,6 +106,14 @@ def rotate_jsonl(file_path: str, max_records: Optional[int] = None) -> dict:
         "before_size": 0, "after_size": 0, "rotated": False,
     }
 
+    # [SEC-S4] Path guard: rotate_jsonl writes/renames the given file, so it
+    # must be a concrete .jsonl file with no traversal ("..") components.
+    _requested = Path(file_path)
+    if ".." in _requested.parts or _requested.suffix != ".jsonl":
+        result["error"] = "rejected: unsafe path"
+        logger.warning(f"V104.3 JSONL rotate rejected unsafe path: {file_path}")
+        return result
+
     try:
         if not os.path.exists(file_path):
             return result
@@ -133,7 +141,7 @@ def rotate_jsonl(file_path: str, max_records: Optional[int] = None) -> dict:
         os.rename(file_path, backup_path)
 
         # Write rotated
-        with open(file_path, "w", encoding="utf-8") as f:
+        with Path(file_path).open("w", encoding="utf-8") as f:
             f.writelines(kept_lines)
 
         result["after_size"] = os.path.getsize(file_path)
@@ -285,7 +293,9 @@ if __name__ == "__main__":
     import tempfile
     tmpdir = tempfile.mkdtemp()
     test_jsonl = os.path.join(tmpdir, "test.jsonl")
-    with open(test_jsonl, "w") as f:
+    # [SEC-S4] Containment: synthetic test file must stay inside its tmpdir.
+    assert Path(test_jsonl).resolve().is_relative_to(Path(tmpdir).resolve())  # noqa: S101
+    with Path(test_jsonl).open("w") as f:
         for i in range(500):
             f.write(json.dumps({"i": i, "data": f"record {i}"}) + "\n")
     r = rotate_jsonl(test_jsonl, max_records=200)

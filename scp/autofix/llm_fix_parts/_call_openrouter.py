@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from scp.security.provider_keys import ProviderCredentialError, load_openrouter_keys
+from scp.security.url_safety import safe_urlopen
 from scp.contracts.data_class import DataClass
 from scp.llm_gateway.zero_cost_guard import ZeroCostDenied
 from scp.llm_gateway.zero_cost_runtime import authorize_outbound, record_outbound_sent
@@ -53,7 +54,11 @@ def _call_openrouter(prompt: str, max_tokens: int=4000) -> str | None:
         full_url = f'{validated_base_url}/chat/completions'
         req = urllib.request.Request(full_url, data=json.dumps(payload).encode('utf-8'), headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json', 'HTTP-Referer': 'https://scp-vietnam.local', 'X-Title': 'SCP AutoFix'}, method='POST')
         record_outbound_sent(zreq, zproof)
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        # [S6b security sweep] safe_urlopen (scheme + host + resolved-IP boundary
+        # inside scp/security/url_safety.py) thay raw urlopen — allow_internal=True
+        # giữ behavior override localhost/127.0.0.1 mà _validate_openrouter_base_url
+        # đã cho phép; host công khai đi qua boundary check như thường.
+        with safe_urlopen(req, timeout=30, allow_internal=True) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             return data.get('choices', [{}])[0].get('message', {}).get('content', '')
     except urllib.error.HTTPError as e:

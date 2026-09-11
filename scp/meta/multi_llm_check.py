@@ -18,6 +18,9 @@ from typing import Optional
 from scp.contracts.data_class import DataClass
 from scp.llm_gateway.zero_cost_guard import ZeroCostDenied
 from scp.llm_gateway.zero_cost_runtime import authorize_outbound, record_outbound_sent
+# [AUDIT-20260909 S6a] Gọi provider qua safe_urlopen — validate scheme + chặn
+# private/loopback IP trừ khi operator chủ động cấu hình base_url nội bộ.
+from scp.security.url_safety import safe_urlopen
 
 logger = logging.getLogger("scp.meta.multi_llm_check")
 
@@ -117,7 +120,7 @@ class MultiLLMChecker:
                 method="POST",
             )
             record_outbound_sent(zreq, zproof)
-            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - provider URL governed separately
+            with safe_urlopen(req, timeout=30, allow_internal=True) as resp:  # provider URL operator-governed
                 data = json.loads(resp.read().decode("utf-8"))
                 return data.get("choices", [{}])[0].get("message", {}).get("content", "")
         except urllib.error.HTTPError as exc:
@@ -154,7 +157,7 @@ class MultiLLMChecker:
                 method="POST",
             )
             record_outbound_sent(zreq, zproof)
-            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - provider URL governed separately
+            with safe_urlopen(req, timeout=30, allow_internal=True) as resp:  # provider URL operator-governed
                 data = json.loads(resp.read().decode("utf-8"))
                 return data.get("choices", [{}])[0].get("message", {}).get("content", "")
         except urllib.error.HTTPError as exc:

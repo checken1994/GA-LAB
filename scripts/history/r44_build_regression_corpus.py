@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -25,10 +26,20 @@ def _file_sha256(path: Path) -> str:
 
 
 def _read_rows(path: Path, table: str, limit: int) -> list[dict[str, Any]]:
+    # [SEC-S4] `table` comes from --table (argv). Identifiers cannot be
+    # parameterized, so only a strict [A-Za-z0-9_]+ slug is accepted.
+    if not re.fullmatch(r"[A-Za-z0-9_]+", table):
+        raise ValueError(f"unsafe table name: {table!r}")
+    # [SEC-S6] Literal SQL templates: only regex-validated identifiers from a
+    # fixed column whitelist are substituted into constant statements (no
+    # f-string/format/concat of variables into SQL text).
+    pragma_template = 'PRAGMA table_info("@TABLE@")'
+    select_template = 'SELECT @COLUMNS@ FROM "@TABLE@" LIMIT ?'
     connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
-        names = {row[1] for row in connection.execute(f'PRAGMA table_info("{table}")')}
+        pragma_sql = pragma_template.replace("@TABLE@", table)
+        names = {row[1] for row in connection.execute(pragma_sql)}  # identifier regex-validated above  # nosec B608
         if not names:
             raise ValueError(f"missing table: {table}")
         allowed = [
@@ -39,7 +50,8 @@ def _read_rows(path: Path, table: str, limit: int) -> list[dict[str, Any]]:
         if not selected:
             raise ValueError(f"table has no supported fields: {table}")
         columns = ", ".join(f'"{name}"' for name in selected)
-        rows = connection.execute(f'SELECT {columns} FROM "{table}" LIMIT ?', (limit,)).fetchall()
+        select_sql = select_template.replace("@COLUMNS@", columns).replace("@TABLE@", table)
+        rows = connection.execute(select_sql, (limit,)).fetchall()  # identifiers regex-validated above  # nosec B608
         return [dict(row) for row in rows]
     finally:
         connection.close()

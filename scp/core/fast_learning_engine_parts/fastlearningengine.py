@@ -16,6 +16,8 @@ from pathlib import Path
 from scp.core.db_manager import _KNOWLEDGE_CANONICAL_DDL
 from scp.core.learning_run_ledger import ledger_run
 from scp.core.subsystem_telemetry import SubsystemTelemetry, heartbeat_sleep, telemetry_async_cycle
+# [AUDIT-20260909 SSRF-S1] safe_urlopen thay raw urllib.request.urlopen.
+from scp.security.url_safety import safe_urlopen
 
 class FastLearningEngine:
     """
@@ -217,7 +219,10 @@ class FastLearningEngine:
             if parsed_url.scheme not in ('http', 'https'):
                 raise ValueError(f'Unsupported URL scheme: {parsed_url.scheme!r}')
             req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V104.2/1.0'})
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen thay urllib.request.urlopen
+            # — host cố định vi.wikipedia.org, params đã urlencode; thêm lớp
+            # validate scheme + chặn private IP.
+            with safe_urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read())
                 search_results = data.get('query', {}).get('search', [])
                 if not search_results:
@@ -677,7 +682,10 @@ class FastLearningEngine:
                 logger.debug(f'RSS URL scheme not allowed: {rss_url}')
                 return []
             req = urllib.request.Request(rss_url, headers={'User-Agent': 'SCP-V104/1.0'})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen thay urllib.request.urlopen
+            # — rss_url từ NEWS_SOURCES (host cố định) nhưng vẫn validate
+            # scheme + chặn private/loopback IP.
+            with safe_urlopen(req, timeout=15) as resp:
                 content = resp.read().decode('utf-8', errors='replace')
             root = DET.fromstring(content)
             items = root.findall('.//item') or root.findall('.//{http://www.w3.org/2005/Atom}entry')

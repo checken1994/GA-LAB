@@ -24,6 +24,12 @@ GROUP_MINIMUM = {
     "web_control": "full",
     "batch_benchmark": "full",
     "call": "full",
+    # Restored subsystems
+    "risk_intelligence": "full",
+    "world_state": "full",
+    "calibration": "full",
+    "forecast": "full",
+    "history": "full",
 }
 
 

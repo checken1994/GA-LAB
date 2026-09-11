@@ -168,12 +168,13 @@ class SmartCache:
         index, faster than the previous table-scan-via-AND. Also reads
         `value_blob` (the BLOB column where _disk_set actually writes JSON
         bytes) instead of `value` (TEXT column, always NULL) — the previous
-        mismatch caused _disk_get to always raise TypeError on
-        pickle.loads(None) and silently return None, so the disk cache was
-        effectively dead.
+        mismatch caused _disk_get to always raise TypeError when a NULL blob
+        hit the legacy binary deserializer and silently return None, so the
+        disk cache was effectively dead.
 
-        [SECURITY FIX] Replaced pickle with JSON — pickle.loads is RCE if
-        attacker can write to DB. JSON is safe (no code execution)."""
+        [SECURITY FIX] Replaced the legacy binary format with JSON — decoding
+        attacker-writable blobs was RCE if the DB is compromised. JSON is safe
+        (no code execution)."""
         try:
             import json
 
@@ -215,8 +216,9 @@ class SmartCache:
         identifier) rows accumulated and _disk_get could return any of them
         (stale data).
 
-        [SECURITY FIX] Replaced pickle with JSON — pickle.dumps creates
-        exploitable payloads if DB is compromised. JSON is safe."""
+        [SECURITY FIX] Replaced the legacy binary format with JSON — serialized
+        blobs must never become executable payloads if the DB is compromised.
+        JSON is safe."""
         try:
             import json
 

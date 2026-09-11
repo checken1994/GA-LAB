@@ -78,8 +78,23 @@ const LAST_VERIFIED_FALLBACK_LOC: Record<string, number> = {
  * whether the number is fresh or stale.
  */
 function computeAutofixLoc(relPath: string): { loc: number; live: boolean } {
-  const abs = path.join(/* turbopackIgnore: true */ SCP_ROOT, relPath)
+  // [S5b security sweep] Path containment (CWE-22, finding
+  // finding:1827bf0d8e92358bde84bc24): resolve relPath against SCP_ROOT and
+  // require the result to stay INSIDE the root before any fs access.
+  // relPath is a compile-time constant from the V4_MODULES table today (no
+  // request/user input reaches this function), so containment cannot fail in
+  // practice — but the explicit boundary keeps the read safe if the path
+  // source ever becomes dynamic ("../../x" resolves outside and is rejected
+  // into the documented fallback path below, loc=0/live=false if unknown).
+  // path.resolve also neutralizes absolute-path traversal (an absolute
+  // relPath replaces the base and then fails the startsWith check).
+  const rootAbs = path.resolve(SCP_ROOT)
+  const abs = path.resolve(rootAbs, relPath)
+  const contained = abs === rootAbs || abs.startsWith(rootAbs + path.sep)
   try {
+    if (!contained) {
+      throw new Error(`path escapes SCP_ROOT: ${relPath}`)
+    }
     const stats = statSync(/* turbopackIgnore: true */ abs)
     if (!stats.isFile()) {
       throw new Error(`not a file: ${abs}`)

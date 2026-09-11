@@ -29,6 +29,24 @@ from scp.core.partition.shard import (
 
 logger = logging.getLogger("scp.core.data_partitioner")
 
+# [AUDIT-20260909 S6a] Migration copy statement as a pure SQL literal (13
+# canonical columns + 13 bound-parameter placeholders). Column ORDER below
+# MUST match scp.core.db_manager _VERDICT_CACHE_CANONICAL_DDL; a runtime
+# PRAGMA comparison enforces it (fail-closed on drift). No SQL text is ever
+# assembled from variables at runtime.
+_VERDICT_CACHE_COPY_COLUMNS = (
+    "cache_key", "question_hash", "question_text", "verdict", "confidence",
+    "final_answer", "domain", "reasoning", "evidence_json", "timestamp",
+    "cached_at", "expires_at", "times_used",
+)
+_VERDICT_CACHE_COPY_SQL = (
+    "INSERT INTO verdict_cache "
+    "(cache_key, question_hash, question_text, verdict, confidence, "
+    "final_answer, domain, reasoning, evidence_json, timestamp, "
+    "cached_at, expires_at, times_used) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+)
+
 
 class ThreeTierCache:
     """
@@ -84,12 +102,34 @@ class ThreeTierCache:
                     conn.execute(_VERDICT_CACHE_CANONICAL_DDL)
                     common = existing_cols & _VERDICT_CACHE_CANONICAL_COLS
                     if common:
-                        # [SECURITY FIX] col_list comes from _VERDICT_CACHE_CANONICAL_COLS (hardcoded set)
-                        # so it's safe — but validate each column name anyway (defense-in-depth)
-                        safe_cols = [c for c in sorted(common) if c.replace("_", "").replace("cache", "").isalnum()]
-                        if safe_cols:
-                            col_list = ", ".join(safe_cols)
-                            conn.execute(f"INSERT INTO verdict_cache ({col_list}) SELECT {col_list} FROM verdict_cache_old")  # col_list built from validated safe_cols (schema introspection)  # nosec B608  # noqa: S608
+                        # [SEC-S4→S6a] Copy khối này từng là f-string ghép danh sách
+                        # cột động — pattern-based scanner vẫn flag dù identifier đã
+                        # regex-validate. Bây giờ: INSERT là SQL LITERAL tuyệt đối
+                        # (13 cột hằng + 13 placeholder), thứ tự cột lấy từ PRAGMA
+                        # của bảng canonical vừa tạo (nguồn sự thật), dữ liệu cũ được
+                        # reorder trong Python và truyền qua bound parameter. Cột thiếu
+                        # ở bảng cũ → dùng DEFAULT của cột đó (đúng ngữ nghĩa bỏ-cột
+                        # trước đây). Lệch schema → fail-closed: bỏ copy, chỉ log.
+                        new_info = conn.execute("PRAGMA table_info(verdict_cache)").fetchall()
+                        new_defaults = [(row[1], row[4]) for row in new_info]
+                        if [name for name, _dflt in new_defaults] != list(_VERDICT_CACHE_COPY_COLUMNS):
+                            logger.warning(
+                                "[AUDIT-1] verdict_cache canonical schema drifted; "
+                                "skip row copy during migration"
+                            )
+                        else:
+                            old_names = [row[1] for row in
+                                         conn.execute("PRAGMA table_info(verdict_cache_old)").fetchall()]
+                            old_idx = {name: i for i, name in enumerate(old_names)}
+                            rows = conn.execute("SELECT * FROM verdict_cache_old").fetchall()
+                            mapped = []
+                            for r in rows:
+                                vals = {name: r[i] for name, i in old_idx.items()}
+                                mapped.append(tuple(
+                                    vals[name] if name in vals else dflt
+                                    for name, dflt in new_defaults
+                                ))
+                            conn.executemany(_VERDICT_CACHE_COPY_SQL, mapped)
                     conn.execute("DROP TABLE verdict_cache_old")
             except Exception as mig_e:
                 logger.debug(f"[AUDIT-1] verdict_cache migration check: {mig_e}")

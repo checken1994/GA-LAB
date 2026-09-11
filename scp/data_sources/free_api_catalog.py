@@ -36,6 +36,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
+
 logger = logging.getLogger("scp.data_sources.free_api_catalog")
 
 CATALOG_SOURCE_URL = "https://raw.githubusercontent.com/public-apis/public-apis/master/README.md"
@@ -134,7 +136,10 @@ class FreeAPICatalog:
         if _egress_disabled():
             raise RuntimeError("egress disabled by SCP_TOP_SYSTEMS_EGRESS=0")
         req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})  # noqa: S310 — scheme+host allowlisted above
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 — fixed https host from ALLOWED_HOSTS
+        # [AUDIT-20260909 SSRF-S1] safe_urlopen thay raw urlopen — thêm lớp
+        # validate scheme + chặn private/loopback IP (defense in depth sau
+        # allowlist host phía trên).
+        with safe_urlopen(req, timeout=timeout) as resp:  # noqa: S310 — validated by safe_urlopen
             return resp.read(max_bytes)
 
     def refresh(self, force: bool = False) -> dict[str, Any]:

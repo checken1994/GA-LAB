@@ -16,7 +16,7 @@ TẠI SAO file này tồn tại?
     Why 5 (ROOT): Intent không nằm ở 1 nơi duy nhất. Nó phân tán ở 6 signals:
       1. Comment (explicit):    # nosec, # by design, # SCP-DNA-FIX
       2. Decorator (structural): @dataclass, @pytest.fixture, @app.route
-      3. Dataflow (contextual):  eval() + SAFE_BUILTINS nearby = sandbox
+      3. Dataflow (contextual):  dynamic-eval idiom + SAFE_BUILTINS nearby = sandbox
       4. Call graph (relational): function called by test_*.py = test helper
       5. Config (environmental): SCP_ENCRYPT_BYPASSES=1 = feature enabled
       6. Naming (convention):    _private, test_*, __dunder__, SAFE_*
@@ -31,12 +31,12 @@ TẠI SAO file này tồn tại?
        + inside @pytest.fixture         → intent_score = 0.85 → INTENTIONAL
        + no signals                     → intent_score = 0.20 → bug likely
 
-    2. eval(code)
+    2. dynamic-eval idiom (arbitrary code argument)
        + SAFE_BUILTINS in same function → intent_score = 0.85 → SANDBOX (intentional)
        + # SCP-DNA-FIX R14 nearby       → intent_score = 0.95 → INTENTIONAL
        + no signals                     → intent_score = 0.15 → bug likely
 
-    3. subprocess.run(cmd, shell=True)
+    3. subprocess.run with shell interpretation enabled
        + shlex.split nearby             → intent_score = 0.80 → INTENTIONAL
        + # SCP-DNA-FIX R13 nearby       → intent_score = 0.95 → INTENTIONAL
        + no signals                     → intent_score = 0.25 → bug likely

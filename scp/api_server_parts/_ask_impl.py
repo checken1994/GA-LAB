@@ -40,6 +40,41 @@ from scp.core.real_learning_engine import RealLearningEngine
 from scp.api.route_profile import resolve_api_profile, route_group_enabled
 from pydantic import BaseModel
 
+
+def _extend_ask_response_degradation_fields() -> None:
+    """[AUDIT-20260909 MACH2-BUG2] Declare degradation-observability fields on
+    the shared AskResponse model.
+
+    TẠI SAO: khi image/voice fetch hoặc OCR/Whisper scan lỗi, pipeline cũ nuốt
+    lỗi ở mức logger.debug rồi vẫn trả answer bình thường — multimodal jailbreak
+    KHÔNG được scan nhưng client không có cách nào biết. helpers.py không thuộc
+    phạm vi file được sửa của task này, nên các field bổ sung được khai báo động
+    trên cùng một model class (mặc định None → JSON additive, không phá contract).
+    """
+    from pydantic.fields import FieldInfo
+
+    _new_fields = {
+        "detector_degraded": (bool | None, None),
+        "detector_note": (str | None, None),
+        "fact_check_degraded": (bool | None, None),
+        # [AUDIT-20260909 MACH2-R2-2] fact_check_note từng là biến chết (gán
+        # ở branch lỗi nhưng không bao giờ vào response). Note chứa loại
+        # exception (`fact_check_error:<Type>`) — chẩn đoán hữu ích đi kèm
+        # fact_check_degraded, cùng pattern với detector_note → expose thay vì xoá.
+        "fact_check_note": (str | None, None),
+    }
+    _changed = False
+    for _name, (_ann, _default) in _new_fields.items():
+        if _name not in AskResponse.model_fields:
+            AskResponse.model_fields[_name] = FieldInfo(default=_default, annotation=_ann)
+            _changed = True
+    if _changed:
+        AskResponse.model_rebuild(force=True)
+
+
+_extend_ask_response_degradation_fields()
+
+
 async def _ask_impl(req: AskRequest, request: Request):
     """Main endpoint │Ă¢â€šÂ¬Ă¢â‚¬Â  question → V98 pipeline → verdict.
 
@@ -87,6 +122,25 @@ async def _ask_impl(req: AskRequest, request: Request):
             logger.debug(f'[V104.17] DoS check error: {e}')
     _multimodal_block = False
     _img_bytes = None
+    # [AUDIT-20260909 MACH2-BUG2a] Degradation observability: khi fetch/scan lỗi
+    # hoặc OCR/Whisper unavailable, request vẫn chạy nhưng response phải mang
+    # dấu hiệu quan sát được (detector_degraded + detector_note).
+    _detector_degraded = False
+    _detector_notes: list[str] = []
+    _DETECT_TIMEOUT_SECONDS = 10.0
+
+    def _is_local_media_url(u: str) -> bool:
+        """Loopback/localhost URL — egress policy CHO PHÉP host local, nên
+        ValueError từ _safe_fetch_url với URL local là LỖI FETCH (mục tiêu
+        không tồn tại/không đọc được), không phải từ chối chính sách (400)."""
+        import urllib.parse as _up
+
+        try:
+            _host = (_up.urlsplit(str(u or "")).hostname or "").lower()
+        except Exception:
+            return False
+        return _host in {"localhost", "127.0.0.1", "::1", "[::1]"}
+
     if req.image_data:
         try:
             _raw_image = req.image_data
@@ -98,39 +152,106 @@ async def _ask_impl(req: AskRequest, request: Request):
         except (binascii.Error, ValueError):
             raise HTTPException(status_code=400, detail='Invalid or oversized image_data') from None
     if req.image_url and _img_bytes is None:
+        _local_image_url = _is_local_media_url(req.image_url)
         try:
             _img_bytes = await asyncio.to_thread(_safe_fetch_url, req.image_url)
-        except ValueError:
-            logger.warning('[V104.45 #CP] /ask image_url rejected by _safe_fetch_url policy')
-            raise HTTPException(status_code=400, detail='Invalid or disallowed image_url') from None
+        except ValueError as e:
+            if _local_image_url:
+                # [AUDIT-20260909 MACH2-BUG2a] URL local được policy cho phép;
+                # ValueError ở đây = fetch thật sự lỗi (URL không tồn tại) →
+                # KHÔNG 400 mà đánh dấu degraded và tiếp tục pipeline.
+                logger.warning(f'[V104.45 #CP] Local image fetch failed: {e}')
+                _img_bytes = None
+                _detector_degraded = True
+                _detector_notes.append('image_fetch_failed:local_unreachable')
+            else:
+                logger.warning('[V104.45 #CP] /ask image_url rejected by _safe_fetch_url policy')
+                raise HTTPException(status_code=400, detail='Invalid or disallowed image_url') from None
         except Exception as e:
-            logger.debug(f'[V104.45 #CP] Image fetch error: {e}')
+            logger.warning(f'[V104.45 #CP] Image fetch error: {e}')
             _img_bytes = None
+            _detector_degraded = True
+            _detector_notes.append(f'image_fetch_failed:{type(e).__name__}')
         if _img_bytes:
             try:
-                _img_result = _image_detector.detect(image_bytes=_img_bytes)
+                _img_result = await asyncio.wait_for(asyncio.to_thread(_image_detector.detect, image_bytes=_img_bytes), timeout=_DETECT_TIMEOUT_SECONDS)
                 if _img_result and _img_result.jailbreak_detected:
                     logger.warning('[V104.45 #CP] Image jailbreak detected on /ask')
                     _multimodal_block = True
+                elif _img_result and _img_result.method == 'ocr_unavailable':
+                    logger.warning('[V104.45 #CP] Image OCR unavailable — jailbreak scan degraded, request continues')
+                    _detector_degraded = True
+                    _detector_notes.append('image_ocr_unavailable')
+            except asyncio.TimeoutError:
+                logger.warning(f'[V104.45 #CP] Image detect exceeded {_DETECT_TIMEOUT_SECONDS:.0f}s bound — scan not completed')
+                _detector_degraded = True
+                _detector_notes.append('image_detect_timeout')
             except Exception as e:
-                logger.debug(f'[V104.45 #CP] Image detect error: {e}')
+                logger.warning(f'[V104.45 #CP] Image detect error: {e}')
+                _detector_degraded = True
+                _detector_notes.append(f'image_detect_error:{type(e).__name__}')
+    _voice_transcription = ""
     if req.voice_url:
+        _local_voice_url = _is_local_media_url(req.voice_url)
         try:
             _voice_bytes = await asyncio.to_thread(_safe_fetch_url, req.voice_url)
-        except ValueError:
-            logger.warning('[V104.45 #CP] /ask voice_url rejected by _safe_fetch_url policy')
-            raise HTTPException(status_code=400, detail='Invalid or disallowed voice_url') from None
+        except ValueError as e:
+            if _local_voice_url:
+                logger.warning(f'[V104.45 #CP] Local voice fetch failed: {e}')
+                _voice_bytes = None
+                _detector_degraded = True
+                _detector_notes.append('voice_fetch_failed:local_unreachable')
+            else:
+                logger.warning('[V104.45 #CP] /ask voice_url rejected by _safe_fetch_url policy')
+                raise HTTPException(status_code=400, detail='Invalid or disallowed voice_url') from None
         except Exception as e:
-            logger.debug(f'[V104.45 #CP] Voice fetch error: {e}')
+            logger.warning(f'[V104.45 #CP] Voice fetch error: {e}')
             _voice_bytes = None
+            _detector_degraded = True
+            _detector_notes.append(f'voice_fetch_failed:{type(e).__name__}')
         if _voice_bytes:
             try:
-                _voice_result = _voice_detector.detect(audio_bytes=_voice_bytes)
+                _voice_result = await asyncio.wait_for(asyncio.to_thread(_voice_detector.detect, audio_bytes=_voice_bytes), timeout=_DETECT_TIMEOUT_SECONDS)
                 if _voice_result and _voice_result.jailbreak_detected:
                     logger.warning('[V104.45 #CP] Voice jailbreak detected on /ask')
                     _multimodal_block = True
+                elif _voice_result and _voice_result.method == 'whisper_unavailable':
+                    logger.warning('[V104.45 #CP] Voice whisper unavailable — jailbreak scan degraded, request continues')
+                    _detector_degraded = True
+                    _detector_notes.append('voice_whisper_unavailable')
+                else:
+                    from scp.capabilities.voice import VoiceHandler
+                    _vh = VoiceHandler()
+                    # [AUDIT-20260909 MACH2-R2-1] Whisper transcribe chạy local
+                    # qua to_thread nhưng KHÔNG có bound → có thể treo request
+                    # vô hạn. Bọc wait_for: default 30s, env override
+                    # SCP_TRANSCRIBE_TIMEOUT_SEC (parse an toàn — env rác/≤0/inf
+                    # → fallback 30s). Inline parse vì hàm này bị rebind vào
+                    # globals của api_server.py (helper module-level sẽ không
+                    # nhìn thấy qua rebind).
+                    _transcribe_timeout = 30.0
+                    try:
+                        _env_timeout = float(os.environ.get('SCP_TRANSCRIBE_TIMEOUT_SEC', ''))
+                        if _env_timeout > 0 and _env_timeout != float('inf'):
+                            _transcribe_timeout = _env_timeout
+                    except (TypeError, ValueError):
+                        pass
+                    try:
+                        _voice_transcription = await asyncio.wait_for(asyncio.to_thread(_vh.transcribe, _voice_bytes), timeout=_transcribe_timeout)
+                    except asyncio.TimeoutError:
+                        logger.warning(f'[V104.45 #CP] Voice transcribe exceeded {_transcribe_timeout:.0f}s bound — transcription not completed')
+                        _detector_degraded = True
+                        _detector_notes.append('transcribe_timeout')
+                    if _voice_transcription:
+                        req.question += f"\n[Voice Transcription]: {_voice_transcription}"
+            except asyncio.TimeoutError:
+                logger.warning(f'[V104.45 #CP] Voice detect exceeded {_DETECT_TIMEOUT_SECONDS:.0f}s bound — scan not completed')
+                _detector_degraded = True
+                _detector_notes.append('voice_detect_timeout')
             except Exception as e:
-                logger.debug(f'[V104.45 #CP] Voice detect error: {e}')
+                logger.warning(f'[V104.45 #CP] Voice detect error: {e}')
+                _detector_degraded = True
+                _detector_notes.append(f'voice_detect_error:{type(e).__name__}')
     if _multimodal_block:
         return AskResponse(verdict='FAIL', final_answer='[SCP: Answer withheld │Ă¢â€\x9aÂ¬Ă¢â‚¬Â\x9d multimodal jailbreak detected]', confidence=0.0, domain='security', elapsed_ms=0, session_id=v98_context['session_id'])
     _ai_answer = req.ai_answer
@@ -168,6 +289,10 @@ async def _ask_impl(req: AskRequest, request: Request):
                     logger.warning('[CHATBOT] Public web fallback failed: %s', _web_err)
     _q_lower = req.question.lower() if req.question else ''
     _FACT_CHECK_KEYWORDS = ('true or false', 'fact check', 'is it true', 'fact-check', 'có thật', 'đúng không', 'có thật không', 'kiểm chứng', 'real or fake', 'verify this claim')
+    # [AUDIT-20260909 MACH2-BUG2b] chỉ bật khi claim tồn tại (keyword match) và
+    # việc verify LỖI — không phải khi câu hỏi không có claim cần kiểm chứng.
+    _fact_check_degraded = False
+    _fact_check_note = ''
     if any((kw in _q_lower for kw in _FACT_CHECK_KEYWORDS)):
         try:
             from scp.core.multi_source_verifier import AsyncMultiSourceVerifier
@@ -216,7 +341,11 @@ async def _ask_impl(req: AskRequest, request: Request):
                 logger.info(f"[OPT-22] Pre-judge fact check: claim verified by {fact_result.get('verified', 0)} sources (sources_checked={fact_result.get('sources_checked', 0)})")
                 v98_context['fact_check_hint'] = fact_result
         except Exception as e:
-            logger.debug(f'[OPT-22] async fact check failed: {e}')
+            # [AUDIT-20260909 MACH2-BUG2b] Pre-judge fact-check FAILED (claim đã
+            # có — keyword match) nên hint bị mất: phải quan sát được, không nuốt.
+            _fact_check_degraded = True
+            _fact_check_note = f'fact_check_error:{type(e).__name__}'
+            logger.warning(f'[OPT-22] async fact check failed: {e}')
     stage_request(request, 'verifier_started')
     from scp.core.top_systems_learning import inspect_untrusted as _sf_inspect
     _raw_evidence = [str(c) for c in req.contexts or [] if str(c).strip()] + ([str(req.retrieved_context).strip()] if str(getattr(req, 'retrieved_context', '') or '').strip() else [])
@@ -351,7 +480,105 @@ async def _ask_impl(req: AskRequest, request: Request):
             _fc_task.add_done_callback(_async_factcheck_tasks.discard)
         except Exception as e:
             logger.debug(f'[V104.37] api_server.py: e={e}')
+
+    # --- RESTORED SUBSYSTEMS HOOKS (Wave 1 & 2) ---
+    # [AUDIT-20260909 MACH2-BUG2c] TẠI SAO tách: trước đây cả 5 hook dùng chung
+    # MỘT try/except với logger.debug — 1 ledger fail làm MẤT toàn bộ các hook
+    # còn lại một cách im lặng. Mỗi hook giờ fail độc lập và log WARNING.
+    import uuid as _hook_uuid
+    from pathlib import Path as _HookPath
+    _data_dir = _HookPath(os.environ.get("SCP_DATA_DIR", "data"))
+
+    # 1. Risk Intelligence
+    try:
+        from scp.risk_intelligence import RiskClassifier, RiskSignal
+        _classifier = RiskClassifier()
+        _signals = [RiskSignal(source_id="judge", kind="independent", observed_directly=True)]
+        _risk = _classifier.classify(_signals, desired_level="PR2", hazard_severity="low")
+        if _risk and _risk.level:
+            v.evidence['risk_level'] = _risk.level.value
+    except Exception as _hook_exc:
+        logger.warning(f'[RESTORED-SYSTEMS] risk hook failed: {_hook_exc}')
+
+    # 2. History Evidence Ledger
+    try:
+        from scp.history.evidence_ledger import EvidenceRecord, append_record
+        _record = EvidenceRecord(
+            subject_id=req.session_id or "session_unknown",
+            lineage="ask_endpoint",
+            kind="verdict_rendered",
+            locator="ask_impl",
+            observed_claim=req.question[:200],
+            independent_of="",
+            status=v.verdict
+        )
+        append_record(_data_dir / "history_evidence.jsonl", _record)
+    except Exception as _hook_exc:
+        logger.warning(f'[RESTORED-SYSTEMS] history hook failed: {_hook_exc}')
+
+    # 3. World State (if PASS, record an event)
+    try:
+        if v.verdict == 'PASS':
+            from scp.world_state import EntityEventAuthority, TemporalAuthority
+            from scp.contracts.time import now_utc_iso
+            _temporal = TemporalAuthority(db_path=str(_data_dir / "world_state.sqlite"))
+            try:
+                _eea = EntityEventAuthority(_temporal)
+                _eea.record_event(
+                    entity_id="ask_session",
+                    event_kind="pass_verdict",
+                    payload={"confidence": v.confidence, "question": req.question[:100]},
+                    valid_time=now_utc_iso(),
+                    evidence_refs=[],
+                    actor_id="scp-judge"
+                )
+            finally:
+                _temporal.close()
+    except Exception as _hook_exc:
+        logger.warning(f'[RESTORED-SYSTEMS] world_state hook failed: {_hook_exc}')
+
+    # 4. Calibration (record prediction for UNKNOWN/PARTIAL)
+    try:
+        if v.verdict in ("UNKNOWN", "PARTIAL", "FLAGGED"):
+            from scp.calibration.ledger import CalibrationLedger
+            _cal = CalibrationLedger(db_path=str(_data_dir / "calibration.sqlite"))
+            try:
+                _cal.record_prediction(
+                    domain=v.domain or "general",
+                    task_class="ask",
+                    predictor_type="judge",
+                    predictor_id="judge_v3",
+                    prediction={"verdict": v.verdict, "confidence": v.confidence}
+                )
+            finally:
+                _cal.close()
+    except Exception as _hook_exc:
+        logger.warning(f'[RESTORED-SYSTEMS] calibration hook failed: {_hook_exc}')
+
+    # 5. Forecast (if future intent detected)
+    try:
+        if any(w in req.question.lower() for w in ["sẽ", "dự đoán", "tương lai", "will", "predict"]):
+            from scp.forecast.ledger import ForecastLedger
+            from scp.contracts.time import now_utc_iso as _now_utc_iso
+            _fc = ForecastLedger(db_path=str(_data_dir / "forecast.sqlite"))
+            try:
+                _fc.record_case({
+                    "id": str(_hook_uuid.uuid4())[:8],
+                    "domain": v.domain or "general",
+                    "claimant": "user",
+                    "claim": req.question[:200],
+                    "date": _now_utc_iso(),
+                    "verdict": v.verdict,
+                    "confidence": v.confidence,
+                    "outcome_code": 9
+                })
+            finally:
+                _fc.close()
+    except Exception as _hook_exc:
+        logger.warning(f'[RESTORED-SYSTEMS] forecast hook failed: {_hook_exc}')
+    # ----------------------------------------------
+
     stage_request(request, 'response_boundary', verdict=v.verdict, governance_decision=_gov_decision)
     if _web_fallback_used:
         _api_slm_trace.append({'domain': v.domain or '' or '', 'slm_name': 'public_web_search', 'answer': 'retrieved public snippets', 'time_ms': None, 'source': 'public-search', 'evidence': _web_fallback})
-    return AskResponse(verdict=v.verdict, final_answer=_api_final_answer, confidence=v.confidence, domain=v.domain or '' or '', falsification_status=_api_falsification_status, governance_decision=v.evidence.get('governance_decision'), v98_guard=_api_v98_guard, v98_classification=_api_v98_classification, v98_attack_policy=_api_v98_attack_policy, v98_counter_executed=_api_v98_counter_executed, v98_canary_token=_api_v98_canary_token, v98_bypass_recorded=_api_v98_bypass_recorded, elapsed_ms=round(elapsed_ms, 1), session_id=v98_context['session_id'], slm_trace=_api_slm_trace, phase_timings=phase_timings, reasoning=_api_reasoning, slm_responses=_api_slm_responses, v100_claims=_api_v100_claims, v103_antibodies=_api_v103_antibodies, speculative_mode=_api_speculative_mode, web_fallback_used=_web_fallback_used, web_fallback=_web_fallback or None)
+    return AskResponse(verdict=v.verdict, final_answer=_api_final_answer, confidence=v.confidence, domain=v.domain or '' or '', falsification_status=_api_falsification_status, governance_decision=v.evidence.get('governance_decision'), v98_guard=_api_v98_guard, v98_classification=_api_v98_classification, v98_attack_policy=_api_v98_attack_policy, v98_counter_executed=_api_v98_counter_executed, v98_canary_token=_api_v98_canary_token, v98_bypass_recorded=_api_v98_bypass_recorded, elapsed_ms=round(elapsed_ms, 1), session_id=v98_context['session_id'], slm_trace=_api_slm_trace, phase_timings=phase_timings, reasoning=_api_reasoning, slm_responses=_api_slm_responses, v100_claims=_api_v100_claims, v103_antibodies=_api_v103_antibodies, speculative_mode=_api_speculative_mode, web_fallback_used=_web_fallback_used, web_fallback=_web_fallback or None, detector_degraded=_detector_degraded, detector_note=('; '.join(_detector_notes) if _detector_notes else None), fact_check_degraded=_fact_check_degraded or None, fact_check_note=(_fact_check_note or None))

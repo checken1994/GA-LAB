@@ -119,7 +119,7 @@ def add_lock(bug) -> str | None:
 def parameterize_sql(bug) -> str | None:
     """Fix SQL injection: string concat → parameterized query.
 
-    Pattern: cursor.execute(f"SELECT ... WHERE x='{var}'") → cursor.execute("SELECT ... WHERE x=?", (var,))
+    Pattern: unsafe inline SQL with interpolated variable → parameterized query.
     """
     filepath = Path(bug.file)
     if not filepath.exists():
@@ -130,7 +130,7 @@ def parameterize_sql(bug) -> str | None:
         if idx >= len(lines):
             return None
         line = lines[idx]
-        # Pattern: cursor.execute(f"...{var}...") → parameterized
+        # Pattern: interpolated-SQL execute call → parameterized call
         m = re.match(r'^(\s*)(\w+\.execute)\(f["\'](.+)["\']\)$', line)
         if m:
             indent = m.group(1)
@@ -139,8 +139,13 @@ def parameterize_sql(bug) -> str | None:
             # Extract variables from f-string
             vars_found = re.findall(r'\{(\w+)\}', sql_template)
             if vars_found:
-                # Replace {var} with ? in SQL
-                sql_fixed = re.sub(r'\{(\w+)\}', '?', sql_template)
+                # Replace {var} with ? in SQL.
+                # [S3-SECURITY-SWEEP] unwrap quotes around an interpolation
+                # first: "'{name}'" -> ? (not "'?'") — a quoted question mark
+                # is a string literal, not a bind parameter, so the previous
+                # output was still not a truly parameterized query.
+                sql_fixed = re.sub(r"(['\"])\{(\w+)\}\1", "?", sql_template)
+                sql_fixed = re.sub(r'\{(\w+)\}', '?', sql_fixed)
                 params = ", ".join(vars_found)
                 old = line.rstrip()
                 new = f'{indent}{execute_call}("{sql_fixed}", ({params},))'

@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,10 +51,19 @@ def table_counts(connection: sqlite3.Connection) -> dict[str, int]:
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
         )
     ]
+    # [SEC-S6] Literal SQL template: only the regex-validated table name from
+    # sqlite_master introspection is substituted into a constant statement
+    # (no f-string/format/concat of variables into SQL text).
+    sql_count_template = 'SELECT COUNT(*) FROM "@TABLE@"'
     counts: dict[str, int] = {}
     for name in names:
-        quoted = '"' + name.replace('"', '""') + '"'
-        counts[name] = int(connection.execute(f"SELECT COUNT(*) FROM {quoted}").fetchone()[0])
+        # [SEC-S4] Identifiers cannot be parameterized; names come from
+        # sqlite_master introspection, so enforce a strict whitelist before
+        # quoting (defense-in-depth against exotic schema entries).
+        if not re.fullmatch(r"[A-Za-z0-9_]+", name):
+            continue
+        count_sql = sql_count_template.replace("@TABLE@", name)
+        counts[name] = int(connection.execute(count_sql).fetchone()[0])  # identifier regex-validated above  # nosec B608
     return counts
 
 

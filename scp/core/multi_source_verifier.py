@@ -47,9 +47,12 @@ import os
 import re
 import sys
 import urllib.parse
-
-import httpx
+import urllib.request
 from typing import Any
+
+# [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get tại các điểm fetch
+# Wikidata search/entity (scheme + private-IP validation).
+from scp.security.url_safety import safe_urlopen
 
 logger = logging.getLogger("scp.multi_source_verifier")
 
@@ -128,11 +131,14 @@ def _fetch_wttr_in(city: str) -> dict | None:
         parsed_url = urllib.parse.urlparse(url)
         if parsed_url.scheme != "https" or parsed_url.hostname != "wttr.in":
             raise ValueError("Unexpected wttr.in endpoint")
-        response = httpx.get(
-            url, headers={"User-Agent": "curl/7.0"}, timeout=10.0, follow_redirects=True
-        )
-        response.raise_for_status()
-        text = response.text.strip()
+        # [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get — validate
+        # scheme + chặn private IP; non-200 → HTTPError; urllib tự follow
+        # redirect như follow_redirects=True cũ.
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "curl/7.0"}
+        )  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=10.0) as response:
+            text = response.read().decode("utf-8", errors="replace").strip()
         m = re.search(r'(-?\d+\.?\d*)', text)
         if m:
             return {"value": float(m.group(1)), "source": "wttr.in"}
@@ -260,6 +266,20 @@ def fetch_weather_multi(city: str) -> dict[str, Any]:
 # Cache CID lookup để tránh gọi API nhiều lần
 _CID_CACHE: dict[str, int] = {}
 
+# [AUDIT-20260909 SSRF-S1] Wikidata QID (external data từ search response)
+# PHẢI fullmatch ^Q\d+$ — chặn path traversal/injection trước khi ghép vào
+# URL entity.
+_WIKIDATA_QID_RE = re.compile(r"^Q\d+$")
+
+
+def build_wikidata_entity_url(qid: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — qid PHẢI khớp ^Q\\d+$;
+    input xấu → ValueError TRƯỚC KHI fetch. Host cố định www.wikidata.org."""
+    q = str(qid or "").strip()
+    if not _WIKIDATA_QID_RE.fullmatch(q):
+        raise ValueError(f"invalid_wikidata_qid:{q[:32]!r}")
+    return f"https://www.wikidata.org/wiki/Special:EntityData/{q}.json"
+
 
 def _fetch_pubchem(compound: str) -> dict | None:
     """PubChem — primary chemistry source."""
@@ -278,6 +298,19 @@ def _fetch_pubchem(compound: str) -> dict | None:
     except Exception as e:
         logger.debug(f"PubChem error: {e}")
     return None
+
+
+def _wikidata_json_fetch(full_url: str, headers: dict[str, str]) -> dict:
+    """[S6b security sweep] Single fetch sink for both Wikidata API calls.
+
+    Callers build and boundary-check the URL (https scheme + www.wikidata.org
+    host equality) BEFORE calling this helper; the Request + safe_urlopen sink
+    lives here so a caller-scope tainted URL never reaches a fetch in the same
+    scope, and safe_urlopen adds the resolved-IP boundary check on top.
+    """
+    req = urllib.request.Request(full_url, headers=headers)
+    with safe_urlopen(req, timeout=10.0) as resp:
+        return json.loads(resp.read().decode("utf-8", errors="replace"))
 
 
 def _fetch_wikidata(compound: str) -> dict | None:
@@ -301,9 +334,10 @@ def _fetch_wikidata(compound: str) -> dict | None:
             "User-Agent": "SCPBot/1.0 (research bot)",
             "Accept": "application/json",
         }
-        response = httpx.get(full_url, headers=headers, timeout=10.0, follow_redirects=True)
-        response.raise_for_status()
-        data = response.json()
+        # [AUDIT-20260909 SSRF-S1] URL đã được urlencode + host-check ở trên.
+        # [S6b security sweep] fetch đi qua _wikidata_json_fetch (sink tách
+        # scope) — safe_urlopen bên trong validate thêm scheme/host/resolved-IP.
+        data = _wikidata_json_fetch(full_url, headers)
 
         if not data.get("search"):
             return None
@@ -311,13 +345,13 @@ def _fetch_wikidata(compound: str) -> dict | None:
         qid = data["search"][0]["id"]
 
         # Step 2: Get entity data, find P2067 (mass)
-        entity_url = f"https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
+        # [AUDIT-20260909 SSRF-S1] qid (external data) được validate regex
+        # trong builder — input xấu → ValueError TRƯỚC KHI fetch.
+        entity_url = build_wikidata_entity_url(qid)
         parsed_entity = urllib.parse.urlparse(entity_url)
         if parsed_entity.scheme != "https" or parsed_entity.hostname != "www.wikidata.org":
             raise ValueError("Unexpected Wikidata entity endpoint")
-        response = httpx.get(entity_url, headers=headers, timeout=10.0, follow_redirects=True)
-        response.raise_for_status()
-        entity_data = response.json()
+        entity_data = _wikidata_json_fetch(entity_url, headers)
 
         entities = entity_data.get("entities", {})
         if qid not in entities:
@@ -426,14 +460,15 @@ def fetch_wikipedia_summary(entity: str) -> dict | None:
         _parsed_wiki = urllib.parse.urlparse(url)
         if _parsed_wiki.scheme != "https" or _parsed_wiki.hostname != "en.wikipedia.org":
             raise ValueError("Unexpected Wikipedia endpoint")
-        response = httpx.get(
+        # [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get — validate
+        # scheme + chặn private IP; non-200 → HTTPError; urllib tự follow
+        # redirect như follow_redirects=True cũ.
+        req = urllib.request.Request(
             url,
             headers={"User-Agent": "SCPBot/1.0 (research bot)", "Accept": "application/json"},
-            timeout=10.0,
-            follow_redirects=True,
-        )
-        response.raise_for_status()
-        data = response.json()
+        )  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=10.0) as response:
+            data = json.loads(response.read().decode("utf-8", errors="replace"))
         if data and data.get("type") != "not_found":
             return {
                 "value": data.get("extract", "")[:500],

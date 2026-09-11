@@ -204,6 +204,65 @@ def _build_strategy_call(node: ast.FunctionDef) -> str | None:
     return "@given(" + ", ".join(parts) + ")"
 
 
+def _safe_eval_strategy(expr: str, st_module: Any) -> Any:
+    """Evaluate a hypothesis strategy expression WITHOUT dynamic evaluation.
+
+    [S3-SECURITY-SWEEP] Replaces the previous dynamic-evaluation of args_str
+    (CWE-95 HIGH code-injection finding). The accepted grammar is a strict
+    whitelist: ``st.<strategy>(literal args, nested st.* calls)`` only.
+    Anything else — attribute chains, names other than ``st``, operators,
+    subscripts, f-strings, lambda, comprehensions — is rejected BEFORE any
+    call happens, so external data can never become executed code.
+    """
+    tree = ast.parse(expr, mode="eval")
+
+    def _reject(reason: str) -> None:
+        raise ValueError(f"strategy expression rejected: {reason}")
+
+    def _eval_node(node: ast.AST) -> Any:
+        if isinstance(node, ast.Expression):
+            return _eval_node(node.body)
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (str, int, float, bool, type(None))):
+                return node.value
+            _reject("non-literal constant")
+        if isinstance(node, ast.Call):
+            func = node.func
+            if not (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id == "st"
+            ):
+                _reject("only st.<strategy>(...) calls are allowed")
+            if any(isinstance(a, ast.Starred) for a in node.args):
+                _reject("*args unpacking not allowed")
+            if any(kw.arg is None for kw in node.keywords):
+                _reject("**kwargs unpacking not allowed")
+            strategy_name = func.attr
+            if strategy_name.startswith("_"):
+                _reject("private st attribute")
+            fn = getattr(st_module, strategy_name, None)
+            if fn is None or not callable(fn):
+                _reject(f"unknown strategy st.{strategy_name}")
+            args = [_eval_node(a) for a in node.args]
+            kwargs = {kw.arg: _eval_node(kw.value) for kw in node.keywords}
+            return fn(*args, **kwargs)
+        if isinstance(node, ast.List):
+            return [_eval_node(e) for e in node.elts]
+        if isinstance(node, ast.Tuple):
+            return tuple(_eval_node(e) for e in node.elts)
+        if (
+            isinstance(node, ast.UnaryOp)
+            and isinstance(node.op, ast.USub)
+            and isinstance(node.operand, ast.Constant)
+            and isinstance(node.operand.value, (int, float))
+        ):
+            return -node.operand.value
+        _reject(f"unsupported syntax: {type(node).__name__}")
+
+    return _eval_node(tree)
+
+
 def _test_function_with_hypothesis(
     module_path: str,
     func_name: str,
@@ -241,8 +300,9 @@ def _test_function_with_hypothesis(
         return True, "malformed strategy_call, skip"
     args_str = strategy_call[len("@given("):-1]
     try:
-        # Safe-ish eval: only allow `st` namespace (no builtins).
-        strategies = eval(args_str, {"__builtins__": {}}, {"st": st})  # nosec B307  # noqa: S307 — restricted namespace
+        # [S3-SECURITY-SWEEP] AST-whitelist evaluator — replaces eval()
+        # (CWE-95): strategy expressions may only call st.* with literals.
+        strategies = _safe_eval_strategy(args_str, st)
     except Exception as e:  # noqa: BLE001
         return True, f"strategy eval failed (skip): {e}"
 

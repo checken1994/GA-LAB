@@ -36,6 +36,8 @@ from scp.core.wikipedia_client import (
 from scp.core.wikipedia_client import (
     search as _wiki_search,
 )
+# [AUDIT-20260909 SSRF-S1] safe_urlopen thay raw urllib.request.urlopen.
+from scp.security.url_safety import safe_urlopen
 
 VERDICT_PASS = "PASS"  # noqa: S105,S106  # nosec B105 — verdict constant, not a password
 VERDICT_FAIL = "FAIL"
@@ -183,13 +185,15 @@ class WikipediaDataSource:
                         return {"query": {"search": [{"title": results[0]["title"]}]}
                                 , "_wiki_search_meta": True}
                     return None
-            # Fallback: original urllib.request path for non-Wikipedia URLs.
+            # Fallback: safe_urlopen path for non-Wikipedia URLs.
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen thay urllib.request.urlopen
+            # — validate scheme + chặn private/loopback IP.
             import json
             req = urllib.request.Request(url, headers={  # noqa: S310
                 'User-Agent': 'SCP-V73-Bot/1.0 (https://scp-vietnam.example.com; Vietnamese educational research project)',
                 'Accept': 'application/json'
             })
-            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+            with safe_urlopen(req, timeout=15) as resp:
                 return json.loads(resp.read().decode('utf-8'))
         except Exception: return None
 

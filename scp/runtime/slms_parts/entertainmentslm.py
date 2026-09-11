@@ -4,12 +4,46 @@ SLM part — extracted from slms.py (Task 19-A).
 """
 import hashlib
 import logging
+import re
 import time
+import urllib.parse
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 S2-SSRF] B310/SSRF gate
+
 logger = logging.getLogger("scp.slms")
+
+# ============================================================
+# [AUDIT-20260909 S2-SSRF] URL builders — pure, testable.
+# TẠI SAO: EntertainmentSLM fetch data từ HOST CỐ ĐỊNH (swapi.dev / tvmaze)
+# nhưng call-site cũ ghép chuỗi trực tiếp từ input user vào path/query rồi
+# gọi raw urllib.request.urlopen không qua gate SSRF nào. Builder
+# chặn/encode input XẤU TRƯỚC khi có bất kỳ fetch nào; host luôn là literal
+# cố định trong builder — caller không thể đổi host.
+# ============================================================
+_SWAPI_TYPE_RE = re.compile(r"^[a-z0-9_]{1,32}$")
+
+
+def build_swapi_url(api_type: str, name: str) -> str:
+    """SWAPI search URL — api_type PHẢI fullmatch ^[a-z0-9_]{1,32}$ (không
+    chứa '/', '?', ':', scheme-override); name quote(safe='') nên luôn nằm
+    trong MỘT query value đã encode.
+
+    Raises ValueError trên input xấu TRƯỚC KHI fetch — fail-closed."""
+    t = str(api_type or "").strip().lower()
+    if not _SWAPI_TYPE_RE.fullmatch(t):
+        raise ValueError(f"invalid_swapi_type:{t[:32]!r}")
+    quoted = urllib.parse.quote(str(name or ""), safe="")
+    return f"https://swapi.dev/api/{t}/?search={quoted}"
+
+
+def build_tvmaze_url(show_name: str) -> str:
+    """TVMaze singlesearch URL — show_name được urlencode thành query value."""
+    query = urllib.parse.urlencode({"q": str(show_name or "")})
+    return f"https://api.tvmaze.com/singlesearch/shows?{query}"
+
 
 # Token boundary helper (copied from slms.py)
 def _token_boundary_match_slms(key: str, entity_lower: str) -> bool:
@@ -261,14 +295,16 @@ class EntertainmentSLM(BaseSLM):
                 api_type = sw_api_map.get(sw_type, sw_type)
                 try:
                     import json as _json
-                    import urllib.parse
                     import urllib.request
+                    # [AUDIT-20260909 S2-SSRF] api_type fullmatch-validated +
+                    # sw_name quote trong build_swapi_url (host cố định), fetch
+                    # qua safe_urlopen — thay raw urlopen cũ không có gate.
                     # Search SWAPI by name
-                    search_url = f"https://swapi.dev/api/{api_type}/?search={urllib.parse.quote(sw_name)}"
+                    search_url = build_swapi_url(api_type, sw_name)
                     req = urllib.request.Request(search_url, headers={
                         'User-Agent': 'SCP-V75-Bot/1.0 (educational research)'
                     })
-                    with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+                    with safe_urlopen(req, timeout=5) as resp:
                         data = _json.loads(resp.read().decode('utf-8'))
                     results = data.get("results", [])
                     if results:
@@ -324,11 +360,13 @@ class EntertainmentSLM(BaseSLM):
                 show_name = m.group(1).strip().rstrip('.').strip()
                 try:
                     import json as _json
-                    import urllib.parse
                     import urllib.request
-                    url = f"https://api.tvmaze.com/singlesearch/shows?q={urllib.parse.quote(show_name)}"
+                    # [AUDIT-20260909 S2-SSRF] show_name được urlencode trong
+                    # build_tvmaze_url (host cố định) + fetch qua safe_urlopen
+                    # — thay raw urlopen cũ không có gate.
+                    url = build_tvmaze_url(show_name)
                     req = urllib.request.Request(url, headers={"User-Agent": "SCP-V91/1.0"})
-                    with urllib.request.urlopen(req, timeout=8) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+                    with safe_urlopen(req, timeout=8) as resp:
                         show_data = _json.loads(resp.read().decode('utf-8'))
                     name = show_data.get("name", show_name)
                     genres = ", ".join(show_data.get("genres", []))

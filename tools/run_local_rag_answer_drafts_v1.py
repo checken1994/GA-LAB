@@ -1,6 +1,7 @@
 import sys,json,re,datetime,concurrent.futures,requests
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT));from scp.rag.canonical_retriever import CanonicalRetriever
+from _net_guard import safe_post  # [S6b] boundary-validated egress
 QUESTION_FILES=[ROOT/'data'/'benchmark_batches'/'cc047e32d62448678a773738abe08833'/'questions.jsonl'];OUT=ROOT/'data'/'rag_local_answer_drafts_v1_20260817.jsonl';ENDPOINT='http://127.0.0.1:11434/api/chat'
 def terms(s):return set(re.findall(r'[\wÀ-ỹ]{4,}',str(s).lower()))
 def loadq():
@@ -19,7 +20,7 @@ def one(x):
  h=hits[0];base['gold_chunk_ids']=[h['chunk_id']];base['source_url']=h['source_url'];base['retrieval_score']=h.get('retrieval_score');context=f"[chunk_id={h['chunk_id']}] source_url={h['source_url']}\n{h['text'][:4000]}"
  prompt={'model':'llama3.2:latest','stream':False,'format':'json','options':{'temperature':0},'messages':[{'role':'system','content':'Answer only from the supplied source. If unsupported, return JSON {"answer":"","supported":false}. Otherwise return JSON {"answer":"short answer","supported":true}. Do not add outside facts.'},{'role':'user','content':f'Question: {q}\nSource:\n{context}'}]}
  try:
-  z=requests.post(ENDPOINT,json=prompt,timeout=180);z.raise_for_status();raw=z.json().get('message',{}).get('content','');obj=json.loads(raw) if isinstance(raw,str) else raw;ans=str(obj.get('answer','')).strip();sup=bool(obj.get('supported'))
+  z=safe_post(ENDPOINT,json=prompt,timeout=180,allow_internal=True);z.raise_for_status();raw=z.json().get('message',{}).get('content','');obj=json.loads(raw) if isinstance(raw,str) else raw;ans=str(obj.get('answer','')).strip();sup=bool(obj.get('supported'))
   et=terms(ans);ct=terms(h['text']);ratio=len(et&ct)/max(1,len(et))
   if sup and ans and ratio>=0.35:
    base['gold_answer']=ans;base['gold_status']='LOCAL_SOURCE_GROUNDED_DRAFT';base['support_ratio']=round(ratio,4)

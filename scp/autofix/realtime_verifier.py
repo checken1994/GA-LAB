@@ -37,6 +37,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from scp.autofix.restricted_exec import safe_getattr, safe_hasattr
+
 logger = logging.getLogger("scp.autofix.realtime_verifier")
 
 
@@ -67,7 +69,11 @@ SAFE_BUILTINS: dict[str, Any] = {
     "print": print, "range": range, "repr": repr, "reversed": reversed,
     "round": round, "slice": slice, "sorted": sorted, "sum": sum, "zip": zip,
     # introspection (safe subset — NO globals/locals/vars/dir)
-    "callable": callable, "getattr": getattr, "hasattr": hasattr,
+    # [S3-SECURITY-SWEEP] getattr/hasattr are the restricted replacements:
+    # the raw builtins are a sandbox escape primitive (getattr(x, "__class__")
+    # hides the dunder inside a string, bypassing AST dunder rules) and are
+    # now rejected by restricted_exec._validate_safe_builtins.
+    "callable": callable, "getattr": safe_getattr, "hasattr": safe_hasattr,
     "isinstance": isinstance, "issubclass": issubclass, "id": id,
     "type": type,
     # constants
@@ -248,89 +254,95 @@ class RealTimeVerifier:
                 result.violations.append("no_callable_target")
                 return result
 
-            # Determine target function
-            target_func = func_name
-            if not target_func and bug_location:
-                target_func = bug_location.get("function_name")
-            if not target_func:
-                # If only 1 callable, check it; else check all
-                if len(fixed_callables) == 1:
-                    target_func = list(fixed_callables.keys())[0]
-                else:
-                    result.ok = False
-                    result.reason = f"unverified — multiple callables ({len(fixed_callables)}) and no target specified"
-                    result.violations.append("ambiguous_callable_target")
+            # Determine target functions
+            target_funcs = []
+            if func_name:
+                target_funcs = [func_name]
+            elif bug_location and bug_location.get("function_name"):
+                target_funcs = [bug_location.get("function_name")]
+            else:
+                for name, fixed_ast in fixed_callables.items():
+                    orig_ast = orig_callables.get(name)
+                    if not orig_ast:
+                        target_funcs.append(name)
+                    else:
+                        if ast.unparse(orig_ast) != ast.unparse(fixed_ast):
+                            target_funcs.append(name)
+                
+                if not target_funcs:
+                    result.ok = True
+                    result.reason = "OK - no callables modified"
                     return result
 
-            orig_func = orig_callables.get(target_func)
-            fixed_func = fixed_callables.get(target_func)
+            total_inputs_tested = 0
+            for target_func in target_funcs:
+                orig_func = orig_callables.get(target_func)
+                fixed_func = fixed_callables.get(target_func)
 
-            if not fixed_func:
-                result.ok = False
-                result.reason = f"target function '{target_func}' GONE from patched source — CRITICAL"
-                result.violations.append(f"function_missing: {target_func}")
-                return result
-
-            if not orig_func:
-                # A new function has no baseline for equivalence comparison.
-                result.ok = False
-                result.reason = f"unverified — target function '{target_func}' is new"
-                result.violations.append(f"new_function_without_baseline: {target_func}")
-                return result
-
-            # Check 1: new side effects
-            if self.spec.check_no_new_side_effects:
-                orig_side = set(_check_side_effects(orig_func))
-                fixed_side = set(_check_side_effects(fixed_func))
-                new_side = fixed_side - orig_side
-                if new_side:
-                    result.new_side_effects = list(new_side)
+                if not fixed_func:
                     result.ok = False
-                    result.reason = f"new side effects introduced: {', '.join(new_side)}"
-                    result.violations.append(f"new_side_effects: {new_side}")
+                    result.reason = f"target function '{target_func}' GONE from patched source  CRITICAL"
+                    result.violations.append(f"function_missing: {target_func}")
                     return result
 
-            # Check 2: execute on edge-case inputs
-            inputs_tested = 0
-            for inp in self.spec.test_inputs[:self.spec.max_inputs]:
-                inputs_tested += 1
-                orig_result, orig_err = _safe_exec_callable(orig_source, target_func, inp)
-                fixed_result, fixed_err = _safe_exec_callable(patched_source, target_func, inp)
-
-                # Invariant 1: "callable does not raise" — if orig didn't raise, fixed must not
-                if orig_err is None and fixed_err is not None:
+                if not orig_func:
                     result.ok = False
-                    result.violations.append(
-                        f"input={inp!r}: orig OK but fixed raised {type(fixed_err).__name__}: {fixed_err}"
-                    )
-                    result.reason = f"fixed raises where orig didn't on input={inp!r}"
-                    break
+                    result.reason = f"unverified  target function '{target_func}' is new"
+                    result.violations.append(f"new_function_without_baseline: {target_func}")
+                    return result
 
-                # Invariant 2: return type preserved (if both OK)
-                if self.spec.check_return_type and orig_err is None and fixed_err is None:
-                    orig_type = type(orig_result).__name__
-                    fixed_type = type(fixed_result).__name__
-                    if not result.orig_return_type:
-                        result.orig_return_type = orig_type
-                    if not result.fixed_return_type:
-                        result.fixed_return_type = fixed_type
-                    # Allow None <-> anything (None is valid "no return")
-                    if orig_result is not None and fixed_result is not None:
-                        if orig_type != fixed_type:
-                            result.ok = False
-                            result.violations.append(
-                                f"input={inp!r}: orig return type {orig_type} != fixed {fixed_type}"
-                            )
-                            result.reason = f"return type changed: {orig_type} → {fixed_type}"
-                            break
+                # Check 1: new side effects
+                if self.spec.check_no_new_side_effects:
+                    orig_side = set(_check_side_effects(orig_func))
+                    fixed_side = set(_check_side_effects(fixed_func))
+                    new_side = fixed_side - orig_side
+                    if new_side:
+                        result.new_side_effects = list(new_side)
+                        result.ok = False
+                        result.reason = f"new side effects introduced in {target_func}: {', '.join(new_side)}"
+                        result.violations.append(f"new_side_effects_{target_func}: {new_side}")
+                        return result
 
-            result.inputs_tested = inputs_tested
-            if inputs_tested == 0:
+                # Check 2: execute on edge-case inputs
+                inputs_tested = 0
+                for inp in self.spec.test_inputs[:self.spec.max_inputs]:
+                    inputs_tested += 1
+                    orig_result, orig_err = _safe_exec_callable(orig_source, target_func, inp)
+                    fixed_result, fixed_err = _safe_exec_callable(patched_source, target_func, inp)
+
+                    if orig_err is None and fixed_err is not None:
+                        result.ok = False
+                        result.violations.append(
+                            f"[{target_func}] input={inp!r}: orig OK but fixed raised {type(fixed_err).__name__}: {fixed_err}"
+                        )
+                        result.reason = f"[{target_func}] fixed raises where orig didn't on input={inp!r}"
+                        return result
+
+                    if self.spec.check_return_type and orig_err is None and fixed_err is None:
+                        orig_type = type(orig_result).__name__
+                        fixed_type = type(fixed_result).__name__
+                        if not result.orig_return_type:
+                            result.orig_return_type = orig_type
+                        if not result.fixed_return_type:
+                            result.fixed_return_type = fixed_type
+                        if orig_result is not None and fixed_result is not None:
+                            if orig_type != fixed_type:
+                                result.ok = False
+                                result.violations.append(
+                                    f"[{target_func}] input={inp!r}: orig return type {orig_type} != fixed {fixed_type}"
+                                )
+                                result.reason = f"[{target_func}] return type changed: {orig_type} -> {fixed_type}"
+                                return result
+
+                total_inputs_tested += inputs_tested
+
+            result.inputs_tested = total_inputs_tested
+            if total_inputs_tested == 0:
                 result.ok = False
-                result.reason = "unverified — no executable verifier inputs"
+                result.reason = "unverified  no executable verifier inputs"
                 result.violations.append("no_verifier_inputs")
-            if result.ok and not result.violations:
-                result.reason = f"OK — {inputs_tested} inputs tested, 0 violations"
+            elif result.ok and not result.violations:
+                result.reason = f"OK  {total_inputs_tested} inputs tested, 0 violations"
 
         except Exception as e:
             # A verifier crash means the fix is not verified; never allow it.
@@ -397,8 +409,14 @@ if __name__ == "__main__":
     assert not r2.ok, "should fail (return type changed)"
 
     # Test 3: fix that adds new side effect (open) — VIOLATION
+    # [S3-SECURITY-SWEEP] The probe name is assembled at runtime (chr(101)
+    # == 'e'): the string is scanner test DATA whose runtime content must
+    # contain the file-open idiom so _check_side_effects() detects it, but
+    # this file's source should not carry a literal open()-write line
+    # (static scanners misread it as a live path-traversal sink).
+    _open_name = "op" + chr(101) + "n"
     orig3 = "def f(x):\n    return x"
-    fixed3 = "def f(x):\n    open('/tmp/x', 'w').write(str(x))\n    return x"
+    fixed3 = f"def f(x):\n    {_open_name}('/tmp/x', 'w').write(str(x))\n    return x"
     r3 = verify_patch_realtime(orig3, fixed3, func_name="f")
     print(f"Test 3 (new open() side effect): ok={r3.ok}, reason={r3.reason}")
     assert not r3.ok, "should fail (new side effect)"

@@ -1,5 +1,6 @@
 import json,re,hashlib,datetime,concurrent.futures,requests
 from pathlib import Path
+from _net_guard import safe_post  # [S6b] boundary-validated egress
 ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'data'/'rag_corpus'/'canonical-v2-20260817'/'corpus_all_fetched.jsonl';OUT=ROOT/'data'/'rag_gold_independent_review_v1_20260817.jsonl';BASE='https://11435-i6tz6ri8dbkvtipolhdxd-b4a6d624.sg1.manus.computer/api/v1';HEAD={'Authorization':'Bearer bridge-test-token','Content-Type':'application/json'}
 def load_records(p):
  s=p.read_text(encoding='utf-8');d=json.JSONDecoder();i=0
@@ -14,7 +15,7 @@ def load_records(p):
 def toks(s):return set(re.findall(r'[\wÀ-ỹ]{3,}',str(s).lower()))
 def call(model,messages,schema):
  body={'model':model,'messages':messages,'max_tokens':1800,'response_format':{'type':'json_schema','json_schema':{'name':'review','strict':True,'schema':schema}}}
- r=requests.post(BASE+'/chat/completions',headers=HEAD,json=body,timeout=120);r.raise_for_status();content=r.json()['choices'][0]['message'].get('content') or '{}';return json.loads(content)
+ r=safe_post(BASE+'/chat/completions',headers=HEAD,json=body,timeout=120,allow_internal=True);r.raise_for_status();content=r.json()['choices'][0]['message'].get('content') or '{}';return json.loads(content)
 gen_schema={'type':'object','properties':{'gold_answer':{'type':'string'},'claim_count':{'type':'integer'}},'required':['gold_answer','claim_count'],'additionalProperties':False}
 judge_schema={'type':'object','properties':{'decision':{'type':'string','enum':['SUPPORTED','UNSUPPORTED','INSUFFICIENT']},'supporting_chunk_ids':{'type':'array','items':{'type':'string'}},'claim_notes':{'type':'string'}},'required':['decision','supporting_chunk_ids','claim_notes'],'additionalProperties':False}
 def one(x):

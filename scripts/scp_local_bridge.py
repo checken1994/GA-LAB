@@ -3,12 +3,19 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from scp.security.url_safety import safe_urlopen
 
 PUBLIC = os.environ["SCP_PUBLIC_URL"].rstrip("/") + "/api/trpc"
 AGENT = os.environ["SCP_AGENT_ID"]
@@ -38,7 +45,9 @@ def rpc(path: str, payload: dict[str, Any]) -> dict[str, Any]:
         data=json.dumps({"json": payload}).encode("utf-8"),
         headers={"content-type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    # [SEC-S6] SSRF guard: outbound relay call goes through safe_urlopen
+    # (scheme allowlist + private-IP block) instead of raw urlopen.
+    with safe_urlopen(request, timeout=30) as response:
         value = json.loads(response.read())
     return value if isinstance(value, dict) else {}
 
@@ -57,7 +66,8 @@ def service_status() -> dict[str, str]:
     result: dict[str, str] = {}
     for name, url in targets.items():
         try:
-            with urllib.request.urlopen(url, timeout=3) as response:
+            # [SEC-S6] Loopback health probes are intentional internal targets.
+            with safe_urlopen(url, timeout=3, allow_internal=True) as response:
                 result[name] = "healthy" if response.status < 500 else "unreachable"
         except (urllib.error.URLError, TimeoutError, ValueError):
             result[name] = "unreachable"
@@ -81,7 +91,8 @@ def call_local(job: dict[str, Any]) -> dict[str, Any]:
         data=json.dumps({"question": payload["question"], "domain": "general", "session_id": "public-" + str(job["id"]), "conversation_history": []}).encode("utf-8"),
         headers=headers,
     )
-    with urllib.request.urlopen(request, timeout=LOCAL_TIMEOUT_SECONDS) as response:
+    # [SEC-S6] LOCAL targets the loopback ask endpoint by design.
+    with safe_urlopen(request, timeout=LOCAL_TIMEOUT_SECONDS, allow_internal=True) as response:
         value = json.loads(response.read())
     if not isinstance(value, dict):
         raise RuntimeError("invalid_local_response")

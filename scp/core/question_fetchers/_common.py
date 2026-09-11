@@ -14,7 +14,7 @@ import threading
 import urllib.request
 from typing import Optional
 
-from scp.security.url_safety import safe_urlopen  # noqa: B310
+from scp.security.url_safety import safe_urlopen, validate_url  # noqa: B310
 
 logger = logging.getLogger("scp.real_fetcher")
 
@@ -88,6 +88,10 @@ _DEFAULT_TIMEOUT = 3  # [V88 BOOST] 3s (was 5s) — fail fast, don't block cycle
 def _http_get_json(url: str, timeout: int = _DEFAULT_TIMEOUT, headers: Optional[dict] = None) -> Optional[dict]:
     """GET request, return parsed JSON. Returns None on error or timeout."""
     try:
+        # [AUDIT-20260909 SSRF-S1] validate_url trước MỌI fetch — chặn scheme
+        # lạ + private/loopback IP cho cả nhánh requests.Session lẫn urllib.
+        # Input xấu → ValueError → nhánh except → trả None (fail-closed).
+        validate_url(url)
         if HAS_REQUESTS and _SESSION is not None:
             #  Use persistent session — connection pooling reduces overhead ~30%
             r = _SESSION.get(url, timeout=timeout, headers=headers or {})

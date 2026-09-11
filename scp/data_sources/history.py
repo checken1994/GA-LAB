@@ -36,17 +36,31 @@ Actions taken:
 3. Did NOT touch _fetch_from_wikidata() — Wikidata is a different API and
    remains as-is.
 """
+import json
 import logging
+import urllib.parse
+import urllib.request
 from typing import Any, Optional
-
-import requests
 
 from scp.core.wikipedia_client import fetch_summary as _wiki_fetch_summary  # [G3-CONSOLIDATE RE-05]
 from scp.data_sources._matching import _token_boundary_match
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 
 logger = logging.getLogger(__name__)
 # [V104.32 #11] word-boundary matching for short keys
+
+
+def build_wikidata_search_url(entity: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — entity (input động) được
+    urlencode thành query value, không thể đổi host/path. Host cố định
+    https://www.wikidata.org."""
+    return "https://www.wikidata.org/w/api.php?" + urllib.parse.urlencode({
+        'action': 'wbsearchentities',
+        'search': str(entity or ""),
+        'language': 'en',
+        'format': 'json',
+    })
 
 
 class HistoryDataSource(IDataSource):
@@ -230,28 +244,25 @@ class HistoryDataSource(IDataSource):
     def _fetch_from_wikidata(self, entity: str) -> Optional[dict[str, Any]]:
         """Fallback: Lấy từ Wikidata."""
         try:
-            # Search for entity
-            search_url = "https://www.wikidata.org/w/api.php"
-            params = {
-                'action': 'wbsearchentities',
-                'search': entity,
-                'language': 'en',
-                'format': 'json'
-            }
-            response = requests.get(search_url, params=params, timeout=5)
+            # [AUDIT-20260909 SSRF-S1] build URL (encode input) rồi fetch qua
+            # safe_urlopen thay raw requests.get; non-200 → HTTPError → except.
+            search_url = build_wikidata_search_url(entity)
+            req = urllib.request.Request(
+                search_url, headers={"User-Agent": "SCP-History/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode("utf-8", errors="replace"))
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('search'):
-                    result = data['search'][0]
-                    return {
-                        'value': result.get('label', ''),
-                        'source': 'Wikidata',
-                        'metadata': {
-                            'id': result.get('id', ''),
-                            'description': result.get('description', ''),
-                        }
+            if data.get('search'):
+                result = data['search'][0]
+                return {
+                    'value': result.get('label', ''),
+                    'source': 'Wikidata',
+                    'metadata': {
+                        'id': result.get('id', ''),
+                        'description': result.get('description', ''),
                     }
+                }
         except Exception as e:
             logger.warning(f"[History] Wikidata fetch failed: {e}")
 

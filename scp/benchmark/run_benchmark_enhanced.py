@@ -509,7 +509,7 @@ def main():
         "question_results": q_results,
         "attack_results": a_results,
     }
-    with open(args.output, "w", encoding="utf-8") as f:
+    with Path(args.output).open("w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False, default=str)
     print(f"\n📄 Results saved to: {args.output}")
     print(f"   Full per-question responses included for evidence analysis.")

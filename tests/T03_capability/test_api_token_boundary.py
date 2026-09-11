@@ -29,6 +29,14 @@ def test_localhost_requires_token_pc_kill(api_client):
     # With valid token -> 200
     resp = api_client.post("/v3/pc/kill", json={"reason": "test"}, headers={"X-SCP-PC-Token": "strict_test_token"})
     assert resp.status_code == 200
+    
+    # Clean up global state
+    import shutil
+    from pathlib import Path
+    data_dir = Path(__file__).resolve().parents[2] / "data" / "pc_controller"
+    kill_switch_path = data_dir / "KILL_SWITCH"
+    if kill_switch_path.exists():
+        kill_switch_path.unlink()
 
 def test_localhost_requires_token_hands_status(api_client):
     # Without token -> 403

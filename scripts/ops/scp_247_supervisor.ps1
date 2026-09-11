@@ -125,7 +125,7 @@ $safeEnvText = @(
     'SCP_ENABLE_CLOSED_LOOP=0',
     'SCP_AUTOFIX_MODE=apply',
     'SCP_MAX_AUDIT_BUGS=5',
-    'SCP_AUTOFIX_DETERMINISTIC_ONLY=1',
+    'SCP_AUTOFIX_DETERMINISTIC_ONLY=0',
     'SCP_EVOLUTION_AUTO=0',
     'SCP_EVOLUTION_ENABLED=0',
     'SCP_WHY_LLM_ENABLED=0',
@@ -151,7 +151,15 @@ if (-not (Test-Path -LiteralPath $AdminTokenFile -PathType Leaf)) {
 # Include only the private token-file reference in the explicit child env.
 # Bun resolves *_FILE during its explicit env loader; Python resolves it via
 # auth_config. The token value itself is never copied into this env file.
+$capSecretLine = Get-Content (Join-Path $Root '.env') -ErrorAction SilentlyContinue | Where-Object { $_ -match '^SCP_CAPABILITY_SECRET=' } | Select-Object -Last 1
+$jwtSecretLine = Get-Content (Join-Path $Root '.env') -ErrorAction SilentlyContinue | Where-Object { $_ -match '^SCP_JWT_SECRET=' } | Select-Object -Last 1
+$adminKeyLine = Get-Content (Join-Path $Root '.env') -ErrorAction SilentlyContinue | Where-Object { $_ -match '^SCP_ADMIN_KEY=' } | Select-Object -Last 1
+$openRouterLines = Get-Content (Join-Path $Root '.env') -ErrorAction SilentlyContinue | Where-Object { $_ -match '^OPENROUTER_API_KEY' }
 $childEnvText = $safeEnvText + [Environment]::NewLine + "SCP_AUTH_TOKEN_SECRET_FILE=$AdminTokenFile" + [Environment]::NewLine + "SCP_SCHEDULER_ADMIN_TOKEN_FILE=$AdminTokenFile" + [Environment]::NewLine
+if ($capSecretLine) { $childEnvText += $capSecretLine + [Environment]::NewLine }
+if ($jwtSecretLine) { $childEnvText += $jwtSecretLine + [Environment]::NewLine }
+if ($adminKeyLine) { $childEnvText += $adminKeyLine + [Environment]::NewLine }
+if ($openRouterLines) { foreach ($line in $openRouterLines) { $childEnvText += $line + [Environment]::NewLine } }
 [IO.File]::WriteAllText($safeEnvTmp, $childEnvText, [Text.UTF8Encoding]::new($false))
 Move-Item -LiteralPath $safeEnvTmp -Destination $SafeChildEnvFile -Force
 
@@ -235,18 +243,14 @@ try {
     }
 
     $bun = Resolve-Executable 'bun'
-    $python = Join-Path $Root 'scp\venv\Scripts\python.exe'
-    if (-not (Test-Path $python)) { throw "Python venv missing: $python" }
+    $python = Resolve-Executable 'python'
     $DashboardDir = Join-Path $Root 'dashboard'
     $DashboardStandaloneServer = Join-Path $DashboardDir '.next\standalone\server.js'
     $DashboardBuildId = Join-Path $DashboardDir '.next\BUILD_ID'
     $DashboardNextCli = Join-Path $DashboardDir 'node_modules\next\dist\bin\next'
 
-    # Ollama is an external, pre-existing dependency on 127.0.0.1:11434.
-    # It is deliberately NOT a child service: Supervisor must never try to
-    # start llm-bridge on Ollama's port or count Ollama as a dead child.
-    $OllamaBaseUrl = 'http://127.0.0.1:11434'
     $services = @(
+        [ordered]@{ Name = 'llm-bridge'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\llm-bridge'); Port = 8081; Url = 'http://127.0.0.1:8081/api/tags' },
         [ordered]@{ Name = 'loop-scheduler'; File = $bun; Args = @('run', 'dev'); Dir = (Join-Path $Root 'mini-services\loop-scheduler'); Port = 3030; Url = 'http://127.0.0.1:3030/' },
         [ordered]@{ Name = 'scp-python'; File = $python; Args = @('-m', 'scp', '8000'); Dir = $Root; Port = 8000; Url = 'http://127.0.0.1:8000/health' },
         [ordered]@{ Name = 'autofix-worker'; File = $python; Args = @('-m', 'scp.autofix.deterministic_worker', '--max-jobs', '1', '--watch'); Dir = $Root; Port = 0; Url = '' },
@@ -365,34 +369,7 @@ try {
         return $true
     }
 
-    function Start-ExternalOllamaIfNeeded {
-        # [DNA #6] API-First Orchestration: Do not depend on Local LLMs.
-        Write-Ledger -Event 'OLLAMA_DEPENDENCY_CHECK_SKIPPED' -Service 'ollama' -Reason 'api_first_orchestration_bypasses_local_llm'
-        return $true
-        if ($DryRun -or (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags'))) { return $true }
-        $ollama = Get-Command 'ollama.exe' -ErrorAction SilentlyContinue
-        if ($null -eq $ollama) { $ollama = Get-Command 'ollama' -ErrorAction SilentlyContinue }
-        if ($null -eq $ollama) {
-            Write-Ledger -Event 'OLLAMA_START_REJECTED' -Service 'ollama' -Reason 'ollama_executable_missing'
-            return $false
-        }
-        Write-Ledger -Event 'OLLAMA_START_ATTEMPT' -Service 'ollama' -Reason 'external_dependency_unhealthy'
-        try {
-            Start-Process -FilePath $ollama.Source -ArgumentList 'serve' -WindowStyle Hidden -ErrorAction Stop | Out-Null
-        } catch {
-            Write-Ledger -Event 'OLLAMA_START_REJECTED' -Service 'ollama' -Reason $_.Exception.GetType().Name
-            return $false
-        }
-        foreach ($attempt in 1..20) {
-            Start-Sleep -Seconds 1
-            if (Test-HttpHealthy ($OllamaBaseUrl + '/api/tags')) {
-                Write-Ledger -Event 'OLLAMA_STARTED' -Service 'ollama' -Reason 'external_ollama_http_ok' -Extra @{ attempts = $attempt; base_url = $OllamaBaseUrl }
-                return $true
-            }
-        }
-        Write-Ledger -Event 'OLLAMA_START_REJECTED' -Service 'ollama' -Reason 'ollama_http_unhealthy_after_start'
-        return $false
-    }
+
 
     function Start-ScpService {
         param([object]$Service)
@@ -442,23 +419,23 @@ try {
         }
         $env:SCP_ENABLE_CLOSED_LOOP = '0'
         try {
-            if ($Service.Name -in @('loop-scheduler','scp-python','autofix-worker','dashboard')) {
-                $env:LOOP_LOG_PATH = Join-Path $Root 'data\\loop_runs.jsonl'
+            if ($Service.Name -in @('llm-bridge','loop-scheduler','scp-python','autofix-worker','dashboard')) {
+                $env:LOOP_LOG_PATH = Join-Path $Root 'data\loop_runs.jsonl'
                 $env:SCP_BASE_URL = 'http://127.0.0.1:8000'
                 # Dashboard proxy contract is explicit rather than relying on
                 # a stale build's localhost fallback. This keeps the running
                 # process aligned with the supervisor's service map.
                 $env:SCP_INTERNAL_URL = 'http://127.0.0.1:8000'
                 $env:LOOP_SCHEDULER_URL = 'http://127.0.0.1:3030'
-                # Use the real local Ollama service. Do not route through or
-                # start a Bun llm-bridge process.
-                $env:OLLAMA_HOST = $OllamaBaseUrl
+                # Use the new managed llm-bridge on port 8081
+                $env:SCP_LLM_BRIDGE_PORT = '8081'
+                $env:OLLAMA_HOST = 'http://127.0.0.1:8081'
                 $env:OLLAMA_ENABLED = 'true'
                 $env:SCP_LLM_PROVIDER_MODE = 'ollama_only'
-                $env:LLM_BRIDGE_URL = $OllamaBaseUrl
+                $env:LLM_BRIDGE_URL = 'http://127.0.0.1:8081'
                 $env:SCP_AUTOFIX_MODE = 'apply'
-                $env:SCP_AUTOFIX_DETERMINISTIC_ONLY = '1'
-                $env:SCP_AUTOFIX_WORKER_MODE = 'deterministic'
+                $env:SCP_AUTOFIX_DETERMINISTIC_ONLY = '0'
+                $env:SCP_AUTOFIX_WORKER_MODE = 'inline'
                 $env:SCP_AUTOFIX_WORKER_ROOT = $Root
                 $env:SCP_AUTOFIX_WORKER_DATA_DIR = Join-Path $Root 'data'
                 $env:SCP_AUTOFIX_WORKER_AUTO_APPLY_RISK = 'low'
@@ -558,11 +535,6 @@ try {
     Assert-Guardrails
     if ($DryRun) {
         Write-Ledger -Event 'OLLAMA_DEPENDENCY_CHECK_SKIPPED' -Service 'ollama' -Reason 'dry_run_does_not_require_external_provider'
-    } elseif (-not (Start-ExternalOllamaIfNeeded)) {
-        Write-Ledger -Event 'SUPERVISOR_ABORTED' -Service 'ollama' -Reason 'ollama_http_unhealthy'
-        exit 21
-    } else {
-        Write-Ledger -Event 'OLLAMA_DEPENDENCY_HEALTHY' -Service 'ollama' -Reason 'external_ollama_http_ok' -Extra @{ base_url = $OllamaBaseUrl }
     }
     if (-not $DryRun) {
         $jobHandle = [ScpJobObjectNative]::CreateKillOnCloseJob()
@@ -599,19 +571,6 @@ try {
             if ($ollamaRestartHistory.Count -gt 0) {
                 Write-Ledger -Event 'CIRCUIT_CLOSED' -Service 'ollama' -Reason 'external_dependency_recovered' -Extra @{ cleared_restart_count = $ollamaRestartHistory.Count }
                 $ollamaRestartHistory = @()
-            }
-        } else {
-            $ollamaNow = [DateTime]::UtcNow
-            $ollamaRestartHistory = @($ollamaRestartHistory | Where-Object { ($ollamaNow - $_).TotalSeconds -lt $RestartWindowSeconds })
-            if ($ollamaRestartHistory.Count -ge $MaxRestartsPerWindow) {
-                Write-Ledger -Event 'CIRCUIT_OPEN' -Service 'ollama' -Reason 'external_dependency_restart_budget_exhausted' -Extra @{ restart_count = $ollamaRestartHistory.Count }
-            } else {
-                $ollamaRestartHistory += $ollamaNow
-                if (Start-ExternalOllamaIfNeeded) {
-                    Write-Ledger -Event 'OLLAMA_RECOVERED' -Service 'ollama' -Reason 'external_dependency_health_restored' -Extra @{ restart_count = $ollamaRestartHistory.Count }
-                } else {
-                    Write-Ledger -Event 'OLLAMA_RECOVERY_FAILED' -Service 'ollama' -Reason 'external_dependency_unhealthy' -Extra @{ restart_count = $ollamaRestartHistory.Count }
-                }
             }
         }
         foreach ($service in $services) {
@@ -670,7 +629,8 @@ try {
     foreach ($service in $services) { Stop-ScpService $runtime[$service.Name] 'supervisor_exit' }
     Write-Ledger -Event 'SUPERVISOR_STOPPED' -Reason $(if (Test-Path $KillSwitchPath) { 'kill_switch' } else { 'once_or_exit' })
 } catch {
-    Write-Ledger -Event 'SUPERVISOR_ERROR' -Reason $_.Exception.GetType().Name
+    Write-Host "Exception: $_"
+    Write-Ledger -Event 'SUPERVISOR_ERROR' -Reason $_.Exception.Message
     exit 1
 } finally {
     if ($jobHandle -ne [IntPtr]::Zero) {

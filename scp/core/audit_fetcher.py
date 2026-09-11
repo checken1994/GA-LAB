@@ -14,13 +14,17 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 import time
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import requests
+# [AUDIT-20260909 SSRF-S1] Thay mọi raw requests.get bằng safe_urlopen.
+from scp.security.url_safety import safe_urlopen
 
 logger = logging.getLogger("scp.audit_fetcher")
 
@@ -53,34 +57,67 @@ _running = False
 _thread = None
 
 
+# [AUDIT-20260909 SSRF-S1] Pure URL builders — input động được encode/ràng
+# buộc TRƯỚC khi fetch; host luôn giữ nguyên từ SOURCES (literal cố định).
+_ARXIV_CATEGORY_RE = re.compile(r"^[A-Za-z-]{2,8}(\.[A-Za-z]{2,4})?$")
+
+
+def build_arxiv_category_url(category: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] arXiv query URL — category PHẢI khớp pattern
+    (vd 'cs.AI'); input xấu → ValueError TRƯỚC KHI fetch. Host cố định."""
+    cat = str(category or "")
+    if not _ARXIV_CATEGORY_RE.fullmatch(cat):
+        raise ValueError(f"invalid_arxiv_category:{cat[:32]!r}")
+    query = urllib.parse.urlencode({
+        "search_query": f"cat:{cat}",
+        "start": 0,
+        "max_results": 5,
+        "sortBy": "submittedDate",
+        "sortOrder": "descending",
+    })
+    return f"{SOURCES['arxiv']['url']}?{query}"
+
+
+def build_huggingface_papers_url() -> str:
+    """[AUDIT-20260909 SSRF-S1] Fixed-host HuggingFace daily papers URL."""
+    return SOURCES["huggingface"]["url"]
+
+
+def build_newsapi_url(query: str, api_key: str, page_size: int = 5) -> str:
+    """[AUDIT-20260909 SSRF-S1] NewsAPI URL — query + apiKey được urlencode
+    thành query values. Host cố định newsapi.org."""
+    params = {
+        "q": str(query or ""),
+        "apiKey": str(api_key or ""),
+        "pageSize": int(page_size),
+        "sortBy": "publishedAt",
+    }
+    return f"{SOURCES['newsapi']['url']}?{urllib.parse.urlencode(params)}"
+
+
 def _fetch_arxiv() -> list[dict]:
     """Fetch latest arXiv papers."""
     findings = []
     try:
         for cat in SOURCES["arxiv"]["categories"]:
-            params = {
-                "search_query": f"cat:{cat}",
-                "start": 0,
-                "max_results": 5,
-                "sortBy": "submittedDate",
-                "sortOrder": "descending",
-            }
-            resp = requests.get(SOURCES["arxiv"]["url"], params=params, timeout=15)
-            if resp.status_code == 200:
-                # Parse Atom feed (simplified)
-                import re
-                entries = re.findall(r'<entry>(.*?)</entry>', resp.text, re.DOTALL)
-                for entry in entries[:3]:
-                    title_m = re.search(r'<title>(.*?)</title>', entry, re.DOTALL)
-                    summary_m = re.search(r'<summary>(.*?)</summary>', entry, re.DOTALL)
-                    if title_m:
-                        findings.append({
-                            "source": "arxiv",
-                            "category": cat,
-                            "title": title_m.group(1).strip(),
-                            "summary": summary_m.group(1).strip()[:500] if summary_m else "",
-                            "fetched_at": datetime.now().isoformat(),
-                        })
+            # [AUDIT-20260909 SSRF-S1] builder validate category + urlencode.
+            url = build_arxiv_category_url(cat)
+            req = urllib.request.Request(url, headers={"User-Agent": "SCP-AuditFetcher/1.0"})  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=15) as resp:
+                text_xml = resp.read().decode("utf-8", errors="replace")
+            # Parse Atom feed (simplified)
+            entries = re.findall(r'<entry>(.*?)</entry>', text_xml, re.DOTALL)
+            for entry in entries[:3]:
+                title_m = re.search(r'<title>(.*?)</title>', entry, re.DOTALL)
+                summary_m = re.search(r'<summary>(.*?)</summary>', entry, re.DOTALL)
+                if title_m:
+                    findings.append({
+                        "source": "arxiv",
+                        "category": cat,
+                        "title": title_m.group(1).strip(),
+                        "summary": summary_m.group(1).strip()[:500] if summary_m else "",
+                        "fetched_at": datetime.now().isoformat(),
+                    })
     except Exception as e:
         logger.warning(f"arXiv fetch error: {e}")
     return findings
@@ -90,18 +127,19 @@ def _fetch_huggingface() -> list[dict]:
     """Fetch trending HuggingFace papers."""
     findings = []
     try:
-        resp = requests.get(SOURCES["huggingface"]["url"], timeout=15)
-        if resp.status_code == 200:
-            papers = resp.json()[:5]
-            for p in papers:
-                paper = p.get("paper", {})
-                findings.append({
-                    "source": "huggingface",
-                    "title": paper.get("title", ""),
-                    "summary": paper.get("abstract", "")[:500],
-                    "upvotes": p.get("paper", {}).get("upvotes", 0),
-                    "fetched_at": datetime.now().isoformat(),
-                })
+        url = build_huggingface_papers_url()
+        req = urllib.request.Request(url, headers={"User-Agent": "SCP-AuditFetcher/1.0"})  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
+            papers = json.loads(resp.read().decode("utf-8", errors="replace"))[:5]
+        for p in papers:
+            paper = p.get("paper", {})
+            findings.append({
+                "source": "huggingface",
+                "title": paper.get("title", ""),
+                "summary": paper.get("abstract", "")[:500],
+                "upvotes": p.get("paper", {}).get("upvotes", 0),
+                "fetched_at": datetime.now().isoformat(),
+            })
     except Exception as e:
         logger.warning(f"HuggingFace fetch error: {e}")
     return findings
@@ -114,22 +152,19 @@ def _fetch_newsapi() -> list[dict]:
     if not api_key:
         return findings
     try:
-        params = {
-            "q": SOURCES["newsapi"]["query"],
-            "apiKey": api_key,
-            "pageSize": 5,
-            "sortBy": "publishedAt",
-        }
-        resp = requests.get(SOURCES["newsapi"]["url"], params=params, timeout=15)
-        if resp.status_code == 200:
-            for article in resp.json().get("articles", [])[:5]:
-                findings.append({
-                    "source": "newsapi",
-                    "title": article.get("title", ""),
-                    "url": article.get("url", ""),
-                    "published": article.get("publishedAt", ""),
-                    "fetched_at": datetime.now().isoformat(),
-                })
+        # [AUDIT-20260909 SSRF-S1] builder urlencode query + apiKey (không log key).
+        url = build_newsapi_url(SOURCES["newsapi"]["query"], api_key, page_size=5)
+        req = urllib.request.Request(url, headers={"User-Agent": "SCP-AuditFetcher/1.0"})  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+        for article in (payload.get("articles") or [])[:5]:
+            findings.append({
+                "source": "newsapi",
+                "title": article.get("title", ""),
+                "url": article.get("url", ""),
+                "published": article.get("publishedAt", ""),
+                "fetched_at": datetime.now().isoformat(),
+            })
     except Exception as e:
         logger.warning(f"NewsAPI fetch error: {e}")
     return findings

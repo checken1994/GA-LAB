@@ -16,11 +16,14 @@ import logging
 import os
 import threading
 import time
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import requests
+# [AUDIT-20260909 SSRF-S1] Thay mọi raw requests.get bằng safe_urlopen.
+from scp.security.url_safety import safe_urlopen
 
 logger = logging.getLogger("scp.harm_detector")
 
@@ -67,6 +70,21 @@ _running = False
 _thread = None
 
 
+# [AUDIT-20260909 SSRF-S1] Pure URL builder — query + apiKey được urlencode;
+# host cố định newsapi.org (literal từ SOURCES).
+def build_newsapi_harm_url(query: str, api_key: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] NewsAPI harm-scan URL — mọi param động được
+    urlencode thành query values, không thể đổi host/path."""
+    params = {
+        "q": str(query or ""),
+        "apiKey": str(api_key or ""),
+        "pageSize": 10,
+        "sortBy": "publishedAt",
+        "language": "en",
+    }
+    return f"{SOURCES['newsapi']['url']}?{urllib.parse.urlencode(params)}"
+
+
 def _classify_harm(text: str) -> str | None:
     """Classify text vào harm category."""
     text_lower = text.lower()
@@ -86,24 +104,26 @@ def _scan_newsapi() -> list[dict]:
     try:
         for _category, keywords in HARM_CATEGORIES.items():
             query = " OR ".join(keywords[:3])
-            params = {"q": query, "apiKey": api_key, "pageSize": 10, "sortBy": "publishedAt", "language": "en"}
-            resp = requests.get(SOURCES["newsapi"]["url"], params=params, timeout=15)
-            if resp.status_code == 200:
-                for article in resp.json().get("articles", [])[:10]:
-                    title = article.get("title", "")
-                    desc = article.get("description", "")
-                    text = title + " " + desc
-                    harm_type = _classify_harm(text)
-                    if harm_type:
-                        incidents.append({
-                            "source": "newsapi",
-                            "harm_type": harm_type,
-                            "title": title,
-                            "description": desc[:300] if desc else "",
-                            "url": article.get("url", ""),
-                            "published": article.get("publishedAt", ""),
-                            "detected_at": datetime.now().isoformat(),
-                        })
+            # [AUDIT-20260909 SSRF-S1] builder urlencode (không log apiKey).
+            url = build_newsapi_harm_url(query, api_key)
+            req = urllib.request.Request(url, headers={"User-Agent": "SCP-HarmDetector/1.0"})  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=15) as resp:
+                payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+            for article in (payload.get("articles") or [])[:10]:
+                title = article.get("title", "")
+                desc = article.get("description", "")
+                text = title + " " + desc
+                harm_type = _classify_harm(text)
+                if harm_type:
+                    incidents.append({
+                        "source": "newsapi",
+                        "harm_type": harm_type,
+                        "title": title,
+                        "description": desc[:300] if desc else "",
+                        "url": article.get("url", ""),
+                        "published": article.get("publishedAt", ""),
+                        "detected_at": datetime.now().isoformat(),
+                    })
             time.sleep(1)  # Rate limit
     except Exception as e:
         logger.warning(f"NewsAPI harm scan error: {e}")
@@ -115,24 +135,27 @@ def _scan_reddit(url: str, source_name: str) -> list[dict]:
     incidents = []
     try:
         headers = SOURCES[source_name]["headers"]
-        resp = requests.get(url, headers=headers, timeout=15)
-        if resp.status_code == 200:
-            for post in resp.json().get("data", {}).get("children", [])[:25]:
-                data = post.get("data", {})
-                title = data.get("title", "")
-                selftext = data.get("selftext", "")[:300]
-                text = title + " " + selftext
-                harm_type = _classify_harm(text)
-                if harm_type:
-                    incidents.append({
-                        "source": source_name,
-                        "harm_type": harm_type,
-                        "title": title,
-                        "description": selftext[:200],
-                        "url": f"https://reddit.com{data.get('permalink', '')}",
-                        "score": data.get("score", 0),
-                        "detected_at": datetime.now().isoformat(),
-                    })
+        # [AUDIT-20260909 SSRF-S1] safe_urlopen thay requests.get — url là
+        # literal từ SOURCES nhưng vẫn được validate scheme + private IP.
+        req = urllib.request.Request(url, headers=headers)  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+        for post in (payload.get("data", {}) or {}).get("children", [])[:25]:
+            data = post.get("data", {})
+            title = data.get("title", "")
+            selftext = data.get("selftext", "")[:300]
+            text = title + " " + selftext
+            harm_type = _classify_harm(text)
+            if harm_type:
+                incidents.append({
+                    "source": source_name,
+                    "harm_type": harm_type,
+                    "title": title,
+                    "description": selftext[:200],
+                    "url": f"https://reddit.com{data.get('permalink', '')}",
+                    "score": data.get("score", 0),
+                    "detected_at": datetime.now().isoformat(),
+                })
     except Exception as e:
         logger.warning(f"Reddit {source_name} scan error: {e}")
     return incidents

@@ -21,20 +21,29 @@
  * LLM bridge started via: bun run mini-services/llm-bridge
  */
 import { NextRequest, NextResponse } from "next/server"
+// [S6b security sweep] The env-derived probe targets are resolved AND
+// allowlist-validated in dashboard/src/lib/scp-backend-url.ts (no fetch sink
+// there); this route fetches only the bases that helper returns, and probe()
+// still runs the same allowlist gate immediately before its fetch.
+import { resolveHealthProbeTargets } from "../../../../lib/scp-backend-url"
+// PEP at the sink (relative import so the T03 sweep test can load this
+// module under plain node — no tsconfig paths there).
+import { isAllowedProbeTarget } from "../../../../lib/probe-allowlist"
 
-
-const SCP_BASE_URL =
-  process.env.SCP_INTERNAL_URL ?? "http://127.0.0.1:8000"
-const LOOP_SCHEDULER_URL =
-  process.env.LOOP_SCHEDULER_URL ?? "http://127.0.0.1:3030"
-const LLM_BRIDGE_URL =
-  process.env.LLM_BRIDGE_URL ?? "http://127.0.0.1:11434"
 
 const START_HINTS = {
   fastapi: "Run: SCP_PORT=8000 python -m scp (in your scp folder)",
   loopScheduler: "Run: bun run mini-services/loop-scheduler (in project root)",
   llmBridge: "Run: bun run mini-services/llm-bridge (in project root)",
 }
+
+// [S5 security sweep] Extra probe hosts explicitly approved by the operator
+// (comma-separated). Used as an extension of the internal-network allowlist
+// in @/lib/probe-allowlist — e.g. "scp-api,scheduler.internal".
+const EXTRA_PROBE_HOSTS = (process.env.SCP_HEALTH_ALLOWED_HOSTS ?? "")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean)
 
 interface ServiceHealth {
   ok: boolean
@@ -48,11 +57,28 @@ interface ServiceHealth {
  * Probe one HTTP endpoint with a hard timeout. Returns the latency in ms
  * if the response was ok, or `{ ok: false }` with the error otherwise.
  * DNA #7: fail-open — never throws.
+ *
+ * [S5 security sweep] SSRF gate (CWE-918): before any fetch the target is
+ * validated against the probe allowlist (loopback/private/docker-internal +
+ * operator extension from SCP_HEALTH_ALLOWED_HOSTS, resolved by
+ * scp-backend-url.ts). A blocked target is reported as a service that is
+ * down — no request leaves the process. This is the PEP placed immediately
+ * before the fetch sink, so all probe call sites below are covered by the
+ * same gate.
  */
 async function probe(
   url: string,
+  extraHosts: string[],
   timeoutMs = 1000,
 ): Promise<ServiceHealth> {
+  const guard = isAllowedProbeTarget(url, extraHosts)
+  if (!guard.allowed) {
+    return {
+      ok: false,
+      latencyMs: 0,
+      error: `probe blocked by allowlist: ${guard.reason}`.slice(0, 200),
+    }
+  }
   const t0 = Date.now()
   try {
     const res = await fetch(url, {
@@ -76,19 +102,24 @@ export async function GET(request: NextRequest) {
   const _url = request.url
   const checkedAt = new Date().toISOString()
 
+  // [S6b security sweep] Env-derived bases resolved + validated in
+  // scp-backend-url.ts — no environment token remains in this file's
+  // fetch dataflow.
+  const targets = resolveHealthProbeTargets()
+
   // Probe all 3 services in parallel. DNA #19: cover observation gaps.
   // Promise.allSettled so one slow service can't block the others.
   const [fastapiResult, loopResult, llmResult] = await Promise.allSettled([
-    probe(`${SCP_BASE_URL}/health`),
+    probe(`${targets.fastapi}/health`, targets.extraHosts),
     // loop-scheduler exposes /healthz per mini-services/loop-scheduler/index.ts
     // (falls back to "/" if 404 — see below).
-    probe(`${LOOP_SCHEDULER_URL}/healthz`).then(async (h) => {
+    probe(`${targets.loopScheduler}/healthz`, targets.extraHosts).then(async (h) => {
       if (h.ok || h.status !== 404) return h
       // Retry with "/" if /healthz is not implemented.
-      return probe(`${LOOP_SCHEDULER_URL}/`)
+      return probe(`${targets.loopScheduler}/`, targets.extraHosts)
     }),
     // llm-bridge (Ollama-compatible API) exposes /api/tags — list of installed models.
-    probe(`${LLM_BRIDGE_URL}/api/tags`),
+    probe(`${targets.llmBridge}/api/tags`, targets.extraHosts),
   ])
 
   const fastapi: ServiceHealth =

@@ -141,10 +141,22 @@ class AdminAlerter:
             logger.info(f"[AdminAlert] {event_type} severity={severity}: {details}")
 
         # 2. Webhook (if configured) — best-effort, never raises
+        # [AUDIT-20260909 S6a] Gửi webhook qua safe_urlopen — validate scheme
+        # + chặn private/loopback IP; webhook chỉ được trỏ tới endpoint public.
         if self.webhook_url:
             try:
-                import httpx
-                httpx.post(self.webhook_url, json=alert, timeout=5)
+                import json as _json
+                import urllib.request as _urlreq
+                from scp.security.url_safety import safe_urlopen
+                _payload = _json.dumps(alert, ensure_ascii=False).encode("utf-8")
+                _req = _urlreq.Request(
+                    self.webhook_url,
+                    data=_payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )  # noqa: S310 — validated by safe_urlopen
+                with safe_urlopen(_req, timeout=5):
+                    pass
             except Exception as e:
                 logger.debug(f"[AdminAlert] webhook failed: {e}")
 
@@ -186,8 +198,18 @@ class AdminAlerter:
                 )
                 if self.webhook_url:
                     try:
-                        import httpx
-                        httpx.post(self.webhook_url, json=rep_alert, timeout=5)
+                        import json as _json
+                        import urllib.request as _urlreq
+                        from scp.security.url_safety import safe_urlopen
+                        _payload = _json.dumps(rep_alert, ensure_ascii=False).encode("utf-8")
+                        _req = _urlreq.Request(
+                            self.webhook_url,
+                            data=_payload,
+                            headers={"Content-Type": "application/json"},
+                            method="POST",
+                        )  # noqa: S310 — validated by safe_urlopen
+                        with safe_urlopen(_req, timeout=5):
+                            pass
                     except Exception as e:
                         logger.debug(f"[AdminAlert] repeated_attacks webhook failed: {e}")
 

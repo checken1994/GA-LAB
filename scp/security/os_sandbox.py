@@ -246,6 +246,6 @@ class ProcessIsolationEnvironment:
         except ValueError:
             raise PermissionError(f"Path traversal escape attempt detected: {path}")
 
-        with open(abs_path, "wb") as f:
+        with abs_path.open("wb") as f:
             f.write(content)
         return True

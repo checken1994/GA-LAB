@@ -46,6 +46,21 @@ REQUEST_TIMEOUT_SECONDS = float(os.environ.get("SCP_BENCHMARK_TIMEOUT", "180"))
 REQUEST_RETRIES = int(os.environ.get("SCP_BENCHMARK_RETRIES", "4"))
 
 
+def _safe_output_path(raw: str) -> Path:
+    """[SEC-S4] Validate a user-supplied output path (argv/config).
+
+    Rejects traversal components ("..") and absolute paths outside the repo
+    tree; returns the resolved Path for writing.
+    """
+    candidate = Path(raw)
+    if ".." in candidate.parts:
+        raise ValueError(f"traversal component in {raw!r}")
+    resolved = candidate.resolve()
+    if not resolved.is_relative_to(BENCHMARK_DIR.resolve().parent):
+        raise ValueError(f"path escapes repository tree: {raw!r}")
+    return resolved
+
+
 def post_with_retry(url: str, payload: dict, headers: dict) -> requests.Response:
     """POST with bounded retry for transient connection/server failures."""
     last_error: Exception | None = None
@@ -1071,7 +1086,12 @@ def main():
     print(f"{'=' * 70}")
 
     # Save
-    _output_path = Path(args.output)
+    # [SEC-S4] --output comes from argv; reject traversal-style paths
+    # (no ".." components allowed) and resolve before writing.
+    try:
+        _output_path = _safe_output_path(args.output)
+    except ValueError as exc:
+        raise SystemExit(f"rejected unsafe --output path: {exc}") from exc
     _output_path.parent.mkdir(parents=True, exist_ok=True)
     output = {
         "version": "v2",
@@ -1090,7 +1110,7 @@ def main():
         "question_results": q_results,
         "attack_results": a_results,
     }
-    with open(args.output, "w", encoding="utf-8") as f:
+    with Path(args.output).open("w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False, default=str)
     print(f"\n📄 Results saved to: {args.output}")
 

@@ -17,11 +17,15 @@ import logging
 import os
 import threading
 import time
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import requests
+# [AUDIT-20260909 SSRF-S1] Thay mọi raw requests.get bằng safe_urlopen
+# (scheme allowlist + chặn private/loopback IP) — pattern misc_slms2.py.
+from scp.security.url_safety import safe_urlopen
 
 logger = logging.getLogger("scp.ai_threat_scanner")
 
@@ -68,29 +72,47 @@ _running = False
 _thread = None
 
 
+# [AUDIT-20260909 SSRF-S1] Pure URL builders — params của SOURCE được
+# urlencode vào query; host luôn giữ nguyên từ SOURCES (literal cố định).
+def build_source_url(source_key: str, extra_params: dict | None = None) -> str:
+    """[AUDIT-20260909 SSRF-S1] Build fetch URL từ SOURCES[source_key].
+    Mọi param (kể cả extra_params như apiKey) được urlencode — không thể
+    đổi host/path. Unknown source_key → ValueError (fail-closed)."""
+    if source_key not in SOURCES:
+        raise ValueError(f"unknown_source:{source_key[:32]!r}")
+    params = dict(SOURCES[source_key].get("params", {}))
+    if extra_params:
+        params.update(extra_params)
+    base = SOURCES[source_key]["url"]
+    if not params:
+        return base
+    return f"{base}?{urllib.parse.urlencode(params)}"
+
+
 def _scan_huggingface() -> list[dict]:
     """Scan HuggingFace models mới cho threats."""
     threats = []
     try:
-        resp = requests.get(SOURCES["huggingface_models"]["url"],
-                           params=SOURCES["huggingface_models"]["params"], timeout=15)
-        if resp.status_code == 200:
-            for model in resp.json()[:50]:
-                desc = (model.get("description", "") or "").lower()
-                tags = [t.lower() for t in model.get("tags", [])]
-                text = desc + " " + " ".join(tags)
-                for kw in THREAT_KEYWORDS:
-                    if kw in text:
-                        threats.append({
-                            "source": "huggingface",
-                            "type": "dangerous_model",
-                            "model_id": model.get("modelId", ""),
-                            "keyword": kw,
-                            "description": desc[:200],
-                            "url": f"https://huggingface.co/{model.get('modelId','')}",
-                            "detected_at": datetime.now().isoformat(),
-                        })
-                        break
+        url = build_source_url("huggingface_models")
+        req = urllib.request.Request(url, headers={"User-Agent": "SCP-ThreatScanner/1.0"})  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
+            models = json.loads(resp.read().decode("utf-8", errors="replace"))
+        for model in models[:50]:
+            desc = (model.get("description", "") or "").lower()
+            tags = [t.lower() for t in model.get("tags", [])]
+            text = desc + " " + " ".join(tags)
+            for kw in THREAT_KEYWORDS:
+                if kw in text:
+                    threats.append({
+                        "source": "huggingface",
+                        "type": "dangerous_model",
+                        "model_id": model.get("modelId", ""),
+                        "keyword": kw,
+                        "description": desc[:200],
+                        "url": f"https://huggingface.co/{model.get('modelId','')}",
+                        "detected_at": datetime.now().isoformat(),
+                    })
+                    break
     except Exception as e:
         logger.warning(f"HuggingFace scan error: {e}")
     return threats
@@ -100,30 +122,31 @@ def _scan_github() -> list[dict]:
     """Scan GitHub repos cho AI attack code."""
     threats = []
     try:
-        headers = {"Accept": "application/vnd.github.v3+json"}
+        headers = {"Accept": "application/vnd.github.v3+json",
+                   "User-Agent": "SCP-ThreatScanner/1.0"}
         token = os.environ.get("GITHUB_TOKEN")
         if token:
             headers["Authorization"] = f"token {token}"
-        resp = requests.get(SOURCES["github_ai_safety"]["url"],
-                           params=SOURCES["github_ai_safety"]["params"],
-                           headers=headers, timeout=15)
-        if resp.status_code == 200:
-            for repo in resp.json().get("items", [])[:20]:
-                desc = (repo.get("description", "") or "").lower()
-                name = repo.get("name", "").lower()
-                text = desc + " " + name
-                for kw in THREAT_KEYWORDS:
-                    if kw in text:
-                        threats.append({
-                            "source": "github",
-                            "type": "attack_repo",
-                            "repo": repo.get("full_name", ""),
-                            "keyword": kw,
-                            "description": desc[:200],
-                            "url": repo.get("html_url", ""),
-                            "detected_at": datetime.now().isoformat(),
-                        })
-                        break
+        url = build_source_url("github_ai_safety")
+        req = urllib.request.Request(url, headers=headers)  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+        for repo in (payload.get("items") or [])[:20]:
+            desc = (repo.get("description", "") or "").lower()
+            name = repo.get("name", "").lower()
+            text = desc + " " + name
+            for kw in THREAT_KEYWORDS:
+                if kw in text:
+                    threats.append({
+                        "source": "github",
+                        "type": "attack_repo",
+                        "repo": repo.get("full_name", ""),
+                        "keyword": kw,
+                        "description": desc[:200],
+                        "url": repo.get("html_url", ""),
+                        "detected_at": datetime.now().isoformat(),
+                    })
+                    break
     except Exception as e:
         logger.warning(f"GitHub scan error: {e}")
     return threats
@@ -133,29 +156,30 @@ def _scan_arxiv() -> list[dict]:
     """Scan arXiv papers về AI attacks."""
     threats = []
     try:
-        resp = requests.get(SOURCES["arxiv_safety"]["url"],
-                           params=SOURCES["arxiv_safety"]["params"], timeout=15)
-        if resp.status_code == 200:
-            import re
-            entries = re.findall(r'<entry>(.*?)</entry>', resp.text, re.DOTALL)
-            for entry in entries[:20]:
-                title_m = re.search(r'<title>(.*?)</title>', entry, re.DOTALL)
-                summary_m = re.search(r'<summary>(.*?)</summary>', entry, re.DOTALL)
-                if title_m:
-                    title = title_m.group(1).strip()
-                    summary = summary_m.group(1).strip()[:300] if summary_m else ""
-                    text = (title + " " + summary).lower()
-                    for kw in THREAT_KEYWORDS:
-                        if kw in text:
-                            threats.append({
-                                "source": "arxiv",
-                                "type": "attack_paper",
-                                "title": title,
-                                "keyword": kw,
-                                "summary": summary,
-                                "detected_at": datetime.now().isoformat(),
-                            })
-                            break
+        import re
+        url = build_source_url("arxiv_safety")
+        req = urllib.request.Request(url, headers={"User-Agent": "SCP-ThreatScanner/1.0"})  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
+            text_xml = resp.read().decode("utf-8", errors="replace")
+        entries = re.findall(r'<entry>(.*?)</entry>', text_xml, re.DOTALL)
+        for entry in entries[:20]:
+            title_m = re.search(r'<title>(.*?)</title>', entry, re.DOTALL)
+            summary_m = re.search(r'<summary>(.*?)</summary>', entry, re.DOTALL)
+            if title_m:
+                title = title_m.group(1).strip()
+                summary = summary_m.group(1).strip()[:300] if summary_m else ""
+                text = (title + " " + summary).lower()
+                for kw in THREAT_KEYWORDS:
+                    if kw in text:
+                        threats.append({
+                            "source": "arxiv",
+                            "type": "attack_paper",
+                            "title": title,
+                            "keyword": kw,
+                            "summary": summary,
+                            "detected_at": datetime.now().isoformat(),
+                        })
+                        break
     except Exception as e:
         logger.warning(f"arXiv scan error: {e}")
     return threats
@@ -168,26 +192,26 @@ def _scan_news() -> list[dict]:
     if not api_key:
         return threats
     try:
-        params = SOURCES["news_ai_incidents"]["params"].copy()
-        params["apiKey"] = api_key
-        resp = requests.get(SOURCES["news_ai_incidents"]["url"], params=params, timeout=15)
-        if resp.status_code == 200:
-            for article in resp.json().get("articles", [])[:20]:
-                title = (article.get("title", "") or "").lower()
-                desc = (article.get("description", "") or "").lower()
-                text = title + " " + desc
-                for kw in THREAT_KEYWORDS:
-                    if kw in text:
-                        threats.append({
-                            "source": "news",
-                            "type": "ai_incident",
-                            "title": article.get("title", ""),
-                            "keyword": kw,
-                            "url": article.get("url", ""),
-                            "published": article.get("publishedAt", ""),
-                            "detected_at": datetime.now().isoformat(),
-                        })
-                        break
+        url = build_source_url("news_ai_incidents", extra_params={"apiKey": api_key})
+        req = urllib.request.Request(url, headers={"User-Agent": "SCP-ThreatScanner/1.0"})  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+        for article in (payload.get("articles") or [])[:20]:
+            title = (article.get("title", "") or "").lower()
+            desc = (article.get("description", "") or "").lower()
+            text = title + " " + desc
+            for kw in THREAT_KEYWORDS:
+                if kw in text:
+                    threats.append({
+                        "source": "news",
+                        "type": "ai_incident",
+                        "title": article.get("title", ""),
+                        "keyword": kw,
+                        "url": article.get("url", ""),
+                        "published": article.get("publishedAt", ""),
+                        "detected_at": datetime.now().isoformat(),
+                    })
+                    break
     except Exception as e:
         logger.warning(f"News scan error: {e}")
     return threats

@@ -299,10 +299,26 @@ class TaskKernel:
         if 'error' not in task_columns:
             self.conn.execute('ALTER TABLE tasks ADD COLUMN error TEXT')
 
+        # [SEC-S4] Table names are compile-time constants of the kernel schema.
+        # PRAGMA/ALTER identifiers cannot be bound as SQL parameters, so each
+        # migration statement is a compile-time literal per table — the loop
+        # dispatches on the constant name and executes only literal SQL text
+        # (defense-in-depth against future refactors).
         for table in ('leases', 'idempotency', 'queue_accounts'):
-            cols = {row['name'] for row in self.conn.execute(f'PRAGMA table_info({table})').fetchall()}
-            if 'version' not in cols:
-                self.conn.execute(f'ALTER TABLE {table} ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+            if table == 'leases':
+                cols = {row['name'] for row in self.conn.execute('PRAGMA table_info("leases")').fetchall()}
+                if 'version' not in cols:
+                    self.conn.execute('ALTER TABLE "leases" ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+            elif table == 'idempotency':
+                cols = {row['name'] for row in self.conn.execute('PRAGMA table_info("idempotency")').fetchall()}
+                if 'version' not in cols:
+                    self.conn.execute('ALTER TABLE "idempotency" ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+            elif table == 'queue_accounts':
+                cols = {row['name'] for row in self.conn.execute('PRAGMA table_info("queue_accounts")').fetchall()}
+                if 'version' not in cols:
+                    self.conn.execute('ALTER TABLE "queue_accounts" ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+            else:
+                raise KernelError('unsafe kernel table identifier')
 
     def _begin(self) -> None:
         """Acquire the write slot + BEGIN IMMEDIATE, với bounded retry trên

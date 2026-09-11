@@ -46,6 +46,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scp.autofix.path_guard import sanitize_storage_path
+
 logger = logging.getLogger("scp.autofix.ast_diff_cache")
 
 
@@ -140,7 +142,10 @@ class ASTDiffCache:
     """
 
     def __init__(self, cache_file: str | Path = _DEFAULT_CACHE_FILE):
-        self.cache_file = Path(cache_file)
+        # [S3-SECURITY-SWEEP] reject traversal-shaped cache paths (HIGH fix).
+        self.cache_file = sanitize_storage_path(
+            cache_file, default=_DEFAULT_CACHE_FILE, label="ast_diff cache",
+        )
         try:
             self.cache_file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -154,7 +159,7 @@ class ASTDiffCache:
         if not self.cache_file.exists():
             return self._empty_state()
         try:
-            with open(self.cache_file, encoding="utf-8") as f:
+            with Path(self.cache_file).open(encoding="utf-8") as f:
                 data = json.load(f)
             # Validate structure
             if not isinstance(data, dict) or "files" not in data:
@@ -179,7 +184,7 @@ class ASTDiffCache:
         """Write cache atomically. Caller holds self._lock."""
         try:
             tmp = self.cache_file.with_suffix(self.cache_file.suffix + ".tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
+            with Path(tmp).open("w", encoding="utf-8") as f:
                 json.dump(self._data, f, ensure_ascii=False, indent=1)
             os.replace(tmp, self.cache_file)  # atomic on POSIX
         except OSError as e:

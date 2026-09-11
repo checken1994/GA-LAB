@@ -40,7 +40,12 @@ Usage:
     # Cách 2: decorator
     @call_with_breaker(breaker)
     def call_pubchem(url):
-        return requests.get(url).json()
+        # [AUDIT-20260909 SSRF-S1] fetch qua safe_urlopen — validate scheme +
+        # chặn private/loopback IP trước khi gọi (thay raw HTTP client).
+        from scp.security.url_safety import safe_urlopen
+        import json as _json
+        with safe_urlopen(url, timeout=10) as resp:
+            return _json.loads(resp.read().decode("utf-8"))
 """
 
 import logging
@@ -311,7 +316,11 @@ def call_with_breaker(breaker: CircuitBreaker, fallback: Callable | None = None)
     Usage:
         @call_with_breaker(my_breaker, fallback=lambda *a, **kw: None)
         def call_pubchem(url):
-            return requests.get(url).json()
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen thay raw HTTP client.
+            from scp.security.url_safety import safe_urlopen
+            import json as _json
+            with safe_urlopen(url, timeout=10) as resp:
+                return _json.loads(resp.read().decode("utf-8"))
     """
     def decorator(func: Callable):
         def wrapper(*args, **kwargs):

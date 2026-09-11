@@ -5,13 +5,34 @@ NewsAPI adds structured news data with source attribution + timestamp.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.newsapi")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_NEWSAPI_EVERYTHING_URL = "https://newsapi.org/v2/everything"
+
+
+def build_newsapi_everything_url(question: str, api_key: str,
+                                 page_size: int = 5) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — question + api_key được
+    urlencode thành query values; host cố định newsapi.org."""
+    return _NEWSAPI_EVERYTHING_URL + "?" + urllib.parse.urlencode({
+        "q": str(question or "")[:100],
+        "sortBy": "publishedAt",
+        "pageSize": int(page_size),
+        "language": "en",
+        "apiKey": api_key,
+    })
 
 
 class NewsAPIDataSource(IDataSource):
@@ -63,16 +84,13 @@ class NewsAPIDataSource(IDataSource):
         if not self.enabled:
             return None
         try:
-            import httpx
-            r = httpx.get(f"{self.BASE_URL}/everything", params={
-                "q": question[:100],
-                "sortBy": "publishedAt",
-                "pageSize": 5,
-                "language": "en",
-                "apiKey": self.api_key,
-            }, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_newsapi_everything_url(question, api_key=self.api_key)
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             articles = data.get("articles", [])
             if articles:
                 headlines = [

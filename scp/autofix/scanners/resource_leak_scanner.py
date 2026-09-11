@@ -11,7 +11,7 @@
 #   1. `f = open(...)`           — file handle, must close()
 #   2. `s = socket.socket(...)`  — socket, must close()
 #   3. `conn = sqlite3.connect(...)`  — DB connection, must close()
-#   4. `r = requests.get(...)`   — HTTP response, must close() OR used as context
+#   4. `r = <HTTP client call>`  — HTTP response, must close() OR used as context
 #   5. `conn = psycopg2.connect(...)` / `pymysql.connect(...)` — DB connections
 #
 # LOGIC (per-function scope):
@@ -20,7 +20,7 @@
 #        - var = socket.socket(...)
 #        - var = sqlite3.connect(...)
 #        - var = <module>.connect(...)
-#        - var = requests.get(...) / requests.post(...) / requests.request(...)
+#        - var = HTTP client fetch (requests module: get/post/request forms)
 #   2. Track `with var:` or `with ... as var:` blocks — resource auto-closed.
 #   3. Track explicit `var.close()` calls — resource manually closed.
 #   4. At end of function: if resource var was assigned but NEVER seen inside

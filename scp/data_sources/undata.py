@@ -9,12 +9,29 @@ fills the political_science stats gap.
 """
 from __future__ import annotations
 
+import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.undata")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_UNDATA_SEARCH_URL = "https://data.un.org/ws/bs/JsonService.svc/Search"
+
+
+def build_undata_search_url(query: str, max_results: int = 5) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — searchQuery được urlencode
+    thành query value; host cố định data.un.org."""
+    return _UNDATA_SEARCH_URL + "?" + urllib.parse.urlencode({
+        "searchQuery": str(query or ""),
+        "maxRes": int(max_results),
+    })
 
 
 class UNDataDataSource(IDataSource):
@@ -86,18 +103,20 @@ class UNDataDataSource(IDataSource):
             return None
 
     def _search_data(self, query: str) -> dict | None:
-        import httpx
         try:
-            # UN Data JSON service — search endpoint
-            r = httpx.get(f"{self.BASE_URL}/Search",
-                          params={"searchQuery": query, "maxRes": 5},
-                          timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0 (educational)"})
-            if r.status_code != 200:
-                logger.debug(f"[UNData] search returned {r.status_code}")
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError → fallback giữ behavior cũ.
+            try:
+                req = urllib.request.Request(
+                    build_undata_search_url(query),
+                    headers={"User-Agent": "SCP-Verifier/1.0 (educational)"},
+                )  # noqa: S310 — validated by safe_urlopen
+                with safe_urlopen(req, timeout=10) as r:
+                    data = json.loads(r.read().decode("utf-8", errors="replace"))
+            except urllib.error.HTTPError as he:
+                logger.debug(f"[UNData] search returned {he.code}")
                 # Fallback to UN Data public search page
                 return self._fallback_search_page(query)
-            data = r.json()
             results = (data.get("d") or data.get("results") or
                        data.get("SearchResults") or [])
             if not results:
@@ -122,20 +141,28 @@ class UNDataDataSource(IDataSource):
 
     def _fallback_search_page(self, query: str) -> dict | None:
         """Fallback: UN Data public search HTML page (no JSON API)."""
-        import httpx
+        import urllib.parse
+        import urllib.request
+
+        from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
         try:
-            url = "https://data.un.org/Search.aspx"
-            r = httpx.get(url, params={"q": query}, timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0 (educational)"})
-            if r.status_code != 200:
-                return None
+            # [AUDIT-20260909 SSRF-S1] builder urlencode query rồi fetch qua
+            # safe_urlopen thay raw httpx.get.
+            url = "https://data.un.org/Search.aspx?" + urllib.parse.urlencode(
+                {"q": str(query or "")}
+            )
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Verifier/1.0 (educational)"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                body = r.read()
             return {
                 "value": query,
                 "source": "undata",
                 "metadata": {
-                    "url": r.url,
+                    "url": url,
                     "fallback": True,
-                    "page_size": len(r.text),
+                    "page_size": len(body),
                 },
             }
         except Exception as e:

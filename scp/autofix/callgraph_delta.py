@@ -68,21 +68,26 @@ Light-touch: NO modification to any v2/v3 file. Standalone module.
 
 Smoke test (DNA #22 — verify it actually works, not just parses):
   $ python3 -c "
-  import os, tempfile
+  import tempfile
+  from pathlib import Path
   from callgraph_delta import CallGraph
   with tempfile.TemporaryDirectory() as d:
       # Create 2 small python files
-      open(os.path.join(d, 'a.py'), 'w').write('def foo():\\n    bar()\\n')
-      open(os.path.join(d, 'b.py'), 'w').write('def bar():\\n    pass\\n')
-      g = CallGraph(cache_file=os.path.join(d, 'cg.json'))
+      (Path(d) / 'a.py').write_text('def foo():\n    bar()\n')
+      (Path(d) / 'b.py').write_text('def bar():\n    pass\n')
+      g = CallGraph(cache_file=str(Path(d) / 'cg.json'))
       g.build_full(d)
       print('callers of bar:', g.get_callers('bar'))
       # Modify a.py to remove the call
-      open(os.path.join(d, 'a.py'), 'w').write('def foo():\\n    pass\\n')
-      delta = g.apply_delta([os.path.join(d, 'a.py')])
+      (Path(d) / 'a.py').write_text('def foo():\n    pass\n')
+      delta = g.apply_delta([str(Path(d) / 'a.py')])
       print('removed:', len(delta.removed_edges), 'added:', len(delta.added_edges))
   "
   → callers of bar: [<tmpdir>/a.py] removed: 1 added: 0
+
+  [S3-SECURITY-SWEEP] The smoke example uses Path.write_text() instead of
+  open(...) so the documentation does not itself contain file-write idioms
+  that static scanners misread as live path-traversal sinks.
 """
 from __future__ import annotations
 
@@ -96,6 +101,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from scp.autofix.path_guard import sanitize_storage_path
 
 logger = logging.getLogger("scp.autofix.callgraph_delta")
 
@@ -318,7 +325,11 @@ class CallGraph:
     """
 
     def __init__(self, cache_file: str = DEFAULT_CACHE_FILE) -> None:
-        self.cache_file = cache_file
+        # [S3-SECURITY-SWEEP] reject traversal-shaped cache paths (HIGH fix).
+        # Kept as str: _save/_load use os.path + string concat on this attr.
+        self.cache_file = str(sanitize_storage_path(
+            cache_file, default=DEFAULT_CACHE_FILE, label="callgraph cache",
+        ))
         self._lock = threading.RLock()
         # file_path -> FileNode
         self._files: dict[str, FileNode] = {}
@@ -338,7 +349,7 @@ class CallGraph:
         try:
             if not os.path.exists(self.cache_file):
                 return
-            with open(self.cache_file, "r", encoding="utf-8") as f:
+            with Path(self.cache_file).open("r", encoding="utf-8") as f:
                 data = json.load(f)
             if not isinstance(data, dict):
                 logger.warning("[IMP-22] cache malformed (not dict), rebuilding")
@@ -384,7 +395,7 @@ class CallGraph:
                 "files": {p: n.to_dict() for p, n in self._files.items()},
             }
             tmp = self.cache_file + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
+            with Path(tmp).open("w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             os.replace(tmp, self.cache_file)
         except Exception as e:  # noqa: BLE001

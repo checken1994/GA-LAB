@@ -8,13 +8,35 @@ Free key: https://eric.ed.gov/?api
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.eric")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_ERIC_SEARCH_URL = "https://api.eric.ed.gov/v1rest/search"
+
+
+def build_eric_search_url(search_term: str, api_key: Optional[str] = None,
+                          rows: int = 5) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — search_term + api_key được
+    urlencode thành query values; host cố định api.eric.ed.gov."""
+    params = {
+        "search": str(search_term or ""),
+        "format": "json",
+        "rows": int(rows),
+    }
+    if api_key:
+        params["api_key"] = api_key
+    return _ERIC_SEARCH_URL + "?" + urllib.parse.urlencode(params)
 
 
 class ERICDataSource(IDataSource):
@@ -95,18 +117,14 @@ class ERICDataSource(IDataSource):
         return ' '.join(words) if words else ""
 
     def _search(self, search_term: str) -> dict | None:
-        import httpx
         try:
-            params = {
-                "search": search_term,
-                "format": "json",
-                "rows": 5,  # top 5 results
-            }
-            if self.api_key:
-                params["api_key"] = self.api_key
-            r = httpx.get(f"{self.BASE_URL}/search", params=params, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode rồi fetch qua
+            # safe_urlopen thay raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_eric_search_url(search_term, api_key=self.api_key)
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             results = data.get("response", {}).get("docs", [])
             if results:
                 top = results[0]

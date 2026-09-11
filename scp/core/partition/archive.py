@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 import time
 from datetime import datetime, timedelta
@@ -32,6 +33,18 @@ if TYPE_CHECKING:
     from scp.core.partition.rotate import ThreeTierCache
 
 logger = logging.getLogger("scp.core.data_partitioner")
+
+# [SEC-S4] Partition date comes from external JSONL timestamps; it is used to
+# build output filenames, so it must be a strict YYYY-MM-DD slug before it can
+# ever reach a filesystem path (rejects traversal, separators, absolute paths).
+_SAFE_PARTITION_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _safe_partition_date(date_str: str) -> str:
+    """Validate a partition date slug; raise ValueError on anything unsafe."""
+    if not _SAFE_PARTITION_DATE.fullmatch(date_str):
+        raise ValueError(f"unsafe partition date: {date_str!r}")
+    return date_str
 
 
 class BypassLessonsStore:
@@ -364,8 +377,12 @@ def migrate_old_to_new(data_dir: Path = DATA_DIR,
 
             if not dry_run:
                 for date_str, records in grouped.items():
+                    _safe_partition_date(date_str)  # [SEC-S4] slug guard before path build
                     path = partitioner.bypasses_path(date_str)
-                    with open(path, "w", encoding="utf-8") as f:
+                    # [SEC-S4] Containment: partition output must stay under data_dir.
+                    if not path.resolve().is_relative_to(data_dir.resolve()):
+                        raise ValueError(f"partition path escapes data dir: {path}")
+                    with path.open("w", encoding="utf-8") as f:
                         for r in records:
                             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
@@ -405,8 +422,12 @@ def migrate_old_to_new(data_dir: Path = DATA_DIR,
 
             if not dry_run:
                 for date_str, records in grouped.items():
+                    _safe_partition_date(date_str)  # [SEC-S4] slug guard before path build
                     path = partitioner.errors_path(date_str)
-                    with open(path, "w", encoding="utf-8") as f:
+                    # [SEC-S4] Containment: partition output must stay under data_dir.
+                    if not path.resolve().is_relative_to(data_dir.resolve()):
+                        raise ValueError(f"partition path escapes data dir: {path}")
+                    with path.open("w", encoding="utf-8") as f:
                         for r in records:
                             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 

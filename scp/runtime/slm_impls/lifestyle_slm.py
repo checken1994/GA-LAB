@@ -13,6 +13,13 @@ from typing import Any, Optional
 
 from scp.runtime.slm_base import BaseSLM, SLMResponse
 from scp.security.url_safety import safe_urlopen  # noqa: B310
+# [AUDIT-20260909 S2-SSRF] Reuse pure URL builders (single source of truth):
+from scp.runtime.slms_parts.foodslm import (
+    build_cocktaildb_search_url,
+    build_fruityvice_url,
+    build_mealdb_search_url,
+)
+from scp.runtime.slms_parts.misc_slms2 import build_city_search_url
 
 logger = logging.getLogger("scp.slms")
 
@@ -218,7 +225,11 @@ class FoodSLM(BaseSLM):
             dish = m.group(1).strip().rstrip('?').strip()
             # Try MealDB with progressively shorter search terms
             try:
-                import requests
+                import json as _json
+                import urllib.request
+                # [AUDIT-20260909 S2-SSRF] term được urlencode trong
+                # build_mealdb_search_url (host cố định) + fetch qua
+                # safe_urlopen — thay requests.get cũ không có SSRF guard.
                 # [V89 FIX] Try full dish name, then individual words
                 search_terms = [dish]
                 words = dish.split()
@@ -227,13 +238,13 @@ class FoodSLM(BaseSLM):
 
                 meals = []
                 for term in search_terms:
-                    r = requests.get(f"https://www.themealdb.com/api/json/v1/1/search.php?s={term}",
-                                     timeout=5, headers={'User-Agent': 'SCP-V73/1.0'})
-                    if r.status_code == 200:
-                        data = r.json()
-                        meals = data.get("meals") or []
-                        if meals:
-                            break
+                    url = build_mealdb_search_url(term)
+                    req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
+                    with safe_urlopen(req, timeout=5) as resp:
+                        data = _json.loads(resp.read().decode('utf-8'))
+                    meals = data.get("meals") or []
+                    if meals:
+                        break
                 if meals:
                     meal = meals[0]
                     answer = f"{meal.get('strMeal', dish)} — a {meal.get('strCategory', '')} dish from {meal.get('strArea', '')}."
@@ -248,18 +259,21 @@ class FoodSLM(BaseSLM):
         if m and not answer:
             cocktail = m.group(1).strip().rstrip('?').strip()
             try:
-                import requests
-                r = requests.get(f"https://www.thecocktaildb.com/api/json/v1/1/search.php?s={cocktail}",
-                                 timeout=5, headers={'User-Agent': 'SCP-V73/1.0'})
-                if r.status_code == 200:
-                    data = r.json()
-                    drinks = data.get("drinks") or []
-                    if drinks:
-                        d = drinks[0]
-                        answer = f"{d.get('strDrink', cocktail)} — a {d.get('strCategory', '')} served in {d.get('strGlass', '')}."
-                        confidence = 0.5  # [ROOT-FIX] unverified default — sources must explicitly claim confidence
-                        reasoning = f"CocktailDB: {d.get('strDrink', cocktail)}"
-                        evidence = {"value": answer, "source": "cocktaildb"}
+                import json as _json
+                import urllib.request
+                # [AUDIT-20260909 S2-SSRF] cocktail được urlencode trong
+                # build_cocktaildb_search_url (host cố định) + safe_urlopen.
+                url = build_cocktaildb_search_url(cocktail)
+                req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
+                with safe_urlopen(req, timeout=5) as resp:
+                    data = _json.loads(resp.read().decode('utf-8'))
+                drinks = data.get("drinks") or []
+                if drinks:
+                    d = drinks[0]
+                    answer = f"{d.get('strDrink', cocktail)} — a {d.get('strCategory', '')} served in {d.get('strGlass', '')}."
+                    confidence = 0.5  # [ROOT-FIX] unverified default — sources must explicitly claim confidence
+                    reasoning = f"CocktailDB: {d.get('strDrink', cocktail)}"
+                    evidence = {"value": answer, "source": "cocktaildb"}
             except Exception as e:
                 reasoning = f"CocktailDB error: {e}"
 
@@ -268,19 +282,22 @@ class FoodSLM(BaseSLM):
         if m and not answer:
             fruit = m.group(1).strip().rstrip('?').strip().lower()
             try:
-                import requests
-                r = requests.get(f"https://www.fruityvice.com/api/fruit/{fruit}",
-                                 timeout=5, headers={'User-Agent': 'SCP-V73/1.0'})
-                if r.status_code == 200:
-                    data = r.json()
-                    nutr = data.get("nutritions", {})
-                    answer = (f"{data.get('name', fruit)} (family: {data.get('family', '')}). "
-                              f"Nutrition per 100g: calories={nutr.get('calories', '?')}, "
-                              f"sugar={nutr.get('sugar', '?')}g, carbs={nutr.get('carbohydrates', '?')}g, "
-                              f"protein={nutr.get('protein', '?')}g.")
-                    confidence = 0.5  # [ROOT-FIX] unverified default — sources must explicitly claim confidence
-                    reasoning = f"Fruityvice: {data.get('name', fruit)}"
-                    evidence = {"value": answer, "source": "fruityvice"}
+                import json as _json
+                import urllib.request
+                # [AUDIT-20260909 S2-SSRF] fruit được quote(safe='') trong
+                # build_fruityvice_url (chặn path traversal) + safe_urlopen.
+                url = build_fruityvice_url(fruit)
+                req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
+                with safe_urlopen(req, timeout=5) as resp:
+                    data = _json.loads(resp.read().decode('utf-8'))
+                nutr = data.get("nutritions", {})
+                answer = (f"{data.get('name', fruit)} (family: {data.get('family', '')}). "
+                          f"Nutrition per 100g: calories={nutr.get('calories', '?')}, "
+                          f"sugar={nutr.get('sugar', '?')}g, carbs={nutr.get('carbohydrates', '?')}g, "
+                          f"protein={nutr.get('protein', '?')}g.")
+                confidence = 0.5  # [ROOT-FIX] unverified default — sources must explicitly claim confidence
+                reasoning = f"Fruityvice: {data.get('name', fruit)}"
+                evidence = {"value": answer, "source": "fruityvice"}
             except Exception as e:
                 reasoning = f"Fruityvice error: {e}"
 
@@ -331,22 +348,24 @@ class CitySLM(BaseSLM):
         if m:
             city = m.group(1).strip().rstrip('?').strip()
             try:
-                import requests
-                # Open-Meteo geocoding returns population for cities
-                r = requests.get(
-                    f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&language=en&format=json",
-                    timeout=5, headers={'User-Agent': 'SCP-V73/1.0'})
-                if r.status_code == 200:
-                    data = r.json()
-                    results = data.get("results") or []
-                    if results:
-                        c = results[0]
-                        pop = c.get("population", 0)
-                        if pop:
-                            answer = str(pop)
-                            confidence = 0.8
-                            reasoning = f"Open-Meteo geocoding: {c.get('name', city)}, {c.get('country', '')}"
-                            evidence = {"value": answer, "source": "open-meteo-geocoding", "city": c.get("name", "")}
+                import json as _json
+                import urllib.request
+                # [AUDIT-20260909 S2-SSRF] city được urlencode trong
+                # build_city_search_url (host cố định) + fetch qua safe_urlopen
+                # — thay requests.get cũ không có SSRF guard.
+                url = build_city_search_url(city)
+                req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
+                with safe_urlopen(req, timeout=5) as resp:
+                    data = _json.loads(resp.read().decode('utf-8'))
+                results = data.get("results") or []
+                if results:
+                    c = results[0]
+                    pop = c.get("population", 0)
+                    if pop:
+                        answer = str(pop)
+                        confidence = 0.8
+                        reasoning = f"Open-Meteo geocoding: {c.get('name', city)}, {c.get('country', '')}"
+                        evidence = {"value": answer, "source": "open-meteo-geocoding", "city": c.get("name", "")}
             except Exception as e:
                 reasoning = f"Geocoding error: {e}"
 

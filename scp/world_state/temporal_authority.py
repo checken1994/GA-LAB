@@ -71,11 +71,22 @@ class TemporalAuthority:
     def __init__(self, db_path: str | Path) -> None:
         self.db = FoundationDB(db_path, _MIGRATIONS)
 
+    def close(self) -> None:
+        """Close the underlying DB connection. Safe to call multiple times."""
+        try:
+            self.db.close()
+        except Exception:
+            pass
+
     def record_observation(self, *, subject: str, predicate: str, value: dict,
-                           valid_time: str, evidence_refs, actor_id: str) -> dict:
-        if not evidence_refs:
+                           valid_time: str, evidence_refs, actor_id: str,
+                           epistemic_status: str = "OBSERVED") -> dict:
+        """Record a world observation. epistemic_status must be OBSERVED/INFERRED/PREDICTED."""
+        if epistemic_status not in ("OBSERVED", "INFERRED", "PREDICTED"):
+            raise WorldStateError(f"Invalid epistemic_status: {epistemic_status}")
+        if epistemic_status == "OBSERVED" and not evidence_refs:
             raise WorldStateError("OBSERVED assertion requires evidence_refs - unaudited world writes are forbidden")
-        return self._append(subject, predicate, value, "OBSERVED", valid_time,
+        return self._append(subject, predicate, value, epistemic_status, valid_time,
                             actor_id, list(evidence_refs))
 
     def record_prediction(self, *, subject: str, predicate: str, value: dict,

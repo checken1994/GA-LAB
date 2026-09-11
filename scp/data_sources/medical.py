@@ -14,14 +14,36 @@ Fallback: LiveKnowledgeFetcher (Wikipedia + MedlinePlus).
 import logging
 import os
 import re
+import urllib.parse
+import urllib.request
 from typing import Any, Optional
-
-import requests
 
 from scp.core.api_utils import fetch_with_retry  # [V5.8-API]
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 
 logger = logging.getLogger(__name__)
+
+# [AUDIT-20260909 SSRF-S1] pmid từ response NCBI (external data) PHẢI là
+# digits — chặn trước khi ghép vào URL efetch.
+_PMID_RE = re.compile(r"^\d{1,10}$")
+
+
+def build_ncbi_efetch_pubmed_url(pmids: list) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — mỗi pmid PHẢI fullmatch
+    ^\\d{1,10}$; input xấu → ValueError TRƯỚC KHI fetch. Host cố định
+    eutils.ncbi.nlm.nih.gov."""
+    ids = [str(p or "").strip() for p in (pmids or [])]
+    if not ids:
+        raise ValueError("empty_pmid_list")
+    for pid in ids:
+        if not _PMID_RE.fullmatch(pid):
+            raise ValueError(f"invalid_pmid:{pid[:32]!r}")
+    return (
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+        f"?db=pubmed&id={','.join(ids)}"
+        f"&rettype=abstract&retmode=text"
+    )
 
 
 # [V104.31 #2] Min key length for fuzzy token-boundary matching
@@ -364,7 +386,7 @@ class MedicalDataSource(IDataSource):
         api_key_param = f"&api_key={self._pubmed_api_key}" if self._pubmed_api_key else ""
         esearch_url = (
             f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-            f"?db=pubmed&term={requests.utils.quote(term)}"
+            f"?db=pubmed&term={urllib.parse.quote(term, safe='')}"
             f"&retmode=json&retmax=3{api_key_param}"
         )
         try:
@@ -378,18 +400,21 @@ class MedicalDataSource(IDataSource):
             logger.warning(f"[V5.8-API] PubMed esearch failed for '{term}': {e}")
             return None
 
-        # Fetch abstracts via efetch (text/plain response — use requests directly)
+        # Fetch abstracts via efetch (text/plain response)
         pmids = id_list[:3]
-        efetch_url = (
-            f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-            f"?db=pubmed&id={','.join(pmids)}"
-            f"&rettype=abstract&retmode=text{api_key_param}"
-        )
+        # [AUDIT-20260909 SSRF-S1] pmids (external data) được validate bằng
+        # regex trong builder; input xấu → ValueError TRƯỚC KHI fetch.
+        efetch_url = build_ncbi_efetch_pubmed_url(pmids) + api_key_param
         try:
-            resp = requests.get(efetch_url, timeout=8, headers={"User-Agent": "SCP/1.0"})
-            if resp.status_code != 200 or not resp.text:
+            req = urllib.request.Request(
+                efetch_url, headers={"User-Agent": "SCP/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=8) as resp:
+                if getattr(resp, "status", 200) != 200:
+                    return None
+                abstract_text = resp.read().decode("utf-8", errors="replace").strip()
+            if not abstract_text:
                 return None
-            abstract_text = resp.text.strip()
             if len(abstract_text) < 20:
                 return None
             # Truncate very long abstracts to a sensible size

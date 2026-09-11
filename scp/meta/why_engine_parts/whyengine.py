@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from scp.core.db_manager import db_exec, db_query_all, db_query_one, init_db
+from scp.meta.why_engine_parts.init_why_db import init_why_db
 from scp.meta.why_sources.crypto import query_crypto as _why_query_crypto
 from scp.meta.why_sources.frankfurter import query_frankfurter as _why_query_frankfurter
 from scp.meta.why_sources.nasa import query_nasa as _why_query_nasa

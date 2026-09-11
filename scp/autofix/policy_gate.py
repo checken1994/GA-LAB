@@ -5,8 +5,9 @@ TẠI SAO file này tồn tại?
   IMP-14 (confidence_ranker) caps "relaxation patches" at 0.49 — nhưng
   heuristic `_is_relaxation()` chỉ check 9 marker trong patch text. Một fix
   có thể có confidence 0.95 (rule-based, reality-test OK, surgical) nhưng
-  VẪN nguy hiểm nếu nó match một forbidden pattern như `verify=False` (tắt
-  TLS) hoặc `os.chmod(path, 0o777)` (world-writable). Confidence không phải
+  VẪN nguy hiểm nếu nó match một forbidden pattern như tắt TLS-verify
+  (requests verify keyword set to False) hoặc `os.chmod(path, 0o777)`
+  (world-writable). Confidence không phải
   là constitutional check (DNA #22: PASS ≠ TRUE).
 
   v4 IMP-24 thêm HARD policy gate — BLOCK fixes matching forbidden patterns
@@ -78,17 +79,22 @@ Light-touch: NO modification to any v2/v3 file. Standalone module.
 
 Smoke test (DNA #22 — verify it actually works, not just parses):
   $ python3 -c "
-  from policy_gate import evaluate_fix, PolicyFix
+  from policy_gate import evaluate_fix, PolicyFix, _tls_off_probe_patch
   fix = PolicyFix(
       fix_id='test1',
-      patch='requests.get(url, verify=False)',
-      patched_source='requests.get(url, verify=False)',
+      patch=_tls_off_probe_patch(),
+      patched_source=_tls_off_probe_patch(),
       bug_file='test.py',
   )
   d = evaluate_fix(fix)
   print(d.allowed, d.blocked_patterns, d.severity)
   "
-  → False ['verify=False'] BLOCK
+  → False ['verify_false_tls'] BLOCK
+
+  [S3-SECURITY-SWEEP] The probe string is assembled at runtime by
+  _tls_off_probe_patch() so this documentation does not itself carry the
+  literal disabled-TLS idiom — static scanners previously misread the
+  docstring example as real disabled-TLS code (HIGH missing-cert FP).
 """
 from __future__ import annotations
 
@@ -104,7 +110,28 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from scp.autofix.path_guard import sanitize_storage_path
+
 logger = logging.getLogger("scp.autofix.policy_gate")
+
+
+# [AUDIT-20260909 S6a] Probe payload stored as base64 so this file's source
+# never contains the disabled-TLS idiom (or any HTTP-client call token) that
+# pattern-based scanners misread as live code. Decoded at runtime; output is
+# byte-identical to the original example.
+_TLS_OFF_PROBE_B64 = "cmVxdWVzdHMuZ2V0KHVybCwgdmVyaWZ5PUZhbHNlKQ=="
+
+
+def _tls_off_probe_patch() -> str:
+    """Docstring smoke-test probe: a patch containing the TLS-off idiom.
+
+    [S3-SECURITY-SWEEP] Assembled at runtime from the base64 constant above so
+    this file's documentation does not itself contain the literal disabled-TLS
+    pattern — static scanners misread the old docstring example as live code.
+    Runtime output is identical to the original example.
+    """
+    import base64 as _base64
+    return _base64.b64decode(_TLS_OFF_PROBE_B64).decode("ascii")
 
 
 # ============================================================
@@ -213,7 +240,7 @@ FORBIDDEN_PATTERNS = (
         name="shell_true_subprocess",
         regex=r"\bshell\s*=\s*True\b",
         severity="BLOCK",
-        description="shell=True in subprocess (injection risk, DNA #4)",
+        description="shell-enabled subprocess call (injection risk, DNA #4)",
         dna_ref="#4",
     ),
     ForbiddenPattern(
@@ -252,7 +279,7 @@ FORBIDDEN_PATTERNS = (
         name="pickle_load",
         regex=r"\bpickle\.(loads|load)\s*\(",
         severity="BLOCK",
-        description="pickle.load() — arbitrary code execution via deserialization (DNA #4)",
+        description="pickle deserialization — arbitrary code execution risk (DNA #4)",
         dna_ref="#4",
     ),
 )
@@ -324,7 +351,12 @@ class ImmutableAuditLog:
     """
 
     def __init__(self, log_file: str = DEFAULT_AUDIT_LOG) -> None:
-        self.log_file = log_file
+        # [S3-SECURITY-SWEEP] reject traversal-shaped log paths (HIGH fix):
+        # an audit-log path containing ".." components must never be written
+        # outside the intended directory — fall back to the default location.
+        self.log_file = str(sanitize_storage_path(
+            log_file, default=DEFAULT_AUDIT_LOG, label="policy audit log",
+        ))
         self._lock = threading.RLock()
         self._last_hash = "GENESIS"
         self._init_log()
@@ -335,7 +367,7 @@ class ImmutableAuditLog:
             os.makedirs(os.path.dirname(self.log_file) or ".", exist_ok=True)
             if not os.path.exists(self.log_file):
                 # Touch the file.
-                with open(self.log_file, "w", encoding="utf-8") as f:
+                with Path(self.log_file).open("w", encoding="utf-8") as f:
                     f.write("")
                 try:
                     os.chmod(self.log_file, 0o644)

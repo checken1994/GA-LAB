@@ -641,11 +641,13 @@ class AutoFixMixin:
         ctx.sim_patched: str | None = None
         if ctx.pre_fix_content is not None and _v4_pairs:
             try:
+                from scp.autofix.validate_patch import flexible_replace
                 _v4_sim = ctx.pre_fix_content
                 _v4_applied_any = False
                 for _v4_s, _v4_r in _v4_pairs:
-                    if _v4_s in _v4_sim:
-                        _v4_sim = _v4_sim.replace(_v4_s, _v4_r, 1)
+                    _res = flexible_replace(_v4_sim, _v4_s, _v4_r)
+                    if _res is not None:
+                        _v4_sim = _res
                         _v4_applied_any = True
                 if _v4_applied_any and _v4_sim != ctx.pre_fix_content:
                     ctx.sim_patched = _v4_sim
@@ -1127,8 +1129,10 @@ class AutoFixMixin:
                     "patched": False,
                     "realtime_blocked": True,
                 }
+            from scp.autofix.validate_patch import flexible_replace
             for _rtv_old, _rtv_new in _rtv_blocks:
-                if _rtv_old not in _rtv_simulated:
+                _res = flexible_replace(_rtv_simulated, _rtv_old, _rtv_new)
+                if _res is None:
                     return {
                         "action": "skipped",
                         "tier": int(ctx.bug.tier),
@@ -1136,7 +1140,7 @@ class AutoFixMixin:
                         "patched": False,
                         "realtime_blocked": True,
                     }
-                _rtv_simulated = _rtv_simulated.replace(_rtv_old, _rtv_new, 1)
+                _rtv_simulated = _res
             if _rtv_simulated != ctx.pre_fix_content:
                 _rtv_result = verify_patch_realtime(
                     orig_source=ctx.pre_fix_content,

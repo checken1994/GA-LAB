@@ -26,6 +26,15 @@ GOLD_PATH = str(Path(__file__).resolve().parent / "benchmark" / "gold_anchor_50_
 OUTPUT_PATH = str(Path(__file__).resolve().parent / "benchmark" / "ragas_results_v1.json")
 TIMESTAMP = datetime.now(timezone.utc).isoformat()
 
+def _contained_in_repo(p: str) -> bool:
+    """[SEC-S4] Containment guard: every file this script touches must resolve
+    inside the repository benchmark tree (paths are __file__-derived; this
+    blocks traversal if the derivation is ever made configurable)."""
+    return Path(p).resolve().is_relative_to(Path(__file__).resolve().parent.parent)
+
+if not (_contained_in_repo(GOLD_PATH) and _contained_in_repo(OUTPUT_PATH)):
+    raise SystemExit("SEC-S4: derived path escapes repository benchmark tree")
+
 def sha256_file(path):
     with open(path, 'rb') as f:
         return hashlib.sha256(f.read()).hexdigest()
@@ -151,7 +160,7 @@ output = {
     'per_row_results': results,
 }
 
-with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
+with Path(OUTPUT_PATH).open('w', encoding='utf-8') as f:
     json.dump(output, f, ensure_ascii=False, indent=2)
 
 print("=" * 60)

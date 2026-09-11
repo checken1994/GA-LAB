@@ -1,10 +1,13 @@
 import { readFile } from "node:fs/promises"
 import { NextResponse } from "next/server"
+// [S6b security sweep] Base URL is resolved AND validated in
+// scp-backend-url.ts (single PEP, no fetch sink there); this handler fetches
+// only the validated base it returns.
+import { resolveScpProxyBase } from "../../../../../lib/scp-backend-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-const SCP_BASE_URL = (process.env.SCP_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "")
 const TOKEN_FILE = process.env.SCP_AUTH_TOKEN_SECRET_FILE?.trim()
 
 async function readAdminToken() {
@@ -18,7 +21,11 @@ export async function POST() {
   try {
     const token = await readAdminToken()
     if (!token) return NextResponse.json({ error: "SCP auth token chưa được cấu hình" }, { status: 503 })
-    const response = await fetch(`${SCP_BASE_URL}/v3/call/sessions`, {
+    // [S6b security sweep] Resolve + allowlist-validate the backend base
+    // BEFORE fetch (single PEP in scp-backend-url.ts). A blocked target
+    // throws into the existing catch — response shape unchanged.
+    const base = resolveScpProxyBase()
+    const response = await fetch(`${base}/v3/call/sessions`, {
       method: "POST",
       headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
       cache: "no-store",

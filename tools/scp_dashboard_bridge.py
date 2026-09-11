@@ -12,9 +12,13 @@ from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from scp.security.url_safety import safe_urlopen  # [S6b] boundary-validated egress
 LISTEN_HOST, LISTEN_PORT = "127.0.0.1", 8765
 RATE_LIMIT, WINDOW = 60, 60
 REQUESTS: dict[str, deque[float]] = defaultdict(deque)
@@ -50,7 +54,7 @@ def read_api(path: str, authenticated: bool) -> tuple[int, object]:
     headers = {"Accept": "application/json"}
     if authenticated: headers["Authorization"] = f"Bearer {token()}"
     try:
-        with urlopen(Request(f"http://{host}:{port}{path}", headers=headers), timeout=5) as response:
+        with safe_urlopen(Request(f"http://{host}:{port}{path}", headers=headers), timeout=5, allow_internal=True) as response:
             body = response.read().decode("utf-8")
             return response.status, json.loads(body) if body else {}
     except HTTPError as error:

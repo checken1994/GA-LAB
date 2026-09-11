@@ -11,6 +11,7 @@ services:
       - "8080:8000"
     command: ["8000"]
     environment:
+      - SCP_HOST=0.0.0.0
       - SCP_CAPABILITY_SECRET=${SCP_CAPABILITY_SECRET:-audit-test-cap-secret-32chars}
       - SCP_JWT_SECRET=${SCP_JWT_SECRET:-audit-test-secret-change-me-32chars}
       - SCP_ADMIN_KEY=${SCP_ADMIN_KEY:-audit-test-admin-key-32chars}
@@ -20,6 +21,8 @@ services:
       - SCP_ASK_MAX_INFLIGHT=50
       - SCP_MULTI_LLM_CROSSCHECK=1
       - SCP_DOUBT_INTERVAL_SEC=300
+      - SCP_PC_CONTROLLER_TOKEN=${SCP_PC_CONTROLLER_TOKEN:-audit-test-cap-secret-32chars}
+      - SCP_AUTH_TOKEN_SECRET=${SCP_AUTH_TOKEN_SECRET:-audit-test-auth-secret-32chars}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 10s

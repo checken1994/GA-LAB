@@ -7,12 +7,28 @@ Supports: book titles, authors, literary works, download counts.
 """
 from __future__ import annotations
 
+import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.gutenberg")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_GUTENBERG_SEARCH_URL = "https://gutendex.com/books"
+
+
+def build_gutenberg_search_url(term: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — search term được urlencode
+    thành query value; host cố định gutendex.com."""
+    return _GUTENBERG_SEARCH_URL + "?" + urllib.parse.urlencode({
+        "search": str(term or ""),
+    })
 
 
 class GutenbergDataSource(IDataSource):
@@ -84,12 +100,12 @@ class GutenbergDataSource(IDataSource):
             return None
 
     def _query_book(self, title: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(f"{self.BASE_URL}/books",
-                          params={"search": title}, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(build_gutenberg_search_url(title))
+            with safe_urlopen(req, timeout=10) as r:  # noqa: S310 — validated by safe_urlopen
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             results = data.get("results", [])
             if results:
                 book = results[0]
@@ -109,12 +125,12 @@ class GutenbergDataSource(IDataSource):
         return None
 
     def _query_author(self, author: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(f"{self.BASE_URL}/books",
-                          params={"search": author}, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(build_gutenberg_search_url(author))
+            with safe_urlopen(req, timeout=10) as r:  # noqa: S310 — validated by safe_urlopen
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             results = data.get("results", [])
             if results:
                 # Return top 3 books by this author

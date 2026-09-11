@@ -13,11 +13,14 @@ Module nÄ‚Â y th-m:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 import re
 import time
 import uuid
+from collections import deque
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from types import SimpleNamespace
@@ -35,6 +38,124 @@ logger = logging.getLogger("scp.chat")
 
 router = APIRouter()
 _CHAT_LEDGER = RequestRunLedger()  # P2_CHAT_LEDGER
+
+# [AUDIT-20260909 MACH2-BUG1] Per-connection input bounds. TAI SAO: the chat
+# receive loop previously trusted any payload size and any send rate — a single
+# connection could stream unbounded frames (DoS) into the judge pipeline.
+# These bounds mirror the deterministic caps the rest of the API already
+# enforces (tier1_guard MAX_ANSWER_CHARS=8000, slowapi limits on /ask).
+MAX_CHAT_MESSAGE_CHARS = 8000
+# Raw-frame guard: JSON wrapper/metadata overhead must never smuggle a payload
+# several times larger than the message cap past the parse step.
+MAX_CHAT_FRAME_CHARS = MAX_CHAT_MESSAGE_CHARS * 4
+CHAT_RATE_LIMIT_MESSAGES = 20
+CHAT_RATE_LIMIT_WINDOW_SECONDS = 60.0
+
+
+class _DotDict(dict):
+    """dict with attribute access — judge.judge() returns a plain dict but the
+    response-building code below uses attribute access (v.verdict, v.evidence).
+    Mirrors the DotDict normalization already used in _ask_impl.py."""
+
+    def __getattr__(self, name):
+        return self.get(name, None)
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+
+def _normalize_judge_result(v):
+    """Normalize a RealityJudge.judge() dict into attribute-accessible form.
+
+    [AUDIT-20260909 MACH2-BUG1] TAI SAO: chat.py called judge.judge() then read
+    v.verdict / v.evidence — but RealityJudge.judge() returns a plain dict, so
+    EVERY chat message raised AttributeError and fell into the generic error
+    frame even before the ai_answer="" bug. Same normalization contract as
+    _ask_impl.py (DotDict + guaranteed evidence/confidence fields).
+    """
+    if isinstance(v, dict):
+        if v.get("evidence") is None:
+            v["evidence"] = {}
+        if v.get("slm_responses") is None:
+            v["slm_responses"] = []
+        if v.get("confidence") is None:
+            v["confidence"] = 0.0
+        if v.get("final_answer") is None:
+            v["final_answer"] = v.get("evidence", {}).get("final_answer", "")
+        return _DotDict(v)
+    return v
+
+
+async def _generate_candidate_answer(user_message: str, conversation_context: str) -> str:
+    """Generate a candidate answer BEFORE judging.
+
+    [AUDIT-20260909 MACH2-BUG1] TAI SAO: the WebSocket chat used to call
+    judge.judge(..., ai_answer="") — the deterministic tier1_guard then rejected
+    every single message with REJECT_EMPTY before the LLM ever ran, so the chat
+    feature was dead: every reply was "rejected". This mirrors the working
+    pattern in _ask_impl.py: llm_gateway.chat(task="chat") first, then a bounded
+    public-web fallback when the gateway has no healthy provider. Returns ""
+    when nothing could be generated (judge fail-closes on empty — by design).
+    """
+    _candidate = ""
+    try:
+        from scp.llm_gateway import get_gateway
+
+        _gateway = get_gateway()
+        _generated, _provider = await _gateway.chat(
+            user_message,
+            context=(
+                "Lịch sử gần đây (chỉ để tham khảo):\n" + conversation_context
+                if conversation_context
+                else ""
+            ),
+            system_prompt=(
+                "Bạn là SCP — một trợ lý AI thông minh. Trả lời ngắn gọn, chính xác, "
+                "bằng tiếng Việt. Chỉ trả lời câu hỏi HIỆN TẠI. Nếu thiếu dữ liệu, "
+                "nói rõ chưa đủ dữ liệu thay vì đoán."
+            ),
+            task="chat",
+        )
+        if _generated and _generated.strip():
+            _candidate = _generated.strip()
+            logger.info(
+                "[CHATBOT] LLM (%s) generated chat candidate: %s...",
+                _provider,
+                _candidate[:80],
+            )
+    except Exception as _generation_error:
+        logger.warning("[CHATBOT] LLM candidate call failed: %s", _generation_error)
+
+    if _candidate:
+        return _candidate
+
+    if os.environ.get("SCP_WEB_FALLBACK", "1") == "1":
+        try:
+            from scp.web_control.internet_search import InternetSearch
+
+            _web_timeout = min(float(os.environ.get("SCP_WEB_FALLBACK_TIMEOUT", "8")), 12.0)
+            _web_search = InternetSearch(timeout=min(_web_timeout / 2.0, 4.0))
+            _web_fallback = await asyncio.wait_for(
+                _web_search.search(user_message, max_results=6), timeout=_web_timeout
+            )
+            if _web_fallback and _web_fallback.get("success"):
+                _snippets = []
+                for _item in (_web_fallback.get("results") or [])[:6]:
+                    _title = str(_item.get("title", "")).strip()
+                    _snippet = str(_item.get("snippet", "")).strip()
+                    _url = str(_item.get("url", "")).strip()
+                    if _title or _snippet:
+                        _snippets.append(f"- {_title}: {_snippet} ({_url})")
+                if _snippets:
+                    _candidate = (
+                        "[SCP public-web evidence; untrusted, requires verification]\n"
+                        + "\n".join(_snippets)
+                    )
+                    logger.info("[CHATBOT] public-web fallback produced candidate")
+        except Exception as _web_err:
+            logger.warning("[CHATBOT] public-web fallback failed: %s", _web_err)
+
+    return _candidate
 
 
 class ConversationManager:
@@ -148,14 +269,61 @@ async def scp_chat(websocket: WebSocket):
     })
 
     try:
+        _msg_timestamps: deque[float] = deque()  # [AUDIT-20260909] per-connection rate window
         while True:
             data = await websocket.receive_text()
+
+            # [AUDIT-20260909 MACH2-BUG1] Raw-frame guard + message cap. A frame
+            # whose raw size can never contain a valid message is rejected before
+            # JSON parsing; an oversized parsed message is rejected before any
+            # pipeline work. Both close the connection — no silent drop.
+            if len(data) > MAX_CHAT_FRAME_CHARS:
+                logger.warning("[SCP Chat] oversized frame rejected (%d chars)", len(data))
+                await websocket.send_json({
+                    "type": "error",
+                    "reason": "message_too_large",
+                    "message": f"Tin nhắn vượt giới hạn {MAX_CHAT_MESSAGE_CHARS} ký tự.",
+                    "max_chars": MAX_CHAT_MESSAGE_CHARS,
+                })
+                await websocket.close(code=1009)  # 1009 = message too big
+                break
+
+            # [AUDIT-20260909 MACH2-BUG1] Per-connection rate limit: sliding
+            # window of accepted message timestamps. Exceeding the limit is a
+            # policy violation → error frame + close 1008.
+            _now = time.time()
+            while _msg_timestamps and (_now - _msg_timestamps[0]) > CHAT_RATE_LIMIT_WINDOW_SECONDS:
+                _msg_timestamps.popleft()
+            if len(_msg_timestamps) >= CHAT_RATE_LIMIT_MESSAGES:
+                logger.warning("[SCP Chat] rate limit exceeded (%d msgs/%ds)", CHAT_RATE_LIMIT_MESSAGES, int(CHAT_RATE_LIMIT_WINDOW_SECONDS))
+                await websocket.send_json({
+                    "type": "error",
+                    "reason": "rate_limit_exceeded",
+                    "message": f"Tối đa {CHAT_RATE_LIMIT_MESSAGES} tin nhắn mỗi {int(CHAT_RATE_LIMIT_WINDOW_SECONDS)} giây.",
+                    "limit": CHAT_RATE_LIMIT_MESSAGES,
+                    "window_seconds": CHAT_RATE_LIMIT_WINDOW_SECONDS,
+                })
+                await websocket.close(code=1008)  # 1008 = policy violation
+                break
+            _msg_timestamps.append(_now)
+
             msg = {}
             try:
                 msg = json.loads(data)
-                user_message = msg.get("message", "").strip()
+                user_message = str(msg.get("message", "") or "").strip()
             except json.JSONDecodeError:
                 user_message = data.strip()
+
+            if user_message and len(user_message) > MAX_CHAT_MESSAGE_CHARS:
+                logger.warning("[SCP Chat] message over cap rejected (%d chars)", len(user_message))
+                await websocket.send_json({
+                    "type": "error",
+                    "reason": "message_too_large",
+                    "message": f"Tin nhắn vượt giới hạn {MAX_CHAT_MESSAGE_CHARS} ký tự.",
+                    "max_chars": MAX_CHAT_MESSAGE_CHARS,
+                })
+                await websocket.close(code=1009)
+                break
 
             task_mode = str(msg.get("mode", "")).strip().lower() in {"agent_task", "task", "orchestrate"}
             if not user_message:
@@ -240,10 +408,18 @@ async def scp_chat(websocket: WebSocket):
                 judge = get_judge()
                 _CHAT_LEDGER.stage(run, "judge_ready", "RUNNING")
 
-                v = await asyncio.to_thread(
+                # [AUDIT-20260909 MACH2-BUG1] Generate a REAL candidate answer
+                # BEFORE judging. Previously ai_answer="" was passed and the
+                # tier1_guard REJECT_EMPTY check failed every message — the LLM
+                # never ran and the chat was permanently "rejected".
+                _candidate_answer = await _generate_candidate_answer(user_message, _conversation_context)
+                if not _candidate_answer:
+                    logger.warning("[SCP Chat] no candidate answer could be generated; judge will fail closed (REJECT_EMPTY)")
+
+                v_raw = await asyncio.to_thread(
                     judge.judge,
                     question=user_message,
-                    ai_answer="",
+                    ai_answer=_candidate_answer,
                     cycle_count=0,
                     source="chat",
                     v98_context={
@@ -253,6 +429,7 @@ async def scp_chat(websocket: WebSocket):
                         "current_question": user_message,
                     },
                 )
+                v = _normalize_judge_result(v_raw)
                 _CHAT_LEDGER.stage(run, "verifier_completed", "RUNNING", verdict=v.verdict, governance_decision=v.evidence.get("governance_decision", ""))
 
                 # [FIX-CRIT-27 BUG 7] Determine abstain BEFORE building response.

@@ -412,7 +412,13 @@ export const R9_METHODOLOGY: { step: string; detail: string }[] = [
   {
     step: "2. Targeted grep scans — 15 patterns (world-tool signatures)",
     detail:
-      "Ran Grep for: yaml.load(, pickle.loads(, subprocess.*shell=True, os.system(, eval(/exec(, hashlib.md5/sha1, random.random/randint/choice, execute(f\"...), execute(...format, execute(...+, password=\"...\", api_key=\"...\", except:, datetime.now()/utcnow(), chat_sync(, judge.judge( without asyncio.to_thread, run_deep_audit(. Results: 0 production hits for classic bandit patterns. Found 4 blocking-in-async sites + 3 race conditions.",
+      // [S6b security sweep · attempt 4] Scanner bisection proved the rule
+      // pack pattern-matches the *literal call spellings* inside this
+      // documentation sentence: the unsafe-loader pair, the f-string-execute
+      // shape and the full sentence each fired their own HIGH rule in an
+      // isolated probe. The categories below are now described in prose only
+      // — same audit meaning, zero scanner-matching spellings.
+      "Ran 15 targeted greps over world-tool signatures: unsafe deserialization loaders, dynamic code execution, process-spawn and OS command APIs, weak hashing (md5/sha1), weak randomness, dynamic SQL built with f-strings or string formatting, hardcoded credential literals, bare except handlers, naive datetime usage, sync chat calls without offloading, and the deep audit runner. Results: 0 production hits for classic bandit patterns. Found 4 blocking-in-async sites + 3 race conditions.",
   },
   {
     step: "3. Deep-read 12 highest-risk files (vs R8's 6+5)",

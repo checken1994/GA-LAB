@@ -10,15 +10,53 @@ License: See LICENSE file
 FinanceDataSource - Data source cho Tài chính
 Bao gồm: tỷ giá hối đoái (Frankfurter), crypto (CoinGecko), giá vàng.
 """
+import json
 import logging
+import re
 import time
+import urllib.parse
+import urllib.request
 from typing import Any, Optional
 
-import requests
-
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 
 logger = logging.getLogger(__name__)
+
+# [AUDIT-20260909 SSRF-S1] Hosts cố định — literal duy nhất của builders.
+_COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
+_FRANKFURTER_LATEST_URL = "https://api.frankfurter.app/latest"
+
+# [AUDIT-20260909 SSRF-S1] coin_id / currency code dạng ràng buộc.
+_CURRENCY_CODE_RE = re.compile(r"^[A-Za-z]{3,10}$")
+_COIN_ID_RE = re.compile(r"^[a-z0-9\-]{1,32}$")
+
+
+def build_coingecko_price_url(coin_id: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — coin_id PHẢI khớp
+    ^[a-z0-9-]{1,32}$ (CoinGecko id format); input xấu → ValueError TRƯỚC
+    KHI fetch. Host cố định api.coingecko.com."""
+    coin = str(coin_id or "")
+    if not _COIN_ID_RE.fullmatch(coin):
+        raise ValueError(f"invalid_coin_id:{coin[:32]!r}")
+    query = urllib.parse.urlencode({
+        "ids": coin,
+        "vs_currencies": "usd",
+        "include_24hr_change": "true",
+    })
+    return f"{_COINGECKO_PRICE_URL}?{query}"
+
+
+def build_frankfurter_rate_url(from_curr: str, to_curr: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — from/to PHẢI là mã tiền
+    3-10 chữ cái; input xấu → ValueError TRƯỚC KHI fetch. Host cố định
+    api.frankfurter.app."""
+    src = str(from_curr or "")
+    dst = str(to_curr or "")
+    if not _CURRENCY_CODE_RE.fullmatch(src) or not _CURRENCY_CODE_RE.fullmatch(dst):
+        raise ValueError(f"invalid_currency_code:{src[:16]!r},{dst[:16]!r}")
+    query = urllib.parse.urlencode({"from": src, "to": dst})
+    return f"{_FRANKFURTER_LATEST_URL}?{query}"
 
 
 class FinanceDataSource(IDataSource):
@@ -163,27 +201,33 @@ class FinanceDataSource(IDataSource):
         if cache_key in self._cache and time.time() - self._cache_timestamp.get(cache_key, 0) < self.ttl:
             return self._cache[cache_key]
         try:
-            url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd&include_24hr_change=true"
-            response = requests.get(url, timeout=8)
-            if response.status_code == 200:
-                data = response.json()
-                if coin_id in data:
-                    price_usd = data[coin_id].get('usd', 0)
-                    change_24h = data[coin_id].get('usd_24h_change', 0)
-                    result = {
-                        'value': price_usd,
-                        'source': 'CoinGecko API',
-                        'metadata': {
-                            'coin_id': coin_id,
-                            'price_usd': price_usd,
-                            'change_24h_pct': change_24h,
-                            'currency': 'USD',
-                            'method': 'coingecko',
-                        }
+            # [AUDIT-20260909 SSRF-S1] build URL (validate + encode coin_id)
+            # tách khỏi fetch; fetch qua safe_urlopen thay raw requests.get.
+            url = build_coingecko_price_url(coin_id)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Finance/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=8) as response:
+                if getattr(response, "status", 200) != 200:
+                    return None
+                data = json.loads(response.read().decode("utf-8", errors="replace"))
+            if coin_id in data:
+                price_usd = data[coin_id].get('usd', 0)
+                change_24h = data[coin_id].get('usd_24h_change', 0)
+                result = {
+                    'value': price_usd,
+                    'source': 'CoinGecko API',
+                    'metadata': {
+                        'coin_id': coin_id,
+                        'price_usd': price_usd,
+                        'change_24h_pct': change_24h,
+                        'currency': 'USD',
+                        'method': 'coingecko',
                     }
-                    self._cache[cache_key] = result
-                    self._cache_timestamp[cache_key] = time.time()
-                    return result
+                }
+                self._cache[cache_key] = result
+                self._cache_timestamp[cache_key] = time.time()
+                return result
         except Exception as e:
             logger.warning(f"[Finance] CoinGecko fetch failed: {e}")
         return None
@@ -194,26 +238,32 @@ class FinanceDataSource(IDataSource):
         if cache_key in self._cache and time.time() - self._cache_timestamp.get(cache_key, 0) < self.ttl:
             return self._cache[cache_key]
         try:
-            url = f"https://api.frankfurter.app/latest?from={from_curr}&to={to_curr}"
-            response = requests.get(url, timeout=8)
-            if response.status_code == 200:
-                data = response.json()
-                rate = data.get('rates', {}).get(to_curr.upper())
-                if rate:
-                    result = {
-                        'value': rate,
-                        'source': 'Frankfurter API',
-                        'metadata': {
-                            'from': from_curr.upper(),
-                            'to': to_curr.upper(),
-                            'rate': rate,
-                            'date': data.get('date'),
-                            'method': 'frankfurter',
-                        }
+            # [AUDIT-20260909 SSRF-S1] build URL (validate mã tiền) rồi fetch
+            # qua safe_urlopen thay raw requests.get.
+            url = build_frankfurter_rate_url(from_curr, to_curr)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Finance/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=8) as response:
+                if getattr(response, "status", 200) != 200:
+                    return None
+                data = json.loads(response.read().decode("utf-8", errors="replace"))
+            rate = data.get('rates', {}).get(to_curr.upper())
+            if rate:
+                result = {
+                    'value': rate,
+                    'source': 'Frankfurter API',
+                    'metadata': {
+                        'from': from_curr.upper(),
+                        'to': to_curr.upper(),
+                        'rate': rate,
+                        'date': data.get('date'),
+                        'method': 'frankfurter',
                     }
-                    self._cache[cache_key] = result
-                    self._cache_timestamp[cache_key] = time.time()
-                    return result
+                }
+                self._cache[cache_key] = result
+                self._cache_timestamp[cache_key] = time.time()
+                return result
         except Exception as e:
             logger.warning(f"[Finance] Frankfurter fetch failed: {e}")
         return None
@@ -228,16 +278,17 @@ class FinanceDataSource(IDataSource):
             return self._cache[cache_key]
         api_ok = False
         try:
-            r = requests.get("https://api.coingecko.com/api/v3/ping", timeout=3)
-            if r.status_code == 200:
-                api_ok = True
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen cho health pings (URL cố định).
+            with safe_urlopen("https://api.coingecko.com/api/v3/ping", timeout=3) as r:
+                if getattr(r, "status", 200) == 200:
+                    api_ok = True
         except Exception as e:
             logger.warning(f"Silent except: {e}")
         if not api_ok:
             try:
-                r = requests.get("https://api.frankfurter.app/latest?from=USD&to=EUR", timeout=3)
-                if r.status_code == 200:
-                    api_ok = True
+                with safe_urlopen("https://api.frankfurter.app/latest?from=USD&to=EUR", timeout=3) as r:
+                    if getattr(r, "status", 200) == 200:
+                        api_ok = True
             except Exception as e:
                 logger.warning(f"Silent except: {e}")
         healthy = api_ok or bool(self._currencies)

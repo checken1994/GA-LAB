@@ -7,12 +7,46 @@ Supports: country GDP, population, poverty stats for 200+ countries.
 """
 from __future__ import annotations
 
+import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.worldbank")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_WORLDBANK_INDICATOR_URL = "https://api.worldbank.org/v2/country"
+
+# Country/indicator codes: 3 chữ hoa ISO (hoặc 'all') / indicator path segment.
+_COUNTRY_RE = None  # lazy import re để giữ import-time nhẹ
+
+
+def build_worldbank_indicator_url(indicator_code: str,
+                                  country: str = "all") -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — country PHẢI là 3 chữ cái
+    (ISO alpha-3 hoặc 'all', fullmatch, chặn path traversal '..'); indicator
+    được quote(safe='') để '/' và '.' không tạo path khác. Host cố định
+    api.worldbank.org."""
+    global _COUNTRY_RE
+    if _COUNTRY_RE is None:
+        import re as _re
+        _COUNTRY_RE = _re.compile(r"^[A-Za-z]{3}$")
+    c = str(country or "").strip()
+    if not _COUNTRY_RE.fullmatch(c):
+        raise ValueError(f"invalid_country_code:{c[:32]!r}")
+    ind = urllib.parse.quote(str(indicator_code or ""), safe="")
+    query = urllib.parse.urlencode({
+        "format": "json",
+        "per_page": 1,
+        "date": "2020:2024",
+        "sort": "desc",
+    })
+    return f"{_WORLDBANK_INDICATOR_URL}/{c}/indicator/{ind}?{query}"
 
 
 class WorldBankDataSource(IDataSource):
@@ -119,18 +153,15 @@ class WorldBankDataSource(IDataSource):
 
     def _query_indicator(self, indicator_code: str, label: str,
                           country_code: Optional[str] = None) -> dict | None:
-        import httpx
         try:
             country = country_code or "all"
-            r = httpx.get(f"{self.BASE_URL}/country/{country}/indicator/{indicator_code}",
-                          params={
-                              "format": "json",
-                              "per_page": 1,
-                              "date": "2020:2024",
-                              "sort": "desc",
-                          }, timeout=10)
-            r.raise_for_status()
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder quote path + urlencode query +
+            # safe_urlopen thay raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(
+                build_worldbank_indicator_url(indicator_code, country)
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             # World Bank returns [metadata, [observations]]
             if isinstance(data, list) and len(data) >= 2 and data[1]:
                 obs = data[1][0]

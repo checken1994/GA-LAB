@@ -84,6 +84,8 @@ import textwrap
 from dataclasses import dataclass, field
 from typing import Any, Callable, Sequence
 
+from scp.autofix.restricted_exec import safe_getattr, safe_hasattr
+
 logger = logging.getLogger("scp.autofix.property_validator")
 
 
@@ -157,9 +159,12 @@ SAFE_BUILTINS: dict[str, Any] = {
     "sum": sum,
     "zip": zip,
     # --- introspection (safe subset — NO globals/locals/vars/dir) ---
+    # [S3-SECURITY-SWEEP] getattr/hasattr are the restricted replacements:
+    # raw getattr is a sandbox escape primitive and is rejected by
+    # restricted_exec._validate_safe_builtins.
     "callable": callable,
-    "getattr": getattr,
-    "hasattr": hasattr,
+    "getattr": safe_getattr,
+    "hasattr": safe_hasattr,
     "isinstance": isinstance,
     "issubclass": issubclass,
     "id": id,

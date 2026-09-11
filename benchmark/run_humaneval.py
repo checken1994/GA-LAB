@@ -16,6 +16,9 @@ except ImportError:
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from scp.security.jwt_guard import create_access_token
+# [AUDIT-20260909 S6a] Mọi request HTTP đi qua safe_urlopen — validate scheme,
+# chặn IP nội bộ trừ khi allow_internal (server benchmark chạy trên localhost).
+from scp.security.url_safety import safe_urlopen
 
 BASE_URL = os.environ.get("SCP_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
@@ -30,8 +33,8 @@ async def run_humaneval(file_path: str):
     print(f"--- STARTING HUMANEVAL BENCHMARK: {file_path} ---")
     
     try:
-        req = urllib.request.Request(f"{BASE_URL}/health", method="GET")
-        with urllib.request.urlopen(req) as response:
+        req = urllib.request.Request(f"{BASE_URL}/health", method="GET")  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=10, allow_internal=True) as response:
             pass
     except Exception as e:
         print("ERROR: SCP Server is not running. Please run `python -m scp` first.")
@@ -52,8 +55,12 @@ async def run_humaneval(file_path: str):
     print(f"-> Loaded {len(tasks)} tasks. Generating completions via API server...")
     
     samples_file = "humaneval_samples.jsonl"
-    
-    with open(samples_file, "w", encoding="utf-8") as out_f:
+
+    # [SEC-S4] Containment: generated samples must stay inside the CWD.
+    if not Path(samples_file).resolve().is_relative_to(Path.cwd().resolve()):
+        raise SystemExit(f"rejected unsafe samples path: {samples_file}")
+
+    with Path(samples_file).open("w", encoding="utf-8") as out_f:
         for i, task in enumerate(tasks):
             task_id = task["task_id"]
             prompt = task["prompt"]
@@ -71,7 +78,7 @@ async def run_humaneval(file_path: str):
             req = urllib.request.Request(f"{BASE_URL}/ask", data=body, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {token}'}, method="POST")
             
             try:
-                with urllib.request.urlopen(req) as response:
+                with safe_urlopen(req, timeout=None, allow_internal=True) as response:
                     res_body = response.read().decode('utf-8')
                     res_json = json.loads(res_body)
                     raw_answer = res_json.get("answer", "")

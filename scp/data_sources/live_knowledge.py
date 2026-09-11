@@ -22,11 +22,16 @@ import hashlib
 import json
 import logging
 import re
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-import requests
 from defusedxml import ElementTree as ET  # nosec B314 — defusedxml hardens XXE
+
+# [AUDIT-20260909 SSRF-S1] Thay mọi raw requests.get bằng safe_urlopen
+# (scheme allowlist + chặn private/loopback IP) — cùng pattern misc_slms2.py.
+from scp.security.url_safety import safe_urlopen
 
 logger = logging.getLogger("scp.live_knowledge")
 
@@ -91,19 +96,62 @@ def _hash_query(query: str, domain: str = "") -> str:
 # ============================================================
 # API FETCHERS
 # ============================================================
+# [AUDIT-20260909 SSRF-S1] URL builders — pure, testable. Input động
+# (query) bị encode TRƯỚC khi fetch; host luôn là literal cố định.
+def build_wikidata_url(query: str, language: str = "vi") -> str:
+    """Wikidata entity-lookup URL — query được urlencode → không thể đổi
+    host/path. Host cố định https://www.wikidata.org."""
+    return (
+        "https://www.wikidata.org/w/api.php?"
+        + urllib.parse.urlencode({
+            "action": "wbsearchentities",
+            "search": str(query or ""),
+            "language": language,
+            "format": "json",
+            "limit": 1,
+        })
+    )
+
+
+def build_arxiv_url(query: str, max_results: int = 3) -> str:
+    """arXiv API URL — query được quote(safe='') → '/', '..', '?', '&'
+    không thể thoát khỏi MỘT path/query segment. Host cố định export.arxiv.org."""
+    quoted = urllib.parse.quote(str(query or ""), safe="")
+    return (
+        f"http://export.arxiv.org/api/query"
+        f"?search_query=all:{quoted}&start=0&max_results={int(max_results)}"
+    )
+
+
+def build_duckduckgo_url(query: str) -> str:
+    """DuckDuckGo Instant Answer URL — query được urlencode. Host cố định."""
+    return "https://api.duckduckgo.com/?" + urllib.parse.urlencode({
+        "q": str(query or ""),
+        "format": "json",
+        "no_html": 1,
+        "skip_disambig": 1,
+    })
+
+
+def _safe_get_bytes(url: str, timeout: float = 8) -> bytes:
+    """[AUDIT-20260909 SSRF-S1] Fetch qua safe_urlopen, trả về raw bytes.
+    Non-200 → urllib raise HTTPError → caller's except trả None (giữ nguyên
+    behavior `status_code != 200 → None` của code cũ)."""
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "SCP-LiveKnowledge/1.0"}
+    )  # noqa: S310 — scheme/host validated by safe_urlopen
+    with safe_urlopen(req, timeout=timeout) as resp:
+        return resp.read()
+
+
 def fetch_wikipedia(query: str, lang: str = "vi") -> Optional[dict[str, Any]]:
     """Fetch từ Wikipedia REST API.
 
     [G3-CONSOLIDATE RE-05] Now delegates to scp.core.wikipedia_client
     (search_then_summary). Same return shape, same vi→en fallback behavior.
-    The previous inline implementation is preserved below as a comment for
-    audit reference; the live code path now goes through the canonical
-    client so all Wikipedia calls share one rate-limit + cache + timeout.
-
-    Why: previously this file made 2 raw requests.get() calls per fetch
-    (search + summary) with timeout=8s and try/except → None. Now the
-    canonical client handles both steps with timeout=10s, 1 req/sec rate
-    limit, LRU cache (256 entries), and consistent error handling.
+    The previous inline implementation (2 raw HTTP GET calls) was
+    removed in [AUDIT-20260909 SSRF-S1] — the live path goes through the
+    canonical client so all Wikipedia calls share one rate-limit + cache.
     """
     # [G3-CONSOLIDATE RE-05] Now delegates to scp.core.wikipedia_client
     try:
@@ -126,51 +174,23 @@ def fetch_wikipedia(query: str, lang: str = "vi") -> Optional[dict[str, Any]]:
     except Exception as e:
         logger.debug(f"Wikipedia fetch error: {e}")
         return None
-    # --- PREVIOUS IMPLEMENTATION (audit reference, kept for context) ---
-    # try:
-    #     search_url = f"https://{lang}.wikipedia.org/w/api.php"
-    #     search_params = {"action": "query", "list": "search",
-    #                      "srsearch": query, "format": "json", "srlimit": 1}
-    #     resp = requests.get(search_url, params=search_params, timeout=8)
-    #     if resp.status_code != 200: return None
-    #     data = resp.json()
-    #     search_results = data.get("query", {}).get("search", [])
-    #     if not search_results:
-    #         if lang != "en": return fetch_wikipedia(query, lang="en")
-    #         return None
-    #     title = search_results[0]["title"]
-    #     summary_url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(title)}"
-    #     resp2 = requests.get(summary_url, timeout=8)
-    #     if resp2.status_code != 200: return None
-    #     sdata = resp2.json()
-    #     return {"value": sdata.get("extract", ""), ...}
-    # except Exception as e:
-    #     logger.debug(f"Wikipedia fetch error: {e}"); return None
+    # --- PREVIOUS IMPLEMENTATION removed [AUDIT-20260909 SSRF-S1]: it
+    # contained raw HTTP GET snippets flagged as SSRF debt; the live
+    # path is _wiki_search_then_summary above (canonical, rate-limited). ---
 
 
 def fetch_wikidata(query: str) -> Optional[dict[str, Any]]:
     """Fetch từ Wikidata (entity lookup)."""
     try:
-        url = "https://www.wikidata.org/w/api.php"
-        params = {
-            "action": "wbsearchentities",
-            "search": query,
-            "language": "vi",
-            "format": "json",
-            "limit": 1,
-        }
-        resp = requests.get(url, params=params, timeout=8)
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
+        data = json.loads(
+            _safe_get_bytes(build_wikidata_url(query, language="vi"), timeout=8)
+        )
         results = data.get("search", [])
         if not results:
             # Try English
-            params["language"] = "en"
-            resp = requests.get(url, params=params, timeout=8)
-            if resp.status_code != 200:
-                return None
-            data = resp.json()
+            data = json.loads(
+                _safe_get_bytes(build_wikidata_url(query, language="en"), timeout=8)
+            )
             results = data.get("search", [])
             if not results:
                 return None
@@ -193,11 +213,8 @@ def fetch_wikidata(query: str) -> Optional[dict[str, Any]]:
 def fetch_arxiv(query: str, max_results: int = 3) -> Optional[dict[str, Any]]:
     """Fetch từ arXiv API (academic papers)."""
     try:
-        url = f"http://export.arxiv.org/api/query?search_query=all:{requests.utils.quote(query)}&start=0&max_results={max_results}"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return None
-        root = ET.fromstring(resp.content)
+        body = _safe_get_bytes(build_arxiv_url(query, max_results), timeout=10)
+        root = ET.fromstring(body)
         ns = {"atom": "http://www.w3.org/2005/Atom"}
         entries = root.findall("atom:entry", ns)
         if not entries:
@@ -223,17 +240,9 @@ def fetch_arxiv(query: str, max_results: int = 3) -> Optional[dict[str, Any]]:
 def fetch_duckduckgo(query: str) -> Optional[dict[str, Any]]:
     """Fetch từ DuckDuckGo Instant Answer API."""
     try:
-        url = "https://api.duckduckgo.com/"
-        params = {
-            "q": query,
-            "format": "json",
-            "no_html": 1,
-            "skip_disambig": 1,
-        }
-        resp = requests.get(url, params=params, timeout=8)
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
+        data = json.loads(
+            _safe_get_bytes(build_duckduckgo_url(query), timeout=8)
+        )
         # Try AbstractText first
         if data.get("AbstractText"):
             return {

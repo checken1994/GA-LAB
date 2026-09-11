@@ -6,15 +6,33 @@ SCP - Viet Nam | Self-Correcting Pipeline
 import logging
 import os
 import re
+import urllib.parse
 from typing import Any, Optional
 
-import requests
 from defusedxml import ElementTree as ET  # nosec B314 — defusedxml hardens XXE
 
 from scp.core.api_utils import fetch_with_retry  # [V5.8-API]
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 
 logger = logging.getLogger(__name__)
+
+# [AUDIT-20260909 SSRF-S1] taxid từ response NCBI (external data) PHẢI là
+# digits — chặn trước khi ghép vào URL efetch.
+_NCBI_TAXID_RE = re.compile(r"^\d{1,12}$")
+
+
+def build_ncbi_efetch_taxonomy_url(taxid: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — taxid PHẢI fullmatch
+    ^\\d{1,12}$; input xấu (path traversal, injection) → ValueError TRƯỚC
+    KHI fetch. Host cố định eutils.ncbi.nlm.nih.gov."""
+    tid = str(taxid or "").strip()
+    if not _NCBI_TAXID_RE.fullmatch(tid):
+        raise ValueError(f"invalid_taxid:{tid[:32]!r}")
+    return (
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+        f"?db=taxonomy&id={tid}&retmode=xml"
+    )
 
 
 def _wb_match(key: str, text_lower: str) -> bool:
@@ -191,7 +209,7 @@ class BiologyDataSource(IDataSource):
         api_key_param = f"&api_key={self._ncbi_api_key}" if self._ncbi_api_key else ""
         esearch_url = (
             f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-            f"?db=taxonomy&term={requests.utils.quote(term)}"
+            f"?db=taxonomy&term={urllib.parse.quote(term, safe='')}"
             f"&retmode=json&retmax=3{api_key_param}"
         )
         try:
@@ -205,17 +223,22 @@ class BiologyDataSource(IDataSource):
             logger.warning(f"[V5.8-API] NCBI taxonomy esearch failed for '{term}': {e}")
             return None
 
-        # efetch XML parse — use requests directly (fetch_with_retry expects JSON)
+        # efetch XML parse — use safe_urlopen (fetch_with_retry expects JSON)
         taxid = id_list[0]
-        efetch_url = (
-            f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-            f"?db=taxonomy&id={taxid}&retmode=xml{api_key_param}"
-        )
+        # [AUDIT-20260909 SSRF-S1] taxid (external data) được validate bằng
+        # regex trong builder; input xấu → ValueError TRƯỚC KHI fetch.
+        efetch_url = build_ncbi_efetch_taxonomy_url(taxid) + api_key_param
         try:
-            resp = requests.get(efetch_url, timeout=8, headers={"User-Agent": "SCP/1.0"})
-            if resp.status_code != 200 or not resp.text:
+            req = urllib.request.Request(
+                efetch_url, headers={"User-Agent": "SCP/1.0"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=8) as resp:
+                if getattr(resp, "status", 200) != 200:
+                    return None
+                body = resp.read().decode("utf-8", errors="replace")
+            if not body:
                 return None
-            root = ET.fromstring(resp.text)
+            root = ET.fromstring(body)
             taxon = root.find('.//Taxon')
             if taxon is None:
                 return None

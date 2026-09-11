@@ -4,6 +4,7 @@ import time
 import urllib.request
 import sys
 import os
+from pathlib import Path
 try:
     from dotenv import load_dotenv
     load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
@@ -12,6 +13,9 @@ except ImportError:
 import subprocess
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from scp.security.jwt_guard import create_access_token
+# [AUDIT-20260909 S6a] Mọi request HTTP đi qua safe_urlopen — validate scheme,
+# chặn IP nội bộ trừ khi allow_internal (server benchmark chạy trên localhost).
+from scp.security.url_safety import safe_urlopen
 
 import urllib.error
 
@@ -22,8 +26,8 @@ async def run_exam(file_path):
     
     # 1. Pre-flight check
     try:
-        req = urllib.request.Request(f"{BASE_URL}/health", method="GET")
-        with urllib.request.urlopen(req) as response:
+        req = urllib.request.Request(f"{BASE_URL}/health", method="GET")  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=10, allow_internal=True) as response:
             pass
     except Exception as e:
         print("ERROR: SCP Server is not running. Please run `python -m scp` first.")
@@ -36,9 +40,13 @@ async def run_exam(file_path):
     print(f"-> Đã tải {len(lines)} câu hỏi. Đang gọi API server...")
     
     raw_results_file = "raw_results.jsonl"
-    
+
+    # [SEC-S4] Containment: raw results must stay inside the CWD.
+    if not Path(raw_results_file).resolve().is_relative_to(Path.cwd().resolve()):
+        raise SystemExit(f"rejected unsafe results path: {raw_results_file}")
+
     # 3. Gửi câu hỏi và lưu raw response
-    with open(raw_results_file, "w", encoding="utf-8") as out_f:
+    with Path(raw_results_file).open("w", encoding="utf-8") as out_f:
         for i, line in enumerate(lines):
             line = line.strip()
             if not line:
@@ -58,7 +66,7 @@ async def run_exam(file_path):
             
             api_response = {}
             try:
-                with urllib.request.urlopen(req) as response:
+                with safe_urlopen(req, timeout=None, allow_internal=True) as response:
                     api_response = json.loads(response.read().decode('utf-8'))
                     print(f"[Câu {i+1}] {question[:50]}... -> XONG")
             except Exception as e:

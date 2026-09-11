@@ -39,11 +39,15 @@ References:
 """
 from __future__ import annotations
 
+import json
 import logging
 import time
+import urllib.parse
+import urllib.request
 from functools import lru_cache
 
-import requests
+# [AUDIT-20260909 SSRF-S1] safe_urlopen thay mọi raw requests.get.
+from scp.security.url_safety import safe_urlopen
 
 logger = logging.getLogger("scp.wikipedia")
 
@@ -64,6 +68,41 @@ DEFAULT_USER_AGENT = (
 
 # Module-level rate-limiter state (single global — protects Wikipedia from us).
 _last_request_time: float = 0.0
+
+# [AUDIT-20260909 SSRF-S1] lang được nối vào HOST ({lang}.wikipedia.org) —
+# PHẢI fullmatch language-code pattern, nếu không host có thể bị đổi.
+_LANG_CODE_RE = None  # compiled lazily below to keep import light
+
+
+def _lang_code_re():
+    global _LANG_CODE_RE
+    if _LANG_CODE_RE is None:
+        import re
+        _LANG_CODE_RE = re.compile(r"^[a-z]{2,3}(?:[-_][a-z]{2,4})?$")
+    return _LANG_CODE_RE
+
+
+def _validate_lang(lang: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Wikipedia language code — fail-closed."""
+    lang_s = str(lang or "").strip().lower()
+    if not _lang_code_re().fullmatch(lang_s):
+        raise ValueError(f"invalid_wikipedia_lang:{lang_s[:16]!r}")
+    return lang_s
+
+
+def build_wikipedia_summary_url(query: str, lang: str = "en") -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — lang validated (host là
+    literal sau khi format), title được quote(safe='') vào 1 path segment."""
+    lang_v = _validate_lang(lang)
+    quoted = urllib.parse.quote(str(query or ""), safe="")
+    return WIKIPEDIA_REST_BASE.format(lang=lang_v) + quoted
+
+
+def build_wikipedia_api_url(params: dict, lang: str = "en") -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — lang validated, mọi param
+    động được urlencode thành query values. Host cố định {lang}.wikipedia.org."""
+    lang_v = _validate_lang(lang)
+    return WIKIPEDIA_API_BASE.format(lang=lang_v) + "?" + urllib.parse.urlencode(params)
 
 
 def _rate_limit() -> None:
@@ -108,28 +147,26 @@ def fetch_summary(query: str, lang: str = "en",
         return None
     try:
         _rate_limit()
-        url = WIKIPEDIA_REST_BASE.format(lang=lang) + requests.utils.quote(query)
-        resp = requests.get(url, timeout=timeout, headers=_headers())
-        if resp.status_code == 200:
-            data = resp.json()
-            # Wikipedia REST returns type="not_found" for missing pages
-            # (HTTP 200 with a small JSON body) — treat as None.
-            if data.get("type") == "not_found":
-                logger.debug(f"Wikipedia REST not_found for: {query!r}")
-                return None
-            return {
-                "title": data.get("title", ""),
-                "extract": data.get("extract", ""),
-                "url": (data.get("content_urls", {})
-                           .get("desktop", {})
-                           .get("page", "")),
-                "thumbnail": (data.get("thumbnail", {})
-                                 .get("source", "")),
-            }
-        logger.warning(
-            f"Wikipedia REST {resp.status_code} for query={query!r} lang={lang}"
-        )
-        return None
+        # [AUDIT-20260909 SSRF-S1] builder (validate lang + quote title) rồi
+        # fetch qua safe_urlopen thay raw requests.get.
+        url = build_wikipedia_summary_url(query, lang)
+        req = urllib.request.Request(url, headers=_headers())  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        # Wikipedia REST returns type="not_found" for missing pages
+        # (HTTP 200 with a small JSON body) — treat as None.
+        if data.get("type") == "not_found":
+            logger.debug(f"Wikipedia REST not_found for: {query!r}")
+            return None
+        return {
+            "title": data.get("title", ""),
+            "extract": data.get("extract", ""),
+            "url": (data.get("content_urls", {})
+                       .get("desktop", {})
+                       .get("page", "")),
+            "thumbnail": (data.get("thumbnail", {})
+                             .get("source", "")),
+        }
     except Exception as e:
         logger.warning(f"Wikipedia fetch_summary error for {query!r} (lang={lang}): {e}")
         return None
@@ -171,19 +208,17 @@ def search(query: str, lang: str = "en", limit: int = 5,
             "format": "json",
             "origin": "*",  # CORS bypass for action API
         }
-        resp = requests.get(WIKIPEDIA_API_BASE.format(lang=lang),
-                            params=params, timeout=timeout, headers=_headers())
-        if resp.status_code == 200:
-            results = (resp.json()
+        # [AUDIT-20260909 SSRF-S1] builder (validate lang + urlencode) rồi
+        # fetch qua safe_urlopen thay raw requests.get.
+        url = build_wikipedia_api_url(params, lang)
+        req = urllib.request.Request(url, headers=_headers())  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=timeout) as resp:
+            results = (json.loads(resp.read().decode("utf-8", errors="replace"))
                           .get("query", {})
                           .get("search", []))
-            return [{"title": r.get("title", ""),
-                     "snippet": r.get("snippet", "")}
-                    for r in results]
-        logger.warning(
-            f"Wikipedia search {resp.status_code} for query={query!r} lang={lang}"
-        )
-        return []
+        return [{"title": r.get("title", ""),
+                 "snippet": r.get("snippet", "")}
+                for r in results]
     except Exception as e:
         logger.warning(f"Wikipedia search error for {query!r} (lang={lang}): {e}")
         return []
@@ -219,14 +254,12 @@ def fetch_full_extract(title: str, lang: str = "en",
             "format": "json",
             "exchars": "500",
         }
-        resp = requests.get(WIKIPEDIA_API_BASE.format(lang=lang),
-                            params=params, timeout=timeout, headers=_headers())
-        if resp.status_code != 200:
-            logger.warning(
-                f"Wikipedia fetch_full_extract {resp.status_code} for title={title!r}"
-            )
-            return None
-        data = resp.json()
+        # [AUDIT-20260909 SSRF-S1] builder (validate lang + urlencode) rồi
+        # fetch qua safe_urlopen thay raw requests.get.
+        url = build_wikipedia_api_url(params, lang)
+        req = urllib.request.Request(url, headers=_headers())  # noqa: S310 — validated by safe_urlopen
+        with safe_urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
         pages = (data.get("query", {})
                     .get("pages", {}) or {})
         for _pid, page in pages.items():

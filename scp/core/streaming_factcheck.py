@@ -21,6 +21,9 @@ import urllib.request
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 
+# [AUDIT-20260909 SSRF-S1] safe_urlopen thay raw urllib.request.urlopen.
+from scp.security.url_safety import safe_urlopen
+
 logger = logging.getLogger("scp.core.streaming_factcheck")
 
 GOOGLE_FACT_CHECK_API = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
@@ -115,7 +118,9 @@ class StreamingFactChecker:
                 return None  # skip if no key configured
             url = f"{GOOGLE_FACT_CHECK_API}?{params}&key={api_key}"
             req = urllib.request.Request(url, headers={"User-Agent": "SCP-V104/1.0"})  # noqa: S310
-            with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen thay urllib.request.urlopen
+            # — validate scheme + chặn private/loopback IP.
+            with safe_urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read())
                 claims = data.get("claims", [])
                 if claims:

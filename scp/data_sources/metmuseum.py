@@ -8,12 +8,39 @@ rich metadata (no key required) — fills the artwork-lookup gap.
 """
 from __future__ import annotations
 
+import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.metmuseum")
+
+# [AUDIT-20260909 SSRF-S1] Host cố định — literal duy nhất của builder.
+_MET_SEARCH_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search"
+_MET_OBJECT_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects"
+
+
+def build_met_search_url(query: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — query được urlencode thành
+    query value; host cố định collectionapi.metmuseum.org."""
+    return _MET_SEARCH_URL + "?" + urllib.parse.urlencode({
+        "q": str(query or ""),
+        "hasImages": "true",
+    })
+
+
+def build_met_object_url(object_id: int) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — object_id PHẢI coerce được
+    thành int dương; input xấu → ValueError TRƯỚC KHI fetch (fail-closed)."""
+    oid = int(object_id)
+    if oid <= 0:
+        raise ValueError(f"invalid_met_object_id:{oid}")
+    return f"{_MET_OBJECT_URL}/{oid}"
 
 
 class MetMuseumDataSource(IDataSource):
@@ -90,15 +117,12 @@ class MetMuseumDataSource(IDataSource):
             return None
 
     def _search_objects(self, query: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(f"{self.BASE_URL}/search",
-                          params={"q": query, "hasImages": "true"},
-                          timeout=10)
-            if r.status_code != 200:
-                logger.debug(f"[MetMuseum] search returned {r.status_code}")
-                return None
-            data = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen thay
+            # raw httpx.get; non-200 → HTTPError.
+            req = urllib.request.Request(build_met_search_url(query))
+            with safe_urlopen(req, timeout=10) as r:  # noqa: S310 — validated by safe_urlopen
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             object_ids = data.get("objectIDs")
             if not object_ids:
                 return None
@@ -109,12 +133,11 @@ class MetMuseumDataSource(IDataSource):
             return None
 
     def _fetch_object(self, object_id: int, total: int = 1) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(f"{self.BASE_URL}/objects/{object_id}", timeout=10)
-            if r.status_code != 200:
-                return None
-            obj = r.json()
+            # [AUDIT-20260909 SSRF-S1] builder int-coerce + safe_urlopen.
+            req = urllib.request.Request(build_met_object_url(object_id))
+            with safe_urlopen(req, timeout=10) as r:  # noqa: S310 — validated by safe_urlopen
+                obj = json.loads(r.read().decode("utf-8", errors="replace"))
             return {
                 "value": obj.get("title", ""),
                 "source": "metmuseum",

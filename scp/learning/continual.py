@@ -13,21 +13,24 @@ from pathlib import Path
 logger = logging.getLogger("scp.learning.continual")
 
 class ReplayBuffer:
-    def __init__(self, buffer_dir: str = "./learning_buffer"):
-        self.buffer_dir = Path(buffer_dir)
-        self.buffer_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, buffer_dir: str = "./data"):
+        try:
+            from scp.core.real_learning_engine import RealLearningEngine
+            self._engine = RealLearningEngine(scp_db_path=str(Path(buffer_dir) / "v13.db"), data_dir=buffer_dir)
+        except ImportError:
+            self._engine = None
 
     def record_feedback(self, task_id: str, prompt: str, completion: str, rating: int) -> None:
-        """Record human feedback (1-5 rating) for offline RL-HF."""
-        record = {
-            "task_id": task_id,
-            "prompt": prompt,
-            "completion": completion,
-            "rating": rating
-        }
-        file_path = self.buffer_dir / f"{task_id}.json"
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(record, f, ensure_ascii=False)
+        """Record human feedback (redirected to RealLearningEngine)."""
+        if self._engine:
+            # Route through the modern learning engine
+            self._engine.record_insight(
+                domain="general",
+                question=prompt,
+                answer=completion,
+                source=f"feedback-{rating}",
+                trust_tier=1 if rating >= 4 else 3
+            )
         logger.info(f"[continual] Recorded feedback for {task_id}: {rating}/5")
 
 buffer = ReplayBuffer()

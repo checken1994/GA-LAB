@@ -8,12 +8,36 @@ Public search is free without an API key — fills the doctrine/research gap.
 """
 from __future__ import annotations
 
+import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.dtic")
+
+# [AUDIT-20260909 SSRF-S1] Hosts cố định — literal duy nhất của builders.
+_DTIC_SEARCH_URL = "https://apps.dtic.mil/wti/api/search"
+_DTIC_FALLBACK_URL = "https://discover.dtic.mil/results/"
+
+
+def build_dtic_search_url(question: str, page_size: int = 5) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — question được urlencode
+    thành query value; không thể đổi host/path. Host cố định apps.dtic.mil."""
+    return _DTIC_SEARCH_URL + "?" + urllib.parse.urlencode({
+        "q": str(question or ""),
+        "page_size": int(page_size),
+    })
+
+
+def build_dtic_fallback_url(question: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — question được urlencode.
+    Host cố định discover.dtic.mil."""
+    return _DTIC_FALLBACK_URL + "?" + urllib.parse.urlencode({"q": str(question or "")})
 
 
 class DTICDataSource(IDataSource):
@@ -81,17 +105,20 @@ class DTICDataSource(IDataSource):
             return None
 
     def _search(self, question: str) -> dict | None:
-        import httpx
         try:
             headers = {"User-Agent": "SCP-Verifier/1.0 (educational)",
                        "Accept": "application/json"}
-            r = httpx.get(self.SEARCH_URL, params={"q": question, "page_size": 5},
-                          headers=headers, timeout=10)
-            if r.status_code != 200:
-                logger.debug(f"[DTIC] search returned {r.status_code}")
-                # Fall back to DTIC public search page (HTML)
+            # [AUDIT-20260909 SSRF-S1] builder urlencode question rồi fetch
+            # qua safe_urlopen thay raw httpx.get.
+            url = build_dtic_search_url(question, page_size=5)
+            req = urllib.request.Request(url, headers=headers)  # noqa: S310 — validated by safe_urlopen
+            try:
+                with safe_urlopen(req, timeout=10) as r:
+                    data = json.loads(r.read().decode("utf-8", errors="replace"))
+            except urllib.error.HTTPError as he:
+                logger.debug(f"[DTIC] search returned {he.code}")
+                # Fall back to DTIC public search page (HTML) — giữ behavior cũ
                 return self._fallback_search_page(question)
-            data = r.json()
             results = data.get("results") or data.get("items") or []
             if not results:
                 return None
@@ -115,20 +142,21 @@ class DTICDataSource(IDataSource):
 
     def _fallback_search_page(self, question: str) -> dict | None:
         """Fallback: hit DTIC public search HTML page (no JSON API)."""
-        import httpx
         try:
-            url = "https://discover.dtic.mil/results/"
-            r = httpx.get(url, params={"q": question}, timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0 (educational)"})
-            if r.status_code != 200:
-                return None
+            # [AUDIT-20260909 SSRF-S1] builder urlencode + safe_urlopen.
+            url = build_dtic_fallback_url(question)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Verifier/1.0 (educational)"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                body = r.read()
             return {
                 "value": question,
                 "source": "dtic",
                 "metadata": {
-                    "url": r.url,
+                    "url": url,
                     "fallback": True,
-                    "page_size": len(r.text),
+                    "page_size": len(body),
                 },
             }
         except Exception as e:

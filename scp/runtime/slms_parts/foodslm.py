@@ -5,11 +5,46 @@ SLM part — extracted from slms.py (Task 19-A).
 import hashlib
 import logging
 import time
+import urllib.parse
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 S2-SSRF] B310/SSRF gate
+
 logger = logging.getLogger("scp.slms")
+
+# ============================================================
+# [AUDIT-20260909 S2-SSRF] URL builders — pure, testable.
+# TẠI SAO: FoodSLM fetch data từ HOST CỐ ĐỊNH nhưng call-site cũ ghép chuỗi
+# trực tiếp từ input user (dish/cocktail/fruit) vào URL rồi gọi requests.get
+# không qua SSRF gate. Builder chặn/encode input XẤU TRƯỚC khi có bất kỳ
+# fetch nào; host luôn là literal cố định trong builder — caller không thể
+# đổi host. (Được experts/lifestyle.py + slm_impls/lifestyle_slm.py reuse.)
+# ============================================================
+
+
+def build_mealdb_search_url(term: str) -> str:
+    """TheMealDB search URL — term được urlencode thành query value.
+
+    Mọi ký tự đặc biệt (kể cả '../', '?', '&') nằm trọn trong MỘT query
+    value nên không thể đổi host/path."""
+    query = urllib.parse.urlencode({"s": str(term or "")})
+    return f"https://www.themealdb.com/api/json/v1/1/search.php?{query}"
+
+
+def build_cocktaildb_search_url(name: str) -> str:
+    """TheCocktailDB search URL — name được urlencode thành query value."""
+    query = urllib.parse.urlencode({"s": str(name or "")})
+    return f"https://www.thecocktaildb.com/api/json/v1/1/search.php?{query}"
+
+
+def build_fruityvice_url(fruit: str) -> str:
+    """Fruityvice URL — fruit quote(safe='') → '/' và '..' không thể tạo
+    path traversal (luôn nằm trong MỘT path segment đã encode)."""
+    quoted = urllib.parse.quote(str(fruit or ""), safe="")
+    return f"https://www.fruityvice.com/api/fruit/{quoted}"
+
 
 # Token boundary helper (copied from slms.py)
 def _token_boundary_match_slms(key: str, entity_lower: str) -> bool:
@@ -185,7 +220,11 @@ class FoodSLM(BaseSLM):
             dish = m.group(1).strip().rstrip('?').strip()
             # Try MealDB with progressively shorter search terms
             try:
-                import requests
+                import json as _json
+                import urllib.request
+                # [AUDIT-20260909 S2-SSRF] term được urlencode trong
+                # build_mealdb_search_url (host cố định) + fetch qua
+                # safe_urlopen — thay requests.get cũ không có SSRF guard.
                 # [V89 FIX] Try full dish name, then individual words
                 search_terms = [dish]
                 words = dish.split()
@@ -194,13 +233,13 @@ class FoodSLM(BaseSLM):
 
                 meals = []
                 for term in search_terms:
-                    r = requests.get(f"https://www.themealdb.com/api/json/v1/1/search.php?s={term}",
-                                     timeout=5, headers={'User-Agent': 'SCP-V73/1.0'})
-                    if r.status_code == 200:
-                        data = r.json()
-                        meals = data.get("meals") or []
-                        if meals:
-                            break
+                    url = build_mealdb_search_url(term)
+                    req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
+                    with safe_urlopen(req, timeout=5) as resp:
+                        data = _json.loads(resp.read().decode('utf-8'))
+                    meals = data.get("meals") or []
+                    if meals:
+                        break
                 if meals:
                     meal = meals[0]
                     answer = f"{meal.get('strMeal', dish)} — a {meal.get('strCategory', '')} dish from {meal.get('strArea', '')}."
@@ -215,18 +254,21 @@ class FoodSLM(BaseSLM):
         if m and not answer:
             cocktail = m.group(1).strip().rstrip('?').strip()
             try:
-                import requests
-                r = requests.get(f"https://www.thecocktaildb.com/api/json/v1/1/search.php?s={cocktail}",
-                                 timeout=5, headers={'User-Agent': 'SCP-V73/1.0'})
-                if r.status_code == 200:
-                    data = r.json()
-                    drinks = data.get("drinks") or []
-                    if drinks:
-                        d = drinks[0]
-                        answer = f"{d.get('strDrink', cocktail)} — a {d.get('strCategory', '')} served in {d.get('strGlass', '')}."
-                        confidence = 0.5  # [ROOT-FIX] unverified default — sources must explicitly claim confidence
-                        reasoning = f"CocktailDB: {d.get('strDrink', cocktail)}"
-                        evidence = {"value": answer, "source": "cocktaildb"}
+                import json as _json
+                import urllib.request
+                # [AUDIT-20260909 S2-SSRF] cocktail được urlencode trong
+                # build_cocktaildb_search_url (host cố định) + safe_urlopen.
+                url = build_cocktaildb_search_url(cocktail)
+                req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
+                with safe_urlopen(req, timeout=5) as resp:
+                    data = _json.loads(resp.read().decode('utf-8'))
+                drinks = data.get("drinks") or []
+                if drinks:
+                    d = drinks[0]
+                    answer = f"{d.get('strDrink', cocktail)} — a {d.get('strCategory', '')} served in {d.get('strGlass', '')}."
+                    confidence = 0.5  # [ROOT-FIX] unverified default — sources must explicitly claim confidence
+                    reasoning = f"CocktailDB: {d.get('strDrink', cocktail)}"
+                    evidence = {"value": answer, "source": "cocktaildb"}
             except Exception as e:
                 reasoning = f"CocktailDB error: {e}"
 
@@ -235,19 +277,22 @@ class FoodSLM(BaseSLM):
         if m and not answer:
             fruit = m.group(1).strip().rstrip('?').strip().lower()
             try:
-                import requests
-                r = requests.get(f"https://www.fruityvice.com/api/fruit/{fruit}",
-                                 timeout=5, headers={'User-Agent': 'SCP-V73/1.0'})
-                if r.status_code == 200:
-                    data = r.json()
-                    nutr = data.get("nutritions", {})
-                    answer = (f"{data.get('name', fruit)} (family: {data.get('family', '')}). "
-                              f"Nutrition per 100g: calories={nutr.get('calories', '?')}, "
-                              f"sugar={nutr.get('sugar', '?')}g, carbs={nutr.get('carbohydrates', '?')}g, "
-                              f"protein={nutr.get('protein', '?')}g.")
-                    confidence = 0.5  # [ROOT-FIX] unverified default — sources must explicitly claim confidence
-                    reasoning = f"Fruityvice: {data.get('name', fruit)}"
-                    evidence = {"value": answer, "source": "fruityvice"}
+                import json as _json
+                import urllib.request
+                # [AUDIT-20260909 S2-SSRF] fruit được quote(safe='') trong
+                # build_fruityvice_url (chặn path traversal) + safe_urlopen.
+                url = build_fruityvice_url(fruit)
+                req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
+                with safe_urlopen(req, timeout=5) as resp:
+                    data = _json.loads(resp.read().decode('utf-8'))
+                nutr = data.get("nutritions", {})
+                answer = (f"{data.get('name', fruit)} (family: {data.get('family', '')}). "
+                          f"Nutrition per 100g: calories={nutr.get('calories', '?')}, "
+                          f"sugar={nutr.get('sugar', '?')}g, carbs={nutr.get('carbohydrates', '?')}g, "
+                          f"protein={nutr.get('protein', '?')}g.")
+                confidence = 0.5  # [ROOT-FIX] unverified default — sources must explicitly claim confidence
+                reasoning = f"Fruityvice: {data.get('name', fruit)}"
+                evidence = {"value": answer, "source": "fruityvice"}
             except Exception as e:
                 reasoning = f"Fruityvice error: {e}"
 

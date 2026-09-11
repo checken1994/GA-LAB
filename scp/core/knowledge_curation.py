@@ -21,11 +21,12 @@ import os
 import re
 import time
 import urllib.parse
+import urllib.request
 
-import httpx
 from pathlib import Path
 from typing import Any
 
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from scp.core.top_systems_learning import (
     TOPIC_LIBRARY, TokenBucket,
     _extract_concepts,
@@ -52,11 +53,13 @@ def scrape_arxiv(query: str, per_source: int = 3) -> list[dict[str, Any]]:
         + urllib.parse.quote(query)
         + f"&max_results={per_source}&sortBy=relevance"
     )
-    response = httpx.get(
-        url, headers={"User-Agent": "SCP-Curation/1.0"}, timeout=15.0, follow_redirects=True
-    )
-    response.raise_for_status()
-    text = response.content[:500_000].decode("utf-8", errors="replace")
+    # [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get — validate scheme
+    # + chặn private IP; non-200 → HTTPError (tương đương raise_for_status).
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "SCP-Curation/1.0"}
+    )  # noqa: S310 — validated by safe_urlopen
+    with safe_urlopen(req, timeout=15.0) as response:
+        text = response.read(500_000).decode("utf-8", errors="replace")
     # Parse Atom XML minimally
     entries = re.findall(r"<entry>(.*?)</entry>", text, re.DOTALL)
     out = []
@@ -82,11 +85,12 @@ def scrape_hackernews(query: str, per_source: int = 3) -> list[dict[str, Any]]:
         + urllib.parse.quote(query)
         + f"&tags=story&hitsPerPage={per_source}"
     )
-    response = httpx.get(
-        url, headers={"User-Agent": "SCP-Curation/1.0"}, timeout=15.0, follow_redirects=True
-    )
-    response.raise_for_status()
-    data = json.loads(response.content[:200_000].decode("utf-8", errors="replace"))
+    # [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get; non-200 → HTTPError.
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "SCP-Curation/1.0"}
+    )  # noqa: S310 — validated by safe_urlopen
+    with safe_urlopen(req, timeout=15.0) as response:
+        data = json.loads(response.read(200_000).decode("utf-8", errors="replace"))
     out = []
     for hit in data.get("hits", [])[:per_source]:
         points = int(hit.get("points", 0))
@@ -109,11 +113,12 @@ def scrape_stackoverflow(query: str, per_source: int = 3) -> list[dict[str, Any]
         + f"&q={urllib.parse.quote(query)}&site=stackoverflow&pagesize={per_source}"
         + "&filter=withbody"
     )
-    response = httpx.get(
-        url, headers={"User-Agent": "SCP-Curation/1.0"}, timeout=15.0, follow_redirects=True
-    )
-    response.raise_for_status()
-    data = json.loads(response.content[:200_000].decode("utf-8", errors="replace"))
+    # [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get; non-200 → HTTPError.
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "SCP-Curation/1.0"}
+    )  # noqa: S310 — validated by safe_urlopen
+    with safe_urlopen(req, timeout=15.0) as response:
+        data = json.loads(response.read(200_000).decode("utf-8", errors="replace"))
     out = []
     for item in data.get("items", [])[:per_source]:
         score = int(item.get("score", 0))

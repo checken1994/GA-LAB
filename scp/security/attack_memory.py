@@ -475,7 +475,7 @@ class AttackPatternMemory:
                 import os as _os
                 rules_file = self.data_dir / "dynamic_rules.jsonl"
                 tmp_file = rules_file.with_suffix(".jsonl.tmp")
-                with open(tmp_file, "w", encoding="utf-8") as f:
+                with tmp_file.open("w", encoding="utf-8") as f:
                     for r in self.dynamic_rules.values():
                         f.write(json.dumps(r.to_dict(), ensure_ascii=False) + "\n")
                 _os.replace(tmp_file, rules_file)

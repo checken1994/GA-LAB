@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Any
 import time
 
-router = APIRouter(prefix="/v1", tags=["swe-bench-compat"])
+router = APIRouter(prefix="/swe-bench/v1", tags=["swe-bench-compat"])
 
 class ChatCompletionRequest(BaseModel):
     model: str
@@ -29,3 +29,4 @@ async def chat_completions(req: ChatCompletionRequest):
         }],
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     }
+

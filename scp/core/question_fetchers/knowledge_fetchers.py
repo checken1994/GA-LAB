@@ -18,6 +18,7 @@ from scp.core.question_fetchers._common import (
     _http_get_json,
     logger,
 )
+from scp.security.url_safety import validate_url  # [AUDIT-20260909 SSRF-S1]
 
 
 def fetch_wikipedia_random(lang: str = "vi", n: int = 5) -> list[dict]:
@@ -127,6 +128,9 @@ def fetch_arxiv_physics(n: int = 3) -> list[dict]:
     try:
         from defusedxml import ElementTree as ET  # noqa: B314
         url = "https://export.arxiv.org/api/query?search_query=cat:physics*&max_results=100&sortBy=submittedDate&sortOrder=descending"
+        # [AUDIT-20260909 SSRF-S1] validate_url trước _SESSION.get — chặn
+        # scheme lạ + private/loopback IP; fail → ValueError → trả [].
+        validate_url(url)
         resp = _SESSION.get(url, timeout=10, headers={"User-Agent": "SCP-V91/1.0"})
         if resp.status_code != 200:
             return []

@@ -73,9 +73,21 @@ def isolated_gateway_state(tmp_path, monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "send", forbidden_sync)
     monkeypatch.setattr(httpx.AsyncClient, "send", forbidden_async)
-    yield
+    # Windows fix: close any open _store handle BEFORE setting to None.
+    # SQLite WAL mode keeps auxiliary files (.wal/.shm) locked until conn.close().
+    # If we just setattr None without closing, the old handle leaks across tests.
     if zero_cost_runtime._store is not None:
-        zero_cost_runtime._store.close()
+        try:
+            zero_cost_runtime._store.close()
+        except Exception:
+            pass
+    yield
+    # Post-test teardown: close store opened during this test's run.
+    if zero_cost_runtime._store is not None:
+        try:
+            zero_cost_runtime._store.close()
+        except Exception:
+            pass
     assert unexpected_http == [], "Product swallowed an accidental network attempt"
 
 

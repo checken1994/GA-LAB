@@ -180,7 +180,7 @@ def main():
     _output_path = Path(args.output)
     _output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(args.output, "w") as f:
+    with _output_path.open("w") as f:
         json.dump(result, f, indent=2)
     print(f"\n📄 Comparison saved to: {args.output}")
 

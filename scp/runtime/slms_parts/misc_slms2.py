@@ -5,12 +5,60 @@ SLM part — extracted from slms.py (Task 19-A, batch 2).
 import hashlib
 import logging
 import math
+import re
 import time
+import urllib.parse
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 MACH2-BUG3] B310/SSRF: thay mọi raw urlopen
+
 logger = logging.getLogger("scp.slms")
+
+
+# ============================================================
+# [AUDIT-20260909 MACH2-BUG3] URL builders — pure, testable.
+# TẠI SAO: các SLM fetch data từ HOST CỐ ĐỊNH nhưng từng điểm fetch cũ ghép
+# chuỗi trực tiếp từ input user (country_code/city/bible-ref) → SSRF/path
+# traversal debt. Builder chặn/encode input XẤU TRƯỚC khi có bất kỳ fetch nào;
+# host luôn là literal cố định trong builder — caller không thể đổi host.
+# ============================================================
+_HOLIDAY_COUNTRY_CODE_RE = re.compile(r"^[A-Za-z]{2}$")
+
+
+def build_holiday_url(year: int, country_code: str) -> str:
+    """date.nager.at URL — country_code PHẢI là đúng 2 chữ cái ISO alpha-2.
+
+    Raises ValueError trên input xấu (vd '../', 'X', script) TRƯỚC KHI fetch —
+    fail-closed, không bao giờ ghép input chưa validate vào URL.
+    """
+    code = str(country_code or "").strip()
+    if not _HOLIDAY_COUNTRY_CODE_RE.fullmatch(code):
+        raise ValueError(f"invalid_country_code:{code[:32]!r}")
+    return f"https://date.nager.at/api/v3/PublicHolidays/{int(year)}/{code}"
+
+
+def build_city_search_url(city: str) -> str:
+    """Open-Meteo geocoding URL — city được percent-encode via urlencode.
+
+    Host cố định; mọi ký tự đặc biệt (kể cả '../', '?', '&') bị encode thành
+    giá trị query nên không thể đổi host/path.
+    """
+    query = urllib.parse.urlencode({
+        "name": str(city or ""),
+        "count": 1,
+        "language": "en",
+        "format": "json",
+    })
+    return f"https://geocoding-api.open-meteo.com/v1/search?{query}"
+
+
+def build_bible_url(ref: str) -> str:
+    """bible-api.com URL — ref được quote(safe='') → '/' và '..' không thể
+    tạo path traversal (luôn nằm trong MỘT path segment đã encode)."""
+    quoted = urllib.parse.quote(str(ref or ""), safe="")
+    return f"https://bible-api.com/{quoted}?translation=kjv"
 
 
 def _token_boundary_match_slms(key: str, entity_lower: str) -> bool:
@@ -522,15 +570,17 @@ class HolidaySLM(BaseSLM):
                 'switzerland': 'CH', 'austria': 'AT', 'belgium': 'BE',
             }
             country_code = country_codes.get(country.lower(), country.upper())[:2]
+            # [AUDIT-20260909 MACH2-BUG3] build_holiday_url chặn country_code
+            # xấu (regex ^[A-Za-z]{2}$) TRƯỚC khi fetch; fetch qua safe_urlopen.
             # Try current year + previous year
             from datetime import datetime as _dt
             for year in [_dt.now().year, _dt.now().year - 1]:
                 try:
-                    url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code}"
+                    url = build_holiday_url(year, country_code)
                     req = urllib.request.Request(url, headers={
                         'User-Agent': 'SCP-V78-Bot/1.0 (educational research)'
                     })
-                    with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+                    with safe_urlopen(req, timeout=5) as resp:
                         data = _json.loads(resp.read().decode('utf-8'))
                     if isinstance(data, list) and data:
                         import random as _rand
@@ -593,11 +643,12 @@ class AnimalFactsSLM(BaseSLM):
         # "Tell me a fact about cats/dogs."
         if 'fact about cats' in q or 'cat fact' in q:
             try:
+                # [AUDIT-20260909 MACH2-BUG3] host cố định + safe_urlopen
                 req = urllib.request.Request(
                     "https://catfact.ninja/fact",
                     headers={'User-Agent': 'SCP-V78-Bot/1.0'}
                 )
-                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+                with safe_urlopen(req, timeout=5) as resp:
                     data = _json.loads(resp.read().decode('utf-8'))
                 fact = data.get("fact", "")
                 if fact:
@@ -611,11 +662,12 @@ class AnimalFactsSLM(BaseSLM):
         elif 'fact about dogs' in q or 'dog fact' in q:
             try:
                 #  dog-api.kinduff.com returns empty facts — use some-random-api instead
+                # [AUDIT-20260909 MACH2-BUG3] host cố định + safe_urlopen
                 req = urllib.request.Request(
                     "https://some-random-api.com/animal/dog",
                     headers={'User-Agent': 'SCP-V79-Bot/1.0'}
                 )
-                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+                with safe_urlopen(req, timeout=5) as resp:
                     data = _json.loads(resp.read().decode('utf-8'))
                 fact = data.get("fact", "")
                 if fact:
@@ -674,13 +726,16 @@ class CitySLM(BaseSLM):
         if m:
             city = m.group(1).strip().rstrip('?').strip()
             try:
-                import requests
-                # Open-Meteo geocoding returns population for cities
-                r = requests.get(
-                    f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&language=en&format=json",
-                    timeout=5, headers={'User-Agent': 'SCP-V73/1.0'})
-                if r.status_code == 200:
-                    data = r.json()
+                import json as _json
+                import urllib.request
+                # [AUDIT-20260909 MACH2-BUG3] city được urlencode trong
+                # build_city_search_url (host cố định) + fetch qua safe_urlopen
+                # — thay requests.get cũ không có SSRF guard.
+                url = build_city_search_url(city)
+                req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
+                with safe_urlopen(req, timeout=5) as resp:
+                    data = _json.loads(resp.read().decode('utf-8'))
+                if isinstance(data, dict):
                     results = data.get("results") or []
                     if results:
                         c = results[0]
@@ -742,9 +797,11 @@ class ReligionSLM(BaseSLM):
         if m:
             ref = m.group(1).strip().rstrip('?').strip()
             try:
-                url = f"https://bible-api.com/{urllib.parse.quote(ref)}?translation=kjv"
+                # [AUDIT-20260909 MACH2-BUG3] ref được quote(safe='') trong
+                # build_bible_url (chặn path traversal) + fetch qua safe_urlopen.
+                url = build_bible_url(ref)
                 req = urllib.request.Request(url, headers={'User-Agent': 'SCP-V73/1.0'})
-                with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+                with safe_urlopen(req, timeout=10) as resp:
                     data = _json.loads(resp.read().decode('utf-8'))
                 text = (data.get("text") or "").strip()
                 if text:
@@ -796,11 +853,12 @@ class AdviceSLM(BaseSLM):
 
         if 'advice' in q or 'wisdom' in q:
             try:
+                # [AUDIT-20260909 MACH2-BUG3] host cố định + safe_urlopen
                 req = urllib.request.Request(
                     "https://api.adviceslip.com/advice",
                     headers={'User-Agent': 'SCP-V78-Bot/1.0'}
                 )
-                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+                with safe_urlopen(req, timeout=5) as resp:
                     data = _json.loads(resp.read().decode('utf-8'))
                 advice = data.get("slip", {}).get("advice", "")
                 if advice:
@@ -855,11 +913,12 @@ class ChuckNorrisSLM(BaseSLM):
 
         if 'chuck norris' in q:
             try:
+                # [AUDIT-20260909 MACH2-BUG3] host cố định + safe_urlopen
                 req = urllib.request.Request(
                     "https://api.chucknorris.io/jokes/random",
                     headers={'User-Agent': 'SCP-V78-Bot/1.0'}
                 )
-                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 — URL validated by SCP  # noqa: S310
+                with safe_urlopen(req, timeout=5) as resp:
                     data = _json.loads(resp.read().decode('utf-8'))
                 joke = data.get("value", "")
                 if joke:

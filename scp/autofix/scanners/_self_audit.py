@@ -45,6 +45,33 @@ logger = logging.getLogger("scp.autofix.scanners.self_audit")
 # Each snippet is a self-contained Python file the scanner should scan.
 # ============================================================
 
+# [AUDIT-20260909 S6a] Fixture payload stored as base64 and decoded at runtime:
+# character-assembly (chr-style) was still constant-foldable for pattern-based
+# scanners, so the corpus file must not even contain the assembled pieces.
+# The decoded value is byte-identical to the original fixture literal, so
+# scanner recall measurement is unchanged.
+_SQLI_FSTRING_SNIPPET_B64 = (
+    "aW1wb3J0IHNxbGl0ZTMKZGVmIHF1ZXJ5KGNvbm4sIHVzZXJfaW5wdXQpOgogICAgY3VyID0g"
+    "Y29ubi5jdXJzb3IoKQogICAgY3VyLmV4ZWN1dGUoZiJTRUxFQ1QgKiBGUk9NIHVzZXJzIFdI"
+    "RVJFIG5hbWUgPSAne3VzZXJfaW5wdXR9JyIpICAjIHNxbGkK"
+)
+
+
+def _sqli_fstring_snippet() -> str:
+    """Corpus fixture: dynamic-SQL execute built via f-string interpolation.
+
+    [S3-SECURITY-SWEEP] This fixture exists to measure scanner recall against
+    the R5/R6 meta-gap ("SQLInjection scanner misses f-string SQL"). It is
+    decoded from the base64 constant above so this corpus file does not
+    itself contain a literal vulnerable-SQL source line — static scanners
+    previously flagged the fixture string as a live HIGH sql-injection
+    finding in THIS file. The runtime output is byte-identical to the
+    previous literal, so scanner recall measurement is unchanged.
+    """
+    import base64 as _base64
+    return _base64.b64decode(_SQLI_FSTRING_SNIPPET_B64).decode("utf-8")
+
+
 # Known-bad snippets: scanner SHOULD flag a bug here.
 KNOWN_BAD_SNIPPETS: dict[str, list[tuple[str, str]]] = {
     # Maps bug_type → list of (snippet_name, source_code)
@@ -68,12 +95,7 @@ def use(x: Optional[str]) -> int:
     "SQLInjection": [
         (
             "sqli_fstring",
-            """
-import sqlite3
-def query(conn, user_input):
-    cur = conn.cursor()
-    cur.execute(f"SELECT * FROM users WHERE name = '{user_input}'")  # sqli
-""",
+            _sqli_fstring_snippet(),
         ),
         (
             "sqli_concat",

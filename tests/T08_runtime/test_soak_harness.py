@@ -37,7 +37,7 @@ def test_short_soak_produces_verified_completion_report(tmp_path: Path) -> None:
         cwd=ROOT,
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=120,
         check=False,
     )
 

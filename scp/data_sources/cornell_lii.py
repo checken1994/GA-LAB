@@ -10,11 +10,37 @@ Public site is crawl-friendly and exposes a search endpoint (no API key).
 from __future__ import annotations
 
 import logging
+import re
+import urllib.parse
+import urllib.request
 
 from scp.interfaces.data_source import IDataSource
+from scp.security.url_safety import safe_urlopen  # [AUDIT-20260909 SSRF-S1]
 from typing import Optional
 
 logger = logging.getLogger("scp.data_sources.cornell_lii")
+
+# [AUDIT-20260909 SSRF-S1] USC title number PHẢI là digits (ràng buộc chặt
+# hơn regex caller để fail-closed trong builder).
+_USC_TITLE_RE = re.compile(r"^\d{1,3}$")
+
+
+def build_usc_title_url(title_number: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — title number PHẢI fullmatch
+    ^\\d{1,3}$; input xấu → ValueError TRƯỚC KHI fetch. Host cố định
+    www.law.cornell.edu."""
+    num = str(title_number or "").strip()
+    if not _USC_TITLE_RE.fullmatch(num):
+        raise ValueError(f"invalid_usc_title:{num[:16]!r}")
+    return f"https://www.law.cornell.edu/uscode/text/{num}"
+
+
+def build_lii_search_url(question: str) -> str:
+    """[AUDIT-20260909 SSRF-S1] Pure URL builder — question được urlencode
+    thành query value, không thể đổi host/path. Host cố định."""
+    return "https://www.law.cornell.edu/wext/search.html?" + urllib.parse.urlencode(
+        {"q": str(question or "")}
+    )
 
 
 class CornellLIIDataSource(IDataSource):
@@ -84,10 +110,10 @@ class CornellLIIDataSource(IDataSource):
             if "ucc" in q or "uniform commercial code" in q:
                 return self._fetch_url(self.UCC_URL, "Uniform Commercial Code", question)
             # USC title lookup — extract title number if present
-            import re
             m = re.search(r'\busc\s*(\d+)\b', q)
             if m:
-                return self._fetch_url(f"{self.USC_URL}{m.group(1)}",
+                # [AUDIT-20260909 SSRF-S1] builder validate digits-only.
+                return self._fetch_url(build_usc_title_url(m.group(1)),
                                        f"USC Title {m.group(1)}", question)
             # Generic search via LII search endpoint
             return self._search_lii(question)
@@ -96,13 +122,14 @@ class CornellLIIDataSource(IDataSource):
             return None
 
     def _fetch_url(self, url: str, label: str, question: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(url, timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0 (educational)"})
-            if r.status_code != 200:
-                logger.debug(f"[CornellLII] {label} returned {r.status_code}")
-                return None
+            # [AUDIT-20260909 SSRF-S1] safe_urlopen thay httpx.get — validate
+            # scheme + chặn private IP trước khi fetch. Non-200 → HTTPError.
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Verifier/1.0 (educational)"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                body = r.read()
             # Return reference — LII pages are authoritative legal text
             return {
                 "value": label,
@@ -111,7 +138,7 @@ class CornellLIIDataSource(IDataSource):
                     "url": url,
                     "question": question,
                     "verified": True,
-                    "page_size": len(r.text),
+                    "page_size": len(body),
                 },
             }
         except Exception as e:
@@ -119,19 +146,21 @@ class CornellLIIDataSource(IDataSource):
             return None
 
     def _search_lii(self, question: str) -> dict | None:
-        import httpx
         try:
-            r = httpx.get(self.SEARCH_URL, params={"q": question}, timeout=10,
-                          headers={"User-Agent": "SCP-Verifier/1.0 (educational)"})
-            if r.status_code != 200:
-                return None
+            # [AUDIT-20260909 SSRF-S1] builder urlencode question trước khi fetch.
+            url = build_lii_search_url(question)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "SCP-Verifier/1.0 (educational)"}
+            )  # noqa: S310 — validated by safe_urlopen
+            with safe_urlopen(req, timeout=10) as r:
+                body = r.read()
             return {
                 "value": question,
                 "source": "cornell_lii",
                 "metadata": {
-                    "url": r.url,
+                    "url": url,
                     "search_performed": True,
-                    "page_size": len(r.text),
+                    "page_size": len(body),
                 },
             }
         except Exception as e:

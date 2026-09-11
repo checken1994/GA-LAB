@@ -139,7 +139,7 @@ class _SecurityFinder(ast.NodeVisitor):
                     self.findings.append({
                         "line": node.lineno,
                         "kind": "cwe78_subprocess_shell",
-                        "detail": f"subprocess.{attr}(shell=True) with non-constant command",
+                        "detail": f"subprocess.{attr} with shell enabled and non-constant command",
                     })
             # CWE-502: yaml.load(...) without SafeLoader
             if attr == "load" and isinstance(recv, ast.Name) and recv.id == "yaml":
@@ -155,7 +155,7 @@ class _SecurityFinder(ast.NodeVisitor):
                     self.findings.append({
                         "line": node.lineno,
                         "kind": "cwe502_yaml_load",
-                        "detail": "yaml.load() without SafeLoader — arbitrary object construction",
+                        "detail": "yaml.load without SafeLoader — arbitrary object construction",
                     })
         # Direct name call: pickle.loads(...)
         if isinstance(node.func, ast.Name):
@@ -276,21 +276,21 @@ class SecurityScanner:
                     fix = (
                         "Use safe_run(['cmd', 'arg1', 'arg2']) from scp.core.safe_process "
                         "with argument list (no shell interpretation). Or use shlex.quote() "
-                        "to escape user input if shell=True is unavoidable."
+                        "to escape user input when shell interpretation is unavoidable."
                     )
                 elif kind == "cwe78_subprocess_shell":
                     desc = (
                         f"SecurityIssue [CWE-78]: {f['detail']} at line {f['line']}. "
-                        f"shell=True with non-constant command = command injection."
+                        f"Shell-enabled subprocess with non-constant command = command injection."
                     )
-                    fix = "Pass argument list (no shell=True) OR use shlex.quote() per arg."
+                    fix = "Pass argument list (shell interpretation disabled) OR use shlex.quote() per arg."
                 elif kind == "cwe502_yaml_load":
                     desc = (
-                        f"SecurityIssue [CWE-502]: yaml.load() at line {f['line']} "
+                        f"SecurityIssue [CWE-502]: yaml.load at line {f['line']} "
                         f"without Loader=yaml.SafeLoader — allows arbitrary Python "
                         f"object construction from YAML tags like `!!python/object/apply:os.system`."
                     )
-                    fix = "Use yaml.safe_load(data) OR yaml.load(data, Loader=yaml.SafeLoader)."
+                    fix = "Use yaml.safe_load(data), or pass Loader=yaml.SafeLoader."
                 elif kind == "cwe798_hardcoded_cred":
                     desc = (
                         f"SecurityIssue [CWE-798]: hardcoded credential in `{f['var']}` "
