@@ -26,7 +26,7 @@
 | Mạch | Tên | Suite chính | D1 (exit + tóm tắt) | Runtime probe (đã/chưa) | Closure record | Trạng thái | Bằng chứng |
 |---|---|---|---|---|---|---|---|
 | M1 | Boot & Background | `tests/T01_boot/` | exit 0 — 35 passed (7.78s, lần chạy re-pin) | **đã** (`GET /health` + `/readiness` + container log) | `M01-closure.json` (sha_pin `7650753…`) | **CLOSED_WITH_KNOWN_GAP** (D4 = EVIDENCE_GAP) | `M01-evidence/D1-T01-pytest.txt`, `M01-evidence/D2-docker.txt` |
-| M2 | Ask & Chat | `tests/T02_contract/test_flow_02_ask_chat_scp_standard.py` | exit 1 — 3 failed, 30 passed, 2 warnings (219.45s) | chưa | — | **D1_FAIL** | `INVENTORY/M2.txt` |
+| M2 | Ask & Chat | `tests/T02_contract/test_flow_02_ask_chat_scp_standard.py` | exit 0 — **34 passed** (21.33s, chạy lại tại pin `1f00d00…`, `M02-evidence/D1-T02-pytest.txt`; inventory cũ `INVENTORY/M2.txt` là 3F/30P **trước** khi fix MACH2 + contract 1a — đã lỗi thời) | **đã** (rebuild + force-recreate với `SCP_GIT_SHA=1f00d00…`: /health 200, /readiness ready, `service_identity.commit` == pin; /ask missing-context → FAIL/withheld/KILL fail-closed; /ask context-backed → PASS/UPHOLD + task COMPLETED và WS /chat → frame `verified` trên instance standard **tạm** :8001 cùng image, đã tắt) | `M02-closure.json` (sha_pin `1f00d00…`) | **CLOSED_WITH_KNOWN_GAP** (D3/D4/D5/D6/D7 = PASS_WITH_LIMITS — đọc known_gaps: chat route không đăng ký trên profile=core; PASS/verified chỉ chứng minh với answer source fixture local; D5 chưa có artifact review trong repo) | `M02-evidence/D1-T02-pytest.txt`, `D2-docker.txt`, `D3-*.json/.txt`, `D6-*.txt`, `D7-todo-scan.txt` |
 | M3 | OpenAI-compat | `tests/T02_contract/test_flow_03_openai_compat_scp_standard.py` | exit 1 — 7 failed, 21 passed (4.16s) | chưa | — | **D1_FAIL** | `INVENTORY/M3.txt` |
 | M4 | Control & Hands | `tests/T03_capability/test_flow_04_control_hands_scp_standard.py` (+ `tests/T03_capability/`) | exit 1 — 7 failed, 50 passed (17.00s) | chưa | — | **D1_FAIL** | `INVENTORY/M4.txt` |
 | M5 | Agent/Call | `tests/T03_capability/test_flow_05_agent_call_scp_standard.py` | exit 0 — 35 passed (3.29s) | chưa | — | **D1_PASS__NOT_CLOSED** | `INVENTORY/M5.txt` |
@@ -40,7 +40,7 @@
 | M13 | Data sources & Learning | `tests/T03_capability/test_flow_13_free_api_learning_scp_standard.py` | exit 0 — 27 passed (3.37s) | chưa | — | **D1_PASS__NOT_CLOSED** | `INVENTORY/M13.txt` |
 | M14 | v106 Audit/Self-model | `tests/T03_capability/test_flow_17_self_model_capability_scp_standard.py` + `tests/T11_release/` | exit 0 — 1 passed (2.69s) **và** exit 0 — 69 passed (2.49s) | chưa | — | **D1_PASS__NOT_CLOSED** | `INVENTORY/M14a.txt`, `INVENTORY/M14b.txt` |
 
-Tổng hợp theo exit code: **8 mạch xanh D1** (M1, M5, M7, M8, M9, M11, M13, M14) / **6 mạch đỏ D1** (M2, M3, M4, M6, M10, M12). Chỉ **1/14 mạch có closure record** (M1) — và chính M1 mang `EVIDENCE_GAP` ở D4.
+Tổng hợp theo exit code (inventory lập sổ 2026-09-10): **8 mạch xanh D1** (M1, M5, M7, M8, M9, M11, M13, M14) / **6 mạch đỏ D1** (M2, M3, M4, M6, M10, M12). **Cập nhật 2026-09-11:** M2 đã chạy lại tại pin `1f00d00…` sau chuỗi fix MACH2 + contract 1a → **34/34 exit 0** và có closure record → **CLOSED_WITH_KNOWN_GAP** (`M02-closure.json`). Hiện **2/14 mạch có closure record** (M1, M2) — cả hai đều mang gap đã ghi rõ.
 
 **Suite xanh ≠ mạch đóng; phải có D0–D8.**
 
@@ -51,6 +51,7 @@ Tổng hợp theo exit code: **8 mạch xanh D1** (M1, M5, M7, M8, M9, M11, M13,
 Danh sách test FAILED trích nguyên từ `INVENTORY/*.txt`:
 
 **M2 — Ask & Chat (3 failed)** — `INVENTORY/M2.txt`
+> **UPDATE 2026-09-11 (đã xử lý):** 3 test đỏ này thuộc contract cũ; owner phê duyệt contract 1a (verified-frame), Agent T sửa file test theo hướng TĂNG strictness (thêm assert `governance==KILL`, precondition provider isolation, pin exact `provider_label`, bỏ legacy frame type `answer`); root cause thật là lỗ hổng isolation làm lộ OPENROUTER key slot 4-10 vào pytest (cloud round-trip). Suite chạy lại tại pin `1f00d00…`: **34/34 exit 0** (`M02-evidence/D1-T02-pytest.txt`). M2 đã có closure record `M02-closure.json` → **CLOSED_WITH_KNOWN_GAP**. Số 3 failed dưới đây là trích nguyên văn inventory CŨ (trước fix), giữ lại để audit lịch sử.
 - `test_flow_02_ask_chat_scp_standard.py::TestFlow02AskEndpoint::test_ask_endpoint_llm_gateway_fallback_chain`
 - `test_flow_02_ask_chat_scp_standard.py::TestFlow02WebSocketChat::test_ws_chat_message_exchange_fail_closed_without_llm`
 - `test_flow_02_ask_chat_scp_standard.py::TestFlow02WebSocketChat::test_ws_chat_rate_limit_exceeded_closes_1008`
