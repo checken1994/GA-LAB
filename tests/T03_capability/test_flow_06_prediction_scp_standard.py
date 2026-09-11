@@ -281,6 +281,33 @@ class TestFlow06Prediction:
         assert body["total"] >= 1
         assert pred_id in [p["id"] for p in body["predictions"]]
 
+    def test_save_prediction_persists_entity_column(self):
+        """[M6-FIX RC-6] save_prediction persists the `entity` parameter into
+        the predictions table.
+
+        Regression pin: the parameter was accepted but the INSERT omitted the
+        entity column entirely — silent data loss on every prediction row
+        (fixed in 75e994f: entity added to the INSERT + idempotent migration
+        for pre-existing tables). Read back through the real DB.
+        """
+        entity_marker = f"m6-entity-pin-{uuid.uuid4().hex[:8]}"
+        predictor = Predictor()
+        pred_id = predictor.save_prediction(
+            question=f"M6 entity column pin {uuid.uuid4().hex}?",
+            ai_answer="so tieu hanh tinh = 42",
+            domain="astronomy",
+            check_date=(datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"),
+            source=f"{MARKER_PREFIX}entity-pin-{uuid.uuid4().hex}",
+            entity=entity_marker,
+            current_value=40,
+            confidence=0.5,
+        )
+        row = db_query_one("SELECT entity FROM predictions WHERE id=?", (pred_id,))
+        assert row is not None, f"prediction row {pred_id} not found"
+        assert row["entity"] == entity_marker, (
+            f"entity column lost on write (got {row['entity']!r}) — RC-6 regression"
+        )
+
     def test_prediction_verify_fail_closed_without_real_data(self, monkeypatch, m6_engine):
         """POST /verify with a due prediction but NO reachable reality source
         (egress deny) must verify nothing and leave the row pending —
