@@ -16,7 +16,6 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 from fastapi import FastAPI, Request
@@ -29,6 +28,14 @@ from scp.hands.hands_executor import HandsExecutor
 from scp.hands.planner import HandsPlanner
 from scp.hands.task_kernel_bridge import TaskKernelHandsBridge
 from scp.hands.goal_parser import GoalParser
+
+# [M4 FIX 2026-09-11] Closure root-cause summary for the 7 ledger failures
+# (reports/circuit-closures/INVENTORY/M4.txt). All six rewritten tests below
+# were HARNESS_BROKEN (no PRODUCT_FAIL among them); the one product fix of the
+# circuit is the fail-closed ordering in scp/hands/task_kernel_bridge.py
+# (PermissionError before registry resolution / kernel mutation, FA-05), which
+# test_hands_executor_rejects_missing_token_fail_closed pins. Mock helpers were
+# removed from this module: the suite is now mock-free end-to-end.
 
 
 class TestFlow04ControlHands:
@@ -116,29 +123,41 @@ class TestFlow04ControlHands:
         )
         assert response.status_code == 200
 
-    def test_pc_controller_execute_requires_token_and_capability(self, app_with_pc_token, pc_token):
+    def test_pc_controller_execute_requires_token_and_capability(self, app_with_pc_token, pc_token, monkeypatch, tmp_path):
         """
         [PC-5] POST /v3/pc/execute requires token AND capability token.
+
+        [M4 FIX 2026-09-11] HARNESS_BROKEN root cause: the previous version
+        built the CapabilityAuthority over an EMPTY state file created by
+        NamedTemporaryFile(delete=False). The product deliberately classifies a
+        zero-byte state file as state_corrupt and fails closed (revoked), so
+        authority.issue() raised CapabilityRevokedError before any request was
+        sent. A fresh authority is a NON-EXISTENT state path (see
+        CapabilityAuthority._load). The fixture now also swaps the route
+        singleton for an isolated PCController (tmp workspace + tmp audit +
+        no leftover KILL_SWITCH in repo data/), which lets this test pin the
+        real read-only execution result instead of an opaque HTTP 200.
+        Strictness INCREASED: body must report success, returnCode 0 and the
+        issued token_id; the 403 leg must carry the CapabilityRequiredError
+        contract.
         """
-        from scp.security.capability_epoch import CapabilityAuthority
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
-            cap_state = Path(f.name)
-
-        authority = CapabilityAuthority(cap_state)
-        pc_controller_routes._controller.capability_authority = authority
+        workspace = tmp_path / "workspace"
+        workspace.mkdir(parents=True, exist_ok=True)
+        authority = CapabilityAuthority(tmp_path / "capability_state.json")
+        fresh_controller = PCController(working_dir=workspace, capability_authority=authority)
+        monkeypatch.setattr(pc_controller_routes, "_controller", fresh_controller)
         execute_token = authority.issue("pc.execute")
 
-        # Without capability token → 403
+        # Without capability token → 403 (PEP rejects before policy evaluation)
         response = app_with_pc_token.post(
             "/v3/pc/execute",
             json={"command": "whoami", "capabilityLevel": 0, "approved": False},
             headers={"X-SCP-PC-Token": pc_token}
         )
         assert response.status_code == 403
+        assert "CapabilityRequiredError" in response.json()["detail"]
 
-        # With capability token → 200
+        # With capability token → 200 and the read-only command really ran
         response = app_with_pc_token.post(
             "/v3/pc/execute",
             json={"command": "whoami", "capabilityLevel": 0, "approved": False},
@@ -148,6 +167,11 @@ class TestFlow04ControlHands:
             }
         )
         assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") is True
+        assert data.get("returnCode") == 0
+        assert data.get("tokenId") == execute_token.token_id
+        assert data.get("epoch") == execute_token.epoch
 
     def test_pc_controller_kill_requires_token(self, app_with_pc_token, pc_token):
         """
@@ -163,32 +187,41 @@ class TestFlow04ControlHands:
         )
         assert response.status_code == 200
 
-    def test_pc_controller_kill_clear_requires_capability_token(self, app_with_pc_token, pc_token):
+    def test_pc_controller_kill_clear_requires_capability_token(self, app_with_pc_token, pc_token, monkeypatch, tmp_path):
         """
         [PC-7] POST /v3/pc/kill/clear requires capability token for pc.clear_kill_switch.
+
+        [M4 FIX 2026-09-11] HARNESS_BROKEN root cause: same empty-state-file
+        defect as [PC-5] — CapabilityAuthority over a zero-byte file is
+        deliberately fail-closed (state_corrupt → revoked), so issue() raised
+        CapabilityRevokedError. Fixed with a fresh authority (non-existent
+        state path) plus an isolated route controller so the kill-switch state
+        lives in tmp, not in the repository data/ directory. Strictness
+        INCREASED: the engaged state is observed on the controller itself and
+        the successful clear must report killSwitch=False in the body.
         """
-        from scp.security.capability_epoch import CapabilityAuthority
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
-            cap_state = Path(f.name)
-
-        authority = CapabilityAuthority(cap_state)
-        pc_controller_routes._controller.capability_authority = authority
+        workspace = tmp_path / "workspace"
+        workspace.mkdir(parents=True, exist_ok=True)
+        authority = CapabilityAuthority(tmp_path / "capability_state.json")
+        fresh_controller = PCController(working_dir=workspace, capability_authority=authority)
+        monkeypatch.setattr(pc_controller_routes, "_controller", fresh_controller)
         clear_token = authority.issue("pc.clear_kill_switch")
 
         # Engage kill switch first
-        app_with_pc_token.post("/v3/pc/kill", json={"reason": "test"}, headers={"X-SCP-PC-Token": pc_token})
+        engage = app_with_pc_token.post("/v3/pc/kill", json={"reason": "test"}, headers={"X-SCP-PC-Token": pc_token})
+        assert engage.status_code == 200
+        assert fresh_controller.kill_switch_engaged() is True
 
-        # Clear without capability token → 403
+        # Clear without capability token → 403 (fail-closed PEP)
         response = app_with_pc_token.post(
             "/v3/pc/kill/clear",
             json={"approved": True},
             headers={"X-SCP-PC-Token": pc_token}
         )
         assert response.status_code == 403
+        assert fresh_controller.kill_switch_engaged() is True
 
-        # Clear with capability token → 200
+        # Clear with capability token → 200 and kill switch really cleared
         response = app_with_pc_token.post(
             "/v3/pc/kill/clear",
             json={"approved": True},
@@ -198,6 +231,8 @@ class TestFlow04ControlHands:
             }
         )
         assert response.status_code == 200
+        assert response.json().get("killSwitch") is False
+        assert fresh_controller.kill_switch_engaged() is False
 
     # =========================================================================
     # 2. XFF BYPASS PROBE — Current Token-Only Behavior
@@ -369,16 +404,31 @@ class TestFlow04ControlHands:
     def test_control_capability_status_requires_admin(self):
         """
         [CTRL-1] GET /v105/capability/status requires admin auth (verify_admin).
+
+        [M4 FIX 2026-09-11] HARNESS_BROKEN root cause: the test referenced a
+        bare name `app` that was never defined/imported in this module, so it
+        failed with NameError before exercising any product code. The harness
+        now builds the same minimal FastAPI app used by every other route test
+        in this file and mounts the real control_routes router. The 401/403
+        assertion range is unchanged.
         """
-        with TestClient(app) as client:
+        admin_app = FastAPI()
+        admin_app.include_router(control_routes.router)
+        with TestClient(admin_app) as client:
             response = client.get("/v105/capability/status")
             assert response.status_code in [401, 403]
 
     def test_control_capability_escalate_requires_admin(self):
         """
         [CTRL-2] POST /v105/capability/escalate requires admin auth.
+
+        [M4 FIX 2026-09-11] Same undefined-`app` NameError root cause as
+        [CTRL-1]; fixed by mounting the real control_routes router on a local
+        app. The 401/403 assertion range is unchanged.
         """
-        with TestClient(app) as client:
+        admin_app = FastAPI()
+        admin_app.include_router(control_routes.router)
+        with TestClient(admin_app) as client:
             response = client.post("/v105/capability/escalate", json={})
             assert response.status_code in [401, 403]
 
@@ -472,23 +522,42 @@ class TestFlow04ControlHands:
 
     def test_pc_controller_write_file_succeeds_with_valid_token(self, pc_controller_with_authority):
         """
-        [PEP-7] PCController.write_file() with valid token writes content and creates backup.
+        [PEP-7] PCController.write_file() with valid token writes content and
+        creates a backup of the PRIOR content on overwrite.
+
+        [M4 FIX 2026-09-11] HARNESS_BROKEN root cause: the previous assertion
+        expected a *.bak backup after writing a BRAND-NEW file, but the
+        product contract (pc_controller.write_file) only snapshots PRIOR
+        content when the target already exists — a fresh file has nothing to
+        back up and correctly returns backupId=None. The test now pins the
+        real two-phase contract: create (no backup) then update (backup of v1
+        content exists and is byte-identical). Strictness INCREASED.
         """
         controller, authority, workspace = pc_controller_with_authority
         target = workspace / "test_write.txt"
         token = authority.issue("pc.write_file")
-        content = "test content written"
 
+        created = asyncio.run(
+            controller.write_file(str(target), "v1", capability_token=token, capability_level=3, approved=True)
+        )
+        assert created.get("success") is True
+        assert created.get("backupId") is None
+        assert target.read_text(encoding="utf-8") == "v1"
+
+        content = "test content written"
         result = asyncio.run(
             controller.write_file(str(target), content, capability_token=token, capability_level=3, approved=True)
         )
 
         assert result.get("success") is True
         assert target.read_text() == content
-        # Backup should exist
-        backup_dir = controller.backup_dir
-        backups = list(backup_dir.glob("*.bak"))
-        assert len(backups) >= 1
+        # Backup of the prior content must exist and hold the previous value
+        backup_id = result.get("backupId")
+        assert backup_id
+        backup_path = controller.backup_dir / f"{backup_id}.bak"
+        assert backup_path.read_text(encoding="utf-8") == "v1"
+        backups = list(controller.backup_dir.glob("*.bak"))
+        assert len(backups) == 1
 
     def test_pc_controller_read_file_succeeds_with_valid_token(self, pc_controller_with_authority):
         """
@@ -531,38 +600,66 @@ class TestFlow04ControlHands:
     # 7. HANDS EXECUTOR — Capability Token Forwarding
     # =========================================================================
 
-    def test_hands_executor_forwards_token_to_controller(self, pc_controller_with_authority):
+    def test_hands_executor_forwards_token_to_controller(self, pc_controller_with_authority, tmp_path):
         """
-        [HANDS-EXEC-1] HandsExecutor forwards capability token to PCController.
+        [HANDS-EXEC-1] TaskKernelHandsBridge forwards the capability token to
+        the PCController PEP.
+
+        [M4 FIX 2026-09-11] HARNESS_BROKEN root causes (two layers):
+        (1) the test called bridge.execute("pc.execute", ...) but "pc.execute"
+        is deliberately NOT in the Hands ActionRegistry allowlist — the Hands
+        lane never exposes raw command execution, so registry.require raised
+        KeyError before any dispatch;
+        (2) it patched the fixture controller while HandsExecutor() silently
+        constructed its OWN controller bound to the repository data/hands
+        authority (state: revoked, epoch 57), so the patch could never
+        intercept the real dispatch path.
+        The rewrite is NO-MOCK and strictly stronger: a real signed token with
+        the Hands scope ("hands:pc.write_file") flows through the real kernel
+        path (task → lease → idempotency → checkpoint → executor → controller
+        PEP → filesystem). The controller only echoes token_id after its PEP
+        verified THAT exact token, and the kernel must reach COMPLETED.
         """
-        controller, authority, _ = pc_controller_with_authority
-        hands = HandsExecutor()
+        controller, authority, workspace = pc_controller_with_authority
+        hands = HandsExecutor(
+            controller=controller,
+            capability_authority=authority,
+            data_dir=tmp_path / "hands",
+        )
         bridge = TaskKernelHandsBridge(hands)
 
-        token = authority.issue("pc.execute")
+        token = authority.issue("hands:pc.write_file")
+        target = workspace / "forwarded.txt"
 
-        # Mock controller.execute to capture token
-        with patch.object(controller, "execute", new_callable=AsyncMock) as mock_execute:
-            mock_execute.return_value = {"success": True, "returnCode": 0}
+        result = asyncio.run(bridge.execute(
+            "pc.write_file",
+            {"path": str(target), "content": "token forwarded"},
+            capability_level=3,
+            approved=True,
+            dry_run=False,
+            capability_token=token,
+        ))
 
-            asyncio.run(bridge.execute(
-                "pc.execute",
-                {"command": "whoami"},
-                capability_level=0,
-                approved=False,
-                dry_run=False,
-                capability_token=token
-            ))
-
-            # Verify token was passed
-            mock_execute.assert_called_once()
-            call_kwargs = mock_execute.call_args.kwargs
-            assert "capability_token" in call_kwargs
-            assert call_kwargs["capability_token"] == token
+        assert result.get("success") is True
+        assert result.get("tokenId") == token.token_id
+        assert result.get("capabilityEpoch") == token.epoch
+        assert target.read_text(encoding="utf-8") == "token forwarded"
+        assert result.get("kernel", {}).get("state") == "COMPLETED"
 
     def test_hands_executor_rejects_missing_token_fail_closed(self, pc_controller_with_authority):
         """
-        [HANDS-EXEC-2] HandsExecutor rejects missing token fail-closed.
+        [HANDS-EXEC-2] HandsExecutor (kernel bridge) rejects a missing token
+        fail-closed.
+
+        [M4 FIX 2026-09-11] PRODUCT fix (inherited from attempt 2, reviewed and
+        kept): TaskKernelHandsBridge.execute raised the registry's KeyError for
+        an unknown action BEFORE checking the capability token, and for a known
+        mutating action it created kernel tasks/leases/checkpoints BEFORE the
+        executor PEP rejected the missing token. The fix raises PermissionError
+        with the CapabilityRequiredError contract BEFORE action resolution and
+        BEFORE any kernel state mutation (FA-05 fail-closed ordering). This
+        test pins that ordering: PermissionError (not KeyError, not a structured
+        result) must escape the bridge call.
         """
         controller, _, _ = pc_controller_with_authority
         hands = HandsExecutor()
@@ -579,51 +676,71 @@ class TestFlow04ControlHands:
             ))
 
         assert "CapabilityRequiredError" in str(exc_info.value)
+        assert "FA-05" in str(exc_info.value)
 
     # =========================================================================
     # 8. PLANNER — Capability Token Preservation
     # =========================================================================
 
-    def test_planner_preserves_capability_token_in_steps(self, pc_controller_with_authority):
+    def test_planner_preserves_capability_token_in_steps(self, pc_controller_with_authority, tmp_path):
         """
-        [PLANNER-1] Planner preserves capability token in step execution.
+        [PLANNER-1] Planner preserves the capability token in step execution.
+
+        [M4 FIX 2026-09-11] HARNESS_WEAK/HARNESS_BROKEN (assertion mơ hồ, FA-01)
+        hai lớp: (1) assertion cũ `success is True or requiresRecovery is not
+        None` luôn thoả nhánh "or" khi mọi step bị chặn; (2) token được inject
+        vào BẢN COPY public trả về bởi create_plan, trong khi runner đọc plan từ
+        event journal — token không bao giờ tới được runner. Đúng contract
+        product: capability token là PHẦN CỦA STEP INPUT tại create_plan (xem
+        Planner._validate_step), và journal là nguồn sự thật của run. Rewrite
+        pin golden path thật: token Hands-scoped nhúng trong step input, hai
+        write thật, plan COMPLETED, cả hai step VERIFIED. No mock, strictness
+        TĂNG.
         """
-        controller, authority, _ = pc_controller_with_authority
-        hands = HandsExecutor()
+        controller, authority, workspace = pc_controller_with_authority
+        hands = HandsExecutor(
+            controller=controller,
+            capability_authority=authority,
+            data_dir=tmp_path / "hands",
+        )
         bridge = TaskKernelHandsBridge(hands)
         planner = HandsPlanner(bridge)
 
-        # Create plan with steps that have capability tokens
+        # Capability tokens are part of the plan step input (journaled contract)
+        token_one = authority.issue("hands:pc.write_file")
+        token_two = authority.issue("hands:pc.write_file")
         plan = planner.create_plan(
             goal="Write two files",
             steps=[
                 {
                     "action": "pc.write_file",
-                    "params": {"path": "step1.txt", "content": "step 1"},
+                    "params": {"path": str(workspace / "step1.txt"), "content": "step 1"},
                     "capabilityLevel": 3,
-                    "approved": True
+                    "approved": True,
+                    "capabilityToken": token_one.to_dict(),
                 },
                 {
                     "action": "pc.write_file",
-                    "params": {"path": "step2.txt", "content": "step 2"},
+                    "params": {"path": str(workspace / "step2.txt"), "content": "step 2"},
                     "capabilityLevel": 3,
-                    "approved": True
+                    "approved": True,
+                    "capabilityToken": token_two.to_dict(),
                 }
             ],
             metadata={}
         )
 
-        plan_id = plan["planId"]
-
-        # Issue tokens for each step
-        for step in plan["steps"]:
-            step["capabilityToken"] = authority.issue("pc.write_file").to_dict()
-
         # Run plan
-        result = asyncio.run(planner.run_plan(plan_id, capability_level=3, approved=True))
+        result = asyncio.run(planner.run_plan(plan["planId"], capability_level=3, approved=True))
 
-        # Should succeed
-        assert result.get("success") is True or result.get("requiresRecovery") is not None
+        # Pin the real verified golden path — no vacuous "or" escape
+        assert result.get("success") is True
+        final_plan = result["plan"]
+        assert final_plan.get("state") == "COMPLETED"
+        assert final_plan.get("completedStepCount") == 2
+        assert all(step.get("state") == "VERIFIED" for step in final_plan.get("steps", []))
+        assert (workspace / "step1.txt").read_text(encoding="utf-8") == "step 1"
+        assert (workspace / "step2.txt").read_text(encoding="utf-8") == "step 2"
 
 
 class TestFlow04ControlHandsCausalCoverage:

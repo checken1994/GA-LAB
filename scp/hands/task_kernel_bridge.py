@@ -298,6 +298,16 @@ class TaskKernelHandsBridge:
     ) -> dict[str, Any]:
         token = parse_capability_token(capability_token)
         params = params or {}
+        if token is None:
+            # [M4 FIX 2026-09-11] Fail-closed ordering: an unauthorized Hands
+            # request is rejected BEFORE action resolution and BEFORE any
+            # TaskKernel state mutation (task/lease/idempotency/checkpoint).
+            # Mirrors the executor FA-05 contract and the PCController PEP:
+            # a missing capability token is a PermissionError, never a KeyError
+            # from the registry and never a kernel side effect.
+            raise PermissionError(
+                "CapabilityRequiredError: Hands action requires an authorized capability token (FA-05)"
+            )
         definition = self.executor.registry.require(action)
         if not definition.mutates_state or dry_run:
             return await self.executor.execute(
