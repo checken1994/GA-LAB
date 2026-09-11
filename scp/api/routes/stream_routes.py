@@ -77,19 +77,33 @@ async def ask_stream(req: StreamAskRequest):
                 judge.judge, req.question, req.ai_answer, cycle_count=0
             )
 
-            yield f"data: {json.dumps({'step': 'judge', 'status': 'done', 'verdict': verdict.verdict, 'confidence': verdict.confidence, 'domain': verdict.domain, 'reasoning': verdict.reasoning[:200] if verdict.reasoning else ''})}\n\n"
+            # [M10-FIX / AUDIT-20260909] RealityJudge.judge() returns a plain
+            # dict (scp/runtime/judge.py: keys verdict/confidence/reasoning/
+            # final_answer/evidence/...). This route previously read
+            # `verdict.verdict` etc. as ATTRIBUTES -> AttributeError on every
+            # request -> the stream always ended in `step: error` and the
+            # `judge done` + `final` frames were never emitted. Read the real
+            # dict contract; `domain` comes from the classify step (the judge
+            # result carries no domain key). Any contract drift now fails
+            # loudly through the existing step:error branch, not silently.
+            reasoning = verdict.get("reasoning") or ""
+            evidence = verdict.get("evidence")
+            if not isinstance(evidence, dict):
+                evidence = {}
+
+            yield f"data: {json.dumps({'step': 'judge', 'status': 'done', 'verdict': verdict.get('verdict'), 'confidence': verdict.get('confidence'), 'domain': classification.domain, 'reasoning': reasoning[:200]})}\n\n"
 
             # Final
             result = {
                 "step": "final",
                 "status": "complete",
                 "question": req.question,
-                "verdict": verdict.verdict,
-                "confidence": verdict.confidence,
-                "domain": verdict.domain,
-                "final_answer": verdict.final_answer,
-                "reasoning": verdict.reasoning,
-                "evidence": verdict.evidence if hasattr(verdict, 'evidence') else {},
+                "verdict": verdict.get("verdict"),
+                "confidence": verdict.get("confidence"),
+                "domain": classification.domain,
+                "final_answer": verdict.get("final_answer"),
+                "reasoning": reasoning,
+                "evidence": evidence,
             }
             yield f"data: {json.dumps(result)}\n\n"
 
