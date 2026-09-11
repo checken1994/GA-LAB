@@ -78,3 +78,18 @@ Verdict: dead code, không caller thật → XÓA. Test T01 boot: 27 passed sau 
   circuit-closures, dashboard/, mini-services/, my_fixes.patch,
   PROMPT_INJECTION_GAP_REPORT.md, .hypothesis, .mimosa.
 - PASS = không thấy failure trong scope test đã nêu; không claim rộng hơn.
+
+## Final verify (cập nhật cuối session TB, 2026-09-12)
+
+- Snapshot: HEAD `9d6518b` (sau 4 commits: 4e935a7 B2, 11774d4 B4, 4673b97 B5-fix, 9d6518b B5-triage).
+- `python -m pytest tests/T00_integrity/ -q` → **63 passed in 12.61s**.
+- `python -m pytest tests/T01_boot/test_flow_01_boot_background_scp_standard.py -q` → **27 passed in 8.52s**.
+- `python -m pytest tests/T03_capability/test_flow_07_autofix_scp_standard.py -q` → **43 passed in 39.05s**.
+- `python -m pytest tests/T00_integrity/ tests/T01_boot/ tests/T03_capability/test_flow_07_autofix_scp_standard.py -q`
+  → lần chạy đầu bị treo ~40 phút ở network wait (CPU đóng băng 190s, sockets CLOSE_WAIT ra 443) —
+  đã kill; **lần chạy lại: 143 passed in 50.94s** → hang là transient, mọi suite xanh trên cùng commit.
+- Mimosa scan normal sau fix: `scan-2026-09-11T22-48-15.829Z-47e219c5c3ca`
+  (seal `sha256:913e447f...`): totals **high=0, medium=15, low=97** (tổng 112) —
+  medium GIẢM 20→15, đúng 5 finding insecure-temp-file đã fix; low 97 không đổi.
+- Phạm vi còn lại (không claim): các medium BY_DESIGN/FP theo `TB-triage-117.md`
+  chưa được sửa theo thiết kế; pytest hang transient đầu tiên chưa root-cause (môi trường network).
