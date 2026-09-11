@@ -4,6 +4,8 @@
 #
 # Cài đặt: pip install -r requirements.txt
 # Dev/test: pip install -r requirements-dev.txt
+# Reproducible full-env install: dùng requirements.lock.txt (pip freeze từ
+# container — xem header của lockfile) [A3].
 
 # === Runtime framework (REQUIRED) ===
 # FastAPI + Uvicorn + Starlette — ASGI web framework.
@@ -66,7 +68,8 @@ cryptography==49.0.0
 # redis==5.2.0
 #
 # JWT auth (REQUIRED — jwt_guard.py:1 dùng `import jwt` trực tiếp trong production).
-pyjwt>=2.13.0
+# [A3] pinned về version thật trong container (pip freeze scp-scp-api-1).
+pyjwt==2.13.0
 #
 # File uploads (chưa có endpoint /upload — để commented).
 # python-multipart==0.0.20
@@ -89,9 +92,10 @@ pywin32==306; sys_platform == "win32"
 # Confirmed: api_server.py:30 `from slowapi import Limiter, _rate_limit_exceeded_handler`
 # api_server.py:33 `from prometheus_client import generate_latest, ...`
 # scp/observability/telemetry.py:2-5 imports opentelemetry
-slowapi>=0.1.9
-prometheus-client>=0.21.0
-opentelemetry-api>=1.27.0
-opentelemetry-sdk>=1.27.0
-opentelemetry-instrumentation-fastapi>=0.48b0
-PyYAML>=6.0.1
+# [A3] pinned về version thật trong container (pip freeze scp-scp-api-1)
+slowapi==0.1.10
+prometheus-client==0.26.0
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+opentelemetry-instrumentation-fastapi==0.65b0
+PyYAML==6.0.3
