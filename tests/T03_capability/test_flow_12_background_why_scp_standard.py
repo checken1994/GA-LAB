@@ -31,6 +31,11 @@ M12 PRODUCT fixes verified by this suite (AUDIT-20260909, commit 85fc67f):
   - whyengine: module-wide logger undefined (NameError inside except handlers).
   - why_execute_plan: status UPDATE used UPDATE...ORDER BY...LIMIT which raises
     OperationalError on standard SQLite -> plans stayed 'pending' forever.
+  - why_execute_plan (M12 G2, DNA #22): empty/whitespace-only ai_answer or an
+    empty source value auto-PASSed via the vacuous `"" in x` substring match
+    (execute_pending_plans passes ai_answer='') -> single-source comparison now
+    returns UNKNOWN/FAIL with an 'empty_evidence' reason; real non-empty
+    matches still PASS.
   - helpers.get_judge: judge.why_engine never existed -> WHY verify loop inert.
   - api_server_parts/lifespan: why_verify_loop was wired only in scp/api/_lifespan.py
     (not the lifespan api_server.py uses) -> background WHY loop never ran.
@@ -494,6 +499,68 @@ class TestFlow12BackgroundWhy:
         assert len(result["all_values"]) == 2
         assert len(result["sources_queried"]) == 2
         assert "disagree" in result["reasoning"]
+
+    def test_why_engine_empty_evidence_is_not_a_pass(self, why_plans_cleanup):
+        """
+        [WHY-ENG-4][M12 G2 / DNA #22] Empty evidence must never auto-PASS.
+
+        Python's `"" in x` is vacuously True: the old substring contract turned
+        ai_answer='' (exactly what execute_pending_plans passes) into PASS 0.85
+        against any single non-empty source, and an empty source value into an
+        automatic match. An empty/whitespace-only claim or source value is not
+        evidence — the verdict must be UNKNOWN/FAIL with an 'empty_evidence'
+        reason, while a real non-empty match still PASSes.
+        """
+        engine = WhyEngine()
+
+        # Case 1: real non-empty source ("Paris" via the local Wikipedia
+        # fixture), empty ai_answer — the exact execute_pending_plans path.
+        _WIKI_STATE["payload"] = _wiki_pages_payload("The capital of France is Paris.")
+        plan = VerificationPlan(
+            question=f"M12-PROBE-{uuid.uuid4().hex[:8]}: capital claim, empty answer",
+            target="France", target_type="entity",
+            evidence_type="wikipedia_search", proof_criteria="Source supports claim",
+            falsification_criteria="Source contradicts claim",
+            verification_strategy="wikipedia_search", sources_to_query=["Wikipedia"],
+            expected_answer_type="string", confidence_threshold=0.6, reasoning="",
+        )
+        result = engine.execute_plan(plan, ai_answer="")
+        assert result["verdict"] in ("UNKNOWN", "FAIL"), result
+        assert "empty_evidence" in result["reasoning"]
+        assert len(result["all_values"]) == 1  # the source DID return evidence
+        assert result["all_values"][0]["value"] == "Paris"
+
+        # Case 2: whitespace-only ai_answer strips to '' — same rule.
+        result_ws = engine.execute_plan(plan, ai_answer="   ")
+        assert result_ws["verdict"] in ("UNKNOWN", "FAIL"), result_ws
+        assert "empty_evidence" in result_ws["reasoning"]
+
+        # Case 3: source returns an empty value (LocalDB entry present but
+        # holding no facts) while the AI answer is non-empty — empty
+        # "evidence" must not verify anything.
+        from scp.runtime.slms import GeographySLM
+
+        geo = GeographySLM()
+        geo._local["m12probeland"] = {}  # entry exists but holds no facts
+        engine._geo_slm_for_queries = geo
+        plan_empty_source = VerificationPlan(
+            question=f"M12-PROBE-{uuid.uuid4().hex[:8]}: empty source value",
+            target="M12ProbeLand", target_type="entity",
+            evidence_type="wikipedia_search", proof_criteria="Source supports claim",
+            falsification_criteria="Source contradicts claim",
+            verification_strategy="wikipedia_search", sources_to_query=["LocalDB"],
+            expected_answer_type="string", confidence_threshold=0.6, reasoning="",
+        )
+        result_empty_src = engine.execute_plan(plan_empty_source, ai_answer="Atlantis")
+        assert result_empty_src["verdict"] in ("UNKNOWN", "FAIL"), result_empty_src
+        assert "empty_evidence" in result_empty_src["reasoning"]
+        assert result_empty_src["all_values"] == [{"source": "LocalDB", "value": ""}]
+
+        # Control: a real non-empty match against the same Wikipedia source
+        # still PASSes — the fix closes only the empty-evidence shortcut.
+        control = engine.execute_plan(plan, ai_answer="The capital of France is Paris")
+        assert control["verdict"] == "PASS"
+        assert control["confidence"] >= 0.85
 
     # =========================================================================
     # 3. WHY SOURCES (real HTTP against local fixtures)

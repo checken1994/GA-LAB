@@ -126,8 +126,22 @@ def execute_plan(engine, plan, ai_answer: str) -> dict[str, Any]:
         # [ROOT-FIX 45-A] Also try normalized comparison (SLM format ≠ DataSource format)
         norm_source = _normalize_for_comparison(source_values[0]["value"])
         norm_ai = _normalize_for_comparison(ai_answer)
-        if source_val and (source_val in ai_val or ai_val in source_val
-                           or norm_source in norm_ai or norm_ai in norm_source):
+        # [M12 G2 / DNA #22] Empty evidence is not evidence. Python's `"" in x`
+        # is vacuously True, so the substring contract below auto-PASSed whenever
+        # ai_answer was empty/whitespace-only (execute_pending_plans passes
+        # ai_answer='') even though nothing was actually matched. A claim needs
+        # real, non-empty evidence on BOTH sides; anything less must fall to
+        # UNKNOWN/FAIL with an 'empty_evidence' reason — never PASS.
+        if not source_val or not ai_val:
+            result["verdict"] = "UNKNOWN"
+            result["confidence"] = 0.0
+            result["reasoning"] = "empty_evidence: cannot verify — " + (
+                "source returned empty/whitespace-only value" if not source_val
+                else "ai_answer is empty/whitespace-only"
+            )
+        elif (norm_source and norm_ai
+              and (source_val in ai_val or ai_val in source_val
+                   or norm_source in norm_ai or norm_ai in norm_source)):
             # [ROOT-FIX 43-A / Fix 3] Accept single source as PASS with high confidence
             # WHY: GeographySLM has a trusted local DB (50+ countries). When 1 source
             # matches ai_answer, that IS verification — 1 trusted source is enough.
