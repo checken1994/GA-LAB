@@ -172,8 +172,24 @@ def execute_plan(engine, plan, ai_answer: str) -> dict[str, Any]:
         unique = set(values)
         if len(unique) == 1:
             # All sources agree
+            # [M12 G2b / DNA #22] Same empty-evidence contract as the
+            # single-source branch above: Python's `"" in x` is vacuously
+            # True, so ai_answer='' (exactly what execute_pending_plans
+            # passes) matched any agreeing value via `ai_val in agreed_val`,
+            # and a set of agreeing-but-EMPTY source values matched any
+            # answer via `agreed_val in ai_val`. Empty evidence on either
+            # side is not evidence — UNKNOWN with an 'empty_evidence'
+            # reason, never PASS.
             ai_val = str(ai_answer).lower().strip()
-            if list(unique)[0] in ai_val or ai_val in list(unique)[0]:
+            agreed_val = list(unique)[0]
+            if not agreed_val or not ai_val:
+                result["verdict"] = "UNKNOWN"
+                result["confidence"] = 0.0
+                result["reasoning"] = "empty_evidence: cannot verify — " + (
+                    "agreeing sources returned empty/whitespace-only value" if not agreed_val
+                    else "ai_answer is empty/whitespace-only"
+                )
+            elif agreed_val in ai_val or ai_val in agreed_val:
                 result["verdict"] = "PASS"
                 result["confidence"] = min(0.95, plan.confidence_threshold + 0.1)
                 result["reasoning"] = f"AI matches {len(source_values)} agreeing sources"

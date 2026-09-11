@@ -35,7 +35,11 @@ M12 PRODUCT fixes verified by this suite (AUDIT-20260909, commit 85fc67f):
     empty source value auto-PASSed via the vacuous `"" in x` substring match
     (execute_pending_plans passes ai_answer='') -> single-source comparison now
     returns UNKNOWN/FAIL with an 'empty_evidence' reason; real non-empty
-    matches still PASS.
+    matches still PASS. (M12 G2b, DNA #22): the multi-source agreeing branch
+    had the identical `"" in x` hole on both sides -> same UNKNOWN +
+    'empty_evidence' contract; test_why_engine_verifies_past_decisions was
+    re-pinned from PASS to UNKNOWN (strictness increased) with a real-match
+    multi-source PASS control.
   - helpers.get_judge: judge.why_engine never existed -> WHY verify loop inert.
   - api_server_parts/lifespan: why_verify_loop was wired only in scp/api/_lifespan.py
     (not the lifespan api_server.py uses) -> background WHY loop never ran.
@@ -408,6 +412,12 @@ class TestFlow12BackgroundWhy:
         source values -> row flips to status='executed' with a recorded
         verdict (this pins the PF-3 fix: the old UPDATE..LIMIT silently left
         every plan 'pending').
+
+        [M12 G2b / DNA #22] STRICTNESS INCREASED (was pinned `== "PASS"`):
+        execute_pending_plans passes ai_answer='', and empty evidence must
+        never verify — even with 2 agreeing sources the verdict must be
+        UNKNOWN with an 'empty_evidence' reason. A multi-source control with
+        a real non-empty matching answer still PASSes (no over-tighten).
         """
         engine = WhyEngine()
         question = (
@@ -435,8 +445,42 @@ class TestFlow12BackgroundWhy:
             (question,),
         )
         assert row2["status"] == "executed", f"plan stuck at {row2['status']!r} (PF-3 regression)"
-        assert row2["verdict"] == "PASS"  # 2 agreeing sources, empty answer -> PASS
+        # [M12 G2b / DNA #22] 2 agreeing sources + the empty ai_answer the
+        # background path passes must be UNKNOWN, never PASS (the old
+        # vacuous `"" in x` match pinned here as PASS was the bug).
+        assert row2["verdict"] == "UNKNOWN"  # empty answer -> no verification
         assert row2["executed_at"] is not None
+
+        # The reason must carry the empty_evidence marker (same contract as
+        # the single-source fix) — re-execute the same plan directly with the
+        # empty answer to observe the reasoning dict.
+        direct_empty = engine.execute_plan(plan, ai_answer="")
+        assert direct_empty["verdict"] == "UNKNOWN"
+        assert "empty_evidence" in direct_empty["reasoning"]
+
+    def test_why_engine_multisource_real_match_still_passes(self, why_plans_cleanup):
+        """
+        [WHY-ENG-1b][M12 G2b / DNA #22] Control for the multi-source
+        empty-evidence fix (no over-tighten): with 2 agreeing sources and a
+        REAL non-empty matching answer, the agreeing branch still PASSes —
+        the fix closes only the vacuous `"" in x` shortcut, not honest
+        matches.
+        """
+        engine = WhyEngine()
+        _METEO_STATE["forecast_temp"] = 31.0
+        plan = engine.create_verification_plan(
+            f"M12-PROBE-{uuid.uuid4().hex[:8]}: Tại sao nhiệt độ tại "
+            "Singapore là 31 độ C?"
+        )
+        assert plan.sources_to_query == ["Open-Meteo", "Open-Meteo Archive"]
+        result = engine.execute_plan(
+            plan, ai_answer="Temperature=31.0°C in Singapore"
+        )
+        assert result["verdict"] == "PASS", result
+        assert len(result["all_values"]) == 2
+        assert (
+            len(set(str(v["value"]).lower().strip() for v in result["all_values"])) == 1
+        ), result["all_values"]
 
     def test_why_engine_looks_up_external_sources(self, tmp_path, why_plans_cleanup):
         """
