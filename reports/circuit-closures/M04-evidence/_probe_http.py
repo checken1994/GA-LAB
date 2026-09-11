@@ -17,6 +17,9 @@ import json
 import os
 import urllib.error
 import urllib.request
+from pathlib import Path
+
+from scp.security.url_safety import safe_urlopen
 
 BASE = "http://127.0.0.1:8003"
 PIN = "e13fad455afbfaa7b5e53ec677c1e9772eecc19d"
@@ -37,7 +40,7 @@ def request(method: str, path: str, token: str | None = None, cap_token: str | N
         data = json.dumps(payload).encode("utf-8")
         req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req, data=data, timeout=30) as resp:
+        with safe_urlopen(req, data=data, timeout=30, allow_internal=True) as resp:
             return resp.status, json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         try:
@@ -144,7 +147,7 @@ def main() -> None:
         "commit_matches_pin": (b or {}).get("service_identity", {}).get("commit") == PIN,
     })
 
-    with open(os.path.join(os.path.dirname(__file__), "D3-m4-runtime.json"), "w", encoding="utf-8") as fh:
+    with (Path(os.path.dirname(__file__)) / "D3-m4-runtime.json").open("w", encoding="utf-8") as fh:
         json.dump({
             "pin": PIN,
             "instance": "temporary full-profile container scp-m4-probe, same pinned image, torn down after probe",

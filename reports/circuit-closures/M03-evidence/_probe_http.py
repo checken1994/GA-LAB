@@ -8,6 +8,9 @@ import json
 import os
 import urllib.error
 import urllib.request
+from pathlib import Path
+
+from scp.security.url_safety import safe_urlopen
 
 BASE = os.environ.get("M3_BASE", "http://127.0.0.1:8002")
 TOKEN = os.environ["M3_TOKEN"]
@@ -20,7 +23,7 @@ def call(name, method, path, body=None, auth=True, raw_body=None):
         json.dumps(body).encode() if body is not None else None)
     req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with safe_urlopen(req, timeout=60, allow_internal=True) as resp:
             code = resp.status
             payload = resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
@@ -68,8 +71,8 @@ record = {
     "probes": results,
 }
 
-out = os.path.join(os.path.dirname(__file__), "D3-m3-runtime.json")
-with open(out, "w", encoding="utf-8") as f:
+out = Path(os.path.dirname(__file__)) / "D3-m3-runtime.json"
+with out.open("w", encoding="utf-8") as f:
     json.dump(record, f, indent=1, ensure_ascii=False)
 for r in results:
     b = r["body"]

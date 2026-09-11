@@ -1,5 +1,7 @@
 import json, os, urllib.request, sqlite3
 
+from scp.security.url_safety import safe_urlopen
+
 BASE = "http://127.0.0.1:8000"
 
 def post(path, payload, headers=None, timeout=60):
@@ -8,7 +10,7 @@ def post(path, payload, headers=None, timeout=60):
     h.update(headers or {})
     req = urllib.request.Request(BASE + path, data=data, headers=h, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with safe_urlopen(req, timeout=timeout, allow_internal=True) as r:
             return r.status, json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", "replace")[:500]
