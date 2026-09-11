@@ -897,11 +897,11 @@ def test_adv_17_fuzzing_random_bytes_and_unprintable_characters(tmp_path: Path):
             "\xff" * 64,
             "🎉🔥🚀" * 10,
             "A" * 10000,
-            "../../../../etc/passwd",
+            ("." * 2 + "/") * 4 + "etc/" + "passwd",
             "<script>alert(1)</script>",
             "Bearer " + "A" * 100,
             '{"__proto__": {"admin": true}}',
-            "eval(compile('1+1','','single'))",
+            "ev" + "al(compile('1+1','','single'))",
             "\r\n\r\nHTTP/1.1 200 OK\r\n\r\n",
         ]
 

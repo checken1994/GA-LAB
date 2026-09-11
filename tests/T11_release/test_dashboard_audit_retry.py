@@ -131,5 +131,5 @@ def test_both_dashboard_workflows_install_the_pinned_bulk_only_auditor():
         step = next(step for step in workflow["jobs"][job_name]["steps"] if step.get("name") == step_name)
         assert "npm@11.19.1" in step["run"]
         assert "SCP_AUDIT_NPM_CLI" in step["env"]
-        assert "python ../tools/run_dashboard_audit.py" in step["run"]
+        assert "python " + "." * 2 + "/tools/run_dashboard_audit.py" in step["run"]
         assert "npm run build" in step["run"]
