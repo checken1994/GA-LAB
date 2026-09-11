@@ -9,9 +9,10 @@ The 5 routes below (`/v105/predictions/run-cycle`,
 require `Depends(verify_admin)` because `run-cycle` + `verify` are
 state-changing POST endpoints that trigger the Crawl Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Generate Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢
 Predict Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Verify Ă„â€Ă‚Â¢│Ă¢â€Â¬Ă‚Â │Ă¢â€Â¬Ă¢â€Â¢ Learn pipeline (CPU/IO expensive Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â DoS amplifier
-if unauthenticated). It imports `from scp.api_server import
-_predictive_engine`, so the engine singleton must be initialised first
-Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â see `_predictive_engine` initialisation in api_server.py.
+if unauthenticated). It imports the engine singleton from the canonical owner
+`scp.api_server_parts.helpers` (set by `get_judge()`), so the engine must be
+initialised first - see `_predictive_engine` initialisation in
+api_server_parts/helpers.py.
 
 [COMPLETION-FIX] Wire PredictiveOrchestrator v-Ă¢â‚¬Â-Ă‚Â o API:
 - POST /v105/predictions/run-cycle Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â chĂ„â€Ă‚Â¡-Ă‚Âº-Ă‚Â¡y 1 prediction cycle
@@ -43,11 +44,22 @@ class VerifyRequest(BaseModel):
 
 
 def _get_engine():
-    """Get PredictiveOrchestrator singleton."""
-    from scp.api_server import _predictive_engine
-    if _predictive_engine is None:
+    """Get PredictiveOrchestrator singleton.
+
+    [M6-FIX wiring] Canonical owner of the singleton is
+    ``scp.api_server_parts.helpers`` (set inside ``get_judge()`` right after
+    the production judge is created). This route previously read
+    ``scp.api_server._predictive_engine``, which is a separate module global
+    that is NEVER assigned outside its ``= None`` initializer — so every
+    prediction endpoint failed with 503 "PredictiveEngine not initialized"
+    even on a healthy boot (silent wiring drop, D6). Read the canonical
+    attribute at call time instead.
+    """
+    from scp.api_server_parts import helpers as _api_helpers
+    engine = getattr(_api_helpers, "_predictive_engine", None)
+    if engine is None:
         raise HTTPException(status_code=503, detail="PredictiveEngine not initialized")
-    return _predictive_engine
+    return engine
 
 
 @router.post("/run-cycle", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth (state-changing)

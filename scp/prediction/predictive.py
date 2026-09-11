@@ -78,6 +78,13 @@ def init_predictions_db():
             sha256 TEXT
         )
     """)
+    # [M6-FIX schema] Pre-existing databases created by older versions lack the
+    # `entity` column while save_prediction() accepts an entity argument —
+    # backfill the column additively (NULL default, instant in SQLite) so the
+    # documented write path does not silently drop the field.
+    cols = {row["name"] for row in db_query_all("PRAGMA table_info(predictions)")}
+    if "entity" not in cols:
+        db_exec("ALTER TABLE predictions ADD COLUMN entity TEXT")
     db_exec("CREATE INDEX IF NOT EXISTS idx_pred_status ON predictions(status)")
     db_exec("CREATE INDEX IF NOT EXISTS idx_pred_check ON predictions(check_date)")
     db_exec("CREATE INDEX IF NOT EXISTS idx_pred_domain ON predictions(domain)")
@@ -315,14 +322,27 @@ class QuestionGenerator:
             for _ in range(5):
                 spec = kp.sinh_ngau_nhien()
                 q = spec["question"]
+                # [M6-FIX contract] V90 MINIMAL generator returns only
+                # {question, domain}. This loop used to read spec["ai_answer"]
+                # → KeyError on the FIRST spec → the whole KhamPha block was
+                # swallowed by the outer except → zero local predictions were
+                # ever generated offline, silently. Skip per-spec with an
+                # observable warning instead of crashing the block.
+                ai_answer = spec.get("ai_answer")
+                if not ai_answer:
+                    logger.warning(
+                        "[predictive] KhamPha spec without ai_answer (V90 minimal "
+                        "generator contract) — skipped: %r", q,
+                    )
+                    continue
                 if self._is_duplicate(q):
                     continue
                 self._add_seen(q)
                 today = datetime.now().strftime("%Y-%m-%d")
                 questions.append({
                     "question": q,
-                    "ai_answer": spec["ai_answer"],
-                    "domain": spec.get("loai", "unknown"),
+                    "ai_answer": ai_answer,
+                    "domain": spec.get("loai", spec.get("domain", "unknown")),
                     "check_date": today,
                     "source": f"kham_pha_{spec.get('ly_do_nghi', 'random')}",
                     "entity": "",
@@ -351,13 +371,16 @@ class Predictor:
         sha256 = hashlib.sha256(f"{question}|{ai_answer}|{ts}".encode()).hexdigest()
 
         try:
+            # [M6-FIX] Persist `entity` — the parameter was accepted but never
+            # inserted (silent data loss on every prediction row).
             db_exec("""
                 INSERT INTO predictions
                 (id, timestamp, question, domain, predicted_answer, confidence,
-                 check_date, status, source, real_value, sha256)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+                 check_date, status, source, real_value, sha256, entity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
             """, (pred_id, ts, question, domain, ai_answer, confidence,
-                  check_date, source, str(current_value) if current_value is not None else None, sha256))
+                  check_date, source, str(current_value) if current_value is not None else None,
+                  sha256, entity))
         except Exception as e:
             # [FIX] If still collision, retry with different UUID
             if "UNIQUE" in str(e):
@@ -365,10 +388,11 @@ class Predictor:
                 db_exec("""
                     INSERT INTO predictions
                     (id, timestamp, question, domain, predicted_answer, confidence,
-                     check_date, status, source, real_value, sha256)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+                     check_date, status, source, real_value, sha256, entity)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
                 """, (pred_id, ts, question, domain, ai_answer, confidence,
-                      check_date, source, str(current_value) if current_value is not None else None, sha256))
+                      check_date, source, str(current_value) if current_value is not None else None,
+                      sha256, entity))
             else:
                 raise
 
@@ -410,9 +434,17 @@ class Verifier:
         self.crawler = DataCrawler()
         self.predictor = Predictor()
 
-    def verify_pending(self) -> list[dict]:
-        """Verify tất cả predictions pending đã đến hạn."""
+    def verify_pending(self, limit: int | None = None) -> list[dict]:
+        """Verify tất cả predictions pending đã đến hạn.
+
+        [M6-FIX contract] The /v105/predictions/verify route documents and
+        passes a `limit` (1..100) — this method used to reject it with
+        TypeError -> the endpoint always answered 500. The limit now bounds
+        how many due predictions are processed (None = no bound, as before).
+        """
         pending = self.predictor.get_pending_predictions()
+        if limit is not None:
+            pending = pending[:limit]
         results = []
 
         for pred in pending:
@@ -606,13 +638,36 @@ class SelfLearner:
 
         Priority:
           1. Production judge's v13 (self._judge.v13) — REAL self-correction
-          2. Local SCPV13() instance — fallback (persists class attr only)
+          2. RealityClassifier-backed local engine — fallback (persists
+             TRAINING_DATA class attr so next boot picks it up)
+
+        [M6-FIX contract] The fallback used to instantiate ``SCPV13()``
+        (aliased to the ``SCPV14`` shim), which has NO ``.classifier``
+        attribute — ``learn_from_errors`` then died on the first
+        ``engine.classifier.FRAMES`` access and the generic ``except``
+        swallowed it: the "self-correcting" learn phase was a silent no-op.
+        The trainable shape contract (``.classifier`` exposing
+        ``FRAMES``/``TRAINING_DATA``/``vectorizer``/``partial_fit``) lives in
+        ``scp.core.reality_engine.RealityClassifier`` — back the fallback with
+        it so learning actually retrains. A production engine is only accepted
+        when it really exposes the trainable shape.
         """
         # [V104.35 #56] Try production judge first
-        if self._judge is not None and hasattr(self._judge, 'v13') and self._judge.v13 is not None:
-            return self._judge.v13, True  # True = is_production
-        # Fallback: local instance (legacy behavior)
-        return SCPV13(), False
+        if self._judge is not None:
+            judge_engine = getattr(self._judge, 'v13', None)
+            judge_classifier = getattr(judge_engine, 'classifier', None)
+            if judge_classifier is not None and hasattr(judge_classifier, 'TRAINING_DATA'):
+                return judge_engine, True  # True = is_production
+        # Fallback: local engine backed by the real trainable classifier
+        from scp.core.reality_engine import RealityClassifier
+
+        class _LegacyV13Engine:
+            """Minimal engine shape contract: engine.classifier."""
+
+            def __init__(self):
+                self.classifier = RealityClassifier()
+
+        return _LegacyV13Engine(), False
 
     def learn_from_errors(self):
         """Đọc tất cả verified_wrong predictions -> thêm vào training data."""
