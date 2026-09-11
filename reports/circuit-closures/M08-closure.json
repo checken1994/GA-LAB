@@ -2,7 +2,7 @@
   "circuit": "M8",
   "name": "Audit/Benchmark",
   "status": "CLOSED_WITH_KNOWN_GAP",
-  "status_note": "D0, D1, D2, D6, D7, D8 = PASS; D3 = PASS (9/9 probe HTTP that tren instance tam full-profile cung image pin: 2 negative (401/403) + 5 golden 200 voi batch runner chay that end-to-end PAUSED->QUEUED->COMPLETED co accounting per-item + 2 adversarial SSRF 400 fail-closed); D4 = PASS_WITH_LIMITS (seal @1f00d00, diff M8 chua deep scan rieng); D5 = PASS_WITH_LIMITS (khong reviewer doc lap). Trang thai nay KHONG doc thanh 'benchmark LLM that hoat dong voi provider ngoai' (egress deny), KHONG doc thanh 'audit findings da co du lieu' (findings total=0 trong container sach). Doc known_gaps truoc khi dung lai ket qua nay.",
+  "status_note": "D0, D1, D2, D6, D7, D8 = PASS; D3 = PASS (9/9 probe HTTP that tren instance tam full-profile cung image pin: 2 negative (401/403) + 5 golden 200 voi batch runner chay that end-to-end PAUSED->QUEUED->COMPLETED co accounting per-item + 2 adversarial SSRF 400 fail-closed); D4 = PASS_WITH_LIMITS (seal @1f00d00, diff M8 chua deep scan rieng); D5 = PASS_WITH_LIMITS (khong reviewer doc lap). Trang thai nay KHONG doc thanh 'benchmark LLM that hoat dong voi provider ngoai' (external LLM thật chưa chứng minh —见 M13 falsification: egress deny không chặn urllib), KHONG doc thanh 'audit findings da co du lieu' (findings total=0 trong container sach). Doc known_gaps truoc khi dung lai ket qua nay.",
   "sha_pin": "c0f5f6f575cf06c7baba6978ac0a2cfce1fbbbd0",
   "sha_pin_lineage": [
     "6cdb424 HEAD dau session (pin M5)",
@@ -91,7 +91,7 @@
     "G1_D4_SEAL_SNAPSHOT: seal @1f00d00; diff M8 chua deep scan rieng.",
     "G2_D5_NO_INDEPENDENT_REVIEW: khong reviewer doc lap cho M8.",
     "G3_BENCHMARK_LLM_UNPROVEN: batch runner chay that nhung question gia dinh fail (khong goi LLM that trong egress deny); benchmark do chat luong LLM that chua duoc chung minh.",
-    "G4_AUDIT_DATA_EMPTY: audit/stats + findings tra rong trong container sach (total=0); gia tri 'audit fetcher co du lieu' phu thuoc data/deep_audit_results.jsonl tich luy — khong co trong probe moi.",
+    "G4_AUDIT_DATA_EMPTY: audit/stats + findings tra rong trong container sach (total=0); gia tri 'audit fetcher co du lieu' phu thuoc data/deep_audit_results.jsonl tich luy — runtime artifact in container, not persisted in repo (data/ bi gitignore **/data/, chua bao gio duoc git-track) — khong co trong probe moi.",
     "G5_FITNESS_ENGINE_UNPROBED: fitness_engine.run_and_gate chi duoc chung minh qua D1 suite; khong co HTTP surface rieng de probe runtime.",
     "G6_HEADERS_RUNBOOK: thieu STATUS marker + runbook doc lap."
   ],

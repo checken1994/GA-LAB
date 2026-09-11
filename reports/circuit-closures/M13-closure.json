@@ -45,7 +45,7 @@
       "evidence": "reports/circuit-closures/M13-evidence/D1-T13-pytest.txt (tai 8c7f522 truoc fix: 27 passed) + D1-T13-pytest-postfix.txt (tai pin sau fix 76b7624: 28 passed exit 0, gom test pin moi [LEARN-9])",
       "sha256_evidence_D1_postfix": "0d59eea71bb157ff2885b071a03f227df744fa216bbdc2eb3fa8abe630deb664",
       "result": "flow_13: 27 passed truoc fix -> 28 passed exit 0 sau fix (0 skip/xfail)",
-      "note": "Exception 'Exception while exporting Span / ValueError: I/O operation on closed file' cuoi output la OTEL shutdown artifact xuyen suot toan bo baseline inventory (co trong INVENTORY/M13.txt cu) — khong anh huong exit code, khong phai test fail."
+      "note": "Exception 'Exception while exporting Span / ValueError: I/O operation on closed file' cuoi output la OTEL shutdown artifact xuyen suot toan bo baseline inventory (co trong INVENTORY/M13.txt cu) — khong anh huong exit code, khong phai test fail. DISCLOSURE (F5, DNA-2 2026-09-12): phan fetch GitHub (free-api catalog) trong D1 chay qua mock seam `transport` — `fetch_mock` MagicMock (test CAT-4/CAT-5, tests/T03_capability/test_flow_13_free_api_learning_scp_standard.py:138) va lambda mock (CAT-1); KHONG test D1 nao fetch GitHub that. Fetch external THAT duy nhat duoc chung minh la o D3 probe P6 (top-systems POST topics -> records=3, deep_readmes=1, GitHub/Wikipedia that trong container)."
     },
     "D2_runtime_proof": {
       "status": "PASS",
