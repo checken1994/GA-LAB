@@ -388,8 +388,12 @@ class WhyEngine:
                 logger.debug(f"WHY execute_pending: row {row.get('id')}: {e}")
                 try:
                     db_exec('UPDATE why_verification_plans SET claimed_by=NULL, claimed_at=NULL WHERE id=?', (row['id'],))
-                except Exception:
-                    pass
+                except Exception as release_exc:
+                    # [M12-FIX D6] was bare `except Exception: pass` — a failed
+                    # claim-release would leave the row claimed forever with no
+                    # observable trace. Log the release failure (the row stays
+                    # claimed and will NOT be retried until claimed_by cleared).
+                    logger.warning(f'WHY execute_pending: claim-release failed for row {row.get("id")}: {release_exc}')
         logger.info(f"WHY Engine: executed {stats['executed']} pending plans — PASS={stats['passed']}, FAIL={stats['failed']}, CONFLICT={stats['conflicts']}, UNKNOWN={stats['unknowns']}")
         return stats
 
