@@ -5,6 +5,18 @@
 **Auditor:** teamwork_preview_implementer_swe3_r0  
 **Authority:** FA-11 Mandatory Peripheral Audit (No Blind Eye) & FA-12 Causal Inspection  
 
+> **STATUS UPDATE (2026-09-12, refresh bởi Agent TB):** GAP-12 và GAP-13 đã được FIX trong commit
+> `d0fcb6e` ("fix: R2/R3/R6 remediation + T09/T07 test fixes", 2026-09-09). Bằng chứng:
+> - **GAP-12 FIXED:** `commit_failed()` yêu cầu bắt buộc `failure_classification` + `indictment_ref`
+>   (`scp/task_kernel_parts/taskkernel.py:1282-1380`); transition() thô vào FAILED bị chặn.
+> - **GAP-13 FIXED:** transition() trực tiếp `WAITING_APPROVAL → READY` bị cấm với
+>   `InvalidTransition` (`scp/task_kernel_parts/taskkernel.py:419-421`); đường duy nhất là
+>   `commit_approval()` với CapabilityToken/operator signature được verify cryptographic
+>   (`scp/task_kernel_parts/taskkernel.py:1186+`).
+> - Tests pin: `tests/T04_kernel/test_gap13_state_machine_boundaries.py`,
+>   `tests/T04_kernel/test_gap13_adversarial_challenge.py`,
+>   `tests/T04_kernel/test_adversarial_kernel_flaws.py` (commit_failed).
+
 ---
 
 ## 1. Executive Summary
@@ -105,7 +117,7 @@ graph TD
 
 ## 3. Peripheral Vulnerabilities Detailed Analysis
 
-### GAP-12: Unverified FAILED State Transition (Rogue Worker Sabotage)
+### GAP-12: Unverified FAILED State Transition (Rogue Worker Sabotage) — **STATUS: FIXED (commit d0fcb6e)**
 
 ```mermaid
 graph LR
@@ -128,7 +140,7 @@ graph LR
 
 ---
 
-### GAP-13: Unauthenticated WAITING_APPROVAL Bypass
+### GAP-13: Unauthenticated WAITING_APPROVAL Bypass — **STATUS: FIXED (commit d0fcb6e)**
 
 ```mermaid
 graph LR

@@ -1,7 +1,7 @@
 # SCP — BẢN ĐỒ KIẾN TRÚC TOÀN CẢNH
 
 **Repo:** `https://github.com/checken1994/GA-LAB.git`
-**HEAD khi viết tài liệu này:** `820fe8d` — *Feat: Add dynamic auto-discovery for OpenRouter free models based on API*
+**HEAD khi viết tài liệu này:** `4e935a7` — *chore(cleanup): remove dead _lifespan, relocate canary fixture, drop tier3bak (B2)* (refresh số liệu 2026-09-12, gốc 820fe8d 2026-08-31)
 **Phạm vi:** toàn bộ repo, đã **tách shadow/backup khỏi production** — mọi con số dưới đây đều là số THẬT của code chạy.
 
 > Tài liệu này trả lời một câu hỏi duy nhất: **"Từng phần của SCP nằm ở module/file nào?"**
@@ -13,13 +13,13 @@
 
 | Vùng | Files | LOC | Bản chất |
 |---|---:|---:|---|
-| **PRODUCTION** `scp/*` (trừ venv/tests) | 511 | **142,870** | Code chạy thật |
-| **TESTS** `tests/*` + `scp/tests/*` | 65 | 15,099 | Kiểm chứng |
-| **SHADOW/BACKUP** `data/shadow/` (240f) + `data/diagnostics/` (11f) + `.private-secrets/release-audit/` (15f) | 266 | **570,444** | Bản sao cũ — KHÔNG chạy |
-| **SATELLITE TS** `dashboard/src` + `desktop` + `mini-services` | ~270 | ~38,000 | Giao diện + sidecar |
+| **PRODUCTION** `scp/*` (trừ venv/tests) | 666 | **149,412** | Code chạy thật |
+| **TESTS** `tests/*` + `scp/tests/*` | 263 | 37,330 | Kiểm chứng |
+| **SHADOW/BACKUP** `data/shadow/` (475f: 156 .txt + 156 .json + 156 .bak + 7 .py, 40K dòng) + `data/diagnostics/` (11f) + `.private-secrets/release-audit/` (15f) | ~500 | ~40K | Snapshot .bak/.txt/.json — KHÔNG chạy |
+| **SATELLITE TS** `dashboard/src` (131f) + `desktop` + `mini-services` | ~270 | ~38,000 | Giao diện + sidecar |
 | **AUDIT EVIDENCE** `tools/audit/` (4.5GB, gồm dashboard vendored) | — | — | Bằng chứng, không phải code |
 
-**76% LOC của repo là shadow copy.** Đánh giá chất lượng phải dựa trên 142,870 LOC production.
+Đánh giá chất lượng dựa trên 149,412 LOC production.
 
 ---
 
@@ -48,10 +48,10 @@ VÒNG 3 — DỮ LIỆU & BẰNG CHỨNG
 
 | # | Bước | File |
 |---|---|---|
-| 1 | Nhận request, stage `verifier_started` | `scp/api_server.py` (`_ask_impl`, ~L1361) |
-| 2 | **Semantic Firewall** — quét injection 10 family trên mọi contexts/web_fallback, chặn ĐỨT trước khi vào prompt | `scp/api_server.py:1370-1388` → gọi `inspect_untrusted()` trong `scp/core/top_systems_learning.py` |
-| 3 | Idempotency — chỉ dedup state IN-FLIGHT, ask đã decide được hỏi lại | `scp/ask_kernel_adapter.py` (472 LOC) |
-| 4 | Task Kernel — state machine, lease fencing, event journal hash-chain, backpressure `SCP_ASK_MAX_INFLIGHT` | `scp/task_kernel.py` (1,164 LOC, 9 class, 52 hàm) |
+| 1 | Nhận request, stage `verifier_started` | `scp/api_server_parts/_ask_impl.py` (rebound qua `scp/api_server.py:296`) |
+| 2 | **Semantic Firewall** — quét injection 10 family trên mọi contexts/web_fallback, chặn ĐỨT trước khi vào prompt | `scp/api_server_parts/_ask_impl.py:351` → gọi `inspect_untrusted()` trong `scp/core/top_systems_learning.py` |
+| 3 | Idempotency — chỉ dedup state IN-FLIGHT, ask đã decide được hỏi lại | `scp/ask_kernel_adapter.py` (548 LOC) |
+| 4 | Task Kernel — state machine, lease fencing, event journal hash-chain, backpressure `SCP_ASK_MAX_INFLIGHT` | `scp/task_kernel.py` (423 LOC) + `scp/task_kernel_parts/` (tổng 2,141 LOC) |
 | 5 | Transition DETERMINISTIC (kernel không gọi LLM — `llm_enabled=False`) | `scp/task_kernel.py` |
 | 6 | **Tier-1 Guard** — chặn cứng cơ học trước mọi LLM (empty/overlength/control-char/grounding) | `scp/security/tier1_guard.py` (93 LOC) |
 | 7 | **Judge hai tầng** — Tier-1 → Tier-2 semantic tri-state (PASS/FAIL/None→escalate) | `scp/runtime/judge.py` (188 LOC, TaskJudge) |
@@ -73,7 +73,7 @@ VÒNG 3 — DỮ LIỆU & BẰNG CHỨNG
 | Thành phần | File | Ghi chú |
 |---|---|---|
 | Entry point | `scp/__main__.py` | `python -m scp [port]`, mặc định 127.0.0.1:8000, chỉ bind loopback |
-| FastAPI app + lifespan | `scp/api_server.py` (1,965 LOC) | lifespan gọi `recover_on_boot()` + doubt cron |
+| FastAPI app + lifespan | `scp/api_server.py` (679 LOC) + `scp/api_server_parts/` (lifespan, `_ask_impl`) | lifespan gọi `recover_on_boot()` + doubt cron |
 | CI release gate | `.github/workflows/scp-release-gate.yml` | GitHub Actions |
 | Pre-push gate | `scripts/pre_push_gate.ps1` | boot thật → health → auth → /ask thật |
 | Audit runner thống nhất | `scripts/run_full_audit.py` + `Makefile` (targets: audit/test/reality/fitness/benchmark) | |
@@ -82,21 +82,21 @@ VÒNG 3 — DỮ LIỆU & BẰNG CHỨNG
 | Golden suite generator | `scripts/generate_golden_suite.py` | seed 20260829, 100 decisions |
 | Caddy gateway :81 | cấu hình ngoài repo, backend check X-Forwarded-For + internal secret trong các route file | fix bypass cc9cb15+e1b0512 |
 
-### 3.2 Tầng 1 — API Surface (129 endpoint qua 20 file route + 9 inline)
+### 3.2 Tầng 1 — API Surface (26 file route; mặt endpoint phụ thuộc `SCP_API_PROFILE`: profile `core` → 9 APIRoute inline, profile `full` → 171 APIRoute, đo bằng `len(app.routes)`)
 
 | File | Endpoint | Nội dung |
 |---|---:|---|
-| `scp/api/routes/v104_routes.py` | 23 | Learn/top-systems, free-apis, doubt, matrix — admin token tĩnh |
-| `scp/api/routes/v105_routes.py` | 13 | Autofix/audit thế hệ mới |
+| `scp/api/routes/v104_routes.py` | 24 | Learn/top-systems, free-apis, doubt, matrix — admin token tĩnh |
+| `scp/api/routes/v105_routes.py` | 14 | Autofix/audit thế hệ mới |
 | `scp/api/routes/hands_routes.py` | 18 | Điều khiển "tay" — verify_admin + XFF check |
-| `scp/api/routes/admin_v100.py` / `admin_v98.py` | 9 / 8 | Admin历代 |
+| `scp/api/routes/admin_v100.py` / `admin_v98.py` | 10 / 8 | Admin历代 |
 | `scp/api/routes/agent_routes.py` | 7 | Agent lane — authed |
 | `scp/api/routes/pc_controller_routes.py` | 7 | Điều khiển PC — authed |
 | `scp/api/routes/control_routes.py` / `web_control_routes.py` | 6 / 6 | Web control — authed |
 | `scp/api/routes/prediction_routes.py` | 5 | Forecast |
 | `scp/api/routes/batch_benchmark_routes.py` | 4 | Benchmark (JWT) |
 | `scp/api/routes/threat_routes.py` / `v102_v103_routes.py` | 4 / 8 | Threat intel |
-| `scp/api/routes/import_routes.py`, `openai_compat.py`, `call_routes.py`, `stream_routes.py`, `audit_routes.py`, `swe_bench_routes.py` | 3+2+2+1+2+1 | OpenAI-compat /chat/completions, SSE stream |
+| `scp/api/routes/import_routes.py`, `openai_compat.py`, `call_routes.py`, `stream_routes.py`, `audit_routes.py`, `swe_bench_routes.py` | 3+2+3+1+2+1 | OpenAI-compat /chat/completions, SSE stream |
 | `scp/api_server.py` inline | 9 | /health, /ask, /auth/token… |
 
 **Auth model:** JWT (user, `/auth/token` via admin_key) cho /ask + benchmark; **static token** cho /v104 admin (split đã fix b994954). 15 route ACTION nguy hiểm có `verify_admin` + XFF.
@@ -105,27 +105,27 @@ VÒNG 3 — DỮ LIỆU & BẰNG CHỨNG
 
 | File | LOC | Vai trò |
 |---|---:|---|
-| `scp/task_kernel.py` | 1,164 | State machine CREATED→…→decided; **per-thread SQLite connections** (fix race 16/100 loss); lease fencing token; hash-chain event journal; `recover_on_boot()`; `verify_integrity()`; `backup()` |
-| `scp/ask_kernel_adapter.py` | 472 | Adapter /ask → kernel; idempotency chỉ dedup in-flight |
+| `scp/task_kernel.py` | 423 + `task_kernel_parts/` (tổng 2,141) | State machine CREATED→…→decided; **per-thread SQLite connections** (fix race 16/100 loss); lease fencing token; hash-chain event journal; `recover_on_boot()`; `verify_integrity()`; `backup()` |
+| `scp/ask_kernel_adapter.py` | 548 | Adapter /ask → kernel; idempotency chỉ dedup in-flight |
 | `scp/trace_ledger.py` | 47 | Sổ cái hash chain |
-| `scp/core/request_run_ledger.py` | 776 | Durable request-level ledger |
+| `scp/core/request_run_ledger.py` | 389 | Durable request-level ledger |
 
 ### 3.4 Tầng 3 — Judge & Phán quyết
 
 | File | LOC | Vai trò |
 |---|---:|---|
-| `scp/runtime/judge.py` | 188 | TaskJudge hai tầng, `judge_with_react_fallback` |
-| `scp/runtime/judge_llm.py` | 74 | `_parse_verdict` — strip think, last-token |
-| `scp/runtime/multi_llm_crosscheck.py` | 84 | Cross-vendor fail-closed (wired e1b0512) |
+| `scp/runtime/judge.py` | 314 | TaskJudge hai tầng, `judge_with_react_fallback` |
+| `scp/runtime/judge_llm.py` | 102 | `_parse_verdict` — strip think, last-token |
+| `scp/runtime/multi_llm_crosscheck.py` | 145 | Cross-vendor fail-closed (wired e1b0512) |
 | `scp/security/tier1_guard.py` | 93 | Guard cơ học ~0.02ms |
 | `scp/security/quorum_why.py` | 125 | Hội đồng WHY cho action nguy hiểm |
 | `scp/verifier.py` | 74 | Postcondition verifier |
-| `scp/runtime/judge_parts/` (8f, 4,852 LOC) | | **Phần lớn DEAD** — còn giữ thuật toán JudgeCoreMixin (đã audit-first, không xóa) |
+| `scp/runtime/judge_parts/` (19f, 4,346 LOC) | | **Phần lớn DEAD** — còn giữ thuật toán JudgeCoreMixin (đã audit-first, không xóa) |
 | `scp/runtime/experts/` (44f) + `slm_impls/` (17f) + `slms_parts/` (10f) | ~15,000 | 44 domain expert (agriculture, art, law, chem_reality_astro 817 LOC…) — SLM per-domain |
 
 ### 3.5 Tầng 4 — LLM Gateway (API-only, brand-neutral)
 
-Toàn bộ nằm trong **`scp/llm_gateway/client.py`** (789 LOC, 4 class, 30 hàm):
+Toàn bộ nằm trong **`scp/llm_gateway/client.py`** (792 LOC, 4 class, 30 hàm):
 
 - Provider chain: OpenRouter → env extras (`SCP_LLM_FALLBACK_PROVIDERS`) → Groq
 - **Dynamic auto-discovery free models** (mới 820fe8d, +128 dòng) — tự lấy danh sách model free từ API
@@ -135,22 +135,22 @@ Toàn bộ nằm trong **`scp/llm_gateway/client.py`** (789 LOC, 4 class, 30 hà
 - Nhiều API key (max 10 — e334183)
 - **Lưu ý triển khai:** `GROQ_API_KEY` đang rỗng trong `.env` của deployment này → secondary judge rơi về autofix task
 
-### 3.6 Tầng 5 — Tri thức & Học (kho lớn nhất: ~50,000 LOC)
+### 3.6 Tầng 5 — Tri thức & Học (kho lớn nhất: ~31,000 LOC)
 
 | File/Nhóm | LOC | Vai trò |
 |---|---:|---|
-| `scp/core/fast_learning_engine.py` | 1,506 | Canonical learning engine (post G3-MERGE) |
-| `scp/core/top_systems_learning.py` | 485 | 5-source scraper (GitHub/Wikipedia/arXiv/HN/StackOverflow) + TokenBucket + quarantine sha256 + `inspect_untrusted` (**đây là engine của Semantic Firewall**) |
-| `scp/core/knowledge_curation.py` | 246 | Pipeline curate + 4-signal reliability (authority .35/engagement .20/freshness .15/injection .30 HARD GATE) |
-| `scp/data_sources/` (69f) | 12,770 | Domain data: `domain_registry.py` (1,074), chemistry 620, live_knowledge 695, astronomy 485, medical 417… — **27 file mồ côi đã wire 16c4b51** |
+| `scp/core/fast_learning_engine.py` | 125 + `fast_learning_engine_parts/` (tổng 913) | Canonical learning engine (post G3-MERGE) |
+| `scp/core/top_systems_learning.py` | 506 | 5-source scraper (GitHub/Wikipedia/arXiv/HN/StackOverflow) + TokenBucket + quarantine sha256 + `inspect_untrusted` (**đây là engine của Semantic Firewall**) |
+| `scp/core/knowledge_curation.py` | 256 | Pipeline curate + 4-signal reliability (authority .35/engagement .20/freshness .15/injection .30 HARD GATE) |
+| `scp/data_sources/` (71f) | 12,334 | Domain data: `domain_registry.py` (1,074), chemistry 620, live_knowledge 695, astronomy 485, medical 417… — **27 file mồ côi đã wire 16c4b51** |
 | `scp/data_sources/free_api_catalog.py` | | Kho 1,689 free API |
-| `scp/core/question_fetchers/` (5f) | 1,350 | Fetch câu hỏi thật (Wikipedia, trivia, knowledge) |
-| `scp/knowledge/` (10f) | 4,551 | Knowledge store |
+| `scp/core/question_fetchers/` (5f) | 1,358 | Fetch câu hỏi thật (Wikipedia, trivia, knowledge) |
+| `scp/knowledge/` (27f) | 6,208 | Knowledge store |
 | `scp/brain/` (4f + index_parts 4f) | 2,119 | Brain/index |
-| `scp/rag/` (2f) + `scp/benchmark/` (6f) | 2,675 | RAG + benchmark (bộ đề RAG đã có — dùng lại, không rebuild) |
-| `scp/experience/`, `scp/history/`, `scp/prediction/`, `scp/forecast/` | ~2,850 | Experience/history/prediction |
+| `scp/rag/` (2f) + `scp/benchmark/` (22f) | 2,640 | RAG + benchmark (bộ đề RAG đã có — dùng lại, không rebuild) |
+| `scp/experience/`, `scp/history/`, `scp/prediction/`, `scp/forecast/` | ~2,900 | Experience/history/prediction |
 
-### 3.7 Tầng 6 — An ninh (42 file, 10,616 LOC)
+### 3.7 Tầng 6 — An ninh (42 file, 10,875 LOC)
 
 | Nhóm | File | Vai trò |
 |---|---|---|
@@ -162,28 +162,28 @@ Toàn bộ nằm trong **`scp/llm_gateway/client.py`** (789 LOC, 4 class, 30 hà
 | Protect | `dos_protection.py`, `circuit_breaker.py`, `canary_monitor.py`, `production_guard.py`, `memory_guard.py`, `kernel_patrol.py`, `escalation.py`, `capability_epoch.py`, `url_safety.py`, `request_context.py`, `counter_response.py`, `predictor.py`, `response_monitor.py` | |
 | Intel | `threat_intel.py`, `cisa_kev.py`, `playbooks.py`, `cross_language_learner.py`, `bypass_encrypt.py` | |
 
-### 3.8 Tầng 7 — Tự sửa & Tiến hóa (~23,000 LOC)
+### 3.8 Tầng 7 — Tự sửa & Tiến hóa (~22,600 LOC)
 
 | File | LOC | Vai trò |
 |---|---:|---|
-| `scp/autofix/engine.py` | 2,833 | AutoFixEngine tiered |
-| `scp/autofix/llm_fix.py` | 1,083 | Fix sinh bởi LLM (qua gateway) |
-| `scp/autofix/scanners/` (21f) | 8,530 | cross_func_taint 1,253, taint_flow 829… |
-| `scp/autofix/property_validator.py` | 917 | Property-based validation |
-| `scp/autofix/policy_gate.py` | 850 | Blast-radius gate |
-| `scp/autofix/speculative_prefixer.py` | 838 | Pre-fix suy đoán |
+| `scp/autofix/engine.py` | 1,005 + `engine_parts/` + `engine_extensions.py` (tổng 3,702) | AutoFixEngine tiered |
+| `scp/autofix/llm_fix.py` | 162 + `llm_fix_parts/` (tổng 760) | Fix sinh bởi LLM (qua gateway) |
+| `scp/autofix/scanners/` (31f) | 8,253 | cross_func_taint 1,253, taint_flow 829… |
+| `scp/autofix/property_validator.py` | 922 | Property-based validation |
+| `scp/autofix/policy_gate.py` | 883 | Blast-radius gate |
+| `scp/autofix/speculative_prefixer.py` | 844 | Pre-fix suy đoán |
 | `scp/autofix/type_flow_verifier.py` | 801 | Cross-file type flow |
-| `scp/autofix/runner.py` + `runner_phases/` (13f) | 5,615 | Runner + AST scan phases |
-| `scp/core/code_evolution_agent.py` | 563 | Mức 5-7 tự sửa source |
-| `scp/core/fitness_engine.py` | 226 | Golden suite PROMOTE/ROLLBACK gate |
-| `scp/core/doubt_cron.py` | 195 | Cronjob of Doubt — tự nghi ngờ định kỳ |
+| `scp/autofix/runner.py` + `runner_phases/` (15f) | 5,501 | Runner + AST scan phases |
+| `scp/core/code_evolution_agent.py` | 478 | Mức 5-7 tự sửa source |
+| `scp/core/fitness_engine.py` | 227 | Golden suite PROMOTE/ROLLBACK gate |
+| `scp/core/doubt_cron.py` | 196 | Cronjob of Doubt — tự nghi ngờ định kỳ |
 | `scp/core/speculative.py`, `environment_snapshot.py`, `budget_engine.py`, `context_pruner.py`, `file_mutex.py`, `dependency_resolver.py` | | P2/P3 capabilities (aad118a) |
 
 ### 3.9 Tầng 8 — Dữ liệu & Bằng chứng
 
 | Đường dẫn | Bản chất |
 |---|---|
-| `data/shadow/` (240f, 559K LOC) | **SHADOW — bản sao cũ của production. Khuyến nghị: archive ra riêng, giảm repo 76%** |
+| `data/shadow/` (475f: .bak/.txt/.json snapshot, ~40K dòng) | **SHADOW — snapshot cũ. Khuyến nghị: archive ra riêng** |
 | `data/diagnostics/` (11f) | Shadow chẩn đoán |
 | `.private-secrets/release-audit/` (15f) | Shadow audit (không push công khai) |
 | `data/curated/`, quarantine | Tri thức đã curate (sha256 provenance) |
@@ -192,7 +192,7 @@ Toàn bộ nằm trong **`scp/llm_gateway/client.py`** (789 LOC, 4 class, 30 hà
 
 ### 3.10 Tầng 9 — Kiểm chứng
 
-- `tests/` — 64 file test (pytest 215 passed, PYTTOL…ExitCode 0, ~92s; basetemp permane qua `pytest.ini` addopts)
+- `tests/` — 254 file test + `scp/tests/` 9 file (số pytest pass thay đổi theo profile — chạy `python -m pytest tests/ -q` để đo tại HEAD hiện tại; basetemp permane qua `pytest.ini` addopts)
 - `scp/tests/` — 1 file hermetic boot
 - `Makefile` + `scripts/run_full_audit.py` — một lệnh chạy toàn bộ
 - Pre-push gate 2/2 PASS tại e1b0512
@@ -203,13 +203,13 @@ Toàn bộ nằm trong **`scp/llm_gateway/client.py`** (789 LOC, 4 class, 30 hà
 
 | Thành phần | File | Vai trò |
 |---|---|---|
-| Dashboard | `dashboard/src/` (127f, 17,748 LOC, Next.js) | Quan sát read-only; có audit-data rounds (round9.ts…) |
+| Dashboard | `dashboard/src/` (131f, 18,100 LOC TS, Next.js) | Quan sát read-only; có audit-data rounds (round9.ts…) |
 | Desktop launcher | `desktop/main.cjs` + `preload.cjs` | Electron; **CÒN STALE OLLAMA**: `SCP_LLM_BRIDGE_PORT=11434` (main.cjs:31,65) |
 | LLM bridge | `mini-services/llm-bridge/index.ts` (1,032 LOC) | Sidecar bridge |
 | Loop scheduler | `mini-services/loop-scheduler/index.ts` (826 LOC) | Cron sidecar |
 | Dashboard health | `dashboard/src/app/api/scp/health/route.ts` | **CÒN STALE**: `LLM_BRIDGE_URL ?? "http://127.0.0.1:11434"` (L31) |
 
-⚠️ 463 STALE_OLLAMA refs trong TS — phần lớn là **dữ liệu audit-data** (bằng chứng lịch sử round9.ts, KHÔNG sửa được vì là evidence), nhưng `desktop/main.cjs` + `health/route.ts` là code sống cần cập nhật.
+⚠️ 64 refs Ollama/11434 trong TS (`dashboard/`, `desktop/`, `mini-services/`) — phần lớn là **dữ liệu audit-data** (bằng chứng lịch sử round9.ts, KHÔNG sửa được vì là evidence), nhưng `desktop/main.cjs` + `health/route.ts` là code sống cần cập nhật.
 
 ---
 
@@ -218,13 +218,13 @@ Toàn bộ nằm trong **`scp/llm_gateway/client.py`** (789 LOC, 4 class, 30 hà
 | # | Vấn đề | File | Mức |
 |---|---|---|---|
 | 1 | Auth code fallback — server boot không có `SCP_ADMIN_KEY` vẫn nhận "admin" | `scp/security/auth_config.py` | P0 còn mở |
-| 2 | `judge_parts/` 4,852 LOC phần lớn dead (giữ thuật toán, chưa wire hết) | `scp/runtime/judge_parts/` | P2 |
+| 2 | `judge_parts/` 4,346 LOC phần lớn dead (giữ thuật toán, chưa wire hết) | `scp/runtime/judge_parts/` | P2 |
 | 3 | 570K LOC shadow làm nhiễu mọi metric | `data/shadow/` | Quyết định archive |
 | 4 | Desktop/health TS còn port Ollama 11434 | `desktop/main.cjs`, `dashboard/.../health/route.ts` | P3 |
 | 5 | 66 route non-ACTION chưa auth | `scp/api/routes/*` | P2 |
 | 6 | GROQ_API_KEY rỗng → cross-check chỉ 1 vendor thật | `.env` deployment | Ops |
-| 7 | Root còn 4 script rác: `check_or.py`, `inject_dynamic.py`, `test_openrouter.py`, `test_size.py` | root/ | Dọn |
+| 7 | ~~Root còn 4 script rác: `check_or.py`, `inject_dynamic.py`, `test_openrouter.py`, `test_size.py`~~ | root/ | **ĐÃ DỌN** (4 script không còn tồn tại tại HEAD 4e935a7) |
 
 ---
 
-*Tài liệu sinh từ quét thật toàn repo tại HEAD 820fe8d (2026-08-31). Mỗi dòng đều kiểm chứng được bằng cách mở file tương ứng.*
+*Tài liệu sinh từ quét thật toàn repo tại HEAD 820fe8d (2026-08-31); số liệu refresh và kiểm chứng lại bằng `wc -l` / đếm route thực tế tại HEAD 4e935a7 (2026-09-12). Mỗi dòng đều kiểm chứng được bằng cách mở file tương ứng.*
