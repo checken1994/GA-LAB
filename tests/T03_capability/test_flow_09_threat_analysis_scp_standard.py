@@ -21,6 +21,26 @@ from scp.api_server import app
 from scp.api.routes import threat_routes
 from scp.security.attack_crawler import AttackCrawler
 
+# Real admin auth for golden-path tests (T02/M6 pattern): verify_admin compares
+# the Bearer token against SCP_AUTH_TOKEN_SECRET with no dev-mode bypass.
+M9_ADMIN_TOKEN = "m9-test-admin-token-0123456789abcdef-40chars"
+
+
+def _admin_headers() -> dict:
+    return {"Authorization": f"Bearer {M9_ADMIN_TOKEN}"}
+
+
+@pytest.fixture(autouse=True)
+def _reset_auth_rate_limit_accounting():
+    """Test isolation: verify_admin counts 401s per IP for 60s process-wide;
+    the 4 negative THREAT tests accumulate 4 failures — reset accounting so a
+    re-run inside the same process can never trip the 5-failure lockout."""
+    from scp.security import auth as _auth
+
+    _auth._auth_failures.clear()
+    yield
+    _auth._auth_failures.clear()
+
 
 class TestFlow09ThreatAnalysis:
     """Mạch 9: Threat Analysis - SCP Complete Standard"""
@@ -61,24 +81,26 @@ class TestFlow09ThreatAnalysis:
             response = client.get("/harm/incidents")
             assert response.status_code in [401, 403]
 
-    def test_threat_ai_scan_returns_scan_metrics(self):
+    def test_threat_ai_scan_returns_scan_metrics(self, monkeypatch):
         """
-        [THREAT-5] AI scan stats returns scan metrics.
-        """
-        with TestClient(app) as client:
-            with patch("scp.api.routes.threat_routes.verify_admin", return_value=True):
-                with patch("scp.api.routes.threat_routes.get_ai_scan_stats") as mock_stats:
-                    mock_stats.return_value = {
-                        "total_scans": 100,
-                        "threats_found": 5,
-                        "last_scan": "2024-01-15T10:00:00Z"
-                    }
+        [THREAT-5] AI scan stats returns real scan metrics over REAL admin auth.
 
-                    response = client.get("/ai-scan/stats")
-                    assert response.status_code == 200
-                    data = response.json()
-                    assert data["total_scans"] == 100
-                    assert data["threats_found"] == 5
+        De-mocked (FA-01): the previous version patched verify_admin (observed
+        only through the check_admin MagicMock hook — a test hook that lived in
+        production auth code) and replaced the whole stats payload, asserting
+        numbers the product never computes ({"total_scans", "threats_found"}).
+        Now: real verify_admin (SCP_AUTH_TOKEN_SECRET + Bearer, T02/M6 pattern)
+        + real get_threat_stats over the real data dir. Product contract shape:
+        {"total_threats": int, "sources": dict[, "running": bool]}.
+        """
+        monkeypatch.setenv("SCP_AUTH_TOKEN_SECRET", M9_ADMIN_TOKEN)
+        with TestClient(app) as client:
+            response = client.get("/ai-scan/stats", headers=_admin_headers())
+            assert response.status_code == 200, response.text
+            data = response.json()
+            assert isinstance(data["total_threats"], int)
+            assert data["total_threats"] >= 0
+            assert isinstance(data["sources"], dict)
 
     # =========================================================================
     # 2. ATTACK CRAWLER

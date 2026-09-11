@@ -1,13 +1,16 @@
-"""SCP V105 Ă¢â‚¬â€ Threat + Harm endpoints (Layer 2+3).
+"""SCP V105 — Threat + Harm endpoints (Layer 2+3).
 
 Live - admin auth required (Fix 4-a-003). Router IS registered in
-api_server.py (around line 589-611) via `app.include_router(threat_router)`.
-All 4 routes below (`/v105/threats/ai-scan/stats`,
-`/v105/threats/ai-scan/findings`, `/v105/threats/harm/stats`,
-`/v105/threats/harm/incidents`) are LIVE and require `Depends(verify_admin)`
-because `data/ai_threats.jsonl` + `data/ai_harm_incidents.jsonl` contain
-sensitive threat findings + attack signatures an attacker could use to
-bypass detection.
+api_server.py (route group "threat", minimum profile "full") via
+`app.include_router(threat_router)`.
+All 4 routes below (`/ai-scan/stats`, `/ai-scan/findings`, `/harm/stats`,
+`/harm/incidents` — the router carries no prefix, so these are the real
+registered paths) are LIVE and require `Depends(verify_admin)` directly in
+every route decorator (audited pattern per reality test 4-a-003; the former
+`check_admin` wrapper + its MagicMock test hook were removed — test hooks do
+not belong in production auth paths) because `data/ai_threats.jsonl` +
+`data/ai_harm_incidents.jsonl` contain sensitive threat findings + attack
+signatures an attacker could use to bypass detection.
 """
 from __future__ import annotations
 
@@ -25,24 +28,18 @@ _THREAT_ROUTES_LEDGER = RequestRunLedger()
 
 router = APIRouter(prefix="", tags=["threats"])
 
-def check_admin(request: __import__('fastapi').Request, authorization: str = __import__('fastapi').Header("", alias="Authorization"), token: str | None = None):
-    import scp.api.routes.threat_routes as tr
-    if type(tr.verify_admin).__name__ == "MagicMock":
-        return True
-    return tr.verify_admin(request=request, authorization=authorization, token=token)
-
 
 
 def get_ai_scan_stats():
     from scp.core.ai_threat_scanner import get_threat_stats
     return get_threat_stats()
 
-@router.get("/ai-scan/stats", dependencies=[Depends(check_admin)])  # Fix 4-a-003: BFLA auth
+@router.get("/ai-scan/stats", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
 @traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="ai_threat_stats")
 async def ai_threat_stats():
     return get_ai_scan_stats()
 
-@router.get("/ai-scan/findings", dependencies=[Depends(check_admin)])  # Fix 4-a-003: BFLA auth
+@router.get("/ai-scan/findings", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
 @traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="ai_threat_findings")
 async def ai_threat_findings(limit: int = 20, source: str = ""):
     from scp.core.ai_threat_scanner import THREATS_DB
@@ -59,13 +56,13 @@ async def ai_threat_findings(limit: int = 20, source: str = ""):
     findings.reverse()
     return {"findings": findings[:limit], "total": len(findings)}
 
-@router.get("/harm/stats", dependencies=[Depends(check_admin)])  # Fix 4-a-003: BFLA auth
+@router.get("/harm/stats", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
 @traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="harm_stats")
 async def harm_stats():
     from scp.core.harm_detector import get_harm_stats
     return get_harm_stats()
 
-@router.get("/harm/incidents", dependencies=[Depends(check_admin)])  # Fix 4-a-003: BFLA auth
+@router.get("/harm/incidents", dependencies=[Depends(verify_admin)])  # Fix 4-a-003: BFLA auth
 @traced_request(_THREAT_ROUTES_LEDGER, require_write=False, action="harm_incidents")
 async def harm_incidents(limit: int = 20, harm_type: str = ""):
     from scp.core.harm_detector import HARM_DB
