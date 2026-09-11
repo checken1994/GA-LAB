@@ -116,6 +116,46 @@ class TestFlow01BootBackground:
             job_names = [job.name for job in registry._jobs.values()]
             assert any("attack" in name.lower() or "monitor" in name.lower() for name in job_names)
 
+    def test_lifespan_starts_why_verify_scheduler_thread(self):
+        """
+        [M12-FIX PF-4b 85fc67f] The ACTIVE lifespan (scp/api_server_parts/
+        lifespan.py — the one api_server.py binds) starts the background WHY
+        verification scheduler and exposes it on app.state.
+
+        Regression pin: the loop used to exist only in scp/api/_lifespan.py,
+        which api_server.py does NOT bind, so deferred WHY verification never
+        ran in the real deployment while comments claimed it was fixed.
+        """
+        with TestClient(app) as client:
+            response = client.get("/health")
+            assert response.status_code == 200
+            thread = getattr(app.state, "why_verify_thread", None)
+            assert isinstance(thread, threading.Thread), (
+                "active lifespan must start the WHY verify scheduler (PF-4b regression)"
+            )
+            assert thread.name == "scp-why-verify-scheduler"
+            assert thread.daemon is True
+            assert thread.is_alive()
+
+    def test_get_judge_wires_why_engine_onto_judge_singleton(self):
+        """
+        [M12-FIX PF-4a 85fc67f] get_judge() attaches a real WhyEngine to the
+        judge singleton so the background WHY verify loop's
+        getattr(judge, "why_engine", None) guard can actually find it.
+
+        Regression pin: RealityJudge had no why_engine attribute at all, so
+        the deferred why_verification_plans piled up pending forever (PASS
+        without reality — R6-3 pattern).
+        """
+        from scp.api_server_parts.helpers import get_judge
+        from scp.meta.why_engine_parts.whyengine import WhyEngine
+
+        judge = get_judge()
+        wired = getattr(judge, "why_engine", None)
+        assert isinstance(wired, WhyEngine), (
+            "get_judge() must wire a real WhyEngine onto the judge singleton (PF-4a regression)"
+        )
+
     # =========================================================================
     # 2. BACKGROUND JOBS REGISTRY — DNA #23
     # =========================================================================
