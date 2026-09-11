@@ -18,8 +18,14 @@ select = [
     "UP",     # pyupgrade
     "B",      # flake8-bugbear (includes B006: mutable default args, B902: blind except)
     # [R19-FIX-1] CI Gate for silent except (DNA #9 No harm).
-    # BEFORE: 1,804 silent except:pass — fail-SILENT disguised as fail-open.
-    # AFTER: CI flags NEW silent except. Existing 1,804 fixed gradually.
+    # [A4 AUDIT 2026-09-12 — TRUNG THỰC] 3 rules bên dưới bị select rồi ignore
+    # ngay ở `ignore` phía dưới → HIỆN CHƯA enforce (dead rules). Comment cũ
+    # "CI flags NEW silent except" là SAI: ruff ignore toàn cục, không có
+    # semantics "new-only". CI hiện chỉ gate narrow `--select E9,F`
+    # (scp-refactor-freeze.yml) + focused file list (scp-release-gate.yml).
+    # Debt đo bằng `ruff check scp/ --select S110,S112,BLE001 --statistics`
+    # tại commit A4: BLE001=1435, S110=20, S112=8 (tổng 1463).
+    # Lộ trình: bỏ 3 ignore này sau khi Track B1 (silent-except sweep) xong.
     "BLE001", # blind-except (except Exception) — should log, not pass
     "S110",   # try-except-pass — silent failure
     "S112",   # try-except-continue — silent failure
@@ -28,11 +34,11 @@ ignore = [
     "E402",   # Module level import not at top of file (needed for sys.path manipulation)
     "E501",   # Line too long (handled by line-length setting)
     "E701",   # Multiple statements on one line (legacy code style)
-    # [R19-FIX-1] Existing 1,804 silent except — fix gradually, don't block CI yet.
-    # Remove these ignores once top 17 files are fixed.
-    "BLE001", # temporarily allowed (existing 1,804 instances)
-    "S110",   # temporarily allowed (existing instances)
-    "S112",   # temporarily allowed (existing instances)
+    # [R19-FIX-1] Existing silent-except debt — xem [A4 AUDIT] ở select phía trên.
+    # Bỏ ignore khi Track B1 xử lý xong debt (1463 findings @ 2026-09-12).
+    "BLE001", # temporarily allowed (existing 1,435 instances @ A4)
+    "S110",   # temporarily allowed (existing 20 instances @ A4)
+    "S112",   # temporarily allowed (existing 8 instances @ A4)
 ]
 
 [lint.per-file-ignores]
