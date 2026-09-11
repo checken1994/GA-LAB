@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M04 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M04-closure.json)
 """SCP Hands v3.3 controlled executor and verifier."""
 from __future__ import annotations
 

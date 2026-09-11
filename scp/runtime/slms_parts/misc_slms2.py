@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M02 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M02-closure.json)
 """
 SLM part — extracted from slms.py (Task 19-A, batch 2).
  kept verbatim; only the class location changed.

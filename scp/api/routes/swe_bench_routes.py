@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M03 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M03-closure.json)
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 from typing import Any

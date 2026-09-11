@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M05 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M05-closure.json)
 """Local-only API for the bounded SCP AgentOrchestrator."""
 from __future__ import annotations
 

@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M04 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M04-closure.json)
 """SCP Hands v3.2│Ă¢â€Â¬Ă¢â‚¬Å“v3.6 local-only action and planner endpoints."""
 from __future__ import annotations
 

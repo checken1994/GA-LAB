@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M03 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M03-closure.json)
 """
 [Task 8-A] V105 AutoFix endpoints Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â extracted from api_server.py
 

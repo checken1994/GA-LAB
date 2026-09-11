@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M02 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M02-closure.json)
 from __future__ import annotations
 
 import hashlib

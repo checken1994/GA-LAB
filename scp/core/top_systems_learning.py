@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M13 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M13-closure.json)
 """
 TOP-1% Systems Learning Loop — SCP học từ kho tri thức free của thế giới.
 

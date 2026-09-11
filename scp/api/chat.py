@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M02 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M02-closure.json)
 """
 [V104.48] SCP Chat Ă¢â‚¬â€ WebSocket giao ti-p real-time vĂ¡Â»â€ºi user
 

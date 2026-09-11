@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M04 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M04-closure.json)
 from __future__ import annotations
 from scp.core.capability_token import verify_token
 from scp.security.capability_epoch import parse_capability_token

@@ -1,3 +1,4 @@
+# SCP CIRCUIT: M12 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M12-closure.json)
 """
 [Task 8-A] WHY engine execute_plan logic — extracted from why_engine.py
 
