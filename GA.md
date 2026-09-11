@@ -157,13 +157,24 @@ Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó v�
 ```text
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
-active_sync_branch: integration/experiment-god-split-and-providers -> guarded PR -> main
-work_snapshot_sha: f0ed761511beb3e2e23830fcbdb828cfe9208f82
-snapshot_role: bounded dashboard-audit recovery and immutable post-merge handoff repair; new freeze required
+active_sync_branch: audit/runtime-guard-AUDIT-20260909 -> fast-forward -> main (2026-09-11)
+work_snapshot_sha: 481ac079128127e6c06b3407d31c721d38e314db
+snapshot_role: circuit-closure campaign M1-M14 complete (14/14 CLOSED_WITH_KNOWN_GAP, pins trong reports/circuit-closures/STATUS-LEDGER.md) + security sweep HIGH 190->0 (deep scan seal acf0a0c0) + independent verification (Agent V SWEEP_APPROVED, Agent V2 CAMPAIGN_VERIFY_APPROVED); handoff repair — next freeze requires fresh gates
 active_target_revision: 4.0.2
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
 runtime/release_verdict: BLOCKED_PENDING_SAME_SHA_GITHUB_GATES
 ```
+
+Campaign 2026-09-11 (đọc trước khi làm tiếp): 14 mạch flow map V4 đã đóng theo
+D0–D8, mỗi mạch một pin; ~20 product bug thật được fix qua probe runtime (stream
+chết 100%, WHY loop chưa wire, v106 no-auth, prediction engine 503 vĩnh viễn,
+kernel mutation trước authz FA-05, judge dict-contract ×2...). Known gaps chính
+chưa xử lý (owner quyết): `SCP_EGRESS_MODE=deny` KHÔNG chặn urllib (falsified
+M13 — cần 1 lớp egress chung), judge.py sync gọi cross_verify async không await
+(multi-LLM crosscheck dead), profile=core không serve /chat + v104/v106 (404),
+WIP stream V2 bị G9 revert (stream đó tự khôi phục), corrupt basetemp +
+KILL_SWITCH leftover cần owner dọn. Verdict tool vẫn là authority duy nhất cho
+bất kỳ claim "complete" nào — mọi closure là PASS_WITHIN_SCOPE.
 
 `work_snapshot_sha` là commit sản phẩm trước commit handoff này; luôn resolve full SHA
 từ live Git trước khi dùng. Không kế thừa SHA, branch state hoặc verdict trong phần
