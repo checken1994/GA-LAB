@@ -10,11 +10,51 @@ Replaces the bloated RealityJudge and Multi-SLM engine.
     TRI-STATE — None (không quyết định được / hai model bất đồng) →
     UNKNOWN + ESCALATE cho người, thay vì KILL oan (fail-closed đúng nghĩa).
 """
+import asyncio
+import logging
+import threading
 from typing import Any
 
 from scp.security.tier1_guard import check as tier1_check
 from scp.runtime.judge_llm import _llm_judge
 from scp.verifier import IndependentVerifier
+
+logger = logging.getLogger("scp.judge")
+
+
+def _run_crosscheck_sync(question: str, ai_answer: str, context: str) -> dict[str, Any]:
+    """[A2] Chạy cross_verify (async) từ sync judge() — crosscheck phải chạy THẬT.
+
+    Audit (M2): trước đây sync judge() gọi `cross_verify(...)` KHÔNG await →
+    nhận coroutine → `cross["final"]` TypeError → except nuốt im lặng → mọi
+    sync verdict thực chất chỉ qua single cascade. Crosscheck đã "sống lại".
+
+    Caller sync judge() chạy trong worker thread (asyncio.to_thread) nên thường
+    không có event loop → asyncio.run trực tiếp. Nếu vô tình gọi từ thread đang
+    chạy loop, bridge qua worker thread riêng (loop riêng) để crosscheck vẫn
+    chạy thật thay vì raise RuntimeError.
+    """
+    from scp.runtime.multi_llm_crosscheck import cross_verify
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(cross_verify(question, ai_answer, context))
+
+    box: dict[str, Any] = {}
+
+    def _worker() -> None:
+        try:
+            box["result"] = asyncio.run(cross_verify(question, ai_answer, context))
+        except BaseException as exc:  # bridge truyền lỗi nguyên trạng ra ngoài
+            box["error"] = exc
+
+    bridge = threading.Thread(target=_worker, daemon=True, name="scp-crosscheck-sync-bridge")
+    bridge.start()
+    bridge.join()
+    if "error" in box:
+        raise box["error"]
+    return box["result"]
 
 
 class RealityJudge:
@@ -113,13 +153,18 @@ class RealityJudge:
             import os as _os
             if _os.environ.get("SCP_MULTI_LLM_CROSSCHECK", "1") == "1":
                 try:
-                    from scp.runtime.multi_llm_crosscheck import cross_verify
-                    cross = cross_verify(question, ai_answer, context)
+                    cross = _run_crosscheck_sync(question, ai_answer, context)
                     semantic = cross["final"]  # None nếu disagree/unavailable
                     if cross["consensus"] == "disagree":
                         failures.append("multi_llm_disagreement")
                 except Exception as _cc_err:
-                    # crosscheck fail → fallback về single cascade
+                    # [A2] Crosscheck lỗi phải LOG RÕ trước khi fallback single
+                    # cascade — không được nuốt im lặng nữa.
+                    logger.warning(
+                        "[M2/A2] multi-LLM crosscheck failed (%s: %s) — fallback to single judge cascade",
+                        type(_cc_err).__name__,
+                        _cc_err,
+                    )
                     semantic = _llm_judge(question, ai_answer, context)
             else:
                 semantic = _llm_judge(question, ai_answer, context)
