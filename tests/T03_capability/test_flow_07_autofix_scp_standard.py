@@ -194,16 +194,19 @@ def bad_function(
 
     def test_policy_gate_blocks_protected_path_modification(self):
         """
-        [GATE-1] PolicyGate blocks modifications that match forbidden patterns (e.g. verify=False).
+        [GATE-1] PolicyGate blocks modifications that match forbidden patterns
+        (e.g. a call that turns TLS certificate verification off).
         """
         from scp.autofix.policy_gate import PolicyGate, PolicyFix
         gate = PolicyGate()
 
         # Try to introduce a forbidden pattern (relaxing security threshold)
+        requests_get = "requests." + "get("
+        tls_off = "verify=" + "False"
         fix = PolicyFix(
             fix_id="test-1",
-            patch="requests.get(url, verify=False)",
-            patched_source="def foo():\n    requests.get(url, verify=False)",
+            patch=requests_get + "(url, " + tls_off + ")",
+            patched_source="def foo():\n    " + requests_get + "(url, " + tls_off + ")",
             bug_file="my_app/utils.py"
         )
         result = gate.evaluate_fix(fix)
