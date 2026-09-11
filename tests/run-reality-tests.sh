@@ -16,8 +16,9 @@ run_python() {
 # (PASS≠TRUE) + #26 (reality test): every fix must have a reality-test
 # script, and every reality-test script must pass.
 #
-# Use as a pre-commit hook:
-#   ln -s ../../tests/run-reality-tests.sh .git/hooks/pre-commit
+# Use as a pre-commit hook (symlink target is this script inside the repo's
+# tests/ directory — two directory levels above .git/hooks/):
+#   ln -s <repo-root>/tests/run-reality-tests.sh .git/hooks/pre-commit
 # Or as a CI step:
 #   bash tests/run-reality-tests.sh
 #

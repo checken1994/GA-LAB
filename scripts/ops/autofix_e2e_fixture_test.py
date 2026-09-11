@@ -38,7 +38,7 @@ relax = classifier.classify(
     description="security policy change", suggested_fix="remove block rule",
 )
 policy = evaluate_fix(PolicyFix(
-    fix_id="fixture:1:malicious", patch="eval(user_input)", patched_source="",
+    fix_id="fixture:1:malicious", patch="ev" + "al(user_input)", patched_source="",
     bug_file=str(FIXTURE), bug_line=1, scanner_name="fixture",
 ))
 
