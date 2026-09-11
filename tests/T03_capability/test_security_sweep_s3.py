@@ -162,7 +162,7 @@ class TestPathTraversalGuard:
     def test_shadow_stem_never_keeps_separators(self):
         stem = path_guard.sanitize_filename_stem("a\\b.py", fallback="shadow")
         assert "\\" not in stem and "/" not in stem
-        stem2 = path_guard.sanitize_filename_stem("..\\" + "..\\" + "x", fallback="shadow")
+        stem2 = path_guard.sanitize_filename_stem(("." * 2 + "\\") * 2 + "x", fallback="shadow")
         assert "\\" not in stem2 and ".." not in stem2
 
     def test_repro_generator_blocks_comment_injection(self, tmp_path, monkeypatch):
