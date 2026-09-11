@@ -236,6 +236,33 @@ class TestFlow13FreeAPILearning:
         ledger_files = list(tmp_path.glob("*.jsonl"))
         assert len(ledger_files) >= 1
 
+    def test_v104_learn_consolidate_stub_contract(self):
+        """
+        [LEARN-9][M13-FIX] POST /v104/learn/consolidate returns 200 with an
+        explicit minimal-stub contract.
+
+        Regression pin: the handler used to call the nonexistent
+        ``KnowledgeConsolidator.consolidate_unverified()`` -> AttributeError ->
+        HTTP 500 on EVERY call (probe-proven at runtime during the M13 closure
+        at pin 8c7f522). The endpoint must keep (a) admin auth, (b) the real
+        ``consolidate()`` API call, and (c) an honest stub marker so no
+        consumer mistakes the passthrough for a real consolidation.
+        """
+        from scp.api._shared import verify_admin
+        app.dependency_overrides[verify_admin] = lambda: True
+        try:
+            with TestClient(app) as client:
+                response = client.post("/v104/learn/consolidate")
+                assert response.status_code == 200
+                data = response.json()
+                assert data["status"] == "ok_stub_noop"
+                assert data["consolidator_mode"] == "minimal_stub_passthrough"
+                assert isinstance(data["arbiter_stats"], dict)
+                assert "KnowledgeConsolidator" in data["note"]
+                assert "does not persist" in data["note"]
+        finally:
+            app.dependency_overrides.pop(verify_admin, None)
+
 
 class TestFlow13FreeAPILearningCausalCoverage:
     """

@@ -513,10 +513,30 @@ async def v104_doubt_run(_admin: bool = Depends(verify_admin)):
 @router.post("/v104/learn/consolidate", dependencies=[Depends(verify_admin)])
 @traced_request(_V104_ROUTES_LEDGER, require_write=True, action="consolidate_knowledge")
 async def consolidate_knowledge():
-    """Trigger knowledge consolidator (Wave 2)."""
+    """Trigger knowledge consolidator (Wave 2).
+
+    [M13-FIX] This handler used to call the nonexistent
+    ``KnowledgeConsolidator.consolidate_unverified()`` -> AttributeError ->
+    HTTP 500 on EVERY call (probe-proven at runtime during the M13 closure).
+    The consolidator is a documented minimal stub
+    (scp/consolidator/consolidator.py: ``consolidate()`` is a passthrough and
+    no persistent unverified-fact store is wired) and the arbiter below is
+    per-request in-memory, so this endpoint consolidates nothing durable. The
+    response now says so explicitly instead of implying a real consolidation.
+    """
     from scp.consolidator.consolidator import KnowledgeConsolidator
     from scp.meta.knowledge_arbiter import KnowledgeArbiter
     arbiter = KnowledgeArbiter()
     consolidator = KnowledgeConsolidator(arbiter)
-    result = consolidator.consolidate_unverified()
-    return {"status": "ok", "result": result}
+    result = consolidator.consolidate([])  # [M13-FIX] real API; was: nonexistent consolidate_unverified()
+    return {
+        "status": "ok_stub_noop",
+        "result": result,
+        "consolidator_mode": "minimal_stub_passthrough",
+        "arbiter_stats": arbiter.stats(),
+        "note": (
+            "KnowledgeConsolidator is a documented minimal stub: consolidate() "
+            "is a passthrough and no persistent unverified-fact store is wired. "
+            "This endpoint does not persist or transform knowledge."
+        ),
+    }
