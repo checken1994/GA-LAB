@@ -11,6 +11,20 @@ from datetime import datetime
 from typing import Any
 from scp.core.db_manager import db_exec, db_query_all, db_query_one, init_db
 from scp.meta.why_engine_parts.init_why_db import init_why_db
+# [M12-FIX PF-8] NOTE on VerificationPlan: it is DEFINED in
+# scp/meta/why_engine.py, which injects it into this module via importlib
+# AFTER importing it (`_impl.VerificationPlan = VerificationPlan`). Callers
+# that import THIS module directly (e.g. api_server_parts.helpers.get_judge:
+# `from scp.meta.why_engine_parts.whyengine import WhyEngine`) never triggered
+# that injection -> create_verification_plan / execute_pending_plans raised
+# `NameError: name 'VerificationPlan' is not defined` at RUNTIME and
+# execute_pending_plans silently released every claimed row (executed: 0,
+# claimed_by reset to NULL) — reproduced live in the pinned container.
+# A module-level `from scp.meta.why_engine import VerificationPlan` here is
+# NOT safe (reproduced circular AttributeError: parent's importlib wiring runs
+# while this module is still partially initialized in the direct-import order),
+# so both construction sites resolve the class lazily at call time, when both
+# modules are fully importable in either order.
 from scp.meta.why_sources.crypto import query_crypto as _why_query_crypto
 from scp.meta.why_sources.frankfurter import query_frankfurter as _why_query_frankfurter
 from scp.meta.why_sources.nasa import query_nasa as _why_query_nasa
@@ -153,6 +167,8 @@ class WhyEngine:
         Returns:
             VerificationPlan with target, evidence, criteria
         """
+        # [M12-FIX PF-8] lazy resolve — see the PF-8 note at module imports.
+        from scp.meta.why_engine import VerificationPlan as _VerificationPlan
         clean_q = re.sub('^tại\\s+sao\\s+', '', question, flags=re.IGNORECASE).strip()
         clean_q = re.sub('^why\\s+', '', clean_q, flags=re.IGNORECASE).strip()
         _why_classifier_used = 'regex'
@@ -180,7 +196,7 @@ class WhyEngine:
                 _why_classifier_used = 'llm_failed_regex_fallback'
         evidence_strategy = self.select_evidence_type(evidence_type)
         proof_criteria, falsification_criteria = self.define_criteria(evidence_type, target, answer_type)
-        plan = VerificationPlan(question=question, target=target, target_type=target_type, evidence_type=evidence_type, proof_criteria=proof_criteria, falsification_criteria=falsification_criteria, verification_strategy=evidence_strategy['strategy'], sources_to_query=evidence_strategy['sources'], expected_answer_type=answer_type, confidence_threshold=evidence_strategy['confidence_threshold'], reasoning=f"Target='{target}', type={target_type}, evidence={evidence_type}, strategy={evidence_strategy['strategy']}, classifier={_why_classifier_used} [V5.7-WHY]")
+        plan = _VerificationPlan(question=question, target=target, target_type=target_type, evidence_type=evidence_type, proof_criteria=proof_criteria, falsification_criteria=falsification_criteria, verification_strategy=evidence_strategy['strategy'], sources_to_query=evidence_strategy['sources'], expected_answer_type=answer_type, confidence_threshold=evidence_strategy['confidence_threshold'], reasoning=f"Target='{target}', type={target_type}, evidence={evidence_type}, strategy={evidence_strategy['strategy']}, classifier={_why_classifier_used} [V5.7-WHY]")
         self._save_plan(plan)
         return plan
 
@@ -352,9 +368,11 @@ class WhyEngine:
                     logger.warning(f'WHY execute_pending: query failed: {e2}')
                     return {'executed': 0, 'error': str(e2)}
         stats = {'executed': 0, 'passed': 0, 'failed': 0, 'conflicts': 0, 'unknowns': 0}
+        # [M12-FIX PF-8] lazy resolve — see the PF-8 note at module imports.
+        from scp.meta.why_engine import VerificationPlan as _VerificationPlan
         for row in pending:
             try:
-                plan = VerificationPlan(question=row['question'], target=row['target'], target_type='entity', evidence_type=row['evidence_type'], proof_criteria=row['proof_criteria'], falsification_criteria=row['falsification_criteria'], verification_strategy=row['verification_strategy'], sources_to_query=json.loads(row['sources_to_query']) if row['sources_to_query'] else [], expected_answer_type='string', confidence_threshold=row['confidence_threshold'] or 0.5, reasoning='', plan_id=row['id'])
+                plan = _VerificationPlan(question=row['question'], target=row['target'], target_type='entity', evidence_type=row['evidence_type'], proof_criteria=row['proof_criteria'], falsification_criteria=row['falsification_criteria'], verification_strategy=row['verification_strategy'], sources_to_query=json.loads(row['sources_to_query']) if row['sources_to_query'] else [], expected_answer_type='string', confidence_threshold=row['confidence_threshold'] or 0.5, reasoning='', plan_id=row['id'])
                 result = self.execute_plan(plan, ai_answer='')
                 stats['executed'] += 1
                 v = result.get('verdict', 'UNKNOWN')
