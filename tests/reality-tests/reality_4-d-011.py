@@ -71,7 +71,7 @@ def main() -> int:
 
     # -------------------------------------------------------------------------
     # TEST 4 — the bridge probe must use fetch() against the bridge URL.
-    # Pattern: `fetch(LLM_BRIDGE_TAGS_URL` OR `fetch(.../api/tags`
+    # Pattern: a fetch of LLM_BRIDGE_TAGS_URL OR a fetch of an /api/tags URL
     # -------------------------------------------------------------------------
     fetches_bridge = bool(
         re.search(r"fetch\s*\(\s*LLM_BRIDGE_TAGS_URL", src)

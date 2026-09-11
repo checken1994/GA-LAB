@@ -45,24 +45,21 @@ from scp.autofix.rollback_registry import (
 tmpdir = tempfile.mkdtemp(prefix="reality_4b013_")
 try:
     target = os.path.join(tmpdir, "test_file.py")
-    with open(target, "w", encoding="utf-8") as f:
-        f.write('print("before")\n')
+    Path(target).write_text('print("before")\n', encoding="utf-8")
 
     reg = RollbackTokenRegistry(data_dir=tmpdir)
 
     # Register fix A: file goes from 'before' to 'after'
     before_content = 'print("before")\n'
     after_content = 'print("after_fix_A")\n'
-    with open(target, "w", encoding="utf-8") as f:
-        f.write(after_content)  # apply fix A
+    Path(target).write_text(after_content, encoding="utf-8")  # apply fix A
     token = reg.register(
         file_path=target, before_content=before_content, after_content=after_content,
         patch="SEARCH/REPLACE", bug_id="test:1", bug_type="BareExceptPass", tier=2,
     )
 
     # TEST 5: apply fix B (newer change), then rollback A without force → REFUSE
-    with open(target, "w", encoding="utf-8") as f:
-        f.write('print("after_fix_B_newer")\n')
+    Path(target).write_text('print("after_fix_B_newer")\n', encoding="utf-8")
 
     result = reg.rollback(token)
     assert not result.get("ok"), "FAIL: rollback should refuse on mismatch"

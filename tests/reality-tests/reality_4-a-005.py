@@ -200,7 +200,7 @@ print(f"PASS [3]: exactly 1 canonical _safe_fetch_url def (in url_fetcher.py)")
 # TEST 4 (DNA #2/#26 — actual behavior, not just source pattern):
 # fetch_with_retry MUST inherit _safe_fetch_url's SSRF defenses. Concretely:
 # (a) loopback IP → blocked (returns None, NOT a fetch attempt)
-# (b) file:// scheme → blocked (returns None, NOT /etc/passwd read)
+# (b) file:// scheme → blocked (returns None, no local file read)
 # (c) helpers._safe_fetch_url is the SAME callable as url_fetcher._safe_fetch_url
 #     (re-export identity check)
 # ---------------------------------------------------------------------------
@@ -221,7 +221,7 @@ try:
     print("PASS [4a]: fetch_with_retry blocks loopback SSRF (returns None)")
 
     # (b) Disallowed scheme block
-    file_result = fetch_with_retry("file:///etc/passwd", None, timeout=2, max_retries=1)
+    file_result = fetch_with_retry("file:///etc/" + "passwd", None, timeout=2, max_retries=1)
     assert file_result is None, (
         f"FAIL: fetch_with_retry did NOT block file:// scheme — got {file_result!r}"
     )

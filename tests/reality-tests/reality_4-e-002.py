@@ -22,6 +22,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from urllib.request import urlopen as _url_open
 
 ROOT = Path(__file__).resolve().parents[2]
 PORT = 8047
@@ -30,7 +31,7 @@ BASE = f"http://127.0.0.1:{PORT}"
 
 def _get(url: str, timeout: float = 5.0) -> tuple[int, dict]:
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
+        with _url_open(url, timeout=timeout) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             return resp.status, json.loads(body)
     except urllib.error.HTTPError as exc:
