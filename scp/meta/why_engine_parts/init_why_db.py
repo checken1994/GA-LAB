@@ -28,7 +28,7 @@ logger = logging.getLogger("scp.meta.why_engine.init_why_db")
 
 def init_why_db():
     """Tạo WHY Engine tables."""
-    db_exec("\n        CREATE TABLE IF NOT EXISTS why_verification_plans (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            timestamp TEXT NOT NULL,\n            question TEXT NOT NULL,\n            target TEXT,\n            evidence_type TEXT,\n            proof_criteria TEXT,\n            falsification_criteria TEXT,\n            verification_strategy TEXT,\n            sources_to_query TEXT,\n            status TEXT DEFAULT 'pending',\n            verdict TEXT,\n            executed_at TEXT,\n            claimed_by TEXT,\n            claimed_at REAL\n        )\n    ")
+    db_exec("\n        CREATE TABLE IF NOT EXISTS why_verification_plans (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            timestamp TEXT NOT NULL,\n            question TEXT NOT NULL,\n            target TEXT,\n            evidence_type TEXT,\n            proof_criteria TEXT,\n            falsification_criteria TEXT,\n            verification_strategy TEXT,\n            sources_to_query TEXT,\n            status TEXT DEFAULT 'pending',\n            verdict TEXT,\n            executed_at TEXT,\n            confidence_threshold REAL,\n            claimed_by TEXT,\n            claimed_at REAL\n        )\n    ")
     db_exec('CREATE INDEX IF NOT EXISTS idx_why_status ON why_verification_plans(status)')
     try:
         db_exec('ALTER TABLE why_verification_plans ADD COLUMN claimed_by TEXT')
@@ -41,4 +41,14 @@ def init_why_db():
         # D6 violation in scope). "duplicate column" is the EXPECTED idempotent
         # migration outcome — log it at debug so it stays observable.
         logger.debug(f'[init_why_db] claimed_at column already present (idempotent): {e}')
+    try:
+        # [M12-FIX PF-6] execute_pending_plans claims rows with
+        # `RETURNING ... confidence_threshold` (and the fallback SELECT reads
+        # it), but this table NEVER had that column -> every claim raised
+        # "no such column: confidence_threshold" and the background WHY
+        # verification loop executed 0 plans, 100% of the time (fail-silently
+        # behind the run_pending_verification_cycle guard).
+        db_exec('ALTER TABLE why_verification_plans ADD COLUMN confidence_threshold REAL')
+    except Exception as e:
+        logger.debug(f'[init_why_db] confidence_threshold column already present (idempotent): {e}')
     db_exec('CREATE INDEX IF NOT EXISTS idx_why_claimed ON why_verification_plans(claimed_by)')

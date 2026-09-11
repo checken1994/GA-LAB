@@ -190,7 +190,7 @@ class WhyEngine:
             return
         try:
             ts = datetime.now().astimezone().isoformat()
-            db_exec("\n                INSERT INTO why_verification_plans\n                (timestamp, question, target, evidence_type, proof_criteria,\n                 falsification_criteria, verification_strategy, sources_to_query,\n                 status, verdict, executed_at)\n                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, NULL)\n            ", (ts, plan.question, plan.target, plan.evidence_type, plan.proof_criteria, plan.falsification_criteria, plan.verification_strategy, json.dumps(plan.sources_to_query)))
+            db_exec("\n                INSERT INTO why_verification_plans\n                (timestamp, question, target, evidence_type, proof_criteria,\n                 falsification_criteria, verification_strategy, sources_to_query,\n                 status, verdict, executed_at, confidence_threshold)\n                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, NULL, ?)\n            ", (ts, plan.question, plan.target, plan.evidence_type, plan.proof_criteria, plan.falsification_criteria, plan.verification_strategy, json.dumps(plan.sources_to_query), plan.confidence_threshold))
         except Exception as e:
             logger.warning(f'WhyEngine save error: {e}')
 

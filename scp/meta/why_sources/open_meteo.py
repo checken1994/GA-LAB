@@ -10,6 +10,7 @@ import json as _json
 import logging
 import os
 import urllib.request
+from urllib.parse import quote as _url_quote
 
 from scp.security.url_safety import safe_urlopen  # noqa: B310
 
@@ -29,7 +30,14 @@ def query_open_meteo(target: str, question: str) -> str | None:
         _wx_base = _base_override or "https://api.open-meteo.com"
         _allow_internal = bool(_base_override)
         # Geocode city name
-        geo_url = f"{_geo_base}/v1/search?name={target}&count=1"
+        # [M12-FIX PF-7] target was interpolated RAW into the URL: any
+        # multi-word target ("new york", "hồ chí minh", regex-extracted
+        # "singapore là 27 độ c") raised
+        # ValueError("URL can't contain control characters") inside urllib and
+        # the handler swallowed it -> the weather source returned None for
+        # EVERY multi-word target. Encode the query parameter like wikipedia.py
+        # does with urlencode.
+        geo_url = f"{_geo_base}/v1/search?name={_url_quote(target)}&count=1"
         req = urllib.request.Request(geo_url, headers={"User-Agent": "SCP-WHY/1.0"})
         with safe_urlopen(req, timeout=8, allow_internal=_allow_internal) as resp:
             geo = _json.loads(resp.read().decode('utf-8'))

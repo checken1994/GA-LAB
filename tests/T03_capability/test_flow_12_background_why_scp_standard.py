@@ -1,33 +1,244 @@
 """
 SCP Complete Standard Test — Mạch 12: Background Why Loop
-Covers: core/doubt_cron.py, meta/why_engine_parts/whyengine, meta/why_sources/*
+Covers: scp/core/doubt_cron.py, scp/meta/why_engine_parts/*, scp/meta/why_gate.py,
+        scp/meta/why_execute_plan.py, scp/meta/why_sources/{wikipedia,nasa,open_meteo}
+
+M12 HARNESS FIX (AUDIT-20260909) — root causes of the red baseline:
+  - 6 doubt_cron tests called DoubtCron(db_path=..., max_questions_per_run=...)
+    and cron.tick() — NONE of those exist. Real contract:
+    DoubtCron(data_dir="data", interval_seconds=None), run_doubt_cycle(data_dir),
+    start()/stop(); per-check functions live in scp.core.doubt_cron.CHECKS.
+  - 3 why_engine tests called verify_decision / lookup_sources /
+    check_contradiction / _check_evidence — invented contract. The real
+    verification flow is create_verification_plan -> execute_pending_plans ->
+    execute_plan (verdict PASS/FAIL/CONFLICT/UNKNOWN from real source values).
+  - 1 why_sources test patched open_meteo._fetch_weather — attribute does not
+    exist (invented).
+  - test_query_nasa_returns_results mocked ONLY the json parse while still
+    performing a REAL network call to api.nasa.gov (observed HTTP 500 from
+    api.nasa.gov during re-run; the inventory "passed" depended on NASA's
+    availability — a hidden internet dependency in unit tests).
+  - 13 of the 16 "passed" tests were `pass` placeholders (vacuous, FA-01).
+  Rewritten: zero unittest.mock imports, zero patch. External HTTP goes to REAL
+  local ThreadingHTTPServer fixtures (same pattern as T02's local OpenAI-compat
+  server) via the product endpoint seam SCP_WHY_*_BASE (operator-level env,
+  same trust level as OPENAI_BASE_URL; default URLs unchanged). SQLite is the
+  real db_manager; kernel checks use a real TaskKernel database in tmp_path.
+
+M12 PRODUCT fixes verified by this suite (AUDIT-20260909, commit 85fc67f):
+  - init_why_db: undefined logger crashed WhyEngine() on EVERY fresh DB;
+    bare except:pass on the claimed_at migration (D6).
+  - whyengine: module-wide logger undefined (NameError inside except handlers).
+  - why_execute_plan: status UPDATE used UPDATE...ORDER BY...LIMIT which raises
+    OperationalError on standard SQLite -> plans stayed 'pending' forever.
+  - helpers.get_judge: judge.why_engine never existed -> WHY verify loop inert.
+  - api_server_parts/lifespan: why_verify_loop was wired only in scp/api/_lifespan.py
+    (not the lifespan api_server.py uses) -> background WHY loop never ran.
 
 FA-01: Strict assertions, no loosening
 FA-02: No skip/xfail
 FA-03: Full pytest output as evidence
 FA-04: No simulated VERIFIED
 FA-05: No self-grant authority
-FA-09: Exploit mandate - reproduce actual behavior
+FA-09: Exploit mandate — reproduce actual behavior
 FA-13: Causal branch coverage of background why flow
 """
 
-import time
 import json
-from unittest.mock import MagicMock, patch, AsyncMock
+import os
+import threading
+import time
+import uuid
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from fastapi.testclient import TestClient
 
-from scp.api_server import app
+from scp.core.db_manager import db_exec, db_query_one
 from scp.core.doubt_cron import DoubtCron, run_doubt_cycle
+from scp.meta.why_engine import VerificationPlan
 from scp.meta.why_engine_parts.whyengine import WhyEngine
+from scp.meta.why_gate import WhyGate
 from scp.meta.why_sources.wikipedia import query_wikipedia as _query_wikipedia
+from scp.meta.why_sources.wikipedia import _wiki_cache, _wiki_register_failure
 from scp.meta.why_sources.nasa import query_nasa as _query_nasa
 from scp.meta.why_sources.open_meteo import query_open_meteo as _query_open_meteo
+from scp.task_kernel import TaskKernel
+
+
+# =========================================================================
+# Local HTTP fixtures — REAL servers standing in for the external APIs.
+# Why a product seam (SCP_WHY_*_BASE) instead of patching: the why_sources
+# modules hardcode their endpoints and fetch through safe_urlopen (which
+# blocks loopback for the default endpoints). Redirecting the endpoint via
+# an operator env var is config, not a mock — the full fetch/parse/retry/
+# breaker code path runs for real against a real HTTP server.
+# =========================================================================
+
+_WIKI_STATE = {"status": 200, "hits": 0, "payload": {"query": {"pages": {}}}}
+_NASA_STATE = {"status": 200, "hits": 0, "payload": {}}
+_METEO_STATE = {
+    "hits": 0,
+    "geocode_empty": False,
+    "forecast_temp": 25.5,
+}
+
+
+class _JsonHandler(BaseHTTPRequestHandler):
+    """Serve a canned-but-real JSON body from one of the shared state dicts."""
+
+    state = _WIKI_STATE
+    path_prefix = ""
+
+    def do_GET(self):  # noqa: N802 (stdlib handler API)
+        st = type(self).state
+        st["hits"] = st.get("hits", 0) + 1
+        status = st.get("status", 200)
+        body = json.dumps(st.get("payload", {}), ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args):  # keep pytest output clean
+        pass
+
+
+class _WikiHandler(_JsonHandler):
+    state = _WIKI_STATE
+
+
+class _NasaHandler(_JsonHandler):
+    state = _NASA_STATE
+
+
+class _MeteoGeocodeHandler(_JsonHandler):
+    state = _METEO_STATE
+
+    def do_GET(self):  # geocode vs forecast on one server, real dispatch
+        st = type(self).state
+        if "/v1/search" in self.path:
+            st["hits"] = st.get("hits", 0) + 1
+            payload = (
+                {"results": []}
+                if st.get("geocode_empty")
+                else {
+                    "results": [
+                        {"latitude": 21.0278, "longitude": 105.8342, "name": "Hanoi"}
+                    ]
+                }
+            )
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif "/v1/forecast" in self.path:
+            st["hits"] = st.get("hits", 0) + 1
+            payload = {"current": {"temperature_2m": st.get("forecast_temp", 25.5)}}
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+
+@pytest.fixture(scope="session")
+def why_local_servers():
+    servers = [
+        ThreadingHTTPServer(("127.0.0.1", 0), _WikiHandler),
+        ThreadingHTTPServer(("127.0.0.1", 0), _NasaHandler),
+        ThreadingHTTPServer(("127.0.0.1", 0), _MeteoGeocodeHandler),
+    ]
+    threads = []
+    for srv in servers:
+        t = threading.Thread(target=srv.serve_forever, daemon=True)
+        t.start()
+        threads.append(t)
+    yield {
+        "wiki": f"http://127.0.0.1:{servers[0].server_address[1]}",
+        "nasa": f"http://127.0.0.1:{servers[1].server_address[1]}",
+        "meteo": f"http://127.0.0.1:{servers[2].server_address[1]}",
+    }
+    for srv in servers:
+        srv.shutdown()
+        srv.server_close()
+
+
+@pytest.fixture(autouse=True)
+def m12_offline_env(monkeypatch, tmp_path, why_local_servers):
+    """Pin the whole module offline + point why_sources at the local fixtures.
+
+    SCP_EGRESS_MODE=deny + local HTTP servers: no test in this file contacts
+    the internet (the old NASA test did — that is fixed by construction here).
+    SCP_FITNESS_HISTORY is redirected into tmp_path so the fitness-drift check
+    starts from BASELINE (the repo-wide baseline makes the latency comparison
+    timing-flaky, not a real regression signal). Wikipedia circuit-breaker /
+    cache state is reset between tests (module-level shared state — a state
+    reset, not a mock).
+    """
+    monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
+    monkeypatch.setenv("SCP_WHY_LLM_ENABLED", "0")
+    monkeypatch.setenv("SCP_FITNESS_HISTORY", str(tmp_path / "fitness_history.jsonl"))
+    monkeypatch.setenv("SCP_WHY_WIKIPEDIA_BASE", why_local_servers["wiki"])
+    monkeypatch.setenv("SCP_WHY_NASA_BASE", why_local_servers["nasa"])
+    monkeypatch.setenv("SCP_WHY_OPENMETEO_BASE", why_local_servers["meteo"])
+
+    _WIKI_STATE.update({"status": 200, "hits": 0, "payload": {"query": {"pages": {}}}})
+    _NASA_STATE.update({"status": 200, "hits": 0, "payload": {}})
+    _METEO_STATE.update({"hits": 0, "geocode_empty": False, "forecast_temp": 25.5})
+
+    _wiki_cache.clear()
+    import scp.meta.why_sources.wikipedia as _wiki_mod
+
+    _wiki_mod._wiki_fail_count = 0
+    _wiki_mod._wiki_circuit_open = False
+    _wiki_mod._wiki_circuit_reset_time = 0.0
+    yield
+    _wiki_cache.clear()
+    _wiki_mod._wiki_fail_count = 0
+    _wiki_mod._wiki_circuit_open = False
+    _wiki_mod._wiki_circuit_reset_time = 0.0
+
+
+@pytest.fixture()
+def why_plans_cleanup():
+    """Real-DB hygiene: WHY engine tests write rows into the real
+    why_verification_plans table (same policy as M6: real db_manager, rows
+    marked + cleaned)."""
+    db_exec("DELETE FROM why_verification_plans WHERE question LIKE ?", ("%M12-PROBE-%",))
+    yield
+    db_exec("DELETE FROM why_verification_plans WHERE question LIKE ?", ("%M12-PROBE-%",))
+
+
+def _make_kernel_db(tmp_path):
+    """Create a REAL TaskKernel SQLite database inside tmp_path."""
+    db_file = tmp_path / "ask_task_kernel.sqlite3"
+    kernel = TaskKernel(str(db_file))
+    kernel.close()
+    return db_file
+
+
+def _wait_for(predicate, timeout=10.0, interval=0.05):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return False
+
+
+def _wiki_pages_payload(extract: str) -> dict:
+    return {"query": {"pages": {"123": {"extract": extract}}}}
 
 
 class TestFlow12BackgroundWhy:
-    """Mạch 12: Background Why Loop - SCP Complete Standard"""
+    """Mạch 12: Background Why Loop — real contracts, zero mocks."""
 
     # =========================================================================
     # 1. DOUBT CRON
@@ -35,271 +246,499 @@ class TestFlow12BackgroundWhy:
 
     def test_doubt_cron_initializes_without_db_lock(self, tmp_path):
         """
-        [WHY-1] DoubtCron initializes without causing SQLite lock.
+        [WHY-1] DoubtCron constructs against the REAL contract and never opens
+        the kernel DB at init; two concurrent cycles on the same data dir must
+        both complete (no SQLite lock escalation).
         """
-        db_path = tmp_path / "doubt_test.db"
+        cron = DoubtCron(data_dir=str(tmp_path), interval_seconds=300)
+        assert cron.data_dir == str(tmp_path)
+        assert cron.interval == 300
+        assert cron._thread is None
+        assert cron.last_report is None
+        # init must not create or lock any SQLite database
+        assert not (tmp_path / "ask_task_kernel.sqlite3").exists()
+        assert not (tmp_path / "doubt_ledger.jsonl").exists()
 
-        cron = DoubtCron(
-            db_path=str(db_path),
-            interval_seconds=300,
-            max_questions_per_run=10
-        )
+        results = []
 
-        assert cron.db_path == str(db_path)
-        assert cron.interval_seconds == 300
-        assert cron.max_questions_per_run == 10
+        def _run():
+            results.append(run_doubt_cycle(str(tmp_path)))
+
+        threads = [threading.Thread(target=_run) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(30)
+        assert len(results) == 2
+        assert all("verdict" in r and "checks" in r for r in results)
 
     def test_doubt_cron_runs_checks(self, tmp_path):
         """
-        [WHY-2] DoubtCron runs all 4 checks in a cycle.
+        [WHY-2] run_doubt_cycle executes all 4 REAL checks (real fitness suite,
+        real TaskKernel integrity, real backlog query, real why-gate audit
+        file) and reports CLEAN when nothing is wrong.
         """
-        db_path = tmp_path / "doubt_test.db"
+        _make_kernel_db(tmp_path)
+        gate = WhyGate(data_dir=str(tmp_path))
+        result = gate.gate("verdict", "verify answer: PASS within evidence", llm_enabled=False)
+        assert result.allowed is True
+        assert (tmp_path / "why_gate_audit.jsonl").exists()
 
-        cron = DoubtCron(db_path=str(db_path), interval_seconds=1, max_questions_per_run=5)
+        report = run_doubt_cycle(str(tmp_path))
 
-        # Mock the global CHECKS functions
-        with patch("scp.core.doubt_cron._check_fitness", return_value={"check": "fitness_drift", "ok": True, "detail": {}}):
-            with patch("scp.core.doubt_cron._check_kernel_integrity", return_value={"check": "kernel_integrity", "ok": True, "detail": {}}):
-                with patch("scp.core.doubt_cron._check_escalation_backlog", return_value={"check": "escalation_backlog", "ok": True, "detail": {}}):
-                    with patch("scp.core.doubt_cron._check_why_gate_anomaly", return_value={"check": "why_gate_anomaly", "ok": True, "detail": {}}):
-                        report = run_doubt_cycle(str(db_path))
-
+        assert [c["check"] for c in report["checks"]] == [
+            "fitness_drift",
+            "kernel_integrity",
+            "escalation_backlog",
+            "why_gate_anomaly",
+        ]
         assert report["verdict"] == "CLEAN"
-        assert len(report["checks"]) == 4
+        fitness = report["checks"][0]
+        assert fitness["ok"] is True
+        assert isinstance(fitness["detail"]["accuracy"], float)
+        kernel_check = report["checks"][1]
+        assert kernel_check["ok"] is True
+        assert kernel_check["detail"]["quick_check"] == "ok"
+        assert report["checks"][2]["ok"] is True
+        assert report["checks"][3]["ok"] is True
 
     def test_doubt_cron_persists_report_to_jsonl(self, tmp_path):
         """
-        [WHY-3] DoubtCron persists report to JSONL.
+        [WHY-3] Every cycle appends exactly one JSONL line to
+        <data_dir>/doubt_ledger.jsonl with ran_at/verdict/checks.
         """
-        db_path = tmp_path / "doubt_test.db"
+        report1 = run_doubt_cycle(str(tmp_path))
+        report2 = run_doubt_cycle(str(tmp_path))
 
-        cron = DoubtCron(db_path=str(db_path), interval_seconds=1, max_questions_per_run=3)
-
-        with patch("scp.core.doubt_cron._check_fitness", return_value={"check": "fitness_drift", "ok": True, "detail": {}}):
-            with patch("scp.core.doubt_cron._check_kernel_integrity", return_value={"check": "kernel_integrity", "ok": True, "detail": {}}):
-                with patch("scp.core.doubt_cron._check_escalation_backlog", return_value={"check": "escalation_backlog", "ok": True, "detail": {}}):
-                    with patch("scp.core.doubt_cron._check_why_gate_anomaly", return_value={"check": "why_gate_anomaly", "ok": True, "detail": {}}):
-                        cron.tick()
-
-        ledger = Path(str(db_path)).parent / "doubt_ledger.jsonl"
+        ledger = tmp_path / "doubt_ledger.jsonl"
         assert ledger.exists()
-        
         lines = ledger.read_text(encoding="utf-8").strip().splitlines()
-        assert len(lines) >= 1
-        
-        report = json.loads(lines[-1])
-        assert "verdict" in report
-        assert "checks" in report
+        assert len(lines) == 2
+        parsed = [json.loads(line) for line in lines]
+        assert parsed[0]["ran_at"] == report1["ran_at"]
+        assert parsed[1]["ran_at"] == report2["ran_at"]
+        assert parsed[1]["ran_at"] >= parsed[0]["ran_at"]
+        for entry in parsed:
+            assert entry["verdict"] in {"CLEAN", "DOUBT_DETECTED"}
+            assert len(entry["checks"]) == 4
 
     def test_doubt_cron_respects_interval(self, tmp_path):
         """
-        [WHY-4] DoubtCron respects interval between runs.
+        [WHY-4] The background thread runs its first cycle immediately, then
+        waits the full configured interval before the second cycle.
         """
-        db_path = tmp_path / "doubt_test.db"
+        cron = DoubtCron(data_dir=str(tmp_path), interval_seconds=2)
+        cron.start()
+        ledger = tmp_path / "doubt_ledger.jsonl"
 
-        cron = DoubtCron(db_path=str(db_path), interval_seconds=2, max_questions_per_run=1)
+        def _lines():
+            return len(ledger.read_text(encoding="utf-8").strip().splitlines()) if ledger.exists() else 0
 
-        call_count = {"count": 0}
-        
-        def mock_run_cycle(data_dir):
-            call_count["count"] += 1
-            return {"verdict": "CLEAN", "checks": []}
-
-        with patch("scp.core.doubt_cron.run_doubt_cycle", side_effect=mock_run_cycle):
-            cron.tick()
-            cron.tick()  # Immediate second run - should skip (no wait in test mode)
-            time.sleep(2.5)
-            cron.tick()  # After interval - should execute
-
-            # In test mode, the loop runs immediately without wait
-            # Just verify it can be called multiple times
-            assert call_count["count"] >= 1
+        # First cycle is immediate (doubt needs no 6h warm-up)
+        assert _wait_for(lambda: _lines() >= 1, timeout=10), "first cycle never ran"
+        first_count = _lines()
+        time.sleep(0.7)
+        # Interval respected: no second cycle before 2s
+        assert _lines() == first_count, (
+            f"interval ignored: {first_count} -> {_lines()} lines within 0.7s (interval=2s)"
+        )
+        time.sleep(1.8)  # now past t=2.0s since first cycle
+        assert _wait_for(lambda: _lines() >= first_count + 1, timeout=5), (
+            "second cycle never ran after interval elapsed"
+        )
+        cron.stop()
 
     def test_doubt_cron_handles_check_errors_silently(self, tmp_path):
         """
-        [WHY-5] DoubtCron handles check errors without crashing (FAIL-SILENT fix).
+        [WHY-5] A check that raises (corrupt kernel DB) must not kill the
+        cycle: the failing check is reported ok=False with the error detail,
+        other checks still run, verdict flips to DOUBT_DETECTED, and the
+        failed report is still persisted as evidence (fail-loudly at the
+        data level).
         """
-        db_path = tmp_path / "doubt_test.db"
+        (tmp_path / "ask_task_kernel.sqlite3").write_bytes(b"this is not a sqlite database")
 
-        cron = DoubtCron(db_path=str(db_path), interval_seconds=1, max_questions_per_run=1)
+        report = run_doubt_cycle(str(tmp_path))  # must not raise
 
-        # One check raises, others succeed
-        with patch("scp.core.doubt_cron._check_fitness", side_effect=Exception("Fitness error")):
-            with patch("scp.core.doubt_cron._check_kernel_integrity", return_value={"check": "kernel_integrity", "ok": True, "detail": {}}):
-                with patch("scp.core.doubt_cron._check_escalation_backlog", return_value={"check": "escalation_backlog", "ok": True, "detail": {}}):
-                    with patch("scp.core.doubt_cron._check_why_gate_anomaly", return_value={"check": "why_gate_anomaly", "ok": True, "detail": {}}):
-                        # Should not raise
-                        cron.tick()
+        assert report["verdict"] == "DOUBT_DETECTED"
+        by_name = {c["check"]: c for c in report["checks"]}
+        assert len(by_name) == 4
+        assert by_name["kernel_integrity"]["ok"] is False
+        assert "not a database" in str(by_name["kernel_integrity"]["detail"])
+        # Other checks isolated from the failure
+        assert by_name["fitness_drift"]["ok"] is True
+        assert by_name["why_gate_anomaly"]["ok"] is True
+        # Evidence persisted even for the failing cycle
+        ledger = tmp_path / "doubt_ledger.jsonl"
+        assert ledger.exists()
+        last = json.loads(ledger.read_text(encoding="utf-8").strip().splitlines()[-1])
+        assert last["verdict"] == "DOUBT_DETECTED"
 
     def test_doubt_cron_stops_background_thread(self, tmp_path):
         """
-        [WHY-6] DoubtCron stops background thread cleanly.
+        [WHY-6] start() launches the named daemon thread and produces a
+        report; stop() terminates it within a bounded time.
         """
-        db_path = tmp_path / "doubt_test.db"
-
-        cron = DoubtCron(db_path=str(db_path), interval_seconds=0.1, max_questions_per_run=1)
+        cron = DoubtCron(data_dir=str(tmp_path), interval_seconds=0.2)
         cron.start()
-        time.sleep(0.3)
+        assert cron._thread is not None
+        assert cron._thread.is_alive()
+        assert cron._thread.name == "scp-doubt-cron"
+        assert cron._thread.daemon is True
+        assert _wait_for(lambda: cron.last_report is not None, timeout=10)
+        assert cron.last_report["verdict"] in {"CLEAN", "DOUBT_DETECTED"}
+
         cron.stop()
-
-        assert not cron._thread.is_alive()
+        assert _wait_for(lambda: not cron._thread.is_alive(), timeout=3)
+        cron.stop()  # idempotent, no raise
 
     # =========================================================================
-    # 2. WHY ENGINE
+    # 2. WHY ENGINE (real verification flow)
     # =========================================================================
 
-    def test_why_engine_verifies_past_decisions(self):
+    def test_why_engine_verifies_past_decisions(self, tmp_path, why_plans_cleanup):
         """
-        [WHY-ENG-1] WhyEngine verifies past AI decisions.
+        [WHY-ENG-1] The real "verify past decisions" flow: plan persisted as
+        pending -> execute_pending_plans claims + executes it against the real
+        source values -> row flips to status='executed' with a recorded
+        verdict (this pins the PF-3 fix: the old UPDATE..LIMIT silently left
+        every plan 'pending').
+        """
+        engine = WhyEngine()
+        question = (
+            f"M12-PROBE-{uuid.uuid4().hex[:8]}: Tại sao nhiệt độ tại "
+            "Singapore là 27 độ C?"
+        )
+        plan = engine.create_verification_plan(question)
+        assert plan.evidence_type == "real_time_weather_api"
+        assert plan.sources_to_query == ["Open-Meteo", "Open-Meteo Archive"]
+
+        _METEO_STATE["forecast_temp"] = 27.0
+        row = db_query_one(
+            "SELECT id, status FROM why_verification_plans WHERE question=?",
+            (question,),
+        )
+        assert row is not None
+        assert row["status"] == "pending"
+
+        stats = engine.execute_pending_plans(limit=10)
+        assert isinstance(stats, dict)
+        assert stats.get("executed", 0) >= 1
+
+        row2 = db_query_one(
+            "SELECT status, verdict, executed_at FROM why_verification_plans WHERE question=?",
+            (question,),
+        )
+        assert row2["status"] == "executed", f"plan stuck at {row2['status']!r} (PF-3 regression)"
+        assert row2["verdict"] == "PASS"  # 2 agreeing sources, empty answer -> PASS
+        assert row2["executed_at"] is not None
+
+    def test_why_engine_looks_up_external_sources(self, tmp_path, why_plans_cleanup):
+        """
+        [WHY-ENG-2] _query_source routes by source name to the real source
+        handlers; each handler returns a parsed value from the local HTTP
+        fixture; unknown sources return None without raising.
         """
         engine = WhyEngine()
 
-        decision = {
-            "decision_id": "dec-123",
-            "claim": "Python is faster than C",
-            "evidence": [{"source": "benchmark", "value": "Python slower"}]
+        weather = engine._query_source(
+            "Open-Meteo", "Hanoi", "What is the temperature at Hanoi?"
+        )
+        assert weather == "temperature=25.5°C"
+
+        # Real Wikipedia routing: value parsed from the local fixture extract.
+        _WIKI_STATE["payload"] = _wiki_pages_payload("The capital of France is Paris.")
+        wiki2 = engine._query_source(
+            "Wikipedia", "France", "What is the capital of France?"
+        )
+        assert wiki2 == "Paris"
+
+        _NASA_STATE["payload"] = {
+            "title": "Mars at Opposition",
+            "explanation": "Temperatures on Mars range from -153 to 20 degrees Celsius.",
         }
+        nasa2 = engine._query_source("NASA", "Mars", "What has NASA observed about Mars?")
+        assert nasa2 == "Mars at Opposition: Temperatures on Mars range from -153 to 20 degrees Celsius."
 
-        with patch.object(engine, "_check_evidence", return_value={"verified": False, "contradiction": True}):
-            result = engine.verify_decision(decision)
+        unknown = engine._query_source("Totally-Unknown-Source", "x", "q")
+        assert unknown is None
 
-        assert result["verified"] is False
-        assert result["contradiction"] is True
-
-    def test_why_engine_looks_up_external_sources(self):
+    def test_why_engine_detects_contradictions(self, tmp_path, why_plans_cleanup):
         """
-        [WHY-ENG-2] WhyEngine looks up Wiki, NASA, Open-Meteo for verification.
-        """
-        engine = WhyEngine()
-
-        with patch("scp.meta.why_sources.wikipedia.query_wikipedia", return_value="Test result"):
-            with patch("scp.meta.why_sources.nasa.query_nasa", return_value=None):
-                with patch("scp.meta.why_sources.open_meteo.query_open_meteo", return_value=None):
-                    sources = engine.lookup_sources("Python performance")
-
-        assert "wiki" in sources or "wikipedia" in sources
-
-    def test_why_engine_detects_contradictions(self):
-        """
-        [WHY-ENG-3] WhyEngine detects contradictions between claim and evidence.
+        [WHY-ENG-3] The real contradiction detector: two sources returning
+        DIFFERENT values yields verdict CONFLICT (this is how the engine
+        detects contradictions between claim and evidence today).
         """
         engine = WhyEngine()
-
-        claim = "Model accuracy is 99%"
-        evidence = [{"source": "test", "value": "accuracy 85%"}]
-
-        result = engine.check_contradiction(claim, evidence)
-
-        assert result["has_contradiction"] is True
+        _WIKI_STATE["payload"] = _wiki_pages_payload("Model accuracy is 85 percent on the benchmark.")
+        _NASA_STATE["payload"] = {
+            "title": "Benchmark report",
+            "explanation": "Model accuracy is 99 percent on the benchmark.",
+        }
+        plan = VerificationPlan(
+            question=f"M12-PROBE-{uuid.uuid4().hex[:8]}: accuracy claim",
+            target="model accuracy",
+            target_type="value",
+            evidence_type="wikipedia_search",
+            proof_criteria="Source supports claim",
+            falsification_criteria="Source contradicts claim",
+            verification_strategy="wikipedia_search",
+            sources_to_query=["Wikipedia", "NASA"],
+            expected_answer_type="string",
+            confidence_threshold=0.6,
+            reasoning="M12 contradiction probe",
+        )
+        result = engine.execute_plan(plan, ai_answer="Model accuracy is 99%")
+        assert result["verdict"] == "CONFLICT"
+        assert result["confidence"] == 0.3
+        assert len(result["all_values"]) == 2
+        assert len(result["sources_queried"]) == 2
+        assert "disagree" in result["reasoning"]
 
     # =========================================================================
-    # 3. WHY SOURCES
+    # 3. WHY SOURCES (real HTTP against local fixtures)
     # =========================================================================
 
     def test_query_wikipedia_returns_results(self):
         """
-        [SRC-1] query_wikipedia returns search results.
+        [SRC-1] query_wikipedia fetches + parses a real MediaWiki-shaped
+        response and extracts the requested fact (capital).
         """
-        with patch("scp.meta.why_sources.wikipedia._fetch_wikipedia_pages") as mock_fetch:
-            mock_fetch.return_value = {"123": {"extract": "Test content"}}
-
-            results = _query_wikipedia("test query", "What is test?")
-            assert results is not None
+        _WIKI_STATE["payload"] = _wiki_pages_payload("The capital of France is Paris.")
+        results = _query_wikipedia("France", "What is the capital of France?")
+        assert results == "Paris"
+        assert _WIKI_STATE["hits"] >= 1
 
     def test_query_nasa_returns_results(self):
         """
-        [SRC-2] query_nasa returns NASA data.
+        [SRC-2] query_nasa returns title + explanation from a real HTTP
+        response (the OLD test mocked json parsing while hitting the real
+        api.nasa.gov — this version is fully local and asserts the exact
+        formatted contract).
         """
-        with patch("scp.meta.why_sources.nasa._json") as mock_json:
-            mock_json.loads.return_value = {"title": "Mars", "explanation": "Temperature data"}
-
-            results = _query_nasa("Mars")
-            assert results is not None
+        _NASA_STATE["payload"] = {
+            "title": "Mars at Opposition",
+            "explanation": "Temperatures on Mars range from -153 to 20 degrees Celsius.",
+        }
+        results = _query_nasa("Mars")
+        assert results == (
+            "Mars at Opposition: Temperatures on Mars range from -153 to 20 degrees Celsius."
+        )
 
     def test_query_open_meteo_returns_results(self):
         """
-        [SRC-3] query_open_meteo returns weather data.
+        [SRC-3] query_open_meteo geocodes the city then fetches the current
+        temperature — two real HTTP round-trips, formatted value returned.
         """
-        with patch("scp.meta.why_sources.open_meteo._fetch_weather") as mock_fetch:
-            mock_fetch.return_value = {"temperature": 25}
-
-            results = _query_open_meteo("Hanoi")
-            assert results is not None
+        results = _query_open_meteo("Hanoi", "What is the temperature at Hanoi?")
+        assert results == "temperature=25.5°C"
+        assert _METEO_STATE["hits"] == 2  # geocode + forecast, both real
 
     def test_why_sources_handle_rate_limits(self):
         """
-        [SRC-4] Why sources handle rate limits gracefully.
+        [SRC-4] Failure paths return None instead of raising: Wikipedia
+        rate-limited (real HTTP 429 through the retry/backoff loop) and
+        NASA server error (real HTTP 500).
         """
-        # Wikipedia rate limit
-        with patch("scp.meta.why_sources.wikipedia._fetch_wikipedia_pages", return_value=None):
-            results = _query_wikipedia("test", "What is test?")
-            assert results is None
+        _WIKI_STATE["status"] = 429
+        assert _query_wikipedia("France", "What is the capital of France?") is None
+        _WIKI_STATE["status"] = 200
 
-        # NASA rate limit  
-        with patch("scp.meta.why_sources.nasa._json") as mock_json:
-            mock_json.loads.side_effect = Exception("Rate limited")
+        _NASA_STATE["status"] = 500
+        assert _query_nasa("Mars") is None
 
-            results = _query_nasa("Mars")
-            assert results is None
+
+class TestFlow12WhyGate:
+    """M12: WHY Gate — deterministic gating + audit trail."""
+
+    def test_why_gate_deterministic_gating_and_audit(self, tmp_path):
+        """
+        [GATE-1] WHY Gate with llm_enabled=False decides deterministically,
+        records every decision to why_gate_audit.jsonl, and cannot override a
+        Constitution KILL (HARD LOCK).
+        """
+        gate = WhyGate(data_dir=str(tmp_path))
+        allowed = gate.gate("verdict", "verify answer: PASS within evidence", llm_enabled=False)
+        assert allowed.decision.name == "ALLOW"
+        assert allowed.allowed is True
+        assert allowed.llm_used is False
+
+        upheld = gate.gate("verdict", "completely unrelated description xyz", llm_enabled=False)
+        assert upheld.decision.name == "UPHOLD"
+        assert upheld.allowed is True  # conservative: allow but flag
+
+        kill = gate.gate("verdict", "anything", constitution_kill=True)
+        assert kill.allowed is True
+        assert "HARD LOCK" in kill.necessity_reason
+
+        audit = tmp_path / "why_gate_audit.jsonl"
+        assert audit.exists()
+        lines = [json.loads(line) for line in audit.read_text(encoding="utf-8").strip().splitlines()]
+        assert len(lines) == 3
+        assert [entry["decision"] for entry in lines] == ["ALLOW", "UPHOLD", "ALLOW"]
 
 
 class TestFlow12BackgroundWhyCausalCoverage:
     """
-    FA-13: Causal Coverage Matrix for Mạch 12
+    FA-13: Causal Coverage Matrix for Mạch 12 — every branch carries its own
+    real assertion (de-vacuous: the old 13 tests were `pass` placeholders).
     """
 
-    def test_causal_doubt_cron_init_no_lock(self):
-        """Branch: init → no SQLite lock"""
-        pass  # Covered by test_doubt_cron_initializes_without_db_lock
+    def test_causal_doubt_cron_init_no_lock(self, tmp_path, monkeypatch):
+        """Branch: interval fallback from env when interval_seconds is None."""
+        monkeypatch.setenv("SCP_DOUBT_INTERVAL_SEC", "1234")
+        cron = DoubtCron(data_dir=str(tmp_path))
+        assert cron.interval == 1234.0
+        assert cron._thread is None
 
-    def test_causal_doubt_cron_runs_checks(self):
-        """Branch: run_doubt_cycle → all checks executed"""
-        pass  # Covered by test_doubt_cron_runs_checks
+    def test_causal_doubt_cron_runs_checks(self, tmp_path):
+        """Branch: why-gate anomaly check flips to failing on a REJECT-heavy
+        audit trail -> verdict DOUBT_DETECTED."""
+        audit = tmp_path / "why_gate_audit.jsonl"
+        lines = [
+            json.dumps({"decision": "REJECT", "action_type": "verdict"}),
+            json.dumps({"decision": "REJECT", "action_type": "verdict"}),
+            json.dumps({"decision": "REJECT", "action_type": "verdict"}),
+            json.dumps({"decision": "ALLOW", "action_type": "verdict"}),
+        ]
+        audit.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        report = run_doubt_cycle(str(tmp_path))
+        by_name = {c["check"]: c for c in report["checks"]}
+        assert by_name["why_gate_anomaly"]["ok"] is False
+        assert by_name["why_gate_anomaly"]["detail"]["reject_rate"] == 0.75
+        assert report["verdict"] == "DOUBT_DETECTED"
 
-    def test_causal_doubt_cron_persists(self):
-        """Branch: tick → report persisted"""
-        pass  # Covered by test_doubt_cron_persists_report_to_jsonl
+    def test_causal_doubt_cron_persists(self, tmp_path):
+        """Branch: ledger is append-only across cycles (each cycle = +1 line)."""
+        run_doubt_cycle(str(tmp_path))
+        ledger = tmp_path / "doubt_ledger.jsonl"
+        assert len(ledger.read_text(encoding="utf-8").strip().splitlines()) == 1
+        run_doubt_cycle(str(tmp_path))
+        lines = ledger.read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) == 2
+        first, second = (json.loads(line) for line in lines)
+        assert second["ran_at"] >= first["ran_at"]
+        assert first["checks"] != second["ran_at"]  # distinct payloads
 
-    def test_causal_doubt_cron_interval(self):
-        """Branch: interval logic"""
-        pass  # Covered by test_doubt_cron_respects_interval
+    def test_causal_doubt_cron_interval(self, tmp_path):
+        """Branch: memory/disk consistency — last_report equals the last
+        ledger entry after a background cycle."""
+        cron = DoubtCron(data_dir=str(tmp_path), interval_seconds=1)
+        cron.start()
+        assert _wait_for(lambda: cron.last_report is not None, timeout=10)
+        ledger = tmp_path / "doubt_ledger.jsonl"
+        assert _wait_for(lambda: ledger.exists(), timeout=10)
+        last = json.loads(ledger.read_text(encoding="utf-8").strip().splitlines()[-1])
+        assert last["ran_at"] == cron.last_report["ran_at"]
+        cron.stop()
 
-    def test_causal_doubt_cron_error_silent(self):
-        """Branch: check error → silent fail"""
-        pass  # Covered by test_doubt_cron_handles_check_errors_silently
+    def test_causal_doubt_cron_error_silent(self, tmp_path):
+        """Branch: escalation_backlog check fails independently on a corrupt
+        kernel DB (second real error path besides kernel_integrity)."""
+        (tmp_path / "ask_task_kernel.sqlite3").write_bytes(b"garbage not sqlite")
+        report = run_doubt_cycle(str(tmp_path))
+        by_name = {c["check"]: c for c in report["checks"]}
+        assert by_name["kernel_integrity"]["ok"] is False
+        assert by_name["escalation_backlog"]["ok"] is False
+        assert report["verdict"] == "DOUBT_DETECTED"
 
-    def test_causal_doubt_cron_thread_stop(self):
-        """Branch: stop → thread stopped"""
-        pass  # Covered by test_doubt_cron_stops_background_thread
+    def test_causal_doubt_cron_thread_stop(self, tmp_path):
+        """Branch: start() is idempotent — a second start() must not spawn a
+        duplicate thread."""
+        cron = DoubtCron(data_dir=str(tmp_path), interval_seconds=5)
+        cron.start()
+        first = cron._thread
+        cron.start()
+        assert cron._thread is first
+        cron.stop()
+        assert _wait_for(lambda: not cron._thread.is_alive(), timeout=3)
 
-    def test_causal_why_engine_verifies(self):
-        """Branch: verify_decision → checked against evidence"""
-        pass  # Covered by test_why_engine_verifies_past_decisions
+    def test_causal_why_engine_verifies(self, tmp_path, why_plans_cleanup):
+        """Branch: single trusted source matching the AI answer -> PASS with
+        high confidence, and the DB row is flipped to executed."""
+        engine = WhyEngine()
+        question = f"M12-PROBE-{uuid.uuid4().hex[:8]}: capital claim"
+        _WIKI_STATE["payload"] = _wiki_pages_payload("The capital of France is Paris.")
+        ts = "2026-09-11T00:00:00+00:00"
+        db_exec(
+            "INSERT INTO why_verification_plans (timestamp, question, target, evidence_type,"
+            " proof_criteria, falsification_criteria, verification_strategy, sources_to_query,"
+            " status, verdict, executed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, NULL)",
+            (ts, question, "France", "wikipedia_search", "Source supports claim",
+             "Source contradicts claim", "wikipedia_search", '["Wikipedia"]'),
+        )
+        row = db_query_one("SELECT id FROM why_verification_plans WHERE question=?", (question,))
+        plan = VerificationPlan(
+            question=question, target="France", target_type="entity",
+            evidence_type="wikipedia_search", proof_criteria="Source supports claim",
+            falsification_criteria="Source contradicts claim",
+            verification_strategy="wikipedia_search", sources_to_query=["Wikipedia"],
+            expected_answer_type="string", confidence_threshold=0.6, reasoning="",
+            plan_id=row["id"],
+        )
+        result = engine.execute_plan(plan, ai_answer="The capital of France is Paris")
+        assert result["verdict"] == "PASS"
+        assert result["confidence"] >= 0.85
+        row2 = db_query_one(
+            "SELECT status, verdict FROM why_verification_plans WHERE id=?", (row["id"],)
+        )
+        assert row2["status"] == "executed"
+        assert row2["verdict"] == "PASS"
 
-    def test_causal_why_engine_lookups(self):
-        """Branch: lookup_sources → external sources queried"""
-        pass  # Covered by test_why_engine_looks_up_external_sources
+    def test_causal_why_engine_lookups(self, tmp_path):
+        """Branch: geocoding miss -> weather query returns None (real HTTP,
+        empty results payload)."""
+        _METEO_STATE["geocode_empty"] = True
+        assert _query_open_meteo("Nowhere-City", "temperature?") is None
+        assert _METEO_STATE["hits"] == 1  # only geocode was attempted
 
-    def test_causal_why_engine_contradictions(self):
-        """Branch: check_contradiction → detected"""
-        pass  # Covered by test_why_engine_detects_contradictions
+    def test_causal_why_engine_contradictions(self, tmp_path):
+        """Branch: single source disagreeing with the AI answer -> FAIL
+        (the fail branch between PASS and CONFLICT)."""
+        engine = WhyEngine()
+        _WIKI_STATE["payload"] = _wiki_pages_payload("Model accuracy is 85 percent on the benchmark.")
+        plan = VerificationPlan(
+            question="M12-PROBE-causal-fail: accuracy claim", target="model accuracy",
+            target_type="value", evidence_type="wikipedia_search",
+            proof_criteria="Source supports claim", falsification_criteria="Source contradicts claim",
+            verification_strategy="wikipedia_search", sources_to_query=["Wikipedia"],
+            expected_answer_type="string", confidence_threshold=0.6, reasoning="",
+        )
+        result = engine.execute_plan(plan, ai_answer="Model accuracy is 99%")
+        assert result["verdict"] == "FAIL"
+        assert result["confidence"] == 0.3
 
     def test_causal_query_wikipedia(self):
-        """Branch: query_wikipedia → results"""
-        pass  # Covered by test_query_wikipedia_returns_results
+        """Branch: cache — the second identical query is served from the
+        module cache without a second HTTP round-trip."""
+        _WIKI_STATE["payload"] = _wiki_pages_payload("The capital of France is Paris.")
+        assert _query_wikipedia("France", "What is the capital of France?") == "Paris"
+        hits_after_first = _WIKI_STATE["hits"]
+        assert hits_after_first >= 1
+        assert _query_wikipedia("France", "What is the capital of France?") == "Paris"
+        assert _WIKI_STATE["hits"] == hits_after_first  # served from cache
 
     def test_causal_query_nasa(self):
-        """Branch: query_nasa → results"""
-        pass  # Covered by test_query_nasa_returns_results
+        """Branch: NASA server error -> None, no raise (complements SRC-4's
+        Wikipedia rate-limit path)."""
+        _NASA_STATE["status"] = 503
+        assert _query_nasa("Mars") is None
 
     def test_causal_query_open_meteo(self):
-        """Branch: query_open_meteo → results"""
-        pass  # Covered by test_query_open_meteo_returns_results
+        """Branch: negative temperatures are formatted losslessly."""
+        _METEO_STATE["forecast_temp"] = -12.0
+        assert _query_open_meteo("Hanoi", "temperature?") == "temperature=-12.0°C"
 
     def test_causal_why_sources_rate_limit(self):
-        """Branch: rate limit → graceful empty"""
-        pass  # Covered by test_why_sources_handle_rate_limits
+        """Branch: circuit breaker — after 5 consecutive failures the breaker
+        opens and subsequent queries return None WITHOUT any HTTP attempt."""
+        import scp.meta.why_sources.wikipedia as _wiki_mod
 
-
-if __name__ == "__main__":
-    pass #([__file__, "-v", "--tb=short"])
+        for _ in range(5):
+            _wiki_register_failure("M12 unit probe")
+        assert _wiki_mod._wiki_fail_count >= 5
+        assert _wiki_mod._wiki_circuit_open is True
+        _WIKI_STATE["payload"] = _wiki_pages_payload("The capital of France is Paris.")
+        hits_before = _WIKI_STATE["hits"]
+        assert _query_wikipedia("France", "What is the capital of France?") is None
+        assert _WIKI_STATE["hits"] == hits_before  # breaker short-circuits HTTP
