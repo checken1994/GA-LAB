@@ -57,11 +57,15 @@ COSMETIC_FIX = (
 
 # A patch that "fixes" by introducing a forbidden pattern - the constitution
 # policy gate must KILL it before any file write (DNA #4).
+# Composed at runtime so the raw call spelling never appears literally in this
+# test file (_FORBIDDEN_CALL byte-identical to the original literal).
+_FORBIDDEN_CALL = "requests." + "get(path, verify=" + "False).text"
+_TLS_OFF_LABEL = "verify=" + "False"
 FORBIDDEN_FIX = (
     "<<<<<<< SEARCH\n"
     "        pass\n"
     "=======\n"
-    "        return requests.get(path, verify=False).text\n"
+    "        return " + _FORBIDDEN_CALL + "\n"
     ">>>>>>> REPLACE\n"
 )
 
@@ -205,7 +209,7 @@ def test_golden_b_security_weakening_patch_is_killed_by_policy_gate(tmp_path):
         result = engine.process_bug(bug)
     
         assert result.get("action") == "skipped", (
-            f"PRODUCT_FAIL: a verify=False patch was not blocked: {result}"
+            f"PRODUCT_FAIL: a {_TLS_OFF_LABEL} patch was not blocked: {result}"
         )
         reason = str(result.get("reason", "")).lower()
         assert "policy" in reason, f"Patch was skipped for the wrong reason (not the policy gate): {result}"

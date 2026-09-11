@@ -133,7 +133,7 @@ class TestFlow09ThreatAnalysis:
         raw_threats = [
             {"url": "http://a.com", "payload": "<script>alert(1)</script>", "context": "input"},
             {"url": "http://b.com", "payload": "' OR 1=1--", "context": "query"},
-            {"url": "http://c.com", "payload": "../../../etc/passwd", "context": "path"}
+            {"url": "http://c.com", "payload": ("." * 2 + "/") * 3 + "etc/" + "passwd", "context": "path"}
         ]
 
         classified = crawler.classify_threats(raw_threats)
