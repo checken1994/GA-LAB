@@ -12,7 +12,8 @@ from scp.kernel_storage import SQLiteKernelStorage, make_storage
 
 def test_storage_backend_tampering():
     print("[1] Testing SCP_STORAGE_BACKEND security & boundary cases...")
-    test_db = tempfile.mktemp(suffix=".sqlite3")
+    fd, test_db = tempfile.mkstemp(suffix=".sqlite3")
+    os.close(fd)
     
     # 1. Injection strings
     adversarial_inputs = [
@@ -48,7 +49,8 @@ def test_storage_backend_tampering():
 
 def test_multithreaded_concurrency_without_rlock():
     print("[2] Testing multi-threaded concurrency without RLock...")
-    test_db = tempfile.mktemp(suffix=".sqlite3")
+    fd, test_db = tempfile.mkstemp(suffix=".sqlite3")
+    os.close(fd)
     storage = SQLiteKernelStorage(test_db)
     storage.executescript("CREATE TABLE test_acc (id INT PRIMARY KEY, balance INT, version INT);")
     storage.execute("INSERT INTO test_acc VALUES (1, 1000, 1);")
@@ -115,7 +117,8 @@ def test_multithreaded_concurrency_without_rlock():
 
 def test_rollback_and_isolation():
     print("[3] Testing rollback clean-up and transaction isolation...")
-    test_db = tempfile.mktemp(suffix=".sqlite3")
+    fd, test_db = tempfile.mkstemp(suffix=".sqlite3")
+    os.close(fd)
     storage = SQLiteKernelStorage(test_db)
     storage.executescript("CREATE TABLE items (name TEXT PRIMARY KEY);")
     

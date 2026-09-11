@@ -1,7 +1,8 @@
 import sys, os, tempfile
 sys.path.insert(0, ".")
 from scp.task_kernel import TaskKernel
-db = tempfile.mktemp(suffix=".sqlite3")
+fd, db = tempfile.mkstemp(suffix=".sqlite3")
+os.close(fd)
 k = TaskKernel(db)
 tid = "task_probe_failed"
 k.create_task(tid, "probe-owner", "test_task")
