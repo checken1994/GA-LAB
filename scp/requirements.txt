@@ -41,6 +41,12 @@ python-dotenv==1.0.1
 # === XML security (REQUIRED — biology.py imports defusedxml for XXE hardening) ===
 defusedxml==0.7.1
 
+# === At-rest encryption (REQUIRED — security/bypass_encrypt.py Fernet) ===
+# [A1] Trước đây nằm ở requirements-optional-ml.txt → container chạy với
+# SCP_ENCRYPT_BYPASSES=1 nhưng thiếu cryptography → bypass records bị ghi
+# plaintext (fail-open). Giờ là hard runtime dep; thiếu dep = fail-closed raise.
+cryptography==49.0.0
+
 # === Optional ML / embeddings ===
 # Không cài trong runtime mặc định: code hiện tại không import trực tiếp hai gói này,
 # và CI không được buộc tải torch hàng trăm MB chỉ để chạy policy/reality checks.

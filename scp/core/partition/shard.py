@@ -79,22 +79,25 @@ _BYPASS_ENCRYPTOR_LOCK = threading.Lock()
 
 
 def _get_bypass_encryptor():
-    """Lazy singleton for BypassEncryptor. Returns None if env var OFF."""
+    """Lazy singleton for BypassEncryptor. Returns None if env var OFF.
+
+    [A1 fail-closed] Khi SCP_ENCRYPT_BYPASSES=1 mà encryptor không init được
+    (vd thiếu package cryptography), exception propagates — KHÔNG còn fallback
+    plaintext vì write path đã được yêu cầu encrypt (audit A1).
+    """
     global _BYPASS_ENCRYPTOR_SINGLETON
     if os.environ.get("SCP_ENCRYPT_BYPASSES", "0") != "1":
         return None
     if _BYPASS_ENCRYPTOR_SINGLETON is None:
         with _BYPASS_ENCRYPTOR_LOCK:
             if _BYPASS_ENCRYPTOR_SINGLETON is None:
-                try:
-                    # Lazy import to avoid hard dependency on cryptography package
-                    from scp.security.bypass_encrypt import BypassEncryptor
-                    _BYPASS_ENCRYPTOR_SINGLETON = BypassEncryptor(data_dir=str(DATA_DIR))
-                    logger.info("[V5.3-WIRE] BypassEncryptor initialized — bypasses will be encrypted at-rest")
-                except Exception as e:
-                    logger.warning(f"[V5.3-WIRE] BypassEncryptor init failed: {e} — fallback to plaintext")
-                    _BYPASS_ENCRYPTOR_SINGLETON = False  # sentinel: tried but failed
-    return _BYPASS_ENCRYPTOR_SINGLETON if _BYPASS_ENCRYPTOR_SINGLETON is not False else None
+                # Lazy import to avoid import-time hard dependency;
+                # [A1] init failure now propagates (fail-closed) instead of
+                # silently degrading writes to plaintext.
+                from scp.security.bypass_encrypt import BypassEncryptor
+                _BYPASS_ENCRYPTOR_SINGLETON = BypassEncryptor(data_dir=str(DATA_DIR))
+                logger.info("[V5.3-WIRE] BypassEncryptor initialized — bypasses will be encrypted at-rest")
+    return _BYPASS_ENCRYPTOR_SINGLETON
 
 
 def detect_domain(question: str) -> str:
@@ -292,7 +295,12 @@ class DataPartitioner:
                             try:
                                 from scp.security.bypass_encrypt import BypassEncryptor
                                 _read_encryptor = _get_bypass_encryptor()
-                            except Exception:
+                            except Exception as _enc_err:
+                                # [A1] Log instead of silent swallow — dedup
+                                # degrades to plaintext parse for legacy lines.
+                                logger.warning(
+                                    f"[V5.3-WIRE] read-path encryptor unavailable: {_enc_err}"
+                                )
                                 _read_encryptor = None
                             for _line in _slice:
                                 _lines_seen += 1
@@ -404,22 +412,21 @@ class DataPartitioner:
         path = self.bypasses_path(date_str)
 
         # [V5.3-WIRE] At-rest encryption — opt-in via SCP_ENCRYPT_BYPASSES=1.
+        # [A1 fail-closed] Khi encryption được yêu cầu, lỗi init/encrypt phải
+        # propagate — KHÔNG fallback plaintext (plaintext write khi env=1 =
+        # leak at-rest, audit A1).
         encryptor = _get_bypass_encryptor()
         # [FIX-8] Serialize the file-write — concurrent append() from judge
         # pipeline + AttackCrawler was producing interleaved JSON lines.
         with self._write_lock:
             if encryptor is not None:
-                try:
-                    encrypted_bytes = encryptor.encrypt_bypass(bypass_record)
-                    # Write as utf-8 string (Fernet token is url-safe base64 text)
-                    with open(path, "a", encoding="utf-8") as f:
-                        f.write(encrypted_bytes.decode("utf-8") + "\n")
-                    return
-                except Exception as e:
-                    logger.warning(f"[V5.3-WIRE] encrypt_bypass failed ({e}) — fallback to plaintext")
-                    # Fall through to plaintext write (defense-in-depth: don't lose bypass record)
+                encrypted_bytes = encryptor.encrypt_bypass(bypass_record)
+                # Write as utf-8 string (Fernet token is url-safe base64 text)
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(encrypted_bytes.decode("utf-8") + "\n")
+                return
 
-            # Default path (env OFF or encryption failed) — plaintext JSON, original behavior
+            # Default path (env OFF) — plaintext JSON, intentional mode
             with open(path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(bypass_record, ensure_ascii=False) + "\n")
 

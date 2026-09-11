@@ -21,6 +21,12 @@ Safety:
   - Key rotation support (rotate_key())
   - Thread-safe (Lock)
   - Backup before encrypt file
+
+[A1 fail-closed] Khi encryption được yêu cầu (SCP_ENCRYPT_BYPASSES=1) mà
+package `cryptography` thiếu hoặc key không khả dụng, module RAISE thay vì
+tự downgrade im lặng sang plaintext (fail-open cũ đã bị loại bỏ — audit A1).
+Plaintext chỉ tồn tại ở mode có chủ đích: SCP_ENCRYPT_BYPASSES != "1"
+(encryptor không được tạo) và ở read-path backward-compat cho file legacy.
 """
 from __future__ import annotations
 
@@ -33,18 +39,40 @@ from pathlib import Path
 
 logger = logging.getLogger("scp.security.bypass_encrypt")
 
-# Lazy import cryptography (optional dependency)
+# Lazy import cryptography — availability probe (False = package missing)
 _Fernet = None
 def _get_fernet():
+    """Probe for the cryptography package. Returns Fernet class, or False."""
     global _Fernet
     if _Fernet is None:
         try:
             from cryptography.fernet import Fernet
             _Fernet = Fernet
         except ImportError:
-            logger.warning("[bypass_encrypt] cryptography not installed — encryption DISABLED")
+            logger.error(
+                "[bypass_encrypt] cryptography not installed — encryption "
+                "UNAVAILABLE (fail-closed: encrypt/rotate operations will raise)"
+            )
             _Fernet = False
     return _Fernet
+
+
+def _require_fernet():
+    """[A1 fail-closed] Return the Fernet class or raise RuntimeError.
+
+    Encryption operations must never degrade to plaintext when cryptography
+    is missing: the caller explicitly requested at-rest encryption, so a
+    missing dependency is a hard configuration error, not a soft fallback.
+    """
+    Fernet = _get_fernet()
+    if not Fernet:
+        raise RuntimeError(
+            "bypass_encrypt: cryptography package is required for at-rest "
+            "encryption but is not installed (fail-closed, no plaintext "
+            "fallback). Install it: pip install -r scp/requirements.txt "
+            "or unset SCP_ENCRYPT_BYPASSES to run in intentional plaintext mode."
+        )
+    return Fernet
 
 
 class BypassEncryptor:
@@ -58,6 +86,10 @@ class BypassEncryptor:
         self.key_file = self.data_dir / ".encryption_key"
         self._lock = threading.Lock()
         self._key = self._load_or_generate_key()
+        # [A1 fail-closed] The encryptor is only constructed when encryption is
+        # explicitly requested (SCP_ENCRYPT_BYPASSES=1). Refuse to construct a
+        # broken encryptor that would silently write plaintext.
+        _require_fernet()
 
     def _load_or_generate_key(self) -> bytes:
         """Load key from env var or file. Generate if neither exists."""
@@ -93,18 +125,30 @@ class BypassEncryptor:
         return key
 
     def encrypt_bypass(self, bypass_dict: dict) -> bytes:
-        """Encrypt a bypass dict → bytes."""
-        Fernet = _get_fernet()
-        if not Fernet or not self._key:
-            # Encryption disabled — return plaintext JSON
-            return json.dumps(bypass_dict, ensure_ascii=False).encode("utf-8")
+        """Encrypt a bypass dict → bytes.
+
+        [A1 fail-closed] Raises RuntimeError when cryptography is unavailable
+        or the key is missing — never returns plaintext as a silent fallback.
+        """
+        Fernet = _require_fernet()
+        if not self._key:
+            raise RuntimeError(
+                "bypass_encrypt: no encryption key available (fail-closed, "
+                "no plaintext fallback). Set SCP_ENCRYPTION_KEY."
+            )
         with self._lock:
             f = Fernet(self._key)
             plaintext = json.dumps(bypass_dict, ensure_ascii=False).encode("utf-8")
             return f.encrypt(plaintext)
 
     def decrypt_bypass(self, encrypted: bytes) -> dict:
-        """Decrypt bytes → bypass dict."""
+        """Decrypt bytes → bypass dict.
+
+        Read-path compat is intentional here: plaintext JSON is accepted for
+        files written while SCP_ENCRYPT_BYPASSES=0 (legacy/intentional mode),
+        and per-line failures return {} so callers skip the line (R5-3
+        contract) — this is a read degradation, never a plaintext write.
+        """
         Fernet = _get_fernet()
         if not Fernet or not self._key:
             # Encryption was disabled — parse as plaintext JSON
@@ -177,11 +221,17 @@ class BypassEncryptor:
             return {}
 
     def encrypt_file(self, filepath: Path) -> Path:
-        """Encrypt a bypass JSONL file in-place. Returns backup path."""
-        Fernet = _get_fernet()
-        if not Fernet or not self._key:
-            logger.debug(f"[bypass_encrypt] Encryption disabled — skip {filepath}")
-            return filepath
+        """Encrypt a bypass JSONL file in-place. Returns backup path.
+
+        [A1 fail-closed] An explicit encrypt request raises when cryptography
+        is unavailable — it no longer silently skips (leaving plaintext).
+        """
+        Fernet = _require_fernet()
+        if not self._key:
+            raise RuntimeError(
+                "bypass_encrypt: no encryption key available (fail-closed, "
+                "no plaintext fallback). Set SCP_ENCRYPTION_KEY."
+            )
 
         if not filepath.exists():
             return filepath
@@ -236,10 +286,12 @@ class BypassEncryptor:
             return {"count": decrypted, "failed": failed, "encrypted": True}
 
     def rotate_key(self) -> None:
-        """Generate new key + re-encrypt all bypass files."""
-        Fernet = _get_fernet()
-        if not Fernet:
-            return
+        """Generate new key + re-encrypt all bypass files.
+
+        [A1 fail-closed] Raises when cryptography is unavailable instead of
+        returning silently (rotation request must not be a silent no-op).
+        """
+        Fernet = _require_fernet()
 
         old_key = self._key
         # Decrypt all files with old key, then re-encrypt with new key
