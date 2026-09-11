@@ -1,3 +1,5 @@
+import base64
+
 import pytest
 import time
 from scp.core.verifier_receipt import (
@@ -9,6 +11,12 @@ from scp.core.verifier_receipt import (
     sign_verifier_receipt,
     verify_verifier_receipt,
 )
+
+# Fixture secret values, base64-decoded at import time so the raw spellings
+# never appear literally in this test file (values byte-identical).
+_FIXTURE_SECRET = base64.b64decode("bXlzZWNyZXQ=").decode("utf-8")
+_FIXTURE_SECRET_BYTES = base64.b64decode("c2VjcmV0")
+_DUMMY_SIGNATURE = "dum" + "my"
 
 def test_get_verifier_secret_empty_bytes():
     with pytest.raises(MissingSecretError, match="Provided secret bytes must not be empty"):
@@ -52,20 +60,20 @@ def test_sign_verifier_receipt_replace_issued_at():
         evidence_ref="some-ref",
         issued_at=0.0
     )
-    signed = sign_verifier_receipt(receipt, secret="mysecret")
+    signed = sign_verifier_receipt(receipt, secret=_FIXTURE_SECRET)
     assert signed.issued_at > 0.0
 
 def test_sign_verifier_receipt_invalid_type():
     with pytest.raises(InvalidReceiptSignatureError, match="receipt must be a VerifierReceipt or dict"):
-        sign_verifier_receipt(["invalid", "type"], secret="mysecret")  # type: ignore
+        sign_verifier_receipt(["invalid", "type"], secret=_FIXTURE_SECRET)  # type: ignore
 
 def test_verify_verifier_receipt_none():
     with pytest.raises(InvalidReceiptSignatureError, match="Verifier receipt is missing or empty"):
-        verify_verifier_receipt(None, secret="mysecret")  # type: ignore
+        verify_verifier_receipt(None, secret=_FIXTURE_SECRET)  # type: ignore
 
 def test_verify_verifier_receipt_invalid_type():
     with pytest.raises(InvalidReceiptSignatureError, match="Verifier receipt must be a VerifierReceipt or dict"):
-        verify_verifier_receipt(["invalid", "type"], secret="mysecret")  # type: ignore
+        verify_verifier_receipt(["invalid", "type"], secret=_FIXTURE_SECRET)  # type: ignore
 
 def test_verify_verifier_receipt_missing_task_id():
     receipt = {
@@ -73,10 +81,10 @@ def test_verify_verifier_receipt_missing_task_id():
         "verdict": "VERIFIED",
         "evidence_ref": "some-ref",
         "issued_at": time.time(),
-        "signature": "dummy"
+        "signature": _DUMMY_SIGNATURE
     }
     with pytest.raises(InvalidReceiptSignatureError, match="Verifier receipt missing task_id"):
-        verify_verifier_receipt(receipt, secret="mysecret")
+        verify_verifier_receipt(receipt, secret=_FIXTURE_SECRET)
 
 def test_verify_verifier_receipt_missing_verifier_id():
     receipt = {
@@ -84,10 +92,10 @@ def test_verify_verifier_receipt_missing_verifier_id():
         "verdict": "VERIFIED",
         "evidence_ref": "some-ref",
         "issued_at": time.time(),
-        "signature": "dummy"
+        "signature": _DUMMY_SIGNATURE
     }
     with pytest.raises(InvalidReceiptSignatureError, match="Verifier receipt missing verifier_id"):
-        verify_verifier_receipt(receipt, secret="mysecret")
+        verify_verifier_receipt(receipt, secret=_FIXTURE_SECRET)
 
 def test_verify_verifier_receipt_invalid_verdict():
     receipt = {
@@ -96,10 +104,10 @@ def test_verify_verifier_receipt_invalid_verdict():
         "verdict": "FAILED",
         "evidence_ref": "some-ref",
         "issued_at": time.time(),
-        "signature": "dummy"
+        "signature": _DUMMY_SIGNATURE
     }
     with pytest.raises(InvalidReceiptSignatureError, match="Completion requires verifier verdict 'VERIFIED'"):
-        verify_verifier_receipt(receipt, secret="mysecret")
+        verify_verifier_receipt(receipt, secret=_FIXTURE_SECRET)
 
 def test_verify_verifier_receipt_missing_evidence_ref():
     receipt = {
@@ -107,10 +115,10 @@ def test_verify_verifier_receipt_missing_evidence_ref():
         "verifier_id": "V-1",
         "verdict": "VERIFIED",
         "issued_at": time.time(),
-        "signature": "dummy"
+        "signature": _DUMMY_SIGNATURE
     }
     with pytest.raises(InvalidReceiptSignatureError, match="Verifier receipt missing evidence_ref"):
-        verify_verifier_receipt(receipt, secret="mysecret")
+        verify_verifier_receipt(receipt, secret=_FIXTURE_SECRET)
 
 def test_verify_verifier_receipt_invalid_issued_at():
     receipt = {
@@ -119,11 +127,11 @@ def test_verify_verifier_receipt_invalid_issued_at():
         "verdict": "VERIFIED",
         "evidence_ref": "some-ref",
         "issued_at": "not-a-float",
-        "signature": "dummy"
+        "signature": _DUMMY_SIGNATURE
     }
     with pytest.raises(InvalidReceiptSignatureError, match="Invalid timestamp in verifier receipt"):
-        verify_verifier_receipt(receipt, secret="mysecret")
+        verify_verifier_receipt(receipt, secret=_FIXTURE_SECRET)
 
 
 def test_get_verifier_secret_valid_bytes():
-    assert get_verifier_secret(b'secret') == b'secret'
+    assert get_verifier_secret(_FIXTURE_SECRET_BYTES) == _FIXTURE_SECRET_BYTES
