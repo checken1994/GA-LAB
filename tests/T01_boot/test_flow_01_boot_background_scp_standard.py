@@ -1,6 +1,6 @@
 """
 SCP Complete Standard Test — Mạch 1: Boot & Background Jobs
-Covers: api_server.py lifespan, api/_lifespan.py, api/background_jobs.py, core/doubt_cron.py
+Covers: api_server.py lifespan, api_server_parts/lifespan.py, api/background_jobs.py, core/doubt_cron.py
 
 FA-01: Strict assertions, no loosening
 FA-02: No skip/xfail

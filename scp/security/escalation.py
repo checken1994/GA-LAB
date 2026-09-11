@@ -435,7 +435,7 @@ class EscalationManager:
     # [SCP-DNA-FIX R5-3] DESIGN TODO: on_human_approval / on_human_rejection
     # are now reachable from any admin code path (e.g. FastAPI route handlers)
     # but are NOT yet wired to HTTP endpoints. Recommended wiring (out of
-    # scope for this fix — _lifespan.py + api_server.py are owned by parent):
+    # scope for this fix — api_server_parts/lifespan.py + api_server.py are owned by parent):
     #
     #   @app.post("/v105/escalation/{threat_id}/approve")
     #   async def approve_escalation(threat_id: str, action: str = "default"):

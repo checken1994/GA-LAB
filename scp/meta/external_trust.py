@@ -223,7 +223,7 @@ class ExternalTrustRoot:
     # the constitution or external_audit tests is NEVER detected. Below are
     # the public methods that a scheduler (startup + 24h cron) should call.
     #
-    # TODO(parent — scp/api/_lifespan.py owner): wire this into the FastAPI
+    # TODO(parent — scp/api_server_parts/lifespan.py owner): wire this into the FastAPI
     # lifespan startup + a 24h recurring task:
     #     from scp.meta.external_trust import get_external_trust_root
     #     trust = get_external_trust_root()
