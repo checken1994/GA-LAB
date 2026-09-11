@@ -59,14 +59,36 @@ async def import_jsonl(request: Request, _admin: bool = Depends(verify_admin)):
             v = await asyncio.to_thread(
                 judge.judge, question=question, ai_answer=ai_answer, cycle_count=0
             )
+            # [M11 fix AUDIT-20260909] RealityJudge.judge() returns a plain dict
+            # (scp/runtime/judge.py:71 -> dict[str, Any]). The previous code read
+            # `v.verdict` / `v.confidence` / `v.evidence` as ATTRIBUTES ->
+            # AttributeError on EVERY question with the real judge, so every
+            # import row degraded into {"error": ...} with HTTP 200
+            # (fail-silently) and this endpoint never produced a verdict
+            # (probe-proven at :8010 with the real judge). Same dict-contract
+            # bug class already fixed for the stream path in M10.
+            # The REAL dict contract is read via .get(); an attribute fallback
+            # is kept ONLY for legacy result shapes (the flow_11 harness
+            # predates the dict contract and is owned by another in-flight
+            # stream, so it cannot be edited here) — this does not change the
+            # real judge behavior, which takes the dict branch.
+            if isinstance(v, dict):
+                evidence = v.get("evidence") or {}
+                verdict = v.get("verdict")
+                confidence = v.get("confidence")
+            else:  # legacy attribute-shaped result (pre-dict-contract callers)
+                evidence = v.evidence or {}
+                verdict = v.verdict
+                confidence = v.confidence
+            timings = evidence.get("v100_phase_timings") or {}
             results.append({
                 "line": i + 1,
                 "question": question[:100],
-                "verdict": v.verdict,
-                "confidence": v.confidence,
-                "falsification": v.evidence.get("falsification_status"),
-                "governance": v.evidence.get("governance_decision"),
-                "elapsed_ms": v.evidence.get("v100_phase_timings", {}).get("total_ms", 0),
+                "verdict": verdict,
+                "confidence": confidence,
+                "falsification": evidence.get("falsification_status"),
+                "governance": evidence.get("governance_decision"),
+                "elapsed_ms": timings.get("total_ms", 0),
             })
         except Exception as e:
             results.append({"line": i + 1, "error": str(e)})
