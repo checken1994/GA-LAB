@@ -297,8 +297,3 @@ class TestFlow11AdminImportCausalCoverage:
     def test_causal_webhook_analyze_processes(self):
         """Branch: webhook analyze returns allow for PASS"""
         pass
-
-
-if __name__ == "__main__":
-    import pytest
-    pytest.main([__file__, "-v", "--tb=short"])

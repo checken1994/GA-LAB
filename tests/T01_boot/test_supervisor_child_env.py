@@ -25,13 +25,11 @@ def test_dashboard_receives_scheduler_admin_boundary():
     assert "$env:SCP_SCHEDULER_ADMIN_TOKEN_FILE = $AdminTokenFile" in supervisor
 
 
-def test_supervisor_recovers_external_ollama_with_budget():
+def test_supervisor_manages_llm_bridge():
     root = Path(__file__).resolve().parents[2]
     supervisor = (root / "scripts" / "ops" / "scp_247_supervisor.ps1").read_text(encoding="utf-8")
-    assert "$ollamaHealthy = $true # [DNA #6] API-first: skip local ollama check" in supervisor
-    assert "'OLLAMA_RECOVERED'" in supervisor
-    assert "'OLLAMA_RECOVERY_FAILED'" in supervisor
-    assert "'external_dependency_restart_budget_exhausted'" in supervisor
+    assert "Name = 'llm-bridge'" in supervisor
+    assert "$env:SCP_LLM_BRIDGE_PORT = '8081'" in supervisor
 
 
 def test_supervisor_rebuilds_stale_dashboard_before_starting_standalone_server():

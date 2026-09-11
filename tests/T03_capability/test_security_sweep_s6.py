@@ -149,7 +149,3 @@ def test_no_migration_when_schema_already_canonical(tmp_path):
         con.close()
     assert kept == [("ck-keep", "qh-keep")]
     assert leftover == [], "no migration should run when schema is already canonical"
-
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q"]))
