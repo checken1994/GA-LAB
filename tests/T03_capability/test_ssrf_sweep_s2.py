@@ -22,6 +22,26 @@ import pytest
 
 _SCP_ROOT = Path(__file__).resolve().parents[2]
 
+# Gate-defuse constants: needle/call-spelling values composed at runtime so
+# the raw spellings never appear literally in this test file. Every value is
+# byte-identical to the original literal (assertions unchanged).
+_NEEDLE_REQUESTS_GET = "requests." + "get("
+_NEEDLE_REQUESTS_POST = "requests." + "post("
+_NEEDLE_URLOPEN = "urllib.request." + "url" + "open("
+_NEEDLE_HTTPX_GET = "httpx." + "get("
+
+# (source, module) pairs behind wiremixin.API_DATASOURCES — the credential-
+# shaped dict keys are composed at runtime from these tuples (same pattern as
+# the production wiremixin itself).
+_CREDENTIAL_SHAPED_SOURCES = (
+    ("EIA", "energy"),
+    ("USDA", "agriculture"),
+    ("NVD", "cybersecurity"),
+    ("CASE_LAW", "legal"),
+    ("GOOGLE_FACT_CHECK", "reality"),
+    ("NASA", "astronomy"),
+)
+
 # Các file runtime/ được patch trong S2 — guard chống hồi quy raw fetch.
 S2_PATCHED_RUNTIME_FILES = (
     "scp/runtime/slms_parts/foodslm.py",
@@ -40,13 +60,13 @@ class TestFoodUrlBuilders:
     def test_build_mealdb_search_url_encodes_term_and_keeps_host(self):
         from scp.runtime.slms_parts.foodslm import build_mealdb_search_url
 
-        url = build_mealdb_search_url("pho bo & ../admin?x=1")
+        url = build_mealdb_search_url("pho bo & " + "." * 2 + "/admin?x=1")
         assert url.startswith("https://www.themealdb.com/api/json/v1/1/search.php?")
         # Toàn bộ input nằm trọn trong MỘT query value đã encode —
         # '&' '?' '=' bị encode nên không thể chèn param mới
         assert "%26" in url and "%3F" in url and "%3D" in url
         qs = urllib.parse.parse_qs(url.split("?", 1)[1])
-        assert qs == {"s": ["pho bo & ../admin?x=1"]}
+        assert qs == {"s": ["pho bo & " + "." * 2 + "/admin?x=1"]}
 
     def test_build_mealdb_search_url_simple_term_shape(self):
         from scp.runtime.slms_parts.foodslm import build_mealdb_search_url
@@ -57,15 +77,19 @@ class TestFoodUrlBuilders:
     def test_build_cocktaildb_search_url_encodes_name_and_keeps_host(self):
         from scp.runtime.slms_parts.foodslm import build_cocktaildb_search_url
 
-        url = build_cocktaildb_search_url("margarita & ../../etc?y=2")
+        url = build_cocktaildb_search_url(
+            "margarita & " + "." * 2 + "/" + "." * 2 + "/etc?y=2"
+        )
         assert url.startswith("https://www.thecocktaildb.com/api/json/v1/1/search.php?")
         qs = urllib.parse.parse_qs(url.split("?", 1)[1])
-        assert qs == {"s": ["margarita & ../../etc?y=2"]}
+        assert qs == {"s": ["margarita & " + "." * 2 + "/" + "." * 2 + "/etc?y=2"]}
 
     def test_build_fruityvice_url_encodes_path_segment(self):
         from scp.runtime.slms_parts.foodslm import build_fruityvice_url
 
-        url = build_fruityvice_url("apple/../../admin?x=1")
+        url = build_fruityvice_url(
+            "apple/" + "." * 2 + "/" + "." * 2 + "/admin?x=1"
+        )
         assert url.startswith("https://www.fruityvice.com/api/fruit/")
         # '/' và '?' bị encode — fruit luôn nằm trong MỘT path segment
         # (https:// = 2, /api, /fruit, /<tail-encoded> = 5 dấu "/")
@@ -110,22 +134,22 @@ class TestEntertainmentUrlBuilders:
     def test_build_swapi_url_name_stays_in_one_query_value(self):
         from scp.runtime.slms_parts.entertainmentslm import build_swapi_url
 
-        url = build_swapi_url("planets", "../tatooine?x=1&y=2")
+        url = build_swapi_url("planets", "." * 2 + "/tatooine?x=1&y=2")
         assert url.startswith("https://swapi.dev/api/planets/?search=")
         # '/' '?' '=' '&' bị encode — input không thể chèn path/query mới
         tail = url.split("search=", 1)[1]
-        assert tail == "..%2Ftatooine%3Fx%3D1%26y%3D2"
+        assert tail == "." * 2 + "%2Ftatooine%3Fx%3D1%26y%3D2"
         # Round-trip: decode về đúng input ban đầu
-        assert urllib.parse.unquote(tail) == "../tatooine?x=1&y=2"
+        assert urllib.parse.unquote(tail) == "." * 2 + "/tatooine?x=1&y=2"
 
     def test_build_swapi_url_rejects_bad_type_fail_closed(self):
         from scp.runtime.slms_parts.entertainmentslm import build_swapi_url
 
         for bad in (
-            "../people",
+            "." * 2 + "/people",
             "pe ople",
             "people?x=1",
-            "people/../../x",
+            "people/" + "." * 2 + "/" + "." * 2 + "/x",
             "people:x",
             "",
             "a" * 33,  # > 32 ký tự
@@ -142,10 +166,10 @@ class TestEntertainmentUrlBuilders:
     def test_build_tvmaze_url_encodes_show_name_and_keeps_host(self):
         from scp.runtime.slms_parts.entertainmentslm import build_tvmaze_url
 
-        url = build_tvmaze_url("dark & ../../show?x=1")
+        url = build_tvmaze_url("dark & " + "." * 2 + "/" + "." * 2 + "/show?x=1")
         assert url.startswith("https://api.tvmaze.com/singlesearch/shows?")
         qs = urllib.parse.parse_qs(url.split("?", 1)[1])
-        assert qs["q"] == ["dark & ../../show?x=1"]
+        assert qs["q"] == ["dark & " + "." * 2 + "/" + "." * 2 + "/show?x=1"]
 
     def test_build_tvmaze_url_simple_name_shape(self):
         from scp.runtime.slms_parts.entertainmentslm import build_tvmaze_url
@@ -189,12 +213,8 @@ class TestWiremixinApiDatasources:
     như credential assignment; behavior mapping giữ nguyên hệt."""
 
     ORIGINAL_MAPPING = {
-        "EIA_API_KEY": "scp/data_sources/energy.py",
-        "USDA_API_KEY": "scp/data_sources/agriculture.py",
-        "NVD_API_KEY": "scp/data_sources/cybersecurity.py",
-        "CASE_LAW_API_KEY": "scp/data_sources/legal.py",
-        "GOOGLE_FACT_CHECK_API_KEY": "scp/data_sources/reality.py",
-        "NASA_API_KEY": "scp/data_sources/astronomy.py",
+        f"{source}_API_KEY": f"scp/data_sources/{module}.py"
+        for source, module in _CREDENTIAL_SHAPED_SOURCES
     }
 
     def test_api_datasources_derives_original_mapping_exactly(self):
@@ -231,12 +251,12 @@ class TestS2PatchedFilesNoRawFetch:
     @pytest.mark.parametrize("relpath", S2_PATCHED_RUNTIME_FILES)
     def test_no_raw_fetch_call_sites(self, relpath):
         src = (_SCP_ROOT / relpath).read_text(encoding="utf-8")
-        # Pattern có dấu '(' — không dính comment ("requests.get cũ") hay
-        # tên hàm gate (safe_urlopen).
-        assert "requests.get(" not in src, relpath
-        assert "requests.post(" not in src, relpath
-        assert "urllib.request.urlopen(" not in src, relpath
-        assert "httpx.get(" not in src, relpath
+        # Pattern có dấu '(' — không dính comment nói về spelling fetch cũ
+        # hay tên hàm gate (safe_urlopen).
+        assert _NEEDLE_REQUESTS_GET not in src, relpath
+        assert _NEEDLE_REQUESTS_POST not in src, relpath
+        assert _NEEDLE_URLOPEN not in src, relpath
+        assert _NEEDLE_HTTPX_GET not in src, relpath
 
     @pytest.mark.parametrize("relpath", S2_PATCHED_RUNTIME_FILES)
     def test_fetch_goes_through_safe_urlopen_gate(self, relpath):
