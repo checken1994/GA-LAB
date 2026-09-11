@@ -405,6 +405,29 @@ class TestFlow12BackgroundWhy:
     # 2. WHY ENGINE (real verification flow)
     # =========================================================================
 
+    def test_init_why_db_idempotent_and_schema_complete(self):
+        """[M12-FIX PF-1 85fc67f / PF-6 f26324a] init_why_db is idempotent on
+        an already-migrated schema and the plan table carries every column the
+        background verification path reads.
+
+        Regression pins:
+        - PF-1: the claimed_at ALTER always hits 'duplicate column' on any DB
+          created after claimed_by/claimed_at shipped in CREATE TABLE; the
+          handler used to reference an UNDEFINED logger -> NameError -> WhyEngine()
+          was un-instantiable on fresh environments. The second init pass
+          deterministically walks that handler again and must not raise.
+        - PF-6: execute_pending_plans claims rows with
+          'RETURNING ... confidence_threshold' — the column must exist
+          (previously: 'no such column' on every claim -> 0 plans executed).
+        """
+        from scp.core.db_manager import db_query_all
+        from scp.meta.why_engine_parts.init_why_db import init_why_db
+
+        init_why_db()  # first pass — create/migrate
+        init_why_db()  # second pass — duplicate-column handlers must run safely
+        cols = {r["name"] for r in db_query_all("PRAGMA table_info(why_verification_plans)")}
+        assert {"claimed_by", "claimed_at", "confidence_threshold"} <= cols, cols
+
     def test_why_engine_verifies_past_decisions(self, tmp_path, why_plans_cleanup):
         """
         [WHY-ENG-1] The real "verify past decisions" flow: plan persisted as
@@ -457,6 +480,60 @@ class TestFlow12BackgroundWhy:
         direct_empty = engine.execute_plan(plan, ai_answer="")
         assert direct_empty["verdict"] == "UNKNOWN"
         assert "empty_evidence" in direct_empty["reasoning"]
+
+    def test_claim_release_failure_is_logged_not_swallowed(self, monkeypatch, caplog, why_plans_cleanup):
+        """[M12-FIX D6 fa9da62] a failed claim-release (UPDATE claimed_by=NULL)
+        must be LOGGED at warning — never swallowed by a bare except:pass.
+
+        Regression pin: the release failure used to vanish silently, leaving
+        the row claimed forever with no observable trace. Fault injection at
+        module seams only (per-row execution raises once, the release UPDATE
+        fails once) — the product code under test is the real
+        execute_pending_plans error path. Postconditions: the warning record
+        exists at WARNING level and the row stays claimed (release failed).
+        """
+        import logging
+
+        import scp.meta.why_engine_parts.whyengine as whyengine_mod
+
+        engine = WhyEngine()
+        question = (
+            f"M12-PROBE-{uuid.uuid4().hex[:8]}: Tại sao nhiệt độ tại "
+            "Singapore là 27 độ C?"
+        )
+        engine.create_verification_plan(question)
+
+        real_db_exec = whyengine_mod.db_exec
+
+        def _release_fails(sql, params=()):
+            if "claimed_by=NULL" in sql:
+                raise RuntimeError("injected claim-release failure (TMX pin)")
+            return real_db_exec(sql, params)
+
+        def _boom(plan, ai_answer=""):
+            raise RuntimeError("injected per-row execution failure (TMX pin)")
+
+        monkeypatch.setattr(whyengine_mod, "db_exec", _release_fails)
+        monkeypatch.setattr(engine, "execute_plan", _boom)
+
+        with caplog.at_level(logging.WARNING, logger="scp.meta.why_engine"):
+            stats = engine.execute_pending_plans(limit=10)
+
+        assert stats.get("executed") == 0, stats
+        release_warnings = [
+            r for r in caplog.records if "claim-release failed" in r.getMessage()
+        ]
+        assert release_warnings, (
+            "claim-release failure must be observable at WARNING (was bare except:pass — D6 regression)"
+        )
+        assert release_warnings[0].levelno == logging.WARNING
+        row = db_query_one(
+            "SELECT claimed_by FROM why_verification_plans WHERE question=?",
+            (question,),
+        )
+        assert row is not None and row["claimed_by"] is not None, (
+            "a failed release must leave the row claimed (documented postcondition)"
+        )
 
     def test_why_engine_multisource_real_match_still_passes(self, why_plans_cleanup):
         """
@@ -643,6 +720,21 @@ class TestFlow12BackgroundWhy:
         """
         results = _query_open_meteo("Hanoi", "What is the temperature at Hanoi?")
         assert results == "temperature=25.5°C"
+        assert _METEO_STATE["hits"] == 2  # geocode + forecast, both real
+
+    def test_query_open_meteo_encodes_multi_word_target(self):
+        """[M12-FIX PF-7 f26324a] multi-word targets are percent-encoded into
+        the geocode URL.
+
+        Regression pin: the RAW target used to be interpolated into the URL,
+        so any multi-word target ("new york", "hồ chí minh", regex-extracted
+        "singapore là 27 độ c") raised ValueError("URL can't contain control
+        characters") inside urllib and the source silently returned None.
+        The request must now complete both real HTTP round-trips against the
+        local fixture server.
+        """
+        results = _query_open_meteo("new york", "What is the temperature at New York?")
+        assert results == "temperature=25.5°C", results
         assert _METEO_STATE["hits"] == 2  # geocode + forecast, both real
 
     def test_why_sources_handle_rate_limits(self):
