@@ -257,8 +257,10 @@ class RollbackTokenRegistry:
                 if tmp_name:
                     try:
                         Path(tmp_name).unlink(missing_ok=True)
-                    except OSError:
-                        pass
+                    except OSError as unlink_err:
+                        # silent-by-design: secondary temp-file cleanup after a
+                        # rollback failure — outer handler reports rollback failed.
+                        logger.debug(" rollback temp-file cleanup failed: %s", unlink_err, exc_info=True)
             logger.info(
                 f"[IMP-6] rolled back fix {token} — restored {file_path} "
                 f"to before_hash={entry['before_hash']}"
@@ -471,8 +473,10 @@ class DryRunManager:
                     if now - path.stat().st_mtime > max_age_seconds:
                         path.unlink()
                         removed += 1
-                except OSError:
-                    pass
+                except OSError as gc_err:
+                    # silent-by-design: best-effort snapshot GC — leftover files
+                    # are retried on the next cleanup cycle.
+                    logger.debug(" snapshot GC unlink failed for %s: %s", path, gc_err, exc_info=True)
         return removed
 
 

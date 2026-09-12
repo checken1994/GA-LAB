@@ -35,8 +35,8 @@ class AutoFixMixin:
                     if (ctx.shadow_mgr.active_dir / ctx.shadow_tx_id).is_dir():
                         try:
                             ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"part1 non-fixed: {res.get('reason')}")
-                        except Exception:
-                            pass
+                        except Exception as rb_err:
+                            logger.warning("[AutoFix] shadow rollback failed after part1 non-fixed — tx %s left in active dir (GC will reclaim): %s", ctx.shadow_tx_id, rb_err, exc_info=True)
                 return res
             
             res = self._auto_fix_part2(ctx)
@@ -45,8 +45,8 @@ class AutoFixMixin:
                     if (ctx.shadow_mgr.active_dir / ctx.shadow_tx_id).is_dir():
                         try:
                             ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"part2 non-fixed: {res.get('reason')}")
-                        except Exception:
-                            pass
+                        except Exception as rb_err:
+                            logger.warning("[AutoFix] shadow rollback failed after part2 non-fixed — tx %s left in active dir (GC will reclaim): %s", ctx.shadow_tx_id, rb_err, exc_info=True)
                 return res
             
             res = self._auto_fix_part3(ctx)
@@ -55,8 +55,8 @@ class AutoFixMixin:
                     if (ctx.shadow_mgr.active_dir / ctx.shadow_tx_id).is_dir():
                         try:
                             ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"part3 non-fixed: {res.get('reason')}")
-                        except Exception:
-                            pass
+                        except Exception as rb_err:
+                            logger.warning("[AutoFix] shadow rollback failed after part3 non-fixed — tx %s left in active dir (GC will reclaim): %s", ctx.shadow_tx_id, rb_err, exc_info=True)
                 return res
             
         except Exception as e:
@@ -64,8 +64,8 @@ class AutoFixMixin:
             if getattr(ctx, "shadow_tx_id", None) and getattr(ctx, "shadow_mgr", None):
                 try:
                     ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason=f"auto-fix crash: {e}")
-                except Exception:
-                    pass
+                except Exception as rb_err:
+                    logger.critical("[AutoFix] DOUBLE FAILURE: auto-fix crashed AND shadow rollback failed — tx %s left in active dir, manual cleanup may be required: %s", ctx.shadow_tx_id, rb_err, exc_info=True)
             return {
                 "action": "skipped",
                 "tier": int(ctx.bug.tier),
@@ -76,8 +76,8 @@ class AutoFixMixin:
             if (ctx.shadow_mgr.active_dir / ctx.shadow_tx_id).is_dir():
                 try:
                     ctx.shadow_mgr.rollback(ctx.shadow_tx_id, reason="fell through")
-                except Exception:
-                    pass
+                except Exception as rb_err:
+                    logger.warning("[AutoFix] shadow rollback failed on fell-through path — tx %s left in active dir (GC will reclaim): %s", ctx.shadow_tx_id, rb_err, exc_info=True)
 
         return {"action": "skipped", "reason": "fell through"}
 
@@ -812,7 +812,10 @@ class AutoFixMixin:
                 # worse than blast-radius alone, escalates higher).
                 try:
                     _v4_orig_tier = int(getattr(ctx.bug, "tier", 1) or 1)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError) as tier_err:
+                    # silent-by-design: documented default — a non-numeric tier
+                    # degrades to Tier 1, escalation policy still applies below.
+                    logger.debug("[AutoFix] bug.tier not numeric, defaulting to 1: %s", tier_err, exc_info=True)
                     _v4_orig_tier = 1
                 _v4_escalated_tier = _v4_should_escalate(
                     _v4_blast_result, _v4_orig_tier,
@@ -902,7 +905,11 @@ class AutoFixMixin:
                                         if node.returns:
                                             try:
                                                 returns = _ast_tf.unparse(node.returns)
-                                            except Exception:
+                                            except Exception as unp_err:
+                                                # silent-by-design: unparse probe —
+                                                # 'Any' is the documented fallback
+                                                # signature for type-flow comparison.
+                                                logger.debug("[AUTOFIX] return-annotation unparse failed, using 'Any': %s", unp_err, exc_info=True)
                                                 returns = "Any"
                                         return _V4_TF_Sig(args=args, returns=returns)
                             except Exception as _signature_scan_error:
@@ -1453,7 +1460,10 @@ class AutoFixMixin:
                         make_rollback_token_git as _git_token_4b012,
                     )
                     ctx.rollback_token = _git_token_4b012(str(filepath))
-                except Exception:
+                except Exception as git_token_err:
+                    # silent-by-design: failover to backup-file rollback token —
+                    # rollback capability is preserved via the backup path.
+                    logger.warning("[4-b-012] git rollback token unavailable, falling back to backup-file token: %s", git_token_err, exc_info=True)
                     ctx.rollback_token = _rb_token_4b012(str(filepath))
             else:
                 ctx.rollback_token = _rb_token_4b012(str(filepath))

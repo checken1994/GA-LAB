@@ -28,10 +28,14 @@ def _find_pre_patch_backup(filepath: Path) -> Path | None:
                             bk = tx_dir / item["backup_file"]
                             if bk.is_file():
                                 return bk
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as manifest_err:
+                    # silent-by-design: best-effort backup discovery from shadow
+                    # manifests — caller falls through to suffix-based backup scan.
+                    logger.debug(" manifest backup scan failed for %s: %s", tx_dir, manifest_err, exc_info=True)
+    except Exception as dir_err:
+        # silent-by-design: same — missing/inaccessible shadow dir is expected
+        # when no shadow transaction exists; suffix scan below still applies.
+        logger.debug(" shadow active_dir scan failed: %s", dir_err, exc_info=True)
 
     for suffix in [".tier3bak", ".audit_fix_backup"]:
         candidate = filepath.with_suffix(filepath.suffix + suffix)
@@ -66,9 +70,9 @@ class VerifyMixin:
                 _content = filepath.read_text(encoding="utf-8")
                 _ast.parse(_content, filename=str(filepath))
             except SyntaxError as _se:
-                return False, f"patched file SyntaxError: {_se}"
+                return False, f"patched file SyntaxError: {_se}"  # silent-by-design: explicit (False, reason) error return — caller rolls back fail-closed
             except Exception as _parse_err:
-                return False, f"parse check failed: {_parse_err}"
+                return False, f"parse check failed: {_parse_err}"  # silent-by-design: same — error text reaches the caller's rollback path
 
             #  Check 2: re-scan file — original bug still present?
             # TẠI SAO: nếu fix chỉ "modify text" mà không thực sự sửa bug pattern,

@@ -408,7 +408,10 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
                 from scp.core.code_evolution_agent import _relative_repo_path
                 try:
                     _rel = _relative_repo_path(_p)
-                except Exception:
+                except Exception as _rel_err:
+                    # silent-by-design: proposal file naming fallback — module path is
+                    # a valid identifier for the proposal title, failure is best-effort.
+                    logger.debug(" meta-repair: relative path compute failed, using module path: %s", _rel_err, exc_info=True)
                     _rel = _module_path
                 _proposals = Path("data") / "governance" / "proposals"
                 _proposals.mkdir(parents=True, exist_ok=True)
@@ -667,9 +670,9 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
                         # If a lib raises SyntaxError(None), _se.msg[:80] would
                         # raise TypeError, masked by the outer except Exception
                         # → original error lost. Now None-safe.
-                        _reality_test_result = f"FAIL:SyntaxError:{(_se.msg or '')[:80]}"
+                        _reality_test_result = f"FAIL:SyntaxError:{(_se.msg or '')[:80]}"  # silent-by-design: error recorded in _reality_test_result, enforced fail-closed by the R6 gate below
                     except Exception as _ee:
-                        _reality_test_result = f"FAIL:{type(_ee).__name__}:{str(_ee)[:80]}"
+                        _reality_test_result = f"FAIL:{type(_ee).__name__}:{str(_ee)[:80]}"  # silent-by-design: same — failure drives the R6 rollback gate
             except Exception as e:
                 logger.debug(f" after_hash / reality_test compute failed: {e}")
                 _reality_test_result = f"FAIL:hash_compute:{str(e)[:80]}"
