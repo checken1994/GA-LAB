@@ -16,6 +16,10 @@ from pathlib import Path
 from scp.contracts.time import now_utc_iso, parse_utc_iso
 from scp.persistence import FoundationDB
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 _MIGRATIONS = [
     ("0001_world_assertions", [
         """CREATE TABLE IF NOT EXISTS world_assertions (
@@ -76,7 +80,7 @@ class TemporalAuthority:
         try:
             self.db.close()
         except Exception:
-            pass
+            logger.warning('TemporalAuthority.close: Exception not handled', exc_info=True)
 
     def record_observation(self, *, subject: str, predicate: str, value: dict,
                            valid_time: str, evidence_refs, actor_id: str,
