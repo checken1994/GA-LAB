@@ -123,3 +123,35 @@ An toàn: shape check cột 1:1 fail-closed; BLOB abort; identifier chỉ qua `p
 - Leg B (giữ intent gốc): token CapabilityToken hợp lệ (HMAC signature thật qua `get_capability_secret`/`compute_token_signature`) → executor PEP từ chối → bridge route `commit_failed()` → FAILED, `active_lease_id is None`, đúng 1 `TASK_FAILED`, indictment `hands://.../policy_denied/restricted_read`, actor == worker_id, + THÊM strictness: `verify_journal(task_id).hash_chain_valid is True`.
 
 Reality test: `python -m pytest "tests/T04_kernel/test_adversarial_kernel_flaws.py::test_branch_9_task_kernel_bridge_policy_denial_integration" -x -q` → **1 passed**, exit 0. Không sửa product (không cần), không skip/xfail, không hạ assertion nào.
+
+## Progress log — phiên 2 (2026-09-12, branch audit/runtime-guard-AUDIT-20260909)
+
+| Milestone | Commit | Kết quả |
+|---|---|---|
+| 1. Triage branch-9 | `60abc1d` | Verdict: test pin contract CŨ (pre-M4, kernel mutation trước authz — sai); product M4 (`0d13c85`) đúng. Test T04 viết lại 2 leg, strictness TĂNG: (A) token thiếu → `PermissionError` (`CapabilityRequiredError` + `FA-05`) + KHÔNG kernel state (task id deterministic → `NotFound`); (B) token hợp lệ → denial route `commit_failed` → FAILED + indictment `hands://…/policy_denied/…` + journal chain valid. Pytest: 1 passed, exit 0. |
+| 2. Chaos Pg | `79ced21` | `tests/T04_kernel/test_pg_storage_chaos.py` — 4/4 PASS ×2 lần chạy độc lập, exit 0 (4.89s / 4.85s): (a) `pg_terminate_backend` giữa write transaction → instance chết fail LOUD (`sqlite3.OperationalError`, type parity SQLite), write chưa commit rollback sạch, instance mới: version nguyên, `verify_integrity` ok, journal valid, `recover_on_boot` corrupted=[]; (b) `docker restart` giữa claim → stale conn raise đúng type, `recover_on_boot` LEASED→RECOVERING, orphan lease released, task re-claim end-to-end (fencing tăng); (c) 2 process spawn race `claim_next` → đúng 1 lease (1 row leases, 1 LEASE_GRANTED, loser sạch); (d) `backup_to` → pg_dump thật (binary trong container qua test-support PATH shim — host không có pg_dump, fail-closed contract giữ nguyên) → restore DB mới bằng psql thật → `verify_integrity` ok + tasks/control/event-counts khớp + kill-switch state giữ nguyên. |
+| 3. Boot-on-Pg runtime | `005e928` | `tests/T04_kernel/test_pg_boot_runtime.py` — 2/2 PASS exit 0 (1.17s): full lifecycle qua TaskKernel API thật (create→PLANNING/READY/QUEUED→claim/lease→start→idempotency claim→checkpoint→heartbeat→VERIFYING→VerifierReceipt HMAC→`commit_verification_result`→COMPLETED) + `verify_integrity`/journal chain/`rebuild_projection`/recover_on_boot sạch/idempotency replay no-op; crash path: worker chết giữa RUNNING → HUMAN_REVIEW → operator loop → QUEUED → worker mới (fencing tăng) → COMPLETED. **SQLite-assumption census: 2 chỗ** (bridge `sqlite3.IntegrityError` dead except-leg `task_kernel_bridge.py:364`; `TaskKernel.backup()` hardcode `.sqlite3` suffix) — ghi nhận, KHÔNG sửa (ngoài scope; hành vi đúng cả 2 backend). Kernel core backend-neutral (không import sqlite3 trực tiếp). |
+| 4. Final regression | — | T04 FULL với `SCP_PG_TEST_DSN`: **200 passed, 0 failed, exit 0** (21.21s) — trước phiên: 193 passed + 1 failed (branch-9). T03 FULL: **709 passed, 0 failed, exit 0** (90.60s) sau 2 harness repair (`72da6d3`): (1) `test_hands_authority_pep.py` bridge missing-token test cùng root cause branch-9 → cập nhật theo contract M4, strictness tăng (ZERO kernel state thay vì FAILED row); (2) flow-08 flaky do rate-limit accounting 60s process-wide chảy giữa các file T03 → thêm autouse isolation fixture (pattern có sẵn T02/flow-06), product logic + assertion 401/403 giữ nguyên. |
+| 5. Closure record | (commit này) | `reports/circuit-closures/C1-postgres-closure.json` (D0–D8 thu gọn, sha_pin `72da6d3…`) + evidence vào `reports/circuit-closures/C1-evidence/` (parity/migration, chaos, boot, T04, T03, D2 docker PG runtime) + STATUS-LEDGER thêm hàng Track C1. |
+
+### Evidence files (C1-evidence)
+
+- `pytest-pg-parity-migration.txt` — 17 passed exit 0 (parity sequence SQLite↔PG + migration e2e)
+- `pytest-pg-chaos.txt` — 4 passed exit 0 (chaos a–d)
+- `pytest-pg-boot-runtime.txt` — 2 passed exit 0 (boot-on-Pg lifecycle)
+- `pytest-T04-full-final.txt` — 200 passed exit 0 (T04 full, PG env)
+- `pytest-T03-final.txt` — 709 passed exit 0 (T03 full)
+- `D2-docker-pg-runtime.txt` — container `scp-pg-test`, image `sha256:cf78e766…` (cùng digest phiên 1), PG 16.15, pg_isready ok
+
+## Reality-verifier verdict (phiên 2)
+
+**VERIFIED (PASS_WITHIN_SCOPE)** — claim: "PgKernelStorage chịu được chaos kill-connection/restart, claim race đa process đúng 1 lease, backup round-trip khớp, TaskKernel chạy full lifecycle thật trên PostgreSQL, và không làm đỏ T04/T03". Bằng chứng: 6 file evidence ở trên (pytest exit codes thu trực tiếp, không qua pipe trung gian), commit SHAs pinned, image digest khớp phiên 1. DSN password chỉ qua env, không in vào bất kỳ file nào.
+
+## Limitations còn lại (cho session/coordinator sau)
+
+1. **Performance chưa đo** (PG vs SQLite latency/throughput) — known_gaps số 1 của closure.
+2. **Multi-node/HA chưa chứng minh** — single-node durability only.
+3. **NOTIFY/LISTEN event bus = Track C2 riêng** — không thuộc C1.
+4. D4 seal chưa quét lại các commit Track C1; D5 chưa có reviewer độc lập riêng; D7 CIRCUIT-FLOW-MAP + header chưa có hàng Track C1.
+5. `backup_to` trên host không có pg_dump → RuntimeError fail-closed (đúng contract); round-trip được chứng minh qua pg_dump binary trong container; host-native path chỉ chứng minh được trên máy có binary.
+6. SQLite-assumption census 2 chỗ chưa sửa (ngoài scope, cần session riêng nếu muốn clean-up).
