@@ -349,8 +349,19 @@ class OpenRouterProvider:
         # the real request URL. Denial maps to the SAME "egress_denied"
         # sentinel as the LLM check above — _call_model returns it without
         # retry and without recording a breaker failure (fail-closed, no I/O).
+        # The LLM operator allowlist (SCP_LLM_EGRESS_ALLOWLIST) is passed as
+        # extra_allowed_hosts so the generic allowlist branch and the LLM
+        # policy above agree on this transport instead of contradicting each
+        # other; deny modes still fail closed for every non-loopback host.
         try:
-            enforce_egress_policy(f"{self.base_url}/chat/completions")
+            llm_allowlist = frozenset(
+                item.strip().lower().rstrip(".")
+                for item in os.environ.get("SCP_LLM_EGRESS_ALLOWLIST", "").split(",")
+                if item.strip()
+            )
+            enforce_egress_policy(
+                f"{self.base_url}/chat/completions", extra_allowed_hosts=llm_allowlist
+            )
         except EgressDeniedError:
             return None, "egress_denied"
         try:

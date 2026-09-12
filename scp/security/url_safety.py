@@ -94,7 +94,10 @@ def _production_mode_declared() -> bool:
     return os.environ.get("SCP_PRODUCTION_MODE", "0").strip().lower() in _TRUE_VALUES
 
 
-def enforce_egress_policy(url: str | urllib.request.Request) -> None:
+def enforce_egress_policy(
+    url: str | urllib.request.Request,
+    extra_allowed_hosts: "frozenset[str] | set[str] | None" = None,
+) -> None:
     """Fail-closed egress gate driven by SCP_EGRESS_MODE. Idempotent: this is
     a pure check, calling it twice (e.g. `fetch_with_retry` →
     `_safe_fetch_url` → `safe_urlopen`) is harmless.
@@ -104,6 +107,14 @@ def enforce_egress_policy(url: str | urllib.request.Request) -> None:
     always allowed in every mode so internal services and self-probes keep
     working. Non-HTTP(S) schemes are left to validate_url's scheme
     allowlist — this gate only decides network egress.
+
+    ``extra_allowed_hosts`` lets a call site contribute ITS OWN operator
+    allowlist (e.g. the LLM gateway's ``SCP_LLM_EGRESS_ALLOWLIST``) to the
+    mode=allowlist decision for its own traffic. It can only widen the
+    allowlist branch for that one call site: deny modes still deny every
+    non-loopback host, the dev default is unchanged, and every other call
+    site (no argument) keeps the exact generic ``SCP_EGRESS_ALLOWLIST``
+    behavior.
     """
     url_str = url.full_url if isinstance(url, urllib.request.Request) else str(url)
     mode = os.environ.get("SCP_EGRESS_MODE", "").strip().lower()
@@ -124,7 +135,8 @@ def enforce_egress_policy(url: str | urllib.request.Request) -> None:
             url_str, f"SCP_EGRESS_MODE={mode} blocks all non-loopback hosts"
         )
     if mode == "allowlist":
-        if hostname and hostname in _egress_allowlist_hosts():
+        extra = {h for h in (extra_allowed_hosts or ()) if h}
+        if hostname and (hostname in _egress_allowlist_hosts() or hostname in extra):
             return
         raise EgressDeniedError(
             url_str, f"host {hostname!r} not in SCP_EGRESS_ALLOWLIST (mode=allowlist)"

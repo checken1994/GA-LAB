@@ -31,6 +31,22 @@ def _hostname(base_url: str) -> tuple[str, str]:
     return (parsed.scheme or "").lower(), (parsed.hostname or "").lower().rstrip(".")
 
 
+def llm_egress_allowlist_hosts() -> frozenset[str]:
+    """Return the operator-configured LLM provider allowlist (host names).
+
+    This is the LLM-specific layer of the egress policy: in
+    ``SCP_EGRESS_MODE=allowlist`` a provider host is contactable when it is
+    listed here. The generic gate (``scp.security.url_safety``) consumes this
+    set via ``extra_allowed_hosts`` so both layers agree on LLM transport
+    instead of enforcing two contradictory allowlists on the same request.
+    """
+    return frozenset(
+        item.strip().lower().rstrip(".")
+        for item in os.environ.get("SCP_LLM_EGRESS_ALLOWLIST", "").split(",")
+        if item.strip()
+    )
+
+
 def llm_egress_allowed(base_url: str) -> bool:
     """Return whether a provider endpoint may be contacted.
 
@@ -50,12 +66,7 @@ def llm_egress_allowed(base_url: str) -> bool:
     if mode in _DENY_MODES:
         return False
     if mode == "allowlist":
-        allowed = {
-            item.strip().lower().rstrip(".")
-            for item in os.environ.get("SCP_LLM_EGRESS_ALLOWLIST", "").split(",")
-            if item.strip()
-        }
-        return host in allowed
+        return host in llm_egress_allowlist_hosts()
     if mode == "":
         return True
     return False
