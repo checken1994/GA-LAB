@@ -278,7 +278,9 @@ class DataPartitioner:
                             try:
                                 with open(_path, encoding="utf-8", errors="replace") as f:
                                     _day_lines = f.readlines()
-                            except Exception:  # noqa: S112
+                            except Exception as _dup_err:  # noqa: S112
+                                # silent-by-design: unreadable day file only weakens dedup; never blocks the write path.
+                                logger.debug("shard: bypass day-file read failed for %s (non-fatal): %s", _path, _dup_err, exc_info=True)
                                 continue
                             # Only look at the most recent lines across all files
                             _remaining = _max_lines - _lines_seen
@@ -321,7 +323,9 @@ class DataPartitioner:
                                     if _existing_hash == _new_hash:
                                         _is_duplicate = True
                                         break
-                                except Exception:  # noqa: S112
+                                except Exception as _line_err:  # noqa: S112
+                                    # silent-by-design: unparseable historical line only weakens dedup; never blocks writes.
+                                    logger.debug("shard: bypass line parse failed in dedup scan (non-fatal): %s", _line_err, exc_info=True)
                                     continue
                         if not _is_duplicate:
                             _score += 0.35
@@ -455,7 +459,9 @@ class DataPartitioner:
             # Parse date from filename
             try:
                 file_date = datetime.strptime(f.stem, "%Y-%m-%d")
-            except ValueError:
+            except ValueError as exc:
+                # silent-by-design: non-date files in the archive dir are skipped by design.
+                logger.debug("shard: skipped non-date file %s: %s", f, exc, exc_info=True)
                 continue
 
             if file_date >= cutoff:

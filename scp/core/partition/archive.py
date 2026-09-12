@@ -318,7 +318,9 @@ class TTLExpirer:
                 db_path=str(self.db_path),
             )
             return count or 0
-        except Exception:
+        except Exception as exc:
+            # silent-by-design: TTL cleanup is best-effort maintenance; stale rows are harmless.
+            logger.debug("archive: pending_reverification TTL cleanup failed (non-fatal): %s", exc, exc_info=True)
             return 0
 
     def archive_old_bypasses(self, max_age_days: int = 7) -> dict:

@@ -45,10 +45,13 @@ An toàn:
 """
 
 import ast
+import logging
 import math
 import operator
 import re
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # WHITELIST — Tập hợp hàm/hằng số được phép
@@ -332,7 +335,9 @@ def extract_math_expression(question: str) -> str | None:
         try:
             evaluate_expression(q2)
             return q2
-        except MathEvalError:
+        except MathEvalError as exc:
+            # silent-by-design: probe failure triggers the documented substring-extraction fallback.
+            logger.debug("math_evaluator: direct evaluate failed, extracting substring: %s", exc, exc_info=True)
             # Thử tìm substring hợp lệ dài nhất
             # Pattern: tìm biểu thức toán học trong câu
             # Cho phép: digit, ., +, -, *, /, %, ^, (, ), ,, space, letters (tên hàm)
@@ -347,7 +352,9 @@ def extract_math_expression(question: str) -> str | None:
                         if _HAS_DIGIT.search(candidate) and _HAS_OP.search(candidate):
                             return candidate
                         break
-                    except MathEvalError:
+                    except MathEvalError as exc:
+                        # silent-by-design: trim-probe failure drives the documented cut-from-end loop.
+                        logger.debug("math_evaluator: candidate evaluate failed, trimming: %s", exc, exc_info=True)
                         # Cắt từ cuối
                         idx = max(
                             candidate.rfind('+'), candidate.rfind('-'),
@@ -378,7 +385,9 @@ def _extract_number(text: str) -> float | None:
         return None
     try:
         return float(nums[-1])
-    except ValueError:
+    except ValueError as exc:
+        # silent-by-design: parse probe on free text; None means "no number found".
+        logger.debug("math_evaluator: last-number parse failed: %s", exc, exc_info=True)
         return None
 
 
@@ -491,6 +500,8 @@ if __name__ == '__main__':
                 passed += 1
             print(f"  [{mark}] {expr:30s} = {result}  (expected {expected})")
         except Exception as e:
+            # silent-by-design: CLI self-test prints the error directly; mirrored to logs.
+            logger.debug("math_evaluator self-test: %s → %s", expr, e, exc_info=True)
             print(f"  [ERR ] {expr:30s} → {e}")
 
     print(f"\n{passed}/{len(tests)} passed")

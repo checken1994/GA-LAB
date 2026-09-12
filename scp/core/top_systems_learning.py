@@ -332,7 +332,9 @@ class TopSystemsLearner:
             for line in self.ledger_path.read_text(encoding="utf-8").splitlines():
                 try:
                     digest = json.loads(line).get("content_sha256")
-                except (TypeError, ValueError):
+                except (TypeError, ValueError) as exc:
+                    # Corrupt ledger line must be visible, not silently dropped.
+                    logger.warning("top_systems_learning: corrupt ledger line in %s: %s", self.ledger_path, exc, exc_info=True)
                     continue
                 if digest:
                     hashes.add(digest)
@@ -425,7 +427,9 @@ class TopSystemsLearner:
             for line in reversed(lines[-2000:]):
                 try:
                     record = json.loads(line)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError) as exc:
+                    # Corrupt ledger line must be visible, not silently dropped.
+                    logger.warning("top_systems_learning: corrupt ledger line in %s: %s", self.ledger_path, exc, exc_info=True)
                     continue
                 # [C1] Record bị cách ly KHÔNG BAO GIỜ được serve vào prompt.
                 if record.get("trust") == "QUARANTINED":
@@ -459,7 +463,9 @@ class TopSystemsLearner:
         for line in self.ledger_path.read_text(encoding="utf-8").splitlines():
             try:
                 record = json.loads(line)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as exc:
+                # Corrupt line is kept verbatim (no data loss) but must be visible.
+                logger.warning("top_systems_learning: corrupt ledger line kept in %s: %s", self.ledger_path, exc, exc_info=True)
                 kept_lines.append(line)
                 continue
             collected = float(record.get("collected_at", 0))
@@ -479,7 +485,9 @@ class TopSystemsLearner:
             for line in self.ledger_path.read_text(encoding="utf-8").splitlines():
                 try:
                     record = json.loads(line)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError) as exc:
+                    # Corrupt ledger line must be visible, not silently dropped.
+                    logger.warning("top_systems_learning: corrupt ledger line in %s: %s", self.ledger_path, exc, exc_info=True)
                     continue
                 count += 1
                 if record.get("topic"):
