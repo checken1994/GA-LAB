@@ -20,6 +20,10 @@ from scp.contracts.time import now_utc_iso
 from scp.epistemic.evidence_store import EvidenceStore
 from scp.persistence import FoundationDB
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class CapabilityStatus(str, Enum):
     UNKNOWN = "UNKNOWN"
@@ -97,6 +101,7 @@ class CapabilityMap:
         try:
             return importlib.util.find_spec(module_name) is not None
         except (ImportError, AttributeError, ValueError):
+            logger.debug('CapabilityMap._binding_importable: ImportError, AttributeError, ValueError ignored', exc_info=True)
             return False
 
     def record_proof(
@@ -181,6 +186,7 @@ class CapabilityMap:
                     continue
                 valid_rows.append(row)
             except Exception:
+                logger.warning('CapabilityMap.recompute_capability: Exception not handled', exc_info=True)
                 continue
 
         if not missing:
