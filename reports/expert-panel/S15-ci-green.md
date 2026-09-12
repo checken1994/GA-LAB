@@ -54,3 +54,79 @@ Xem git log của PR (mỗi nhóm 1 commit, ghi rõ file:line trong message).
 3. Không tái hiện được local: cơ chế chính xác khiến `import benchmark` resolve về `scp/benchmark` trên Linux (regular package thắng namespace portion khi inner `scp/` vào sys.path). Fix Group E cho đúng ở CẢ HAI resolution nên không phụ thuộc cơ chế này; nhưng cần CI run thật để confirm.
 4. Linux-only behavior (powershell vắng mặt, case-sensitive fs) không chạy được trên Windows — được bọc bằng OS-conditional/restore-from-git, nhưng lần CI đầu tiên cần xem lại log.
 5. `pytest-timeout` không có trong requirements-dev nhưng gate autofix truyền `--timeout=60` (exit 4 → được xử lý như pass-through). Không ảnh hưởng green nhưng nên thêm dep hoặc bỏ flag trong task sau.
+
+---
+
+# S16 — CI convergence vòng cuối (append vào report S15, cùng PR #40)
+
+## Claim
+Fix 3 nhóm fail CI còn lại trên head 1863adc (ubuntu + windows: (A) PEP-5
+powershell executor, (B) kill-switch test pollution, (C) heartbeat lease TTL,
+và tripwire L3 flag 3 `pytest.skip()` mới của S15) tại đúng điểm lỗi, không hạ
+chuẩn, không skip marker mới.
+
+## Scope
+| Trường | Giá trị |
+|---|---|
+| Base commit/snapshot | 1863adc → 4ca8bfc → d51ff94 → 2a973df (nhánh `audit/runtime-guard-AUDIT-20260909`) |
+| Skill binding | scp-dna SHA256 `4aada0be4873598dc50c3a7f38d90151429bb5263c511a838ed1cdcb4d594d10`; scp-reality-verifier SHA256 `a9d65ce53b18f8310ceeb302b18b341a0e1b8b19cddc7f46d4fa6ee99432269e` |
+| Test profile | `SCP_EGRESS_MODE=deny python -m pytest tests/T03_capability/test_flow_04_control_hands_scp_standard.py tests/T03_capability/test_pc_controller_token_pep.py scp/tests/external_audit/test_security.py tests/T04_kernel/test_kernel_p1_regressions.py -q` + full `tests/T03_capability/` trên Windows + `python tools/t00_meta_audit.py` + `pytest tests/T00_integrity/test_meta_audit.py` |
+| Env | Windows 10 local, Python 3.12.10, pytest 9.1.1; CI-sim env `SCP_EGRESS_MODE=deny`; secret env do `tests/conftest.py` đảm bảo (như CI) |
+| Thời điểm | 2026-09-13 |
+
+## Deviation có bằng chứng so với chỉ định (skipif decorator)
+Task chỉ định chuyển 3 `pytest.skip()` → `@pytest.mark.skipif(sys.platform != "win32", ...)` với tiền đề
+"tripwire không flag decorator". **Bằng chứng thực tế phủ nhận tiền đề này** — cả hai lớp T00 gate đều
+flag decorator mới:
+1. `python tools/t00_meta_audit.py` (CI check "L3: T00 Meta-Audit", `.github/workflows/scp_guardrails.yml:23`,
+   delta FA-01 vs `origin/main` = 617a425, nơi 2 file test KHÔNG có skip marker nào) flag
+   `pytest.skip()` call MỚI lẫn decorator MỚI (`SKIP_MARKS = ('skip','xfail','skipif')`,
+   `tools/t00_meta_audit.py:73,100`). Chạy thử biến thể decorator thật: `4x [FAIL] FA-01 ... skipif in ...` → exit 1.
+2. `tests/T00_integrity/test_meta_audit.py:166-182` flag mọi decorator skip/xfail/skipif trừ khi source
+   chứa literal `'platform.system'` (decorator `sys.platform` không thoả) → 2 gate test FAIL.
+
+Cơ chế thay thế đạt MỌI gate + tăng độ nghiêm ngặt: **OS-conditional assertions trong thân test,
+0 skip marker** — Windows assert full success contract, OS khác assert hành vi fail-closed thật của
+product (`_run_sync` bắt `OSError` → `success=False, returnCode=None`, `scp/pc_control/pc_controller.py:283-285`).
+Không test nào bị ẩn; Linux từ SKIP (0 assertion) thành assert fail-closed (strictness ↑).
+
+## Root cause + fix theo nhóm
+
+| # | Nhóm (CI fail) | Root cause | Fix (file:line) | Commit |
+|---|---|---|---|---|
+| 1 | (A) `test_flow_04::test_pc_controller_execute_succeeds_with_valid_token` — `assert False is True` (ubuntu); tripwire L3 flag 3 `pytest.skip()` mới của S15 | `_run_sync` chạy `powershell.exe` (Windows-only); trên Linux `FileNotFoundError` → `success=False`; skip markers mới bị cả 2 gate T00 từ chối | `tests/T03_capability/test_flow_04_control_hands_scp_standard.py:161-210` (PC-5: leg 403 assert mọi OS, leg 200 pin per-OS tại :206); PEP-5 `:587-607` (per-OS pin, tokenId/epoch assert mọi OS); `tests/T03_capability/test_pc_controller_token_pep.py:101-130` + `:354-394` (bỏ 2 `pytest.skip()` của S15, per-OS pin) | `4ca8bfc` |
+| 2 | (B) `test_pc_read_only_allowlist_rejects_command_chains` — `reason='Kill switch is engaged'` | `PCController()` gắn `kill_switch_path` vào repo `data/`; các test POST `/v3/pc/kill` (flow_04 PC-6/XFF-1, api_token_boundary, guard_extended_probe XFF) engage và không clear → `data/pc_controller/KILL_SWITCH` tồn tại dai dẳng trong process | tmp_path isolation cho controller instance: flow_04 fixture `app_with_pc_token` `:55-76`; `test_api_token_boundary.py:9-31` (bỏ inline unlink repo); `test_guard_extended_probe.py:40-62`; test_security tự dựng `PCController(working_dir=tmp_path)` `scp/tests/external_audit/test_security.py:175-189`; xóa file pollution `data/pc_controller/KILL_SWITCH` (gitignored) | `d51ff94` |
+| 3 | (C) `test_bridge_heartbeat_keeps_lease_alive_across_slow_dispatch` — StaleLease (windows) | TTL=1.0s → heartbeat interval `ttl/3`=0.333s; 1 gap scheduling >~1.0s (sqlite write + CI runner tải nặng) là lease hết hạn giữa chặng | Chỉ sửa THAM SỐ TEST: `bridge.lease_ttl_seconds` 1.0→3.0 (`tests/T04_kernel/test_kernel_p1_regressions.py:306`), dispatch sleep 2.4→7.0s vẫn > 2 TTL đầy đủ `:312`; không đổi product, không skip | `2a973df` |
+
+## Verify results (bằng chứng thực thi)
+
+1. **CI-sim đúng lệnh chỉ định** (`SCP_EGRESS_MODE=deny`, 4 file, 1 process):
+   `87 passed, 2 skipped in 22.36s` — `EXIT=0`. 2 skip = skip env-conditional PRE-EXISTING trong
+   test_security.py (`SCP_AUTH_TOKEN_SECRET not set` :116, `bandit not installed`) — có sẵn trên
+   origin/main, là BASELINE_DEBT của Gate 2, không phải skip mới.
+2. **Windows local T03 full**: `pytest tests/T03_capability/ -q` → `782 passed, 2 skipped (0:01:58)` — không đỏ thêm.
+3. **T00 Gate 2** (`python tools/t00_meta_audit.py`): `All integrity checks passed (0 new regressions)`
+   (bao gồm FA-02 nodeid collection full tree vs origin/main — 0 test bị xóa).
+4. **T00 Gate 1** (`pytest tests/T00_integrity/test_meta_audit.py`): `39 passed`.
+5. **Heartbeat 2/2 runs**: pass, call 7.12s / 7.13s (đúng thiết kế).
+6. **Kill-switch adversarial proof**: với `data/pc_controller/KILL_SWITCH` giả đang tồn tại:
+   controller CŨ (`PCController()`) → `False | Kill switch is engaged` (tái hiện đúng lỗi CI B);
+   controller MỚI (`working_dir=tmp`) → `False | Command chaining is not allowed` (contract); test
+   security PASS ngay khi pollution có mặt; sau full run không có KILL_SWITCH tái tạo trong repo `data/`.
+
+## Open questions / giới hạn bằng chứng (PASS_WITHIN_SCOPE)
+
+1. Linux fail-closed leg (`success=False, returnCode=None`) được suy từ code path
+   `_run_sync` (`OSError` bắt fail-closed) + CI log cũ (`assert False is True`), KHÔNG chạy được trên
+   Windows local — lần CI ubuntu đầu tiên cần xác nhận 4 test per-OS này xanh.
+2. Solo-run `scp/tests/external_audit/test_security.py` mà không qua `tests/conftest.py` sẽ fail ở
+   import (`MissingSecretError` GAP-09, `scp/core/capability_token.py:54` chạy tại import time) —
+   PRE-EXISTING (origin/main giống hệt, `PCController()` cũ cũng trigger); CI chạy combined suite nên
+   không chặn. Nên cân nhắc set secret trong workflow nếu muốn chạy file này độc lập.
+3. L4 protected-path warning (`tests/`, `scp/tests/` trong `spec/guardrail_policy.yaml`) là local
+   warning; authority thật là GitHub server-side ruleset. Cả PR đều sửa test files theo nhiệm vụ.
+4. `data/pc_controller/audit.jsonl` + `backups/` vẫn được tạo trong repo data bởi singleton import-time
+   (`pc_controller_routes._controller = PCController()` tại import) — không phải kill-switch pollution,
+   gitignored, ngoài scope task này.
+5. Tripwire L3 đã xanh local với baseline `origin/main` cục bộ (617a425); nếu `origin/main` trên GitHub
+   thay đổi trước khi merge, cần re-run gate (delta là so với main hiện hành).
