@@ -185,6 +185,51 @@ def test_backend_status_and_lifecycle_contract():
     assert asyncio.run(backend.targets()) == []
 
 
+def test_backend_evaluate_fail_loud_anti_honeypot():
+    """V6 concern 2: evaluate() must fail loud — no arbitrary JS on the read-only backend.
+
+    The stub stays signature-compatible with BrowserSession.evaluate(expression,
+    target) (target accepted positionally, as the hands executor calls it), so
+    callers get the anti-honeypot NotImplementedError instead of a TypeError.
+    """
+    backend = PlaywrightBackend()
+    with pytest.raises(NotImplementedError) as exc_info:
+        backend.evaluate("1 + 1")
+    message = str(exc_info.value)
+    assert "read-only" in message
+    assert "anti-honeypot" in message
+    assert "BrowserSession" in message
+    # BrowserSession-compatible call shape used by the hands executor
+    with pytest.raises(NotImplementedError):
+        backend.evaluate("document.title", {"id": "page-1"})
+    with pytest.raises(NotImplementedError):
+        backend.evaluate("document.title", target={"id": "page-1"})
+
+
+def test_hands_executor_evaluate_guard_fails_loud_without_evaluate(tmp_path):
+    """V6 concern 2: hands_executor guard fails loud when the backend lacks evaluate().
+
+    A browser surface without ``evaluate`` (read-only backend family) must
+    raise a clear NotImplementedError through ``HandsExecutor._browser_evaluate``
+    instead of an opaque AttributeError; the default BrowserSession path calls
+    the very same ``browser.evaluate(expression, target)`` as before.
+    """
+    from scp.hands.hands_executor import HandsExecutor
+
+    class _BrowserWithoutEvaluate:
+        async def targets(self):
+            return []
+
+    class _Navigator:
+        browser = _BrowserWithoutEvaluate()
+
+    hands = HandsExecutor(navigator=_Navigator(), data_dir=tmp_path / "hands")
+    with pytest.raises(NotImplementedError) as exc_info:
+        hands._browser_evaluate("document.title", None)
+    assert "evaluate" in str(exc_info.value)
+    assert "BrowserSession" in str(exc_info.value)
+
+
 # ==============================================================================
 # (c) traversal / egress rules blocked before navigation (no browser needed)
 # ==============================================================================

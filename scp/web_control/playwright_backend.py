@@ -277,6 +277,24 @@ class PlaywrightBackend:
     def cdp_command(self, *args: Any, **kwargs: Any) -> None:
         raise NotImplementedError("PlaywrightBackend does not expose raw CDP commands")
 
+    def evaluate(self, expression: str, target: Any = None, **kwargs: Any) -> None:
+        """Fail loud: arbitrary JS execution stays BrowserSession-only.
+
+        The read-only Playwright backend never runs caller-controlled
+        JavaScript against a page (anti-honeypot / DOM injection guard,
+        scp-web-orchestration-safety). Hands actions that need CDP
+        ``Runtime.evaluate`` (``web.dom_snapshot``, ``web.wait_for_text``)
+        must use the default BrowserSession backend. The signature mirrors
+        ``BrowserSession.evaluate(expression, target)`` (target also accepted
+        positionally) so hands-executor call sites raise this
+        ``NotImplementedError`` instead of a ``TypeError``.
+        """
+        raise NotImplementedError(
+            "PlaywrightBackend is read-only: evaluate() is not supported "
+            "(anti-honeypot: no arbitrary JS execution). Use BrowserSession "
+            "backend for CDP evaluate."
+        )
+
     # ------------------------------------------------------------------
     # Sync internals (run on worker threads)
     # ------------------------------------------------------------------

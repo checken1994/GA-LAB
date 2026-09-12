@@ -105,6 +105,24 @@ class HandsExecutor:
             return next((item for item in pages if url_contains in str(item.get("url", "")).lower()), None)
         return pages[0] if pages else None
 
+    def _browser_evaluate(self, expression: str, target: dict[str, Any] | None) -> Any:
+        """Evaluate a fixed expression through the active browser backend.
+
+        Fail loud when the backend does not expose ``evaluate``: read-only
+        backends (e.g. PlaywrightBackend) never execute arbitrary JS against a
+        page (anti-honeypot), so a silent ``AttributeError`` is never
+        acceptable here. The default BrowserSession path is unchanged (same
+        ``browser.evaluate(expression, target)`` call as before).
+        """
+        evaluate = getattr(self.navigator.browser, "evaluate", None)
+        if not callable(evaluate):
+            raise NotImplementedError(
+                "Active web backend does not expose evaluate(); CDP evaluation "
+                "requires the BrowserSession backend (read-only backends never "
+                "run arbitrary JS)"
+            )
+        return evaluate(expression, target)
+
     async def _pc_command(self, command: str, definition: ActionDefinition, capability_token: CapabilityToken | None = None) -> dict[str, Any]:
         result = await self.controller.execute(command, capability_token=capability_token, capability_level=0, approved=False, timeout=30)
         evidence = {"returnCode": result.get("returnCode"), "stdout": str(result.get("stdout", ""))[-5000:], "stderr": str(result.get("stderr", ""))[-2000:]}
@@ -304,8 +322,8 @@ class HandsExecutor:
                     result = {"success": False, "error": "No matching local browser page"}
                 else:
                     max_chars = max(100, min(int(params.get("maxChars", 20_000)), 50_000))
-                    text = await self.navigator.browser.evaluate(f"document.body ? document.body.innerText.slice(0, {max_chars}) : ''", target)
-                    title = await self.navigator.browser.evaluate("document.title", target)
+                    text = await self._browser_evaluate(f"document.body ? document.body.innerText.slice(0, {max_chars}) : ''", target)
+                    title = await self._browser_evaluate("document.title", target)
                     result = {"success": True, "title": title, "url": target.get("url", ""), "text": str(text or "")[:max_chars], "evidence": {"chars": len(str(text or ""))}}
                 result["verification"] = {"passed": bool(result.get("success")) and bool(result.get("text")), "rule": definition.verifier}
             elif action == "web.open_public_tab":
@@ -333,7 +351,7 @@ class HandsExecutor:
                 if target and expected:
                     deadline = time.monotonic() + timeout_seconds
                     while time.monotonic() < deadline:
-                        observed = str(await self.navigator.browser.evaluate("document.body ? document.body.innerText.slice(0, 50000) : ''", target) or "")
+                        observed = str(await self._browser_evaluate("document.body ? document.body.innerText.slice(0, 50000) : ''", target) or "")
                         if expected in observed:
                             found = True
                             break
