@@ -14,6 +14,7 @@ FA-13: Causal branch coverage of control & hands flow
 import asyncio
 import json
 import os
+import platform
 import tempfile
 from pathlib import Path
 
@@ -157,7 +158,16 @@ class TestFlow04ControlHands:
         assert response.status_code == 403
         assert "CapabilityRequiredError" in response.json()["detail"]
 
-        # With capability token → 200 and the read-only command really ran
+        # With capability token → 200 and the read-only command really ran.
+        # The executor itself is powershell.exe (Windows-only product design),
+        # so the real-execution leg is OS-conditional; the PEP 403 leg above
+        # stays asserted on every OS.
+        if platform.system() != "Windows":
+            pytest.skip(
+                "PCController._run_sync executes through powershell.exe "
+                "(Windows-only product executor); real-execution leg is "
+                "Windows-specific"
+            )
         response = app_with_pc_token.post(
             "/v3/pc/execute",
             json={"command": "whoami", "capabilityLevel": 0, "approved": False},
@@ -416,12 +426,35 @@ class TestFlow04ControlHands:
         response = app_with_pc_token.post("/v3/web/browse", json={"url": "https://example.com"})
         assert response.status_code == 403
 
-        response = app_with_pc_token.post(
-            "/v3/web/browse",
-            json={"url": "https://example.com"},
-            headers={"X-SCP-PC-Token": pc_token}
-        )
-        assert response.status_code in [200, 503]
+        # With a valid token the browse proceeds; the outcome follows the
+        # active egress policy (same oracle the navigator uses before I/O):
+        #  - egress denied (SCP_EGRESS_MODE=deny on CI): the EE-G1 gate raises
+        #    EgressDeniedError for the non-loopback URL — refusing the browse
+        #    IS the security contract, so the raise is asserted strictly;
+        #  - otherwise: the route answers 200 (browse) or 503 (browser layer
+        #    unavailable) as before.
+        from scp.security.url_safety import EgressDeniedError, enforce_egress_policy
+
+        try:
+            enforce_egress_policy("https://example.com")
+            egress_denied = False
+        except EgressDeniedError:
+            egress_denied = True
+
+        if egress_denied:
+            with pytest.raises(EgressDeniedError):
+                app_with_pc_token.post(
+                    "/v3/web/browse",
+                    json={"url": "https://example.com"},
+                    headers={"X-SCP-PC-Token": pc_token}
+                )
+        else:
+            response = app_with_pc_token.post(
+                "/v3/web/browse",
+                json={"url": "https://example.com"},
+                headers={"X-SCP-PC-Token": pc_token}
+            )
+            assert response.status_code in [200, 503]
 
     # =========================================================================
     # 5. CONTROL ROUTES — Admin Auth (verify_admin)

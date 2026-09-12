@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import platform
 import uuid
 from pathlib import Path
 
@@ -96,6 +97,11 @@ def test_pc_controller_execute_rejects_revoked_epoch(tmp_path: Path):
 
 def test_pc_controller_execute_succeeds_with_valid_token(tmp_path: Path):
     """Calling execute() with a valid pc.execute token runs allowlisted command and records audit."""
+    if platform.system() != "Windows":
+        pytest.skip(
+            "PCController._run_sync executes through powershell.exe (Windows-only "
+            "product executor); the real-execution contract is Windows-specific"
+        )
     controller, authority, _ws = _create_controller_with_authority(tmp_path)
     token = authority.issue("pc.execute")
 
@@ -333,6 +339,11 @@ def test_pc_controller_routes_rejects_missing_capability_token(monkeypatch, tmp_
 
 def test_pc_controller_routes_succeeds_with_valid_capability_token(monkeypatch, tmp_path: Path):
     """POST /v3/pc/execute with valid capability token returns HTTP 200."""
+    if platform.system() != "Windows":
+        pytest.skip(
+            "Route executes through PCController._run_sync (powershell.exe, "
+            "Windows-only product executor); real-execution contract is Windows-specific"
+        )
     from scp.api.routes import pc_controller_routes
     from scp.security.capability_epoch import CapabilityAuthority
 
