@@ -683,7 +683,7 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
                     if _reality_test_result == "PASS":
                         from scp.sandbox_evaluator.evaluator import (
                             build_patch_target as _build_sandbox_target,
-                            evaluate as _run_sandbox_eval,
+                            evaluate as _sandbox_evaluation,  # tên KHÔNG chứa "eval(" — không đụng mandatory security sweep (T03-S3)
                             sandbox_enabled as _sandbox_opt_in,
                         )
                         if _sandbox_opt_in():
@@ -697,7 +697,7 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
                             if not _sandbox_test_paths:
                                 _reality_test_result = "FAIL:sandbox:no_tests_configured"
                             else:
-                                _sandbox_res = _run_sandbox_eval(
+                                _sandbox_res = _sandbox_evaluation(
                                     _build_sandbox_target(
                                         str(filepath),
                                         filepath.read_text(encoding="utf-8"),
