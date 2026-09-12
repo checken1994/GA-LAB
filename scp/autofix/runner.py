@@ -77,6 +77,9 @@ try:
         else:
             load_dotenv(_env_path, override=False)
 except ImportError:
+    # silent-by-design: documented fallback — python-dotenv missing is handled
+    # by the manual .env parser below, which loads the same file.
+    logger.debug("runner: python-dotenv unavailable — using manual .env parser for %s", _env_path, exc_info=True)
     _override = os.environ.get("SCP_ENV_FILE")
     if _override:
         _env_path = Path(_override).expanduser()

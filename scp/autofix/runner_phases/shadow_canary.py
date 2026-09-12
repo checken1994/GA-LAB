@@ -288,10 +288,13 @@ def _smoke_call_test(module: Any) -> CanaryTestResult:
                     # or "positional", it's arg-count mismatch.
                     msg = str(e).lower()
                     if "argument" in msg or "positional" in msg:
+                        # silent-by-design: probe heuristic — arg-count mismatch
+                        # skips this input; the real-TypeError branch records it.
+                        logger.debug("shadow_canary: %s does not accept test input (arg-count), skipping", fname, exc_info=True)
                         continue   # skip — function doesn't accept 1 arg
                     exc_class = "TypeError"
                 except Exception as e:  # noqa: BLE001
-                    exc_class = type(e).__name__
+                    exc_class = type(e).__name__  # silent-by-design: exception class recorded into smoke output for the original-vs-shadow comparison
                 exceptions.append([fname, repr(inp)[:30], exc_class])
                 n_called += 1
         return CanaryTestResult(
@@ -327,6 +330,7 @@ def _reality_test_wrapper(module: Any) -> CanaryTestResult:
             reason="" if ok else "reality_test reported failure",
         )
     except ImportError:
+        # silent-by-design: explicit skip result with reason returned to the caller by contract.
         return CanaryTestResult(
             name="reality_test", passed=True,
             reason="skip — reality_test unavailable (fail-open)",
@@ -368,6 +372,7 @@ def _property_test_wrapper(module: Any) -> CanaryTestResult:
             reason=result.reason,
         )
     except ImportError:
+        # silent-by-design: explicit skip result with reason returned to the caller by contract.
         return CanaryTestResult(
             name="property_test", passed=True,
             reason="skip — property_validator unavailable (fail-open)",
@@ -520,7 +525,11 @@ def _detect_exception_regression(orig_output: Any, shadow_output: Any) -> bool:
                 if not orig_exc and shadow_exc:
                     return True   # shadow raises where original didn't
         return False
-    except Exception:  # noqa: BLE001
+    except Exception as cmp_err:  # noqa: BLE001
+        # fail-loudly (S-B1b): this is a regression-verification probe — a
+        # comparison crash returning False would silently hide a real
+        # exception regression; keep the False contract but surface it.
+        logger.warning("[shadow_canary] exception-regression comparison crashed, reporting no regression: %s", cmp_err, exc_info=True)
         return False
 
 
@@ -531,7 +540,10 @@ def _short_output(output: Any, max_len: int = 100) -> str:
         if len(s) > max_len:
             return s[:max_len] + "..."
         return s
-    except Exception:  # noqa: BLE001
+    except Exception as repr_err:  # noqa: BLE001
+        # silent-by-design: repr probe — placeholder text marks the failed
+        # formatting in the diff log instead of crashing the summary.
+        logger.debug("shadow_canary: output repr failed: %s", repr_err, exc_info=True)
         return "<output-repr-error>"
 
 
@@ -751,7 +763,10 @@ def summarize_canary(result: CanaryResult) -> str:
         if len(result.diffs) > 5:
             lines.append(f"  ... and {len(result.diffs) - 5} more")
         return "\n".join(lines)
-    except Exception:  # noqa: BLE001
+    except Exception as sum_err:  # noqa: BLE001
+        # silent-by-design: summary formatting probe — placeholder text keeps
+        # the audit-log line alive; the underlying result is unchanged.
+        logger.debug("shadow_canary: summary formatting failed: %s", sum_err, exc_info=True)
         return "<summary error>"
 
 

@@ -143,7 +143,10 @@ def _bug_matches(bug_obj: Any, target_file: str, target_bug_type: str) -> bool:
             if bug_file_resolved is not None
             else bug_file.endswith(target_file) or target_file.endswith(bug_file)
         )
-    except Exception:
+    except Exception as resolve_err:
+        # silent-by-design: resolve probe — plain string comparison is the
+        # documented fallback for unresolvable paths.
+        logger.debug("completeness_check: path resolve failed, comparing raw strings: %s", resolve_err, exc_info=True)
         same_file = bug_file == target_file
     # Bug type may have suffix like "Ruff_PLW0211" — check substring both ways.
     same_type = (

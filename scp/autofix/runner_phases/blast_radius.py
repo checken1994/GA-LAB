@@ -153,6 +153,7 @@ class _CallSiteCollector(ast.NodeVisitor):
             try:
                 val_dump = ast.dump(func.value, annotate_fields=False)[:60]
             except Exception:  # noqa: BLE001
+                # silent-by-design: dump probe — '?' is the documented context placeholder.
                 val_dump = "?"
             self._record(lineno, f"{val_dump}.{func.attr}()")
         # Recurse into children (call args may contain nested calls).
@@ -267,7 +268,10 @@ def compute_blast_radius(
                 result.bounded = True
             try:
                 source = path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
+            except OSError as read_err:
+                # silent-by-design: read probe — unreadable file cannot contain
+                # reachable call sites for this analysis.
+                logger.debug("[IMP-16] skipping unreadable file %s: %s", path, read_err, exc_info=True)
                 continue
 
             # Cheap pre-filter: skip files that don't even mention the name.
@@ -278,9 +282,12 @@ def compute_blast_radius(
             # Try to parse + walk for call sites.
             try:
                 tree = ast.parse(source, filename=str(path))
-            except SyntaxError:
+            except SyntaxError as parse_err:
+                # silent-by-design: parse probe — broken file is skipped by design.
+                logger.debug("[IMP-16] skipping unparseable file %s: %s", path, parse_err, exc_info=True)
                 continue  # broken file — skip
-            except Exception:  # noqa: BLE001
+            except Exception as scan_err:  # noqa: BLE001
+                logger.debug("[IMP-16] skipping unreadable file %s: %s", path, scan_err, exc_info=True)
                 continue
 
             collector = _CallSiteCollector(target_function, target_short)

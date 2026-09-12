@@ -25,8 +25,11 @@ import ast
 import asyncio
 import importlib.util
 import inspect
+import logging
 import sys
 from pathlib import Path
+
+logger = logging.getLogger("scp.autofix.reality_test")
 
 
 def _build_mock_args(sig: inspect.Signature) -> tuple:
@@ -73,6 +76,7 @@ def _safe_call(func, args: tuple, kwargs: dict):
     except SystemExit as e:
         return False, f"SystemExit({e.code}) — target function tried to kill the host process"
     except KeyboardInterrupt:
+        # silent-by-design: explicit (False, reason) return — host-protection contract, caller fail-closed.
         return False, "KeyboardInterrupt — target function blocked host interruption"
     except BaseException as e:
         return False, f"{type(e).__name__}: {e}"
@@ -83,6 +87,9 @@ def _run_async(coro):
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
+        # silent-by-design: documented fallback — no running loop means the
+        # caller manages its own loop/executor below.
+        logger.debug("reality_test: no running event loop, using managed execution", exc_info=True)
         loop = None
     if loop is not None and loop.is_running():
         # We're inside a running loop — use a task
@@ -132,7 +139,10 @@ def _discover_callables(tree: ast.Module, module) -> list:
             # Try to instantiate with no args (or all-default)
             try:
                 instance = cls()
-            except Exception:
+            except Exception as inst_err:
+                # silent-by-design: auto-instantiation probe — classes requiring
+                # args are skipped from smoke exercising (documented contract).
+                logger.debug("reality_test: %s requires constructor args, skipping: %s", node.name, inst_err, exc_info=True)
                 continue  # requires args — cannot auto-instantiate
             for attr_name in dir(instance):
                 if attr_name.startswith("_"):

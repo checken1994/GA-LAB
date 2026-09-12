@@ -562,7 +562,10 @@ def _scan_file(path: Path) -> list[dict]:
             "description": f"File does not parse: {e.msg}",
             "suggested_fix": "Fix the syntax error before any other scan can run.",
         }]
-    except Exception:
+    except Exception as scan_err:
+        # fail-loudly (S-B1b): a read/scan crash must not masquerade as a
+        # clean file; the [] return contract for parallel workers is kept.
+        logger.warning("[ast-scan] scan crashed on %s, reporting no findings: %s", path, scan_err, exc_info=True)
         return []
 
     findings: list[dict] = []
@@ -662,7 +665,7 @@ def ast_scan_scp(max_files: int = _MAX_SCAN_FILES,
             from scp.autofix.ast_diff_cache import get_ast_diff_cache as _v3_get_cache
             _v3_get_cache().update(path_str, findings_count, syntax_error=syntax_error)
         except Exception:
-            pass  # fail-open — cache update is best-effort
+            pass  # silent-by-design: fail-open — cache update is best-effort
 
     # [R10 v3 WIRE — IMP-18] Parallel scanner dispatch (HOOK ACTIVATION).
     # TẠI SAO: scanning N files sequentially = N × (parse + visit) time. With
