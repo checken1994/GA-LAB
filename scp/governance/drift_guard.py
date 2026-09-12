@@ -18,6 +18,10 @@ from typing import Iterable
 
 import yaml
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class DriftDecision(str, Enum):
     ALLOW = "ALLOW"
@@ -90,6 +94,7 @@ class DriftGuard:
         try:
             return cls._semantic_value(path, old_text) == cls._semantic_value(path, new_text)
         except Exception:
+            logger.warning('DriftGuard._semantically_equivalent: Exception not handled', exc_info=True)
             return False
 
     @staticmethod
@@ -125,6 +130,7 @@ class DriftGuard:
                 if zero.get("unknown_price_policy") != "DENY":
                     violations.append("Complete-SCP reference unknown price must remain DENY")
             except Exception:
+                logger.warning('DriftGuard._hard_invariant_violations: Exception not handled', exc_info=True)
                 violations.append("Complete-SCP reference became unparseable")
 
         # Mandatory-test weakening patterns: only flag NEW introduction, not a
