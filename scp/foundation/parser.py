@@ -98,6 +98,7 @@ class AIParser:
                 if -60 <= value <= 60:
                     return str(int(value)) if value == int(value) else str(value)
             except ValueError:
+                logger.debug('AIParser.parse_temperature: ValueError ignored', exc_info=True)
                 continue
 
         return ai_answer
@@ -133,6 +134,7 @@ class AIParser:
                 if 1 <= value <= 10000:
                     return str(value)
             except ValueError:
+                logger.debug('AIParser.parse_weight: ValueError ignored', exc_info=True)
                 continue
 
         return ai_answer
@@ -159,6 +161,7 @@ class AIParser:
                 if value > 100:  # [V104.37 #83] was: > 10 (matched dates/versions)  # Crypto prices typically > $10
                     return str(round(value, 2))
             except ValueError:
+                logger.debug('AIParser.parse_crypto_price: ValueError ignored', exc_info=True)
                 continue
 
         return ai_answer
