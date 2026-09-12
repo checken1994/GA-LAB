@@ -21,6 +21,30 @@ Nguyên tắc cốt lõi:
 - **AutoFix / Self-Audit** — phát hiện vấn đề, kiểm evidence, đề xuất/sửa trong phạm vi giới hạn, verify và rollback khi cần.
 - **Complete-SCP test architecture** — bộ kiểm thử T00–T11 đang được phát triển để kiểm cả sản phẩm lẫn chính test/verifier/auditor.
 
+## Trạng thái đã kiểm chứng (2026-09-12)
+
+> Tổng quan đầy đủ: [GA.md](GA.md) · Closure records: [reports/circuit-closures/](reports/circuit-closures/) · Witness: [reports/witness/](reports/witness/)
+
+**14/14 mạch kiến trúc đã đóng** với closure record D0–D8 + SHA pin riêng
+([STATUS-LEDGER](reports/circuit-closures/STATUS-LEDGER.md)). Mimosa deep scan:
+**HIGH 190 → 0** (medium 15 / low 98 — đã triage documented). Verification 6 lớp
+độc lập (worker ≠ verifier, sealed scan, machine consistency).
+
+**Witness độc lập (ngoài SCP lineage)** đã tự dựng real API cluster + real cloud
+LLM và đo SCP bằng lưu lượng thật — [báo cáo đầy đủ](reports/witness/WITNESS-REPORT-W2-2026-09-11.md):
+
+| Đo được | Kết quả |
+|---|---|
+| Golden chain (real LLM) | `/ask` → TaskKernel → gateway → real LLM → cross-verify 2 families → **PASS**, governance UPHOLD |
+| Độ trung thực (N=30) | accuracy-answered **1.0** · hallucination **0** · 19 abstain-by-strict-verification |
+| Chaos (fault injection thật) | kill -9 giữa traffic → breaker mở, recovery 21s · 429/500 storm được retry ladder hấp thụ |
+| Soak 5.5 phút | **184,276 requests, zero error**, RSS +14MB (no leak) |
+
+**Giới hạn đã đo (đọc trước khi đánh giá):** 1 node, loopback, 1 worker; answer-rate
+0.167 (bộ verify nghiêm ngặt — abstain thay vì đoán); LLM quota scarce (429 measured);
+4 bug mới đã được witness báo cáo và đang theo dõi. Đây là **bằng chứng phạm vi hẹp** —
+không phải tuyên bố production-ready.
+
 > SCP hiện vẫn đang được phát triển và kiểm định. Không nên coi trạng thái hiện tại là một hệ thống production đã hoàn thiện.
 
 ## Cách chạy

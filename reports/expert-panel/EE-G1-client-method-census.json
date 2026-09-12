@@ -1,8 +1,8 @@
 {
   "gap": "EE-G1",
   "description": "AST census of HTTP client method call-sites on tracked client variables (requests.Session/httpx.Client/AsyncClient/urllib opener/aiohttp.ClientSession) — the class of bypass the raw direct-spelling gate could not see (V-EE-1/2 were found by hand).",
-  "generated_at": "2026-09-12T18:02:07+00:00",
-  "git_head": "de1e405b9ebd65ad856379e26f0c1fdd56c03e47",
+  "generated_at": "2026-09-12T18:05:53+00:00",
+  "git_head": "5ee993ceee6febf2e8d5718850fa08cf4575b616",
   "scanner": "scp/security/egress_static_scan.py",
   "scanned_root": "scp",
   "excluded_modules": [

@@ -157,27 +157,47 @@ Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó v�
 ```text
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
-active_sync_branch: audit/runtime-guard-AUDIT-20260909 -> main (PR #39 khi ruleset chặn direct push)
-work_snapshot_sha: 15d1654f062eeefeac41db3adbb760d7d676347e (+ final polish commits trong handoff commit)
-snapshot_role: campaign 100% — 14 mạch closure (M01-M14) + Track A security + Track B fail-loudly/logging + Track C adoption (C1 Postgres storage, C2 event bus, C3 Sandbox Evaluator) + Track D (Playwright, MCP, evals) + compliance DNA/Skill round; HIGH 190->0; verification 6 lớp (V2/V5/V-B/V6 + machine checks)
+active_sync_branch: audit/runtime-guard-AUDIT-20260909 -> main (đã sync; PR #39 MERGED)
+work_snapshot_sha: 617a425 (commit sản phẩm cuối trước handoff này)
+snapshot_role: campaign 100% + compliance round + EE-G1 egress closed — 14 mạch closure (M01-M14) + Track A security + Track B fail-loudly/logging (545 silent-except + 82 print) + Track C adoption (C1 Postgres, C2 event bus, C3 Sandbox Evaluator) + Track D (Playwright, MCP, evals) + independent witness W2 (real API cluster); HIGH 190->0
 active_target_revision: 4.0.2
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
 runtime/release_verdict: BLOCKED_PENDING_SAME_SHA_GITHUB_GATES
 ```
 
-Campaign 2026-09-10→12 (đọc trước khi làm tiếp): 14 mạch flow map V4 + 3 adoption track
-C1/C2/C3 đều CLOSED_WITH_KNOWN_GAP (pins trong STATUS-LEDGER; C3 = evidence report).
-Product fail thật đã fix qua probe runtime (stream chết 100%, WHY loop chưa wire, v106
-no-auth, prediction 503 vĩnh viễn, kernel mutation trước authz FA-05, judge dict-contract,
-cryptography fail-open plaintext ĐANG SỐNG, crosscheck chết...). B1 fail-loudly: 545
-silent-except + 82 print→logging. Track D: Playwright backend opt-in (anti-honeypot giữ),
-MCP stdio server qua PEP (FA-05 giữ), LiteLLM=KEEP core, OPA=KEEP, PagerDuty exporter=ADOPT nhỏ.
-Known-red mở cho owner: T00 no-skip gate vs declared infra-skip (7 file, policy conflict —
-STATUS-LEDGER mục KNOWN-RED); SCP_EGRESS_MODE=deny không chặn urllib (falsified — cần 1 lớp
-egress chung); judge.py sync crosscheck — ĐÃ FIX (A2); supervisor restart-budget behavior
-bị xóa pre-campaign (owner xác nhận ý định). Việc owner: rotate SCP_ENCRYPTION_KEY (shell
-exposure), xóa reports/pytest-basetemp.corrupt-20260910 (admin), merge PR #39, quyết định
-policy T00 (STATUS-LEDGER KNOWN-RED mục a/b). Verdict tool vẫn là authority duy nhất cho
+Campaign 2026-09-10→13 (đọc trước khi làm tiếp): 14 mạch flow map V4 + 3 adoption track
+C1/C2/C3 đều CLOSED_WITH_KNOWN_GAP (pins trong STATUS-LEDGER). Product fail thật đã fix
+qua probe runtime (stream chết 100%, WHY loop chưa wire, v106 no-auth, prediction 503
+vĩnh viễn, kernel mutation trước authz FA-05, judge dict-contract, cryptography fail-open
+plaintext ĐANG SỐNG, crosscheck chết...). B1 fail-loudly: 545 silent-except + 82 print→logging.
+EE-G1 egress ĐÓNG: `enforce_egress_policy()` choke point + static gate + container proof
+đảo ngược falsification M13 (deny chặn example.com thật). Track D: Playwright backend
+opt-in (anti-honeypot giữ), MCP stdio server qua PEP (FA-05 giữ), LiteLLM=KEEP core,
+OPA=KEEP, PagerDuty exporter=ADOPT nhỏ.
+
+**WITNESS ĐỘC LẬP W2 (2026-09-11, ngoài SCP lineage — DNA G05)**: report tại
+`reports/witness/WITNESS-REPORT-W2-2026-09-11.md`. Witness tự dựng real API cluster
+(4 instances) + real cloud LLM, env-only wiring (0 system-code edit): golden chain
+/ask → TaskKernel → witness-api → real LLM → cross-verify 2 families → PASS "Paris" 0.85;
+R1 N=30: accuracy-answered 1.0, honesty 1.0 (0 hallucination, 19 abstain-by-strict-verify);
+R3 chaos: kill -9 → breaker + recovery 21s; 429/500 storm absorbed; R4 soak 5.5 phút:
+184,276 requests zero-error, RSS +14MB no-leak. Limits: 1 node, loopback, 1 worker,
+answer-rate 0.167 (strict verification), LLM quota scarce (429 measured).
+
+**W2 tìm thấy 4 bug MỚI (post-campaign, CHƯA fix — việc tiếp theo)**:
+1. [HIGH] `InvalidTransition: HUMAN_REVIEW->HUMAN_REVIEW` — `scp/ask_kernel_adapter.py:411`
+   finalize escalate lần 2 khi task đã HUMAN_REVIEW → /ask 500 (observed live).
+2. [HIGH] Zero-cost wall chặn mọi custom OpenAI-compatible provider mặc định
+   (`DENY_UNKNOWN_PRICE`) — fail-closed đúng nhưng chỉ log debug, operator không có tín hiệu.
+3. [MEDIUM] Provider degradation → /ask latency collapse 30–180s (timeout × rotation × retry),
+   không early bail-out.
+4. [LOW] `.env` duplicate-key footgun: 2 dòng `OPENAI_API_KEY=` (dotenv last-wins).
+
+Known-red ĐÃ GIẢI QUYẾT: T00 policy A (allowlist `declared_infra_skips.json`, commit
+`cb1c99e`); SCP_EGRESS_MODE=deny không chặn urllib → EE ĐÓNG (choke `enforce_egress_policy`);
+SCP_ENCRYPTION_KEY ĐÃ ROTATE (passphrase mới, re-encrypt — bypasses rỗng 0 record);
+basetemp corrupt ĐÃ XÓA (owner). Còn: supervisor restart-budget behavior bị xóa
+pre-campaign (owner xác nhận ý định). Verdict tool vẫn là authority duy nhất cho
 claim "complete" — mọi closure là PASS_WITHIN_SCOPE.
 
 `work_snapshot_sha` là commit sản phẩm trước commit handoff này; luôn resolve full SHA
