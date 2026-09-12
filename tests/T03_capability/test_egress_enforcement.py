@@ -460,6 +460,12 @@ def test_h_container_deny_loopback_health_and_endpoint_fail_closed():
         ["docker", "run", "-d", "--name", name,
          "-e", "SCP_EGRESS_MODE=deny",
          "-e", "SCP_API_PROFILE=full",
+         # Test-only throwaway values (NOT real secrets): the container
+         # refuses to boot without capability/JWT/admin config (GAP-09 +
+         # ConfigContract fail-closed).
+         "-e", "SCP_CAPABILITY_SECRET=ee-egress-container-test-secret-32bytes!",
+         "-e", "SCP_JWT_SECRET=ee-egress-container-test-jwt-secret-0123456789abcdef",
+         "-e", "SCP_ADMIN_KEY=ee-egress-container-test-admin-key-9876543210",
          "-e", "SCP_AUTH_PASSWORD=ee-container-test-token",
          image, "8080"],
         capture_output=True, text=True, timeout=120, check=True,
@@ -500,16 +506,20 @@ def test_h_container_deny_loopback_health_and_endpoint_fail_closed():
 
         # (2) real external-fetching endpoint must fail closed (M13 P6 reversal).
         endpoint_script = (
-            "import json, urllib.request\n"
+            "import json, urllib.request, urllib.error\n"
             "req = urllib.request.Request(\n"
             "    'http://127.0.0.1:8080/v104/learn/top-systems',\n"
             "    data=json.dumps({'topics': ['sandboxing'], 'per_source': 1}).encode(),\n"
             "    headers={'Authorization': 'Bearer ee-container-test-token',\n"
             "             'Content-Type': 'application/json'},\n"
             ")\n"
-            "with urllib.request.urlopen(req, timeout=60) as resp:\n"
-            "    body = json.loads(resp.read().decode())\n"
-            "print('EE_ENDPOINT', json.dumps({'ok': body.get('ok'), 'records': body.get('records'), 'errors': body.get('errors')})[:800])\n"
+            "try:\n"
+            "    with urllib.request.urlopen(req, timeout=60) as resp:\n"
+            "        raw = resp.read().decode()\n"
+            "except urllib.error.HTTPError as e:\n"
+            "    raw = e.read().decode()  # fail-closed may surface as 5xx — body holds the contract\n"
+            "body = json.loads(raw)\n"
+            "print('EE_ENDPOINT', json.dumps({'ok': body.get('ok'), 'records': body.get('records'), 'results': body.get('results')})[:800])\n"
         )
         ep = subprocess.run(
             ["docker", "exec", name, "python", "-c", endpoint_script],
@@ -527,8 +537,13 @@ def test_h_container_deny_loopback_health_and_endpoint_fail_closed():
         assert payload["records"] in (None, 0) or not payload["records"], (
             f"records fetched under deny: {payload}"
         )
-        assert any("EgressDenied" in e for e in (payload.get("errors") or [])), (
-            f"fail-closed reason not surfaced in errors: {payload}"
+        # learn_all nests per-topic errors under results[i].errors
+        nested_errors = [
+            e for r in (payload.get("results") or []) for e in (r.get("errors") or [])
+        ]
+        assert nested_errors, f"no per-source errors surfaced: {payload}"
+        assert any("EgressDenied" in e for e in nested_errors), (
+            f"fail-closed reason not surfaced in nested errors: {payload}"
         )
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=60)
