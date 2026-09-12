@@ -187,6 +187,7 @@ class PCController:
             path.relative_to(self.working_dir)
             return True
         except ValueError:
+            logger.debug('PCController._inside_root: ValueError ignored', exc_info=True)
             return False
 
     def _sensitive(self, path: Path) -> bool:
@@ -219,6 +220,7 @@ class PCController:
             try:
                 audit_count = sum(1 for _ in self.audit_path.open("r", encoding="utf-8"))
             except OSError:
+                logger.debug('PCController.status: OSError ignored', exc_info=True)
                 audit_count = -1
         return {
             "controller": "online",
@@ -247,6 +249,7 @@ class PCController:
         try:
             level = CapabilityLevel(max(0, min(5, int(capability_level))))
         except (TypeError, ValueError):
+            logger.debug('PCController.evaluate: TypeError, ValueError ignored', exc_info=True)
             return PolicyDecision(False, "Invalid capability level", "high", False, capability_level)
         if any(re.search(pattern, command, re.IGNORECASE) for pattern in self.BLOCKED_PATTERNS):
             return PolicyDecision(False, "Command matches a blocked safety pattern", "critical", False, int(level))
