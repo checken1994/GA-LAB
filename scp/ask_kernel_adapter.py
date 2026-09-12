@@ -13,17 +13,22 @@ from typing import Any, Awaitable, Callable
 
 from scp.core.verifier_receipt import VerifierReceipt, sign_verifier_receipt
 
+logger = logging.getLogger(__name__)
+
+
 _c3_logger = logging.getLogger("scp.ask_kernel_adapter")
 
 try:
     from .task_kernel import InvalidTransition, KernelError, StorageIntegrityError, TaskKernel
     from .trace_ledger import TraceLedger
 except ImportError:
+    logger.debug('<module>: ImportError ignored', exc_info=True)
     from task_kernel import InvalidTransition, KernelError, StorageIntegrityError, TaskKernel
     from trace_ledger import TraceLedger
 try:
     from scp.api_server_parts.helpers import AskResponse
 except Exception:  # pragma: no cover - standalone kernel tests do not need API schema
+    logger.warning('<module>: Exception not handled', exc_info=True)
     AskResponse = None
 
 
@@ -71,6 +76,7 @@ class AskKernelAdapter:
                 backup_result["size_bytes"], backup_result["retained"],
             )
         except Exception as exc:  # durability check phải không bao giờ chặn serving
+            logger.warning('AskKernelAdapter.__init__: Exception not handled: %s', exc)
             _c3_logger.warning("[C3] kernel maintenance failed (non-blocking): %s", exc)
             self.last_maintenance = None
 
@@ -78,6 +84,7 @@ class AskKernelAdapter:
         try:
             return self.kernel.get_task(task_id)
         except Exception:
+            logger.warning('AskKernelAdapter._existing_task: Exception not handled', exc_info=True)
             return None
 
     # Lifecycle states where a racing transport retry must still be deduped:
@@ -214,6 +221,7 @@ class AskKernelAdapter:
             try:
                 current = self.kernel.get_task(task_id)
             except Exception:
+                logger.warning('AskKernelAdapter.begin: Exception not handled', exc_info=True)
                 current = {"state": "UNKNOWN"}
             with _TRACE_LOCK:
                 self.trace.append(
@@ -285,6 +293,7 @@ class AskKernelAdapter:
             )
             judge_pass = (judge_res["verdict"] == "PASS")
         except Exception:
+            logger.warning('AskKernelAdapter.verify_response: Exception not handled', exc_info=True)
             judge_pass = False
 
         # Contract (2026-08-29), split explicitly:
@@ -342,6 +351,7 @@ class AskKernelAdapter:
             try:
                 return response.copy(update=data)
             except TypeError:
+                logger.debug('AskKernelAdapter._safe_response: TypeError ignored', exc_info=True)
                 return data
         return data
 
@@ -472,11 +482,13 @@ class AskKernelAdapter:
                     reason=reason,
                 )
         except Exception as exc:  # non-fatal audit fallback; original error wins
+            logger.warning('AskKernelAdapter.fail: Exception not handled: %s', exc)
             try:
                 from scp.core.exception_policy import observe_nonfatal
 
                 observe_nonfatal(component="scp/ask_kernel_adapter.py:fail", exception_type=type(exc).__name__)
             except Exception:
+                logger.warning('AskKernelAdapter.fail: Exception not handled', exc_info=True)
                 return
 
     def _kernel_blocked_response(self, req: Any, exc: Exception) -> Any:

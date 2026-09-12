@@ -76,6 +76,7 @@ def _load_env_at_startup() -> None:
         from dotenv import load_dotenv
         load_dotenv(_env_path, override=False)
     except ImportError:
+        logger.debug('_load_env_at_startup: ImportError ignored', exc_info=True)
         for _line in _env_path.read_text(encoding="utf-8-sig").splitlines():
             _line = _line.strip()
             if not _line or _line.startswith("#") or "=" not in _line:
@@ -87,6 +88,10 @@ def _load_env_at_startup() -> None:
                 os.environ[_key] = _val
 _load_env_at_startup()
 from scp.security.production_guard import enforce_production_safety
+
+import logging
+logger = logging.getLogger(__name__)
+
 enforce_production_safety()
 def main() -> None:
     if any(arg in {"-h", "--help"} for arg in sys.argv[1:]):

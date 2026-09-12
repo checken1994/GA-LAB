@@ -127,6 +127,7 @@ def _scp_service_identity() -> dict:
                     creationflags=_creationflags,
                 ).strip()
             except Exception:
+                logger.warning('_scp_service_identity: Exception not handled', exc_info=True)
                 _commit = "unknown"
         _CACHED_COMMIT = _commit or "unknown"
     if _CACHED_CONFIG_HASH is None:
@@ -141,6 +142,7 @@ def _scp_service_identity() -> dict:
                 )
                 _config_hash = "sha256:" + _hashlib.sha256(_cfg.encode("utf-8")).hexdigest()
             except Exception:
+                logger.warning('_scp_service_identity: Exception not handled', exc_info=True)
                 _config_hash = "unknown"
         _CACHED_CONFIG_HASH = _config_hash or "unknown"
     return {

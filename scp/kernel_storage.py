@@ -19,6 +19,10 @@ import time
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class StorageIntegrityError(RuntimeError):
     """Backend-neutral uniqueness/integrity conflict."""
@@ -165,7 +169,7 @@ class SQLiteKernelStorage:
                 try:
                     conn.close()
                 except sqlite3.Error:
-                    pass
+                    logger.debug('SQLiteKernelStorage.close: sqlite3.Error ignored', exc_info=True)
             self._all_conns.clear()
             self._conn_local = threading.local()
 
