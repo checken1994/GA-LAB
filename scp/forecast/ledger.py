@@ -9,6 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 ALLOWED_OUTCOME_CODES = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9})
 RESOLVED_OUTCOME_CODES = frozenset({1, 2, 3, 4, 5, 6, 7, 8})
 REQUIRED_CASE_FIELDS = frozenset(
@@ -60,7 +64,7 @@ def _atomic_json_write(path: Path, payload: Any) -> None:
         try:
             os.unlink(temp_name)
         except OSError:
-            pass
+            logger.debug('_atomic_json_write: OSError ignored', exc_info=True)
         raise
 
 
