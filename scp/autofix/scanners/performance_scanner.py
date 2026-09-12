@@ -247,9 +247,12 @@ class PerformanceScanner:
             try:
                 source = path.read_text(encoding="utf-8", errors="replace")
                 tree = ast.parse(source, filename=str(path))
-            except SyntaxError:
+            except SyntaxError as parse_err:
+                # silent-by-design: parse probe — unparseable file is skipped by this scan by design.
+                logger.debug("performance_scanner: skipping unparseable file %s: %s", path, parse_err, exc_info=True)
                 continue
-            except Exception:  # noqa: S112
+            except Exception as read_err:  # noqa: S112
+                logger.debug("performance_scanner: skipping unreadable file %s: %s", path, read_err, exc_info=True)
                 continue
 
             finder = _PerfFinder(str(path))

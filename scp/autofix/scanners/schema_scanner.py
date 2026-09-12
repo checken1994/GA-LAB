@@ -158,7 +158,9 @@ class SchemaMismatchScanner:
             files_scanned += 1
             try:
                 source = path.read_text(encoding="utf-8", errors="replace")
-            except Exception:  # noqa: S112
+            except Exception as read_err:  # noqa: S112
+                # silent-by-design: best-effort file read inside scan loop.
+                logger.debug("schema_scanner: skipping unreadable file %s: %s", path, read_err, exc_info=True)
                 continue
             for m in _CREATE_TABLE_RE.finditer(source):
                 table_name = m.group(1).lower()

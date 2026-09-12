@@ -73,6 +73,7 @@ def _hypothesis_available() -> bool:
         importlib.import_module("hypothesis")  # noqa: F401
         return True
     except ImportError:
+        # silent-by-design: documented availability probe — False is the contract callers rely on to report "skip".
         return False
 
 
@@ -94,7 +95,10 @@ def _annotation_to_strategy_str(ann: ast.AST | None) -> str | None:
     if isinstance(ann, ast.Subscript):
         try:
             ann_str = ast.unparse(ann)
-        except Exception:
+        except Exception as unp_err:
+            # silent-by-design: unparse probe — None means "no strategy known
+            # for this annotation (skip arg)" per the function contract.
+            logger.debug("hypothesis_scanner: annotation unparse failed, skipping arg: %s", unp_err, exc_info=True)
             return None
         for key, val in _ANNOTATION_TO_STRATEGY.items():
             if ann_str == key:
@@ -162,9 +166,13 @@ def _collect_eligible_functions(file_path: Path) -> list[tuple[str, ast.Function
     try:
         source = file_path.read_text(encoding="utf-8", errors="replace")
         tree = ast.parse(source, filename=str(file_path))
-    except SyntaxError:
+    except SyntaxError as parse_err:
+        # silent-by-design: parse probe — unparseable file yields no eligible
+        # functions for property testing.
+        logger.debug("hypothesis_scanner: skipping unparseable file %s: %s", file_path, parse_err, exc_info=True)
         return []
-    except Exception:  # noqa: S112
+    except Exception as read_err:  # noqa: S112
+        logger.debug("hypothesis_scanner: skipping unreadable file %s: %s", file_path, read_err, exc_info=True)
         return []
     out: list[tuple[str, ast.FunctionDef]] = []
     for node in ast.iter_child_nodes(tree):
@@ -178,6 +186,9 @@ def _file_to_module_path(file_path: Path) -> str | None:
     try:
         rel = file_path.relative_to(_SCP_ROOT.parent)
     except ValueError:
+        # silent-by-design: relative_to probe — None documents "file is not
+        # under the scp root" per the function contract.
+        logger.debug("hypothesis_scanner: %s not under scp root, no module path", file_path, exc_info=True)
         return None
     if rel.suffix != ".py":
         return None
@@ -282,6 +293,7 @@ def _test_function_with_hypothesis(
         from hypothesis import given, settings, HealthCheck
         import hypothesis.strategies as st  # noqa: F401
     except ImportError:
+        # silent-by-design: explicit (True, reason) skip status returned to the caller.
         return True, "hypothesis not installed, skip"
 
     try:
@@ -333,6 +345,7 @@ def _test_function_with_hypothesis(
     try:
         _property_test()
     except Exception as e:  # noqa: BLE001 — hypothesis raises on property failure
+        # silent-by-design: explicit (False, reason) error return — the failure message is the finding the caller reports.
         msg = failure_msg_holder[0] if failure_msg_holder else str(e)
         return False, f"property test failed: {msg[:300]}"
     return True, f"survived {max_examples} hypothesis examples"

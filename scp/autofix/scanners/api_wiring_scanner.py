@@ -139,7 +139,9 @@ class APIWiringScanner:
                     continue
                 try:
                     source = py_file.read_text(encoding="utf-8", errors="replace")
-                except Exception:  # noqa: S112
+                except Exception as read_err:  # noqa: S112
+                    # silent-by-design: best-effort file read inside scan loop.
+                    logger.debug("api_wiring_scanner: skipping unreadable file %s: %s", py_file, read_err, exc_info=True)
                     continue
                 for m in _ENV_REF_PATTERN.finditer(source):
                     var_name = m.group(1) or m.group(2) or m.group(3)

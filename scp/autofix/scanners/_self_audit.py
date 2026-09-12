@@ -310,9 +310,14 @@ def _instantiate_scanner(module_path: str, class_name: str) -> Any | None:
         try:
             _scp_root = Path(__file__).resolve().parent.parent.parent
             return cls(scp_root=_scp_root)
-        except Exception:
+        except Exception as retry_err:
+            # silent-by-design: documented default — scanner that cannot be
+            # instantiated is excluded from the self-audit run.
+            logger.debug("self_audit: scanner instantiation with scp_root failed, excluding scanner: %s", retry_err, exc_info=True)
             return None
-    except Exception:
+    except Exception as inst_err:
+        # silent-by-design: same — scanner excluded from this audit run.
+        logger.debug("self_audit: scanner instantiation failed, excluding scanner: %s", inst_err, exc_info=True)
         return None
 
 
@@ -344,6 +349,7 @@ def _run_scanner_on_snippet(scanner_obj: Any, snippet_path: Path) -> list[Any]:
             if Path(r_file).resolve() == snippet_path.resolve():
                 out.append(r)
         except Exception:
+            # silent-by-design: resolve probe failed — filename fallback keeps the finding attributed to the snippet.
             if r_file.endswith(snippet_path.name):
                 out.append(r)
     return out
@@ -400,7 +406,7 @@ class ScannerSelfAudit:
             try:
                 findings = _run_scanner_on_snippet(scanner_obj, snippet_path)
             except Exception as e:  # noqa: BLE001
-                result.error = f"scanner crashed on {snippet_name}: {e}"
+                result.error = f"scanner crashed on {snippet_name}: {e}"  # silent-by-design: crash recorded in result.error and reported in the audit summary
                 continue
             if findings:
                 result.true_positives += 1
@@ -421,7 +427,7 @@ class ScannerSelfAudit:
             except Exception as e:  # noqa: BLE001
                 # Scanner crashing on valid code = bug, count as FP
                 result.false_positives += 1
-                result.error = f"scanner crashed on known-good {snippet_name}: {e}"
+                result.error = f"scanner crashed on known-good {snippet_name}: {e}"  # silent-by-design: crash + FP count recorded in result and reported in the audit summary
                 continue
             if findings:
                 result.false_positives += len(findings)

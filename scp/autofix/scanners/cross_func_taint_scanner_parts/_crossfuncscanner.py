@@ -32,6 +32,9 @@ class _CrossFuncScanner:
         try:
             relpath = str(path.relative_to(_SCP_ROOT.parent))
         except ValueError:
+            # silent-by-design: relative_to probe — absolute path is the
+            # documented fallback for files outside the scp root.
+            logger.debug('crossfunc: %s not under scp root, using absolute path', path, exc_info=True)
             relpath = str(path)
         builder = _CallGraphBuilder(path, relpath)
         builder.visit(tree)
