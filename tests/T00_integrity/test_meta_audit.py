@@ -313,11 +313,12 @@ def test_meta_audit_no_skip_in_mandatory_tests():
     scan_mandatory_test_tree(tests_root)
 
 # Pin the current reality (policy A contract has review): the declared
-# infra-skip contract covers EXACTLY these seven C1/C2/C3/D1 infra-skip files
-# with exactly these skip-call counts. A new, changed or removed entry must
-# update this pin deliberately together with declared_infra_skips.json.
+# infra-skip contract covers EXACTLY these eight C1/C2/C3/D1/EE-G1 infra-skip
+# files with exactly these skip-call counts. A new, changed or removed entry
+# must update this pin deliberately together with declared_infra_skips.json.
 _KNOWN_DECLARED_INFRA_SKIP_COUNTS = {
     'tests/T03_capability/test_playwright_backend.py': 2,
+    'tests/T03_capability/test_egress_enforcement.py': 4,
     'tests/T04_kernel/test_pg_boot_runtime.py': 2,
     'tests/T04_kernel/test_pg_event_bus.py': 2,
     'tests/T04_kernel/test_pg_migration.py': 1,

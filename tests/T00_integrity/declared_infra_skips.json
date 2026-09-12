@@ -22,6 +22,15 @@
       "added_on": "2026-09-12"
     },
     {
+      "file": "tests/T03_capability/test_egress_enforcement.py",
+      "track": "EE-G1",
+      "reason_patterns": ["docker not available", "scp-egress-ee image not built"],
+      "env_guard_token": "SCP_EE_CONTAINER_TESTS",
+      "guard_description": "Container evidence tests are opt-in via a pytest.mark.skipif on SCP_EE_CONTAINER_TESTS=1; inside those tests pytest.skip fires only when the docker CLI is unavailable or the scp-egress-ee image is not built.",
+      "justification": "EE-G1 container runtime evidence needs a REAL docker daemon and a locally built scp-egress-ee image (expensive, opt-in); without them there is no container to prove the deny-mode egress contract against, and the in-process egress tests still run as hard assertions.",
+      "added_on": "2026-09-12"
+    },
+    {
       "file": "tests/T04_kernel/test_pg_boot_runtime.py",
       "track": "C1",
       "reason_patterns": ["declared infra-skip", "INFRA-SKIP"],
