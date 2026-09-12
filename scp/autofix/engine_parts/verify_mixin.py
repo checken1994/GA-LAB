@@ -215,6 +215,17 @@ class VerifyMixin:
                                 _test_targets.append(str(p))
                         if not _test_targets:
                             _test_targets = [str(filepath)]
+                    else:
+                        # [S15 FAIL-CLOSED FIX] The patch target lives outside a
+                        # repository checkout (tmp verification workspace). The
+                        # pytest gate must NOT silently skip in that case — a
+                        # skipped gate is fail-open and contradicts the pinned
+                        # contract (subprocess crash or regression must ROLL
+                        # BACK the fix). Fall back to running pytest on the
+                        # patched file itself (same fallback as "no targets"),
+                        # so a crashed verifier still fails closed.
+                        _test_targets = [str(filepath)]
+                        _root = filepath.parent
 
                         _proc = _sp.run(  # noqa: S603 — audited: sys.executable, hardcoded args
                             [_sys.executable, "-m", "pytest", "-q", "--timeout=60"] + _test_targets[:3],
