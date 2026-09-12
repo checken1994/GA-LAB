@@ -173,56 +173,56 @@ def test_bridge_execute_missing_token_clean_policy_denial_no_recovery(tmp_path: 
     """Direct bridge execution with capability_token=None must fail closed.
 
     Verifies:
-    1. result['success'] is False
-    2. 'CapabilityRequiredError' in error
-    3. No 'OptimisticLockError' (no double-release crash)
-    4. result['requiresRecovery'] is False
-    5. result['kernel']['requiresRecovery'] is False
-    6. result['kernel']['taskState'] == 'FAILED' (and 'state' == 'FAILED')
-    7. target.exists() is False (zero side effects on disk)
-    8. Durable database state is FAILED, active_lease_id is None, active_fencing_token is 0
+    1. PermissionError raised (CapabilityRequiredError contract, FA-05 marker)
+    2. Zero side effects on disk
+    3. Zero durable kernel state (no task, no lease, no journal events)
+
+    [C1s2 TRIAGE 2026-09-12] This test pinned the PRE-M4 contract: it expected
+    a missing token to produce a structured denial result with a FAILED kernel
+    task (kernel mutation before authz). Commit 0d13c85 (M4 FIX 2026-09-11)
+    deliberately changed the product to fail closed EARLIER: PermissionError
+    (CapabilityRequiredError, FA-05) is raised BEFORE action resolution and
+    BEFORE any TaskKernel state mutation. The M4-era T03 fix updated
+    test_flow_04_control_hands_scp_standard.py but missed this file — same
+    root cause as the T04 branch-9 triage (session C1s2). Strictness
+    INCREASED: the durable database must now contain ZERO kernel state
+    instead of merely a FAILED task row with a released lease.
     """
     bridge, workspace, _cap_auth = _setup_bridge(tmp_path)
     target = workspace / "blocked_bridge_missing.txt"
 
     try:
-        result = asyncio.run(
-            bridge.execute(
-                action="pc.write_file",
-                params={"path": str(target), "content": "test"},
-                capability_level=3,
-                approved=True,
-                capability_token=None,
+        with pytest.raises(PermissionError) as perm_exc:
+            asyncio.run(
+                bridge.execute(
+                    action="pc.write_file",
+                    params={"path": str(target), "content": "test"},
+                    capability_level=3,
+                    approved=True,
+                    capability_token=None,
+                )
             )
-        )
 
-        # 1. Execution denial assertions
-        assert result.get("success") is False
-        assert "CapabilityRequiredError" in result.get("error", "")
-        assert "OptimisticLockError" not in result.get("error", "")
+        # 1. Fail-closed ordering contract (M4): PermissionError escapes the
+        #    bridge call — not a structured result, not a registry KeyError.
+        assert "CapabilityRequiredError" in str(perm_exc.value)
+        assert "FA-05" in str(perm_exc.value)
 
-        # 2. Kernel state assertions (strictly fail-closed, no recovery required)
-        kernel_info = result.get("kernel", {})
-        assert kernel_info.get("requiresRecovery") is False
-        assert kernel_info.get("taskState") == "FAILED"
-        assert kernel_info.get("state") == "FAILED"
-        assert result.get("requiresRecovery") is False
-
-        # 3. Disk side-effect assertion (zero side effects on policy denial)
+        # 2. Zero side effects on disk (unchanged from the original contract).
         assert target.exists() is False, "Side effect executed without capability token (FA-05 violation)"
 
-        # 4. Durable database state verification
-        task_id = kernel_info.get("taskId")
-        assert task_id is not None
-        db_task = bridge.kernel.get_task(task_id)
-        assert db_task["state"] == "FAILED"
-        assert db_task["active_lease_id"] is None
-        assert db_task["active_fencing_token"] == 0
-
-        lease_row = bridge.kernel.conn.execute(
-            "SELECT * FROM leases WHERE lease_id=?", (kernel_info.get("leaseId"),)
-        ).fetchone()
-        assert lease_row["released"] == 1, "Lease must be marked released in DB"
+        # 3. Stronger durable-state contract: NO kernel mutation at all — no
+        #    task row, no lease, no journal events (pre-M4 the denial left a
+        #    FAILED task + released lease behind).
+        assert bridge.kernel.conn.execute(
+            "SELECT COUNT(*) AS n FROM tasks"
+        ).fetchone()["n"] == 0
+        assert bridge.kernel.conn.execute(
+            "SELECT COUNT(*) AS n FROM leases"
+        ).fetchone()["n"] == 0
+        assert bridge.kernel.conn.execute(
+            "SELECT COUNT(*) AS n FROM events"
+        ).fetchone()["n"] == 0
     finally:
         bridge.close()
 

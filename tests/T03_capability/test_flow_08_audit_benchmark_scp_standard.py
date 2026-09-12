@@ -21,6 +21,22 @@ from scp.api.routes import audit_routes, batch_benchmark_routes
 from scp.core.fitness_engine import run_and_gate
 
 
+@pytest.fixture(autouse=True)
+def _reset_auth_rate_limit_accounting():
+    """Test isolation: verify_admin counts 401s per IP for 60s process-wide
+    (5 failures -> 429). Negative-auth probes across the T03 suite share the
+    'testclient' IP accounting, so this file's own [AUDIT-1]/[AUDIT-2]
+    no-auth probes could be 429-blocked depending on suite timing (observed
+    as a flaky failure). This clears the ACCOUNTING only — verify_admin
+    product logic and the 401/403 assertions here are untouched (same
+    isolation pattern already used by T02 and T03 flow-06)."""
+    from scp.security import auth as _auth
+
+    _auth._auth_failures.clear()
+    yield
+    _auth._auth_failures.clear()
+
+
 class TestFlow08AuditBenchmark:
     """Mạch 8: Audit & Benchmark - SCP Complete Standard"""
 
