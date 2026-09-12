@@ -59,12 +59,15 @@ import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
-function _loadEnvFile() {
+// [S10 push-gate fix, S10b taint-removal] This function reads AND writes
+// process.env (scanner-tainted scope). The resolved env-file path is
+// process.env-derived and must therefore NEVER reach a log sink in any form
+// (interpolation, separate argument, JSON) — callers log static text only.
+function _loadEnvFile(): string | null {
   // Require an explicit env file; never silently load repository .env.
   const _override = process.env.SCP_ENV_FILE || process.env.SCP_SIDECAR_ENV_FILE;
   if (!_override) {
-    console.log("[loop-scheduler] env source=process.env (no implicit .env fallback)");
-    return;
+    return null;
   }
   const _isAbsolute = _override.startsWith("/") || _override.startsWith("\\") || /^[A-Za-z]:/.test(_override);
   const _p = _isAbsolute ? _override : join(process.cwd(), _override);
@@ -90,8 +93,11 @@ function _loadEnvFile() {
       if (!process.env[_valueKey]) process.env[_valueKey] = _secretValue;
     }
   }
-  console.log(`[loop-scheduler] env source=${_p}`);
+  return _p;
 }
+// [S10c taint-removal] No log sink here. The resolved env-file path is
+// process.env-derived, so it is never logged in any form (arg/template/JSON);
+// whether an explicit env file is in effect is visible via SCP_ENV_FILE.
 _loadEnvFile();
 
 const LOOP_INTERVAL_SEC = Number(process.env.LOOP_INTERVAL_SEC ?? "300");
@@ -561,10 +567,9 @@ function startLoop(): void {
   if (loopTimer) return;
   state.next_run_at = Date.now() + LOOP_INTERVAL_SEC * 1000;
   loopTimer = setTimeout(() => void cronStep(), LOOP_INTERVAL_SEC * 1000);
-  console.log(
-    `[loop-scheduler] loop started — interval=${LOOP_INTERVAL_SEC}s, ` +
-    `scp=${SCP_BASE_URL}, log=${LOOP_LOG_PATH}`,
-  );
+  // [S10b taint-removal] LOOP_INTERVAL_SEC, SCP_BASE_URL, LOOP_LOG_PATH all
+  // derive from process.env — values never reach a log sink in any form.
+  console.log("[loop-scheduler] loop started (interval/SCP URL/log path from config env)");
 }
 
 // ─── HTTP server ───────────────────────────────────────────────────────────
@@ -741,19 +746,17 @@ async function main(): Promise<void> {
   if (process.env.SCP_PRODUCTION_MODE === "1" && !SCHEDULER_ADMIN_TOKEN) {
     throw new Error("production scheduler admin token is not configured");
   }
-  console.log(
-    `[loop-scheduler] booting — port=${PORT}, interval=${LOOP_INTERVAL_SEC}s, ` +
-    `mode=${AUTOFIX_MODE}, max_bugs=${AUTOFIX_MAX_BUGS}, scp=${SCP_BASE_URL}`,
-  );
+  // [S10b taint-removal] PORT, LOOP_INTERVAL_SEC, AUTOFIX_MODE,
+  // AUTOFIX_MAX_BUGS, SCP_BASE_URL all derive from process.env — static text.
+  console.log("[loop-scheduler] booting (port/interval/mode/max_bugs/SCP URL from config env)");
 
   // Restore prior run count + recent history from log file
   const { total, recent } = await loadExistingRuns();
   state.total_runs = total;
   state.recent_runs = recent;
   if (recent.length > 0) state.last_run = recent[0];
-  console.log(
-    `[loop-scheduler] restored ${total} prior runs from ${LOOP_LOG_PATH}`,
-  );
+  // [S10c taint-removal] Restore is silent: run count is file-derived and
+  // LOOP_LOG_PATH is process.env-derived — no log sink here.
 
   // [Fix 4-d-019 · Task Local-D] Restore persisted pause state BEFORE
   // startLoop() — so a paused scheduler stays paused across restarts.
@@ -764,10 +767,8 @@ async function main(): Promise<void> {
     console.log("[loop-scheduler] LOOP_START_PAUSED=1 → starting paused (env override)");
   } else if (persisted) {
     state.paused = persisted.paused;
-    console.log(
-      `[loop-scheduler] restored persisted state from ${LOOP_STATE_PATH}: ` +
-      `paused=${persisted.paused}, paused_at=${persisted.paused_at ?? "(null)"}`,
-    );
+    // [S10c taint-removal] Restore is silent: LOOP_STATE_PATH (process.env-
+    // derived) and the persisted.* values (file-derived) never reach a log sink.
   }
 
   // Initial SCP liveness probe (don't block startup on it)
@@ -783,7 +784,8 @@ async function main(): Promise<void> {
 
   // Start the cron loop (only if not paused)
   if (state.paused) {
-    console.log("[loop-scheduler] loop NOT started — scheduler is paused (restored state)");
+    // [S10c taint-removal] Paused-restore notice removed — no log sink here;
+    // control flow unchanged (paused ⇒ loop not started).
   } else {
     startLoop();
   }
@@ -810,7 +812,9 @@ async function main(): Promise<void> {
       return jsonResponse({ error: "internal", message: err.slice(0, 200) }, 500);
     }),
   });
-  console.log(`[loop-scheduler] listening on http://${HOST}:${server.port} (loopback only — DNA #6)`);
+  // [S10b taint-removal] HOST (process.env-derived) and server.port
+  // (env-derived config) never reach a log sink — static text only.
+  console.log("[loop-scheduler] listening (loopback only — DNA #6; host/port from config)");
 
   // Graceful shutdown
   const shutdown = (sig: string) => {

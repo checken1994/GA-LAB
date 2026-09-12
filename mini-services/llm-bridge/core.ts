@@ -61,12 +61,15 @@ import { isAllowedLlmEgressUrl } from "./egress-guard";
 // [S6b security sweep] Validated base-URL resolver (env read + allowlist in egress-url.ts, no sink there).
 import { resolveOpenRouterBaseUrl } from "./egress-url";
 
-function _loadEnvFile() {
+// [S10 push-gate fix, S10b taint-removal] This function reads AND writes
+// process.env (scanner-tainted scope). The resolved env-file path is
+// process.env-derived and must therefore NEVER reach a log sink in any form
+// (interpolation, separate argument, JSON) — callers log static text only.
+function _loadEnvFile(): string | null {
   // Require an explicit env file; never silently load repository .env.
   const _override = process.env.SCP_ENV_FILE || process.env.SCP_SIDECAR_ENV_FILE;
   if (!_override) {
-    console.log("[scp-llm-bridge] env source=process.env (no implicit .env fallback)");
-    return;
+    return null;
   }
   const _isAbsolute = _override.startsWith("/") || _override.startsWith("\\") || /^[A-Za-z]:/.test(_override);
   const _p = _isAbsolute ? _override : join(process.cwd(), _override);
@@ -81,8 +84,11 @@ function _loadEnvFile() {
     if ((_val.startsWith('"') && _val.endsWith('"')) || (_val.startsWith("'") && _val.endsWith("'"))) _val = _val.slice(1, -1);
     if (_key && !process.env[_key]) process.env[_key] = _val;
   }
-  console.log(`[scp-llm-bridge] env source=${_p}`);
+  return _p;
 }
+// [S10c taint-removal] No log sink here. The resolved env-file path is
+// process.env-derived, so it is never logged in any form; whether an explicit
+// env file is in effect is directly visible to the operator via SCP_ENV_FILE.
 _loadEnvFile();
 
 // Config — read OpenRouter keys from environment (loaded by SCP's __main__.py .env)
@@ -623,7 +629,9 @@ async function callZaiChat(messages: ChatMsg[], model?: string, maxTokens?: numb
   const _ck = _cacheKey(cleaned, model);
   const _cached = _cacheGet(_ck);
   if (_cached !== null) {
-    console.log(`[llm-bridge] cache HIT (key=${_ck}) — 0 API calls`);
+    // [S10b taint-removal] The cache key derives from the HTTP request body —
+    // it must never reach a log sink in any form (arg, hash, slice).
+    console.log("[llm-bridge] cache HIT — 0 API calls");
     return _cached;
   }
 
@@ -1058,11 +1066,16 @@ const server = Bun.serve({
   },
 });
 
-console.log(`[scp-llm-bridge] listening on http://${HOST}:${PORT}`);
-console.log(`[scp-llm-bridge] forwarding /api/{chat,generate} → OpenRouter (${OPENROUTER_BASE_URL})`);
-console.log(`[scp-llm-bridge] model: ${OPENROUTER_MODEL} (override per-request via model="org/model")`);
+// [S10b taint-removal] HOST, PORT, OPENROUTER_BASE_URL, OPENROUTER_MODEL,
+// OPENROUTER_API_KEYS and LLM_CACHE_TTL_MS all derive from process.env —
+// their values (incl. counts/lengths) must never reach a log sink in any
+// form. Static text only below; ADVERTISED_MODELS is a module-level literal
+// array (literal-derived, allowed).
+console.log("[scp-llm-bridge] listening (host/port from config env)");
+console.log("[scp-llm-bridge] forwarding /api/{chat,generate} → OpenRouter (base URL from config env)");
+console.log('[scp-llm-bridge] model from config env — override per-request via model="org/model"');
 console.log(`[scp-llm-bridge] advertised models: ${ADVERTISED_MODELS.map((m) => m.name).join(", ")}`);
-console.log(`[scp-llm-bridge] API keys: ${OPENROUTER_API_KEYS.length} (round-robin) · cache TTL: ${LLM_CACHE_TTL_MS}ms`);
+console.log("[scp-llm-bridge] API keys configured (round-robin) · cache TTL from config env");
 
 // Hot-reload cleanup hook — Bun calls this before reloading on file change.
 process.on("beforeExit", () => server.stop());

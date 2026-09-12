@@ -157,24 +157,28 @@ Một SHA chỉ DONE khi toàn bộ mandatory gate PASS trên chính SHA đó v�
 ```text
 project: SCP / GA-LAB
 repository: checken1994/GA-LAB
-active_sync_branch: audit/runtime-guard-AUDIT-20260909 -> fast-forward -> main (2026-09-11)
-work_snapshot_sha: 481ac079128127e6c06b3407d31c721d38e314db
-snapshot_role: circuit-closure campaign M1-M14 complete (14/14 CLOSED_WITH_KNOWN_GAP, pins trong reports/circuit-closures/STATUS-LEDGER.md) + security sweep HIGH 190->0 (deep scan seal acf0a0c0) + independent verification (Agent V SWEEP_APPROVED, Agent V2 CAMPAIGN_VERIFY_APPROVED); handoff repair — next freeze requires fresh gates
+active_sync_branch: audit/runtime-guard-AUDIT-20260909 -> main (PR #39 khi ruleset chặn direct push)
+work_snapshot_sha: 15d1654f062eeefeac41db3adbb760d7d676347e (+ final polish commits trong handoff commit)
+snapshot_role: campaign 100% — 14 mạch closure (M01-M14) + Track A security + Track B fail-loudly/logging + Track C adoption (C1 Postgres storage, C2 event bus, C3 Sandbox Evaluator) + Track D (Playwright, MCP, evals) + compliance DNA/Skill round; HIGH 190->0; verification 6 lớp (V2/V5/V-B/V6 + machine checks)
 active_target_revision: 4.0.2
 baseline_status: ACTIVE_BASELINE_FOR_BUILD
 runtime/release_verdict: BLOCKED_PENDING_SAME_SHA_GITHUB_GATES
 ```
 
-Campaign 2026-09-11 (đọc trước khi làm tiếp): 14 mạch flow map V4 đã đóng theo
-D0–D8, mỗi mạch một pin; ~20 product bug thật được fix qua probe runtime (stream
-chết 100%, WHY loop chưa wire, v106 no-auth, prediction engine 503 vĩnh viễn,
-kernel mutation trước authz FA-05, judge dict-contract ×2...). Known gaps chính
-chưa xử lý (owner quyết): `SCP_EGRESS_MODE=deny` KHÔNG chặn urllib (falsified
-M13 — cần 1 lớp egress chung), judge.py sync gọi cross_verify async không await
-(multi-LLM crosscheck dead), profile=core không serve /chat + v104/v106 (404),
-WIP stream V2 bị G9 revert (stream đó tự khôi phục), corrupt basetemp +
-KILL_SWITCH leftover cần owner dọn. Verdict tool vẫn là authority duy nhất cho
-bất kỳ claim "complete" nào — mọi closure là PASS_WITHIN_SCOPE.
+Campaign 2026-09-10→12 (đọc trước khi làm tiếp): 14 mạch flow map V4 + 3 adoption track
+C1/C2/C3 đều CLOSED_WITH_KNOWN_GAP (pins trong STATUS-LEDGER; C3 = evidence report).
+Product fail thật đã fix qua probe runtime (stream chết 100%, WHY loop chưa wire, v106
+no-auth, prediction 503 vĩnh viễn, kernel mutation trước authz FA-05, judge dict-contract,
+cryptography fail-open plaintext ĐANG SỐNG, crosscheck chết...). B1 fail-loudly: 545
+silent-except + 82 print→logging. Track D: Playwright backend opt-in (anti-honeypot giữ),
+MCP stdio server qua PEP (FA-05 giữ), LiteLLM=KEEP core, OPA=KEEP, PagerDuty exporter=ADOPT nhỏ.
+Known-red mở cho owner: T00 no-skip gate vs declared infra-skip (7 file, policy conflict —
+STATUS-LEDGER mục KNOWN-RED); SCP_EGRESS_MODE=deny không chặn urllib (falsified — cần 1 lớp
+egress chung); judge.py sync crosscheck — ĐÃ FIX (A2); supervisor restart-budget behavior
+bị xóa pre-campaign (owner xác nhận ý định). Việc owner: rotate SCP_ENCRYPTION_KEY (shell
+exposure), xóa reports/pytest-basetemp.corrupt-20260910 (admin), merge PR #39, quyết định
+policy T00 (STATUS-LEDGER KNOWN-RED mục a/b). Verdict tool vẫn là authority duy nhất cho
+claim "complete" — mọi closure là PASS_WITHIN_SCOPE.
 
 `work_snapshot_sha` là commit sản phẩm trước commit handoff này; luôn resolve full SHA
 từ live Git trước khi dùng. Không kế thừa SHA, branch state hoặc verdict trong phần
