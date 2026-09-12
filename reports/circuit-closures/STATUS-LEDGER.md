@@ -47,6 +47,41 @@ Tổng hợp theo exit code (inventory lập sổ 2026-09-10): **8 mạch xanh D
 
 **Suite xanh ≠ mạch đóng; phải có D0–D8.**
 
+## KNOWN-RED (policy conflict, chờ owner quyết)
+
+> Pin ngày 2026-09-12 (Agent S11, V6 concern 1). Đã xác minh bằng chạy thật:
+> `python -m pytest "tests/T00_integrity/test_meta_audit.py::test_meta_audit_no_skip_in_mandatory_tests" -q`
+> → **1 failed** (AST scan bắt `pytest.skip` call thật trong mandatory test
+> không có guard `platform.system`).
+
+- **Test đỏ:** `tests/T00_integrity/test_meta_audit.py::test_meta_audit_no_skip_in_mandatory_tests`
+  (T00 integrity gate — "mandatory tests must FAIL if blocked, unless OS-specific").
+- **Nguyên nhân:** **7 test file** của Track C1/C2/C3/D1 dùng `pytest.skip`
+  dạng **declared infra-skip** (skip khi thiếu hạ tầng ngoài môi trường: PG
+  DSN `SCP_PG_TEST_DSN` không có / chromium-playwright chưa cài). Pattern skip
+  này **đúng quy ước declared-infra-skip** đã dùng xuyên suốt C1/C2/C3/D1
+  (message ghi rõ `declared infra-skip: …`), nhưng **xung đột trực diện với
+  chính sách no-skip của T00 gate** — T00 quét AST toàn bộ `tests/T*/` và chỉ
+  miễn trừ khi source chứa `platform.system`. 7 file:
+  - `tests/T03_capability/test_playwright_backend.py` (D1 — chromium/playwright)
+  - `tests/T04_kernel/test_pg_storage_parity.py` (C1 — `SCP_PG_TEST_DSN`)
+  - `tests/T04_kernel/test_pg_migration.py` (C1 — `SCP_PG_TEST_DSN`)
+  - `tests/T04_kernel/test_pg_storage_chaos.py` (C1 — `SCP_PG_TEST_DSN`)
+  - `tests/T04_kernel/test_pg_boot_runtime.py` (C1 — `SCP_PG_TEST_DSN`)
+  - `tests/T04_kernel/test_pg_event_bus.py` (C2 — `SCP_PG_TEST_DSN`)
+  - `tests/T04_kernel/test_sandbox_evaluator_e2e.py` (C3 — 1 case PG-gated)
+- **Trạng thái session này:** KHÔNG sửa test và KHÔNG sửa gate (cả hai đều có
+  lý do riêng đúng: infra-skip là fail-loud có khai báo; T00 no-skip là ratchet
+  chống skip lậu). Đỏ này là **policy conflict thật**, không phải test hỏng.
+- **2 câu hỏi chờ owner quyết** (chỉ owner được phép chọn, agent không tự nới):
+  - **(a)** Allowlist env-guard trong T00 gate: mở rộng ngoại lệ của
+    `test_meta_audit_no_skip_in_mandatory_tests` cho skip call có điều kiện
+    env (`SCP_PG_TEST_DSN`, playwright probe) — tức T00 nhận diện
+    declared-infra-skip thay vì chỉ nhận diện `platform.system`.
+  - **(b)** Giữ nguyên đỏ làm driver: T00 tiếp tục FAIL cho tới khi hạ tầng
+    PG/chromium được coi là bắt buộc (CI cấp PG thật), dùng đỏ này làm lực
+    đẩy hoàn thiện infra thay vì nới gate.
+
 ## Danh sách mạch CÒN LẠI phải hoàn thiện
 
 ### (a) `D1_FAIL` — phải sửa trước khi có thể nói tới đóng mạch (M2, M3, M4, M6, M10 ~~M12~~ — M12 đã đóng 2026-09-11)
