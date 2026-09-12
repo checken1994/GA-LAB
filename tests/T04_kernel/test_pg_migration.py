@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 import psycopg
+from psycopg import sql as pg_sql
 
 from scp.kernel_storage_pg import KERNEL_TABLES
 from scp.task_kernel import TaskKernel
@@ -26,6 +27,22 @@ from scp.task_kernel import TaskKernel
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATE_SCRIPT = REPO_ROOT / "scripts" / "migrate_kernel_sqlite_to_pg.py"
 PG_DSN_ENV = "SCP_PG_TEST_DSN"
+
+# Per-table compile-time literal COUNT statements for the kernel tables (no
+# dynamic SQL text: table identifiers reach SQL only through this literal map,
+# same safe pattern as the migration script's _SQLITE_COUNT_SQL/_PG_COUNT_SQL).
+# Pinned to KERNEL_TABLES so drift fails loudly at import; an unknown table
+# raises KeyError (fail-closed) instead of building a statement.
+_COUNT_SQL_BY_TABLE: dict[str, str] = {
+    "checkpoints": 'SELECT COUNT(*) FROM "checkpoints"',
+    "control": 'SELECT COUNT(*) FROM "control"',
+    "events": 'SELECT COUNT(*) FROM "events"',
+    "idempotency": 'SELECT COUNT(*) FROM "idempotency"',
+    "leases": 'SELECT COUNT(*) FROM "leases"',
+    "queue_accounts": 'SELECT COUNT(*) FROM "queue_accounts"',
+    "tasks": 'SELECT COUNT(*) FROM "tasks"',
+}
+assert set(_COUNT_SQL_BY_TABLE) == set(KERNEL_TABLES)
 
 
 @pytest.fixture()
@@ -63,7 +80,7 @@ def _build_synthetic_sqlite(path: Path) -> dict[str, int]:
     conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
     try:
         return {
-            t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
+            t: conn.execute(_COUNT_SQL_BY_TABLE[t]).fetchone()[0]
             for t in sorted(KERNEL_TABLES)
         }
     finally:
@@ -84,7 +101,7 @@ def _pg_table_counts(dsn: str, schema: str) -> dict[str, int]:
         with conn.cursor() as cur:
             cur.execute("SELECT set_config('search_path', %s, false)", (schema,))
             return {
-                t: cur.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]  # noqa: S608 — whitelisted
+                t: cur.execute(_COUNT_SQL_BY_TABLE[t]).fetchone()[0]
                 for t in sorted(KERNEL_TABLES)
             }
 
@@ -152,7 +169,13 @@ def test_migrate_sqlite_to_pg_end_to_end(pg_admin_dsn: str, tmp_path: Path) -> N
 
     # cleanup
     with psycopg.connect(pg_admin_dsn, autocommit=True) as conn:
-        conn.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')  # self-generated name
+        # schema name is self-generated (regex-pinned in the test); it reaches
+        # SQL only through psycopg.sql.Identifier
+        conn.execute(
+            pg_sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(
+                pg_sql.Identifier(schema)  # self-generated name
+            )
+        )
 
 
 def test_migrate_missing_source_fails_closed(pg_admin_dsn: str, tmp_path: Path) -> None:
