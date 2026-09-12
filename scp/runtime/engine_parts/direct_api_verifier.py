@@ -35,6 +35,8 @@ Verify facts bằng cách gọi API trực tiếp, bypass V13 Regex Engine.
 import logging
 import re
 
+from scp.security.url_safety import enforce_egress_policy  # [V-EE-2]
+
 logger = logging.getLogger("scp.v14")
 
 
@@ -58,7 +60,17 @@ class DirectAPIVerifier:
 
     def _session_get(self, url: str, *, params: dict | None = None,
                      timeout: float = 5.0, headers: dict | None = None):
-        """Lightweight wrapper around requests.get with shared session + UA."""
+        """Lightweight wrapper around requests.get with shared session + UA.
+
+        [V-EE-2] enforce_egress_policy chạy TRƯỚC MỌI fetch — raw
+        requests.Session này giờ đọc SCP_EGRESS_MODE (deny/allowlist) giống
+        các fetcher chuẩn. EgressDeniedError là ValueError subclass → mọi
+        caller (`_verify_*` bọc try/except Exception) trả verdict UNKNOWN
+        graceful như contract; không đổi behavior nào khác.
+        """
+        # [V-EE-2] PEP ngay trước driver: gate egress trước cả việc tạo
+        # session / import requests — fail-closed không I/O.
+        enforce_egress_policy(url)
         try:
             import requests  # local import — keeps optional dep
         except ImportError as e:
