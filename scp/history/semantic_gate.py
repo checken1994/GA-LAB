@@ -5,6 +5,10 @@ import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 @dataclass(frozen=True)
 class SemanticGateDecision:
@@ -55,6 +59,7 @@ def evaluate_candidate(
     try:
         current_source = path.read_text(encoding="utf-8")
     except OSError:
+        logger.debug('evaluate_candidate: OSError ignored', exc_info=True)
         reasons.append("REJECT_SOURCE_READ_FAILED")
         return SemanticGateDecision("REJECT", False, tuple(reasons))
     current_hash = _sha256(current_source)
@@ -75,12 +80,14 @@ def evaluate_candidate(
         if bug_type == "BareExceptPass" and not target_is_bare:
             reasons.append("REJECT_CLASSIFICATION_MISMATCH")
     except SyntaxError:
+        logger.debug('evaluate_candidate: SyntaxError ignored', exc_info=True)
         reasons.append("REJECT_SOURCE_SYNTAX_ERROR")
 
     if patched_source is not None:
         try:
             ast.parse(patched_source, filename=str(path))
         except SyntaxError:
+            logger.debug('evaluate_candidate: SyntaxError ignored', exc_info=True)
             reasons.append("REJECT_PATCH_SYNTAX_ERROR")
     if not semantic_tests_passed:
         reasons.append("REJECT_SEMANTIC_TEST_NOT_PROVEN")
