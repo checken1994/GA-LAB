@@ -17,6 +17,11 @@ Evidence policy (no-mock discipline):
 Container tests (h) replicate the M13 falsification in the real image. They
 are opt-in via SCP_EE_CONTAINER_TESTS=1 (a docker build inside the unit suite
 is expensive); they are declared skips, never silent.
+
+Section (i) pins the S13 remediation of the 2 residual Session-based bypasses
+found by V-EE: `question_fetchers._common._http_get_json` (requests branch
+skipped SCP_EGRESS_MODE) and `DirectAPIVerifier._session_get` (raw
+requests.Session with no gate, wired to the /ask judge path).
 """
 from __future__ import annotations
 
@@ -547,3 +552,121 @@ def test_h_container_deny_loopback_health_and_endpoint_fail_closed():
         )
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=60)
+
+
+# --------------- (i) V-EE-1/2 remediation: Session-based bypass call-sites
+# S13 (2026-09-12): V-EE found the last 2 raw `requests.Session` call-sites
+# that never read SCP_EGRESS_MODE:
+#   V-EE-1  scp/core/question_fetchers/_common.py::_http_get_json — the main
+#           requests branch only ran the SSRF check; the urllib fallback was
+#           already gated inside safe_urlopen.
+#   V-EE-2  scp/runtime/engine_parts/direct_api_verifier.py::_session_get —
+#           raw requests.Session wired into the /ask judge path (V13 UNKNOWN
+#           fallback), no gate at all.
+class _RecordingSession:
+    """Sentinel Session: a .get call means the egress gate LEAKED (fetch was
+    attempted under deny). Records the URL then aborts the call locally —
+    no network I/O ever happens from this test."""
+
+    def __init__(self):
+        self.calls: list[str] = []
+
+    def get(self, url, *args, **kwargs):
+        self.calls.append(str(url))
+        raise ConnectionError(f"test sentinel: fetch attempted for {url!r}")
+
+
+def test_i_deny_blocks_http_get_json_requests_branch_without_fetch(monkeypatch):
+    """V-EE-1: the requests.Session branch of _http_get_json must read
+    SCP_EGRESS_MODE=deny. Pinned contract after the gate: the function
+    docstring says 'Returns None on error or timeout' and the whole body is a
+    fail-closed `except Exception -> None` handler; EgressDeniedError is a
+    ValueError subclass, so denial keeps that exact contract — observable as
+    None + ZERO fetch attempts (no network I/O, session never touched)."""
+    from scp.core.question_fetchers import _common as qf_common
+
+    _set_egress(monkeypatch, "deny")
+    sentinel = _RecordingSession()
+    monkeypatch.setattr(qf_common, "_SESSION", sentinel)
+    assert qf_common._http_get_json("https://example.com/x") is None
+    assert sentinel.calls == []  # gate raised BEFORE any fetch attempt
+
+
+def test_i_deny_keeps_loopback_gate_open_for_http_get_json(monkeypatch):
+    """Loopback stays allowed by the egress layer under deny. The None that
+    _http_get_json returns for a loopback URL must come from the PRE-EXISTING
+    SSRF layer (validate_url blocks internal IPs), NOT from the new egress
+    gate — i.e. the remediation must not over-tighten loopback policy."""
+    from scp.core.question_fetchers import _common as qf_common
+
+    _set_egress(monkeypatch, "deny")
+    loopback = "http://127.0.0.1:8011/api"
+    # Pure policy check — the gate itself must NOT deny loopback under deny.
+    enforce_egress_policy(loopback)
+    # And the layering is pinned: the ValueError raised for this URL comes
+    # from validate_url (SSRF), not from egress enforcement.
+    with pytest.raises(ValueError) as excinfo:
+        qf_common.validate_url(loopback)
+    assert not isinstance(excinfo.value, EgressDeniedError)
+    # Through the real fetcher: same fail-closed None, session never touched.
+    sentinel = _RecordingSession()
+    monkeypatch.setattr(qf_common, "_SESSION", sentinel)
+    assert qf_common._http_get_json(loopback) is None
+    assert sentinel.calls == []
+
+
+def test_i_unset_mode_http_get_json_gate_is_noop(monkeypatch):
+    """No over-tightening: with SCP_EGRESS_MODE unset (historical dev
+    behavior), the new gate is a no-op and the fetch proceeds to the Session.
+    A public IP literal (8.8.8.8 — globally routable, RFC1918-clean) passes
+    validate_url without DNS; the sentinel intercepts the call so no network
+    I/O happens, while recording that the gate let it through."""
+    from scp.core.question_fetchers import _common as qf_common
+
+    _set_egress(monkeypatch, None)
+    sentinel = _RecordingSession()
+    monkeypatch.setattr(qf_common, "_SESSION", sentinel)
+    probe = "https://8.8.8.8/scp-ee-probe.json"
+    assert qf_common._http_get_json(probe) is None  # ConnectionError -> None
+    assert sentinel.calls == [probe]  # gate did NOT block in unset mode
+
+
+def test_i_deny_blocks_direct_api_verifier_session_get(monkeypatch):
+    """V-EE-2: DirectAPIVerifier._session_get (raw requests.Session wired to
+    the /ask judge path via judgecore_mixin V13 UNKNOWN fallback) must read
+    SCP_EGRESS_MODE. _session_get propagates the denial; every _verify_*
+    caller already wraps it in `except Exception -> verdict UNKNOWN`, so the
+    /ask contract stays graceful — pinned here end-to-end without network."""
+    from scp.runtime.engine_parts.direct_api_verifier import DirectAPIVerifier
+
+    _set_egress(monkeypatch, "deny")
+    verifier = DirectAPIVerifier()
+    monkeypatch.setattr(DirectAPIVerifier, "_session", None)
+    # Seam: the wrapper itself raises the deterministic policy error.
+    with pytest.raises(EgressDeniedError) as excinfo:
+        verifier._session_get("https://example.com/v1", timeout=5)
+    assert isinstance(excinfo.value, ValueError)  # backward-compatible contract
+    # The gate runs BEFORE any session creation / import of requests: under
+    # deny no shared session is ever built (and no fetch attempt is possible).
+    assert DirectAPIVerifier._session is None
+
+    # Light integration: the full judge-side verify() path stays graceful.
+    verdict = verifier.verify("capital of France?", "Paris", "geography")
+    assert verdict["verdict"] == "UNKNOWN"
+    assert "egress denied" in verdict["reason"].lower()
+
+
+def test_i_deny_blocks_all_direct_api_verifier_domains(monkeypatch):
+    """Pure checks: every host the 4 _verify_* domains contact is denied under
+    SCP_EGRESS_MODE=deny before any I/O (geography/chemistry/finance/general)."""
+    _set_egress(monkeypatch, "deny")
+    for url in (
+        "https://restcountries.com/v3.1/name/vietnam",
+        "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/water/JSON",
+        "https://api.coingecko.com/api/v3/simple/price",
+        "https://en.wikipedia.org/api/rest_v1/page/summary/Vietnam",
+    ):
+        with pytest.raises(EgressDeniedError):
+            enforce_egress_policy(url)
+    # Loopback exception holds for this module's gate too.
+    enforce_egress_policy("http://127.0.0.1:8080/health")
