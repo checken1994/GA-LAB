@@ -53,6 +53,26 @@ def extract_number(s: str) -> float | None:
         return None
 
 
+def _safe_output_path(raw: str) -> Path:
+    """[SEC-S4] Validate a user-supplied output path (argv/config).
+
+    Mirrors the guard in the standalone ``benchmark/run_benchmark_v2.py``
+    runner: rejects traversal components ("..") and paths that resolve
+    outside the repository tree; returns the resolved Path for writing. The
+    packaged wrapper must enforce the same output contract as the root
+    runner (tests/T03_capability/test_security_sweep_s4.py).
+    """
+    candidate = Path(raw)
+    if ".." in candidate.parts:
+        raise ValueError(f"traversal component in {raw!r}")
+    resolved = candidate.resolve()
+    # BENCHMARK_DIR is <repo>/scp/benchmark, so the repository tree root is
+    # two parents up (same boundary as the root runner's BENCHMARK_DIR.parent).
+    if not resolved.is_relative_to(BENCHMARK_DIR.resolve().parents[1]):
+        raise ValueError(f"path escapes repository tree: {raw!r}")
+    return resolved
+
+
 from .run_benchmark_v2_parts import check_factual_correctness as _p_check_factual
 from .run_benchmark_v2_parts import extract_claims_from_answer as _p_extract_claims
 from .run_benchmark_v2_parts import classify_claim as _p_classify_claim
@@ -137,6 +157,7 @@ for _part in _PART_MODULES:
 __all__ = [
     "normalize_string",
     "extract_number",
+    "_safe_output_path",
     "check_factual_correctness",
     "extract_claims_from_answer",
     "classify_claim",
