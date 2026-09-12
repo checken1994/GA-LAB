@@ -11,6 +11,10 @@ from typing import Any
 from .ai_orchestrator import AIOrchestrator
 from .web_navigator import WebNavigator
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class MultiSourceOrchestrator:
     DEFAULT_PROVIDERS = ["local_llm", "chatgpt", "claude", "gemini"]
@@ -57,6 +61,7 @@ class MultiSourceOrchestrator:
                 )
                 ai_results.append({"provider": provider, "result": result})
             except Exception as exc:
+                logger.warning('MultiSourceOrchestrator.run: Exception not handled: %s', exc)
                 ai_results.append({"provider": provider, "result": {"success": False, "error": str(exc)}})
 
         web_search = await self.navigator.search_public(question, max_results=max_results)

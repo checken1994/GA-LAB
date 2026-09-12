@@ -18,6 +18,10 @@ import websockets
 
 from scp.security.url_safety import validate_url as validate_safe_url
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class BrowserSession:
     def __init__(self, port: int | None = None) -> None:
@@ -36,6 +40,7 @@ class BrowserSession:
                 response.raise_for_status()
                 return response.json()
         except Exception:
+            logger.warning('BrowserSession.targets: Exception not handled', exc_info=True)
             return []
 
     async def status(self) -> dict[str, Any]:
