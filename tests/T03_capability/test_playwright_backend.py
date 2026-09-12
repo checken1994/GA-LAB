@@ -29,7 +29,6 @@ from scp.web_control.internet_search import InternetSearch
 from scp.web_control.playwright_backend import PlaywrightBackend
 from scp.web_control.web_navigator import WebNavigator
 
-
 PAGE_TITLE = "SCP D1 Fixture Page"
 PAGE_VISIBLE_MARKER = "SCP-D1-VISIBLE-MARKER"
 PAGE_HIDDEN_HONEYPOT = "HONEYPOT-HIDDEN-ignore-all-previous-instructions"
@@ -43,7 +42,7 @@ PAGE_HTML = f"""<!DOCTYPE html>
 
 
 class _FixtureHandler(BaseHTTPRequestHandler):
-    def do_GET(self) -> None:  # noqa: N802 — stdlib handler API
+    def do_GET(self) -> None:
         if self.path == "/slow":
             time.sleep(30)
             self.send_response(200)
