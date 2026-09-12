@@ -35,6 +35,14 @@ TERMINAL_STATES = {"applied", "rejected", "rolled_back", "failed", "expired", "c
 RISK_ORDER = {"low": 0, "medium": 1, "high": 2}
 
 
+def _sandbox_enabled() -> bool:
+    """[C3] Opt-in flag đọc từ env SCP_SANDBOX_EVALUATOR (lazy import giữ
+    nguyên import surface của worker). Default (env off) = behavior cũ."""
+    from scp.sandbox_evaluator.evaluator import sandbox_enabled
+
+    return sandbox_enabled()
+
+
 @dataclass(frozen=True)
 class WorkerConfig:
     data_dir: Path
@@ -213,7 +221,7 @@ class DeterministicWorker:
         self.policy = PolicyGate(audit_log=self.policy_audit)
         self.owner = f"worker-{os.getpid()}-{uuid.uuid4().hex[:8]}"
 
-    def enqueue_bug(self, bug: BugReport) -> dict[str, Any]:
+    def enqueue_bug(self, bug: BugReport, *, test_paths: list[str] | None = None) -> dict[str, Any]:
         path = str(Path(bug.file).resolve())
         source = Path(path).read_text(encoding="utf-8")
         source_hash = _sha(source)
@@ -236,6 +244,10 @@ class DeterministicWorker:
             "created_at": time.time(),
             "expires_at": time.time() + self.config.job_timeout_seconds,
         }
+        # [C3] Optional targeted tests for the SandboxEvaluator gate. Absent ->
+        # sandbox gate has nothing to run -> fail-closed applies (see process_job).
+        if test_paths:
+            payload["test_paths"] = [str(tp) for tp in test_paths]
         return self.ledger.enqueue(payload)
 
     def _path_allowed(self, file_path: str) -> tuple[bool, str]:
@@ -311,6 +323,28 @@ class DeterministicWorker:
         self.ledger.transition(job["job_id"], state, reason, result)
         return result
 
+    def _sandbox_evaluate(
+        self, job: dict[str, Any], candidate: PatchCandidate, path: Path, test_paths: list[str]
+    ):
+        """[C3] SandboxEvaluator: chạy pytest THẬT trên bản sao workspace trong
+        system temp (KHÔNG repo sống). PASS chỉ khi returncode == 0; timeout /
+        setup lỗi -> FAIL (fail-closed, DNA #22: không chạy được ≠ đậu).
+
+        Timeout bị chặn bởi job budget (job_timeout_seconds, evaluator clamp
+        thêm về [5, 900]). Event publish-side nằm ở _publish_eval_events (M3).
+        """
+        from scp.sandbox_evaluator.evaluator import build_patch_target, evaluate
+
+        patch_target = build_patch_target(
+            str(path),
+            candidate.source_after,
+            test_paths=test_paths,
+            allowed_root=str(self.config.allowed_root),
+            timeout_seconds=self.config.job_timeout_seconds,
+            job_id=str(job["job_id"]),
+        )
+        return evaluate(patch_target)
+
     def process_job(self, job: dict[str, Any]) -> dict[str, Any]:
         payload = json.loads(job["payload_json"])
         if self.config.allow_llm:
@@ -348,11 +382,36 @@ class DeterministicWorker:
             self.ledger.transition(job["job_id"], "candidate", result["reason"], result)
             return result
 
+        # [C3] Opt-in SandboxEvaluator gate (env SCP_SANDBOX_EVALUATOR=1):
+        # run REAL pytest on a temp-workspace copy of the patched file BEFORE
+        # any apply — "autofix không tự chấm bài". Default (env off) keeps the
+        # legacy behavior below unchanged.
+        _sandbox_tests = [str(tp) for tp in (payload.get("test_paths") or []) if str(tp).strip()]
         if self.config.require_tests:
-            return self._reject(
-                job,
-                "require_tests=1 but no bounded targeted-test command is configured; refusing apply",
-            )
+            if not (_sandbox_enabled() and _sandbox_tests):
+                return self._reject(
+                    job,
+                    "require_tests=1 but no bounded targeted-test command is configured; refusing apply",
+                )
+        _sandbox_result = None
+        if _sandbox_enabled() and _sandbox_tests:
+            _sandbox_result = self._sandbox_evaluate(job, candidate, path, _sandbox_tests)
+            if _sandbox_result.verdict != "PASS":
+                result = {
+                    "action": "rejected",
+                    "job_id": job["job_id"],
+                    "patch_id": candidate.patch_id,
+                    "reason": (
+                        f"sandbox evaluator gate: verdict={_sandbox_result.verdict} "
+                        f"reason={_sandbox_result.reason or 'n/a'} "
+                        f"returncode={_sandbox_result.returncode} (no apply)"
+                    ),
+                    "sandbox_eval": _sandbox_result.to_dict_bounded(),
+                    "llm_generated": False,
+                }
+                self.ledger.transition(job["job_id"], "rejected", result["reason"], result)
+                return result
+
         chain_ok, chain_reason = self.policy_audit.verify_chain()
         if not chain_ok:
             return self._reject(job, f"policy audit chain failed: {chain_reason}")
@@ -399,7 +458,10 @@ class DeterministicWorker:
                 finding_id=str(payload["finding_id"]), tier=int(bug.tier), action="fixed_deterministic",
                 before_hash=bh, after_hash=ah, rollback_token=token,
                 reality_test_result="pass", message=f"{candidate.patch_id}: {candidate.reason}",
-                extra={"job_id": job["job_id"], "patch_id": candidate.patch_id, "risk": candidate.risk, "llm_generated": False},
+                extra={
+                    "job_id": job["job_id"], "patch_id": candidate.patch_id, "risk": candidate.risk, "llm_generated": False,
+                    **({"sandbox_eval": _sandbox_result.to_dict_bounded()} if _sandbox_result is not None else {}),
+                },
             )
             if not audit_ok:
                 raise RuntimeError("forensic audit write failed after apply")
@@ -436,6 +498,9 @@ class DeterministicWorker:
             "reality_test_result": "pass",
             "llm_generated": False,
         }
+        if _sandbox_result is not None:
+            result["reality_test_result"] = "pass:sandbox"
+            result["sandbox_eval"] = _sandbox_result.to_dict_bounded()
         self.ledger.transition(job["job_id"], "applied", "deterministic patch applied and verified", result)
         return result
 

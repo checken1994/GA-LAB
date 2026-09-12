@@ -388,3 +388,44 @@ def _decode(data) -> str:
     if isinstance(data, bytes):
         return data.decode("utf-8", errors="replace")
     return str(data)
+
+
+def build_patch_target(
+    file_path: str,
+    patched_content: str,
+    *,
+    test_paths: list[str],
+    allowed_root: str | None = None,
+    timeout_seconds: int | None = None,
+    job_id: str | None = None,
+) -> dict:
+    """Build một patch_target schema-correct cho evaluate().
+
+    File đích được đặt tại relpath TƯƠNG ĐỐI với allowed_root (giữ cấu trúc
+    package để import package-style hoạt động qua namespace packages); nếu file
+    nằm ngoài allowed_root thì dùng basename (import root-level).
+    """
+    from pathlib import Path as _Path
+
+    target = _Path(file_path)
+    relname: str | None = None
+    if allowed_root is not None:
+        try:
+            relname = str(
+                target.resolve().relative_to(_Path(allowed_root).resolve())
+            ).replace("\\", "/")
+        except ValueError:
+            relname = None
+    if not relname:
+        relname = target.name
+    target_spec: dict = {
+        "files": {relname: patched_content},
+        "test_paths": [str(tp) for tp in test_paths],
+    }
+    if job_id is not None:
+        target_spec["job_id"] = str(job_id)
+    if timeout_seconds is not None:
+        target_spec["timeout_seconds"] = max(
+            MIN_TIMEOUT_SECONDS, min(MAX_TIMEOUT_SECONDS, int(timeout_seconds))
+        )
+    return target_spec

@@ -673,6 +673,43 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
                         _reality_test_result = f"FAIL:SyntaxError:{(_se.msg or '')[:80]}"  # silent-by-design: error recorded in _reality_test_result, enforced fail-closed by the R6 gate below
                     except Exception as _ee:
                         _reality_test_result = f"FAIL:{type(_ee).__name__}:{str(_ee)[:80]}"  # silent-by-design: same — failure drives the R6 rollback gate
+
+                    # [C3 SandboxEvaluator] Opt-in gate (env SCP_SANDBOX_EVALUATOR=1):
+                    # static ast.parse is no longer the ONLY gate — run REAL pytest
+                    # on a temp-workspace copy (never the live repo). No tests
+                    # configured -> FAIL:sandbox:no_tests_configured (fail-closed:
+                    # "không chạy được" ≠ đậu, DNA #22). Env off => behavior cũ
+                    # (ast.parse-only) giữ nguyên từng byte.
+                    if _reality_test_result == "PASS":
+                        from scp.sandbox_evaluator.evaluator import (
+                            build_patch_target as _build_sandbox_target,
+                            evaluate as _run_sandbox_eval,
+                            sandbox_enabled as _sandbox_opt_in,
+                        )
+                        if _sandbox_opt_in():
+                            _sandbox_test_paths = [
+                                _tp.strip()
+                                for _tp in os.environ.get(
+                                    "SCP_SANDBOX_EVALUATOR_TESTS", ""
+                                ).replace(";", ",").split(",")
+                                if _tp.strip()
+                            ]
+                            if not _sandbox_test_paths:
+                                _reality_test_result = "FAIL:sandbox:no_tests_configured"
+                            else:
+                                _sandbox_res = _run_sandbox_eval(
+                                    _build_sandbox_target(
+                                        str(filepath),
+                                        filepath.read_text(encoding="utf-8"),
+                                        test_paths=_sandbox_test_paths,
+                                    )
+                                )
+                                result["sandbox_eval"] = _sandbox_res.to_dict_bounded()
+                                _reality_test_result = (
+                                    "PASS"
+                                    if _sandbox_res.verdict == "PASS"
+                                    else f"FAIL:sandbox:{_sandbox_res.reason}"
+                                )
             except Exception as e:
                 logger.debug(f" after_hash / reality_test compute failed: {e}")
                 _reality_test_result = f"FAIL:hash_compute:{str(e)[:80]}"
