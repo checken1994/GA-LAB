@@ -152,7 +152,9 @@ class StreamingFactChecker:
             # Extract key terms from claim
             # For now, just mark as unverified (Wikipedia check needs more complex NLP)
             return None
-        except Exception:
+        except Exception as exc:
+            # silent-by-design: fact-check lookup is best-effort; None means "unverified" by contract.
+            logger.debug("streaming_factcheck: lookup failed, returning None: %s", exc, exc_info=True)
             return None
 
     def stats(self) -> dict:

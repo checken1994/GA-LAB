@@ -229,7 +229,7 @@ if __name__ == "__main__":
         shutil.rmtree(tmpdir, ignore_errors=True)
 
         print("\n✓ V104.4 all tests complete.")
-    except Exception:
+    except Exception:  # silent-by-design: failure is loud already (traceback print + sys.exit(1)).
         import traceback
         traceback.print_exc()
         import shutil

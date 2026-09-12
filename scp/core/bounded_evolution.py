@@ -31,7 +31,8 @@ def _read_checkpoint(stage_file: str) -> dict[str, Any]:
     try:
         payload = json.loads(Path(stage_file).read_text(encoding="utf-8"))
         return payload if isinstance(payload, dict) else {}
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError) as exc:
+        logger.warning("bounded_evolution: stage file read failed for %s: %s", stage_file, exc, exc_info=True)
         return {}
 
 
@@ -55,7 +56,8 @@ def _evolution_child(
         engine = get_evolution_engine(data_dir=data_dir)
         result = engine.evolve_cycle(max_bugs=max_bugs)
         result_queue.put({"ok": True, "result": result})
-    except BaseException as exc:  # propagate sanitized failure to parent
+    except BaseException as exc:  # silent-by-design: sanitized failure is propagated to the parent via the queue.
+        logger.debug("bounded_evolution: child cycle failed (%s), propagated via queue", type(exc).__name__, exc_info=True)
         result_queue.put(
             {
                 "ok": False,
@@ -128,7 +130,9 @@ def run_bounded_evolution(
         configured_provider_timeout = float(
             os.environ.get("SCP_EVOLUTION_PROVIDER_TIMEOUT_SECONDS", "30")
         )
-    except ValueError:
+    except ValueError as exc:
+        # silent-by-design: malformed env value falls back to the documented 30s default.
+        logger.debug("bounded_evolution: SCP_EVOLUTION_PROVIDER_TIMEOUT_SECONDS unparseable, using 30.0: %s", exc, exc_info=True)
         configured_provider_timeout = 30.0
     provider_timeout_seconds = min(timeout_seconds, max(1.0, configured_provider_timeout))
     context = mp.get_context("spawn")

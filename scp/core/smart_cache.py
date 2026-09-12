@@ -374,7 +374,9 @@ def _dict_to_slm_response(value):
             # Lazy import to avoid circular dependency at module load time.
             from scp.runtime.slm_base import SLMResponse
             return SLMResponse(**value)
-        except Exception:
+        except Exception as exc:
+            # silent-by-design: invalid cached payload degrades to a cache miss by design.
+            logger.debug("smart_cache: cached SLMResponse reconstruction failed, cache miss: %s", exc, exc_info=True)
             return None
     # If it's already a real SLMResponse (in-memory cache hit), return as-is.
     if hasattr(value, "answer") and hasattr(value, "confidence") and hasattr(value, "slm_name"):
@@ -390,7 +392,9 @@ def slm_cache_get(slm_name: str, question: str):
         if cached is None:
             return None
         return _dict_to_slm_response(cached)
-    except Exception:
+    except Exception as exc:
+        # silent-by-design: cache read failure degrades to a cache miss, never to a wrong answer.
+        logger.debug("smart_cache: cache read failed, treating as miss: %s", exc, exc_info=True)
         return None
 
 

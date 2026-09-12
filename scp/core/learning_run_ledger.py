@@ -48,7 +48,9 @@ def _ledger_path() -> Path:
 def _int_or_none(value: Any) -> int | None:
     try:
         return int(value) if value is not None else None
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # silent-by-design: coerce probe; None means "not an int" by contract.
+        logger.debug("learning_run_ledger: int coercion failed: %s", exc, exc_info=True)
         return None
 
 

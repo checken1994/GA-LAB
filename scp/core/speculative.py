@@ -112,6 +112,8 @@ class SpeculativeRace:
                             }
                             meta["verdict"] = "PASS (WINNER)"
             except Exception as exc:
+                # silent-by-design: the error is recorded in meta[verdict] and returned to the caller.
+                logger.debug("speculative: attempt failed, verdict=ERROR recorded: %s", exc, exc_info=True)
                 meta["verdict"] = f"ERROR: {type(exc).__name__}: {str(exc)[:100]}"
             finally:
                 with lock:
@@ -132,8 +134,9 @@ class SpeculativeRace:
         if self.cleanup_extra:
             try:
                 self.cleanup_extra(base)
-            except Exception:
-                pass
+            except Exception as exc:
+                # silent-by-design: user-provided cleanup is best-effort; it must not mask the main result.
+                logger.debug("speculative: cleanup_extra failed (non-fatal): %s", exc, exc_info=True)
 
         report = {
             "verdict": "SOLVED" if winner else "UNSOLVED",

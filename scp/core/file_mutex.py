@@ -10,8 +10,11 @@ Context manager + timeout — hết giờ raise TimeoutError, không treo vĩnh 
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import time
+
+logger = logging.getLogger(__name__)
 import uuid
 from pathlib import Path
 from typing import Iterator
@@ -44,11 +47,13 @@ class FileMutex:
                     acquired = True
                     yield lock_path
                     return
-                except FileExistsError:
+                except FileExistsError:  # silent-by-design: lock contention is the normal retry path.
                     # Stale lock: holder chết mà không release (>holder_ttl) → lấy quyền
                     try:
                         age = time.time() - lock_path.stat().st_mtime
-                    except OSError:
+                    except OSError as exc:
+                        # silent-by-design: stale-lock probe raced with removal; retry continues by design.
+                        logger.debug("file_mutex: stale-lock age probe failed, retrying: %s", exc, exc_info=True)
                         continue
                     if age > 60.0:  # holder TTL 60s — lock mồ côi bị thu hồi
                         with contextlib.suppress(OSError):

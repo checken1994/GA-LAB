@@ -9,11 +9,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import sqlite3
 import threading
 import time
 import uuid
+
+logger = logging.getLogger(__name__)
 from functools import wraps
 from datetime import datetime, timezone
 from pathlib import Path
@@ -133,7 +136,8 @@ class SubsystemTelemetry:
             with self.ledger_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(_json_safe(payload), ensure_ascii=False, sort_keys=True) + "\n")
             return True
-        except OSError:
+        except OSError as exc:
+            logger.warning("subsystem_telemetry: ledger append failed for %s: %s", self.ledger_path, exc, exc_info=True)
             return False
 
     def _write(self, event_type: str, status: str, run_id: str | None = None, **payload: Any) -> dict[str, Any]:
@@ -265,7 +269,9 @@ class SubsystemTelemetry:
         try:
             last = datetime.fromisoformat(str(out["last_tick_at_utc"]))
             age = max(0.0, (datetime.now(timezone.utc) - last).total_seconds())
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            # silent-by-design: unparseable tick timestamp reports infinite age (never a fake fresh age).
+            logger.debug("subsystem_telemetry: last_tick timestamp unparseable, age=inf: %s", exc, exc_info=True)
             age = float("inf")
         out["age_seconds"] = round(age, 3)
         # Disabled-by-policy is a deliberate terminal state, not a dead worker.
@@ -351,8 +357,9 @@ def telemetry_async_cycle(func):
             ticker.cancel()
             try:
                 await ticker
-            except asyncio.CancelledError:
-                pass
+            except asyncio.CancelledError as exc:
+                # silent-by-design: awaiting an already-cancelled ticker is the expected shutdown path.
+                logger.debug("subsystem_telemetry: ticker cancellation observed: %s", exc, exc_info=True)
     return wrapped
 
 

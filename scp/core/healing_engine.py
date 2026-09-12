@@ -78,7 +78,9 @@ class RecoveryQueue:
             db_exec("INSERT OR IGNORE INTO recovery_issues (id, timestamp, domain, question, ai_answer, error_type, cause, fix_action, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (issue_id, datetime.now().isoformat(), domain, question, ai_answer[:200] if ai_answer else "", error_type, cause[:200] if cause else "", fix_action, "OPEN"))
             return issue_id
-        except Exception: return None
+        except Exception as exc:
+            logger.warning("healing_engine: recovery issue insert failed, issue id None: %s", exc, exc_info=True)
+            return None
 
 class KnowledgeMemory:
     def add(self, question, ai_answer, domain, error_type, cause, fix_action, fix_artifact, evidence, confidence):
@@ -134,4 +136,6 @@ class ErrorHistory:
                 "SELECT * FROM error_history WHERE LOWER(question) LIKE ? ESCAPE '\\' ORDER BY timestamp DESC LIMIT ?",
                 (f"%{escaped}%", limit),
             )
-        except Exception: return []
+        except Exception as exc:
+            logger.warning("healing_engine: error_history query failed, returning empty: %s", exc, exc_info=True)
+            return []

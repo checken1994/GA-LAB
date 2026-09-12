@@ -177,7 +177,8 @@ def vacuum_db():
 def get_db_size_mb() -> float:
     try:
         return os.path.getsize(str(DB_PATH)) / (1024 * 1024)
-    except Exception:
+    except Exception as exc:
+        logger.warning("db_manager: get_db_size failed for %s, reporting 0.0: %s", DB_PATH, exc, exc_info=True)
         return 0.0
 
 # Final wiring exposes the local query/batch helpers too.

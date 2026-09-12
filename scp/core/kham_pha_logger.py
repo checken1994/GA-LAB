@@ -37,7 +37,9 @@ logger = logging.getLogger("scp.kham_pha_logger")
 # Import DATA_DIR
 try:
     from scp.core.db_manager import DATA_DIR
-except ImportError:
+except ImportError as exc:
+    # silent-by-design: db_manager import is optional; the documented repo-relative data dir is used.
+    logger.debug("kham_pha_logger: DATA_DIR import failed, using repo-relative default: %s", exc, exc_info=True)
     DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 
 

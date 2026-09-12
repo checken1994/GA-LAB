@@ -43,7 +43,9 @@ def _import_names(source: str) -> set[str]:
     names: set[str] = set()
     try:
         tree = ast.parse(source)
-    except SyntaxError:
+    except SyntaxError as exc:
+        # silent-by-design: probing arbitrary source; unparseable input yields the empty set by contract.
+        logger.debug("dependency_resolver: source not parseable, no imports extracted: %s", exc, exc_info=True)
         return names
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -71,7 +73,7 @@ def resolve(source: str, local_modules: set[str] | None = None) -> DependencyRep
             __import__(name)
             report.installed.append(name)
             continue
-        except ImportError:
+        except ImportError:  # silent-by-design: absence is explicitly recorded in report.missing_imports.
             pass
         report.missing_imports.append(name)
         report.missing_packages.append(IMPORT_TO_PACKAGE.get(name, name))

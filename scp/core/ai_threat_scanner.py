@@ -311,7 +311,9 @@ def get_threat_stats() -> dict[str, Any]:
                     src = t.get("source", "unknown")
                     counts[src] = counts.get(src, 0) + 1
                     total += 1
-                except Exception:  # noqa: S112
+                except Exception as exc:  # noqa: S112
+                    # silent-by-design: one bad historical record must not abort source aggregation.
+                    logger.debug("ai_threat_scanner: record aggregation skipped a bad record: %s", exc, exc_info=True)
                     continue
     except Exception as _e:  # noqa: S110
         logger.debug(f"[silent-except] {_e}")

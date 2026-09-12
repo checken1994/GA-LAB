@@ -252,7 +252,9 @@ def get_audit_stats() -> dict[str, Any]:
                     src = finding.get("source", "unknown")
                     counts[src] = counts.get(src, 0) + 1
                     total += 1
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as exc:
+                    # Corrupt historical record must be visible; skipping keeps aggregation resilient.
+                    logger.warning("audit_fetcher: corrupt record skipped in aggregation: %s", exc, exc_info=True)
                     continue
     except Exception as _e:  # noqa: S110
         logger.debug(f"[silent-except] {_e}")

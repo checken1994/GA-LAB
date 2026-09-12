@@ -195,7 +195,10 @@ class WikipediaDataSource:
             })
             with safe_urlopen(req, timeout=15) as resp:
                 return json.loads(resp.read().decode('utf-8'))
-        except Exception: return None
+        except Exception as exc:
+            # silent-by-design: external fetch is best-effort; None means "unverifiable here".
+            logger.debug("reality_engine: external fetch failed: %s", exc, exc_info=True)
+            return None
 
     def fetch(self, query):
         """[G3-CONSOLIDATE RE-05] Now delegates to scp.core.wikipedia_client.

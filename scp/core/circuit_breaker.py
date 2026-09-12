@@ -68,7 +68,9 @@ logger = logging.getLogger("scp.circuit_breaker")
 def _env_int(name: str, default: int) -> int:
     try:
         return int(os.environ.get(name, str(default)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # silent-by-design: malformed env value falls back to the documented default.
+        logger.debug("circuit_breaker: env %s unparseable, using default %s: %s", name, default, exc, exc_info=True)
         return default
 
 PROBE_TIMEOUT_SEC = _env_int("SCP_BREAKER_PROBE_TIMEOUT", 30)

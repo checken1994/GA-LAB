@@ -132,6 +132,8 @@ def run_doubt_cycle(data_dir: str = "data") -> dict[str, Any]:
         try:
             checks.append(check(data_dir))
         except Exception as exc:
+            # silent-by-design: the failure is carried in the report entry below (ok=False + detail).
+            logger.debug("doubt_cron: check %s failed: %s", display, exc, exc_info=True)
             checks.append({"check": display, "ok": False, "detail": f"{type(exc).__name__}: {str(exc)[:150]}"})
     report = {
         "ran_at": started,

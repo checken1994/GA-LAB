@@ -28,7 +28,10 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import logging
 import operator
+
+logger = logging.getLogger(__name__)
 import os
 import re
 import threading
@@ -62,14 +65,18 @@ def _safe_eval_arithmetic(expr: str) -> float | None:
         raise ValueError(f"non-arithmetic node: {type(node).__name__}")
     try:
         return _eval(ast.parse(expr.strip(), mode="eval"))
-    except (ValueError, SyntaxError):
+    except (ValueError, SyntaxError) as exc:
+        # silent-by-design: parse/eval probe; None means "not a deterministic expression" by contract.
+        logger.debug("fitness_engine: expression eval probe failed: %s", exc, exc_info=True)
         return None
 
 
 def _num(value: str) -> float | None:
     try:
         return float(str(value).strip().replace(",", "."))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # silent-by-design: parse probe; None means "not a number" by contract.
+        logger.debug("fitness_engine: numeric parse failed: %s", exc, exc_info=True)
         return None
 
 
@@ -197,7 +204,9 @@ def load_baseline(history_path: Path | str | None = None) -> dict[str, Any] | No
     for line in path.read_text(encoding="utf-8").splitlines():
         try:
             last = json.loads(line)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            # Corrupt ledger line must be visible, not silently dropped.
+            logger.warning("fitness_engine: corrupt ledger line in %s: %s", path, exc, exc_info=True)
             continue
     return last
 

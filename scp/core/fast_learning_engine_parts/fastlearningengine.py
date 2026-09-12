@@ -9,6 +9,8 @@ import re
 import sqlite3
 import threading
 import time
+
+logger = logging.getLogger(__name__)
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -106,7 +108,8 @@ class FastLearningEngine:
             entity_lower = question.lower()[:200]
             row = db_query_one('SELECT 1 FROM knowledge WHERE entity = ? LIMIT 1', (entity_lower,), db_path=str(self.scp_db_path))
             return row is not None
-        except Exception:
+        except Exception as exc:
+            logger.warning("fast_learning_engine: knowledge existence check failed (treating as unknown): %s", exc, exc_info=True)
             return False
 
     def _get_known_countries_domains(self) -> dict:
@@ -127,7 +130,8 @@ class FastLearningEngine:
                                     break
                         break
             return known
-        except Exception:
+        except Exception as exc:
+            logger.warning("fast_learning_engine: known-entity scan failed, returning empty set: %s", exc, exc_info=True)
             return set()
 
     def _generate_compounding_questions(self, count: int=5) -> list[tuple[str, str, str]]:

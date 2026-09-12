@@ -255,7 +255,9 @@ def get_harm_stats() -> dict[str, Any]:
                     ht = inc.get("harm_type", "unknown")
                     counts[ht] = counts.get(ht, 0) + 1
                     total += 1
-                except Exception:  # noqa: S112
+                except Exception as exc:  # noqa: S112
+                    # silent-by-design: one bad historical record must not abort type aggregation.
+                    logger.debug("harm_detector: record aggregation skipped a bad record: %s", exc, exc_info=True)
                     continue
     except Exception as _e:  # noqa: S110
         logger.debug(f"[silent-except] {_e}")

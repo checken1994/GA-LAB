@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import shutil
+
+logger = logging.getLogger(__name__)
 import sqlite3
 import tempfile
 import time
@@ -49,8 +52,9 @@ def _atomic_json_write(path: Path, payload: dict[str, Any]) -> None:
     except Exception:
         try:
             os.unlink(temp_name)
-        except OSError:
-            pass
+        except OSError as exc:
+            # silent-by-design: best-effort temp cleanup before re-raising the real error.
+            logger.debug("policy_materializer: temp file cleanup failed (non-fatal): %s", exc, exc_info=True)
         raise
 
 
