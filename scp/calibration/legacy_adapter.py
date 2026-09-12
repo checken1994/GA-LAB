@@ -10,6 +10,10 @@ from typing import Any
 from scp.calibration.models import CalibrationAdvice
 from scp.contracts.verdicts import Verdict, parse_verdict
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class LegacyCalibrationAdapter:
     def __init__(self, legacy_engine: Any | None = None) -> None:
@@ -35,6 +39,7 @@ class LegacyCalibrationAdapter:
                 note = "legacy PASS/FAIL factor applied as advisory confidence only"
             except Exception as exc:
                 # Calibration failure must never alter truth semantics.
+                logger.warning('LegacyCalibrationAdapter.advise: Exception not handled: %s', exc)
                 tuned = original
                 note = f"legacy calibration failed closed to unchanged advisory confidence: {type(exc).__name__}"
         return CalibrationAdvice(
