@@ -159,9 +159,13 @@ class ForbiddenPattern:
     def matches(self, text: str) -> bool:
         try:
             return bool(re.search(self.regex, text, re.IGNORECASE | re.MULTILINE))
-        except re.error:
+        except re.error as regex_err:
+            # fail-loudly (S-B1b): a broken policy pattern silently disables
+            # that rule; keep the False contract but surface the config bug.
+            logger.error("[policy_gate] policy pattern %r is invalid — rule never matches: %s", self.regex, regex_err, exc_info=True)
             return False
-        except Exception:  # noqa: BLE001
+        except Exception as match_err:  # noqa: BLE001
+            logger.error("[policy_gate] policy match crashed — rule treated as non-matching: %s", match_err, exc_info=True)
             return False
 
 
@@ -396,7 +400,10 @@ class ImmutableAuditLog:
                 return "GENESIS"
             last = json.loads(lines[-1])
             return last.get("entry_hash", "GENESIS")
-        except Exception:  # noqa: BLE001
+        except Exception as tail_err:  # noqa: BLE001
+            # fail-loudly (S-B1b): chain-tail read failure falls back to GENESIS;
+            # surfaced so hash-chain discontinuity is attributable.
+            logger.warning("[IMP-24] audit chain tail unreadable, chaining from GENESIS: %s", tail_err, exc_info=True)
             return "GENESIS"
 
     def append(self, entry: dict[str, Any]) -> str | None:
@@ -424,6 +431,8 @@ class ImmutableAuditLog:
                 return entry_hash
         except OSError as e:
             # Disk full / permission denied — scream to stderr (DNA #11).
+            # silent-by-design: failure is screamed to stderr and the append
+            # returns None to the caller (fail-open decided upstream).
             sys.stderr.write(
                 f"[IMP-24] AUDIT LOG UNWRITABLE: {e}\n"
                 f"[IMP-24] Entry dropped: {entry}\n"
@@ -447,9 +456,12 @@ class ImmutableAuditLog:
                             entry = json.loads(line)
                             if entry.get("timestamp", 0) >= since_ts:
                                 out.append(entry)
-                        except json.JSONDecodeError:
+                        except json.JSONDecodeError as line_err:
+                            # silent-by-design: corrupt line skip in aggregation — outer read errors are logged below.
+                            logger.debug("[IMP-24] skipping corrupt audit line: %s", line_err, exc_info=True)
                             continue
-                        except Exception:  # noqa: BLE001
+                        except Exception as line_err2:  # noqa: BLE001
+                            logger.debug("[IMP-24] skipping unreadable audit line: %s", line_err2, exc_info=True)
                             continue
                     return out
         except Exception as e:  # noqa: BLE001
@@ -747,6 +759,7 @@ class PolicyGate:
                 with open(DEFAULT_APPEAL_LOG, "a", encoding="utf-8") as f:
                     f.write(json.dumps(entry, default=str) + "\n")
             except Exception as e:  # noqa: BLE001
+                # silent-by-design: failure is screamed to stderr and reported to the caller by contract.
                 sys.stderr.write(
                     f"[IMP-24] APPEAL LOG UNWRITABLE: {e}\n"
                     f"[IMP-24] Appeal dropped: {entry}\n"
@@ -862,7 +875,7 @@ def list_blocks(since_ts: float = 0.0) -> list[dict[str, Any]]:
     """Module-level shortcut: get_policy_gate().list_blocks(since_ts)."""
     try:
         return get_policy_gate().list_blocks(since_ts)
-    except Exception:  # noqa: BLE001 — fail-open returns empty list
+    except Exception:  # noqa: BLE001 — silent-by-design: fail-open returns empty list (documented module-level shortcut contract)
         return []
 
 

@@ -34,12 +34,15 @@ def is_pid_alive(pid: int) -> bool:
         os.kill(pid, 0)
         return True
     except (ProcessLookupError,):
+        # silent-by-design: documented liveness probe — dead PID returns False.
         return False
     except PermissionError:
         # Process exists but cannot signal
+        # silent-by-design: documented probe contract — alive-but-protected returns True.
         return True
     except OSError:
         # On Windows, non-existent PID raises OSError WinError 87
+        # silent-by-design: same documented probe contract.
         return False
 
 
@@ -116,7 +119,9 @@ class ShadowSnapshotManager:
             mf.flush()
             try:
                 os.fsync(mf.fileno())
-            except OSError:
+            except OSError as fsync_err:
+                # silent-by-design: best-effort durability — os.replace below still commits.
+                logger.debug("[ShadowSnapshot] manifest fsync failed: %s", fsync_err, exc_info=True)
                 pass
         os.replace(tmp_manifest, manifest_path)
 
@@ -181,19 +186,25 @@ class ShadowSnapshotManager:
                         rf.flush()
                         try:
                             os.fsync(rf.fileno())
-                        except OSError:
+                        except OSError as fsync_err2:
+                            # silent-by-design: best-effort durability — restore replace below still commits.
+                            logger.debug("[ShadowSnapshot] restore temp fsync failed: %s", fsync_err2, exc_info=True)
                             pass
                     try:
                         os.replace(tmp_restore, target_path)
-                    except OSError:
+                    except OSError as replace_err:
+                        # fail-loudly (S-B1b): rollback-restore atomic replace failed — copy fallback keeps the restore alive.
+                        logger.warning("[ShadowSnapshot] atomic replace failed during restore of %s, using copy fallback: %s", target_path, replace_err, exc_info=True)
                         shutil.copy2(str(tmp_restore), str(target_path))
                         try:
                             tmp_restore.unlink()
-                        except OSError:
+                        except OSError as tmp_err:
+                            # silent-by-design: secondary temp cleanup — restore already completed via fallback.
+                            logger.debug("[ShadowSnapshot] restore temp unlink failed: %s", tmp_err, exc_info=True)
                             pass
                     logger.info(f"[ShadowSnapshot] Restored {target_path} to pre-patch state (sha: {actual_sha[:8]})")
                 except Exception as restore_err:
-                    restore_errors.append(f"Failed to atomically restore {target_path}: {restore_err}")
+                    restore_errors.append(f"Failed to atomically restore {target_path}: {restore_err}")  # silent-by-design: explicit error accumulator — logged via logger.error + rollback returns False below
             else:
                 # File did not exist prior to patch; delete if present
                 if target_path.exists():
@@ -201,7 +212,7 @@ class ShadowSnapshotManager:
                         target_path.unlink()
                         logger.info(f"[ShadowSnapshot] Removed newly created file {target_path}")
                     except Exception as unlink_err:
-                        restore_errors.append(f"Failed to remove newly created file {target_path}: {unlink_err}")
+                        restore_errors.append(f"Failed to remove newly created file {target_path}: {unlink_err}")  # silent-by-design: explicit error accumulator — logged via logger.error + rollback returns False below
 
         if restore_errors:
             logger.error(f"[ShadowSnapshot] Rollback encountered errors for {tx_id}: {restore_errors}")
@@ -241,7 +252,10 @@ class ShadowSnapshotManager:
                     try:
                         shutil.rmtree(str(tx_dir))
                         break
-                    except OSError:
+                    except OSError as rm_err:
+                        # silent-by-design: bounded retry with backoff — final
+                        # attempt uses ignore_errors and the outcome is logged.
+                        logger.debug("[ShadowSnapshot] rmtree retry %s: %s", _attempt + 1, rm_err, exc_info=True)
                         time.sleep(0.05 * (_attempt + 1))
                 else:
                     shutil.rmtree(str(tx_dir), ignore_errors=True)
@@ -318,7 +332,10 @@ class ShadowSnapshotManager:
                     try:
                         shutil.rmtree(str(tx_dir))
                         break
-                    except OSError:
+                    except OSError as rm_err:
+                        # silent-by-design: bounded retry with backoff — final
+                        # attempt uses ignore_errors and the outcome is logged.
+                        logger.debug("[ShadowSnapshot] rmtree retry %s: %s", _attempt + 1, rm_err, exc_info=True)
                         time.sleep(0.05 * (_attempt + 1))
                 else:
                     shutil.rmtree(str(tx_dir), ignore_errors=True)
