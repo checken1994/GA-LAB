@@ -111,6 +111,44 @@ services:
       scp-api:
         condition: service_started
 
+  # [C3] Sandbox Evaluator — "autofix không tự chấm bài": consume EVAL_REQUEST
+  # từ Pg event bus (channel scp_eval, bảng durable scp_events — Track C2),
+  # chạy pytest THẬT trên bản sao workspace trong /tmp, publish EVAL_RESULT.
+  # Opt-in profile "sandbox". YÊU CẦU SCP_EVENT_BUS_DSN trỏ tới PostgreSQL có
+  # schema scp_events (fail-closed: thiếu DSN -> service exit 2, không idle).
+  # Ví dụ PG test local (Track C2):
+  #   docker run -d --rm --name scp-pg -e POSTGRES_PASSWORD=scppg \
+  #     -e POSTGRES_DB=scpkernel -p 55432:5432 postgres:16-alpine
+  #   SCP_EVENT_BUS_DSN=postgresql://postgres:scppg@host.docker.internal:55432/scpkernel
+  sandbox-evaluator:
+    profiles: ["sandbox"]
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox-evaluator
+    image: scp-sandbox-evaluator:local
+    environment:
+      SCP_AUTH_PASSWORD_FILE: ''
+      SCP_EVENT_BUS_ENABLED: "1"
+      SCP_EVENT_BUS_DSN: ${SCP_EVENT_BUS_DSN:-}
+      SCP_SANDBOX_EVALUATOR_POLL_SECONDS: ${SCP_SANDBOX_EVALUATOR_POLL_SECONDS:-5}
+      SCP_SANDBOX_EVALUATOR_TIMEOUT_S: ${SCP_SANDBOX_EVALUATOR_TIMEOUT_S:-120}
+      SCP_DATA_DIR: /var/lib/scp/data
+    volumes:
+      - scp-data:/var/lib/scp/data
+    depends_on:
+      scp-api:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      # Workspace tạm cho pytest: /tmp rw (không cần exec — python binary nằm
+      # trong image, file workspace chỉ là data đọc qua import).
+      - /tmp:rw,noexec,nosuid,nodev,size=256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
 volumes:
   scp-data:
 

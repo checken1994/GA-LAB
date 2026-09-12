@@ -1,0 +1,14 @@
+# [C3] Sandbox Evaluator image — scp-api:local base + pinned pytest.
+# The production API image deliberately ships WITHOUT a test runner; the
+# evaluator service is the only component that must run REAL tests in isolated
+# workspaces, so pytest is layered HERE (least capability: the API image stays
+# test-free). Base image is built by the scp-api compose service first.
+FROM scp-api:local
+
+USER root
+RUN pip install --no-cache-dir pytest==9.1.1
+USER 10001
+
+# Reset the base ENTRYPOINT (python -m scp) — this service is a worker loop.
+ENTRYPOINT []
+CMD ["python", "-m", "scp.sandbox_evaluator.loop"]

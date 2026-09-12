@@ -220,6 +220,32 @@ class DeterministicWorker:
         self.policy_audit = ImmutableAuditLog(str(self.config.data_dir / "policy_gate_audit.jsonl"))
         self.policy = PolicyGate(audit_log=self.policy_audit)
         self.owner = f"worker-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+        # [C3] Event bus (publish-side): False = chưa resolve, None = disabled,
+        # PgEventBus = sẵn sàng. Gate verdict KHÔNG phụ thuộc bus (side-channel).
+        self._eval_bus: Any = False
+
+    @property
+    def eval_event_bus(self):
+        """[C3] Lazy PgEventBus cho EVAL_REQUEST/EVAL_RESULT publish-side.
+
+        Fail-loudly, không fail gate: khi SCP_EVENT_BUS_ENABLED=1 nhưng DSN
+        thiếu/broken, publish bị tắt với warning rõ ràng — verdict sandbox
+        in-process vẫn là gate (known_gap: subscribe-loop chưa wire vào worker
+        loop, xem reports/expert-panel/C3-sandbox-evaluator.md).
+        """
+        if self._eval_bus is False:
+            self._eval_bus = None
+            try:
+                from scp.event_bus_pg import make_event_bus
+
+                self._eval_bus = make_event_bus()
+            except Exception as exc:
+                logger.warning(
+                    "deterministic worker: event bus unavailable — EVAL_REQUEST/"
+                    "EVAL_RESULT publish disabled; sandbox gate unaffected: %s",
+                    exc, exc_info=True,
+                )
+        return self._eval_bus
 
     def enqueue_bug(self, bug: BugReport, *, test_paths: list[str] | None = None) -> dict[str, Any]:
         path = str(Path(bug.file).resolve())
@@ -331,7 +357,8 @@ class DeterministicWorker:
         setup lỗi -> FAIL (fail-closed, DNA #22: không chạy được ≠ đậu).
 
         Timeout bị chặn bởi job budget (job_timeout_seconds, evaluator clamp
-        thêm về [5, 900]). Event publish-side nằm ở _publish_eval_events (M3).
+        thêm về [5, 900]). Publish-side event seam chạy ngay trong method này
+        (best-effort loud, không ảnh hưởng gate).
         """
         from scp.sandbox_evaluator.evaluator import build_patch_target, evaluate
 
@@ -343,7 +370,45 @@ class DeterministicWorker:
             timeout_seconds=self.config.job_timeout_seconds,
             job_id=str(job["job_id"]),
         )
-        return evaluate(patch_target)
+        # [C3] Publish-side event seam (SCP_EVENT_BUS_ENABLED=1): EVAL_REQUEST
+        # tự-đủ cho evaluator service; EVAL_RESULT mang raw verdict in-process.
+        # Best-effort loud: lỗi publish KHÔNG bao giờ đổi gate verdict.
+        bus = self.eval_event_bus
+        request_id = None
+        if bus is not None:
+            try:
+                from scp.sandbox_evaluator.events import build_eval_request_payload
+
+                request_payload = build_eval_request_payload(
+                    patch_target, job_id=str(job["job_id"]), producer="deterministic_worker",
+                )
+                if request_payload is not None:
+                    request_id = str(request_payload["request_id"])
+                    bus.publish("scp_eval", request_payload, correlation_id=str(job["job_id"]))
+            except Exception as exc:
+                logger.warning(
+                    "deterministic worker: EVAL_REQUEST publish failed (side-channel; "
+                    "in-process sandbox gate unaffected): %s", exc, exc_info=True,
+                )
+        result = evaluate(patch_target)
+        if bus is not None:
+            try:
+                from scp.sandbox_evaluator.events import build_eval_result_payload
+
+                bus.publish(
+                    "scp_eval",
+                    build_eval_result_payload(
+                        result, request_id=request_id, job_id=str(job["job_id"]),
+                        evaluator="deterministic_worker-in-process",
+                    ),
+                    correlation_id=str(job["job_id"]),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "deterministic worker: EVAL_RESULT publish failed (side-channel): %s",
+                    exc, exc_info=True,
+                )
+        return result
 
     def process_job(self, job: dict[str, Any]) -> dict[str, Any]:
         payload = json.loads(job["payload_json"])
