@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import secrets
 import time
 import uuid
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -93,7 +96,9 @@ class CallSessionHub:
                     continue
                 try:
                     message = json.loads(raw)
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as exc:
+                    # silent-by-design: the peer is notified via an error frame; connection continues.
+                    logger.debug("call_session_hub: invalid signaling JSON rejected: %s", exc, exc_info=True)
                     await websocket.send_json({"type": "error", "code": "SIGNAL_INVALID_JSON"})
                     continue
                 if not isinstance(message, dict) or message.get("type") not in _ALLOWED_TYPES:
@@ -110,8 +115,9 @@ class CallSessionHub:
                 await self._broadcast(call_id, peer_id, outgoing)
                 if message["type"] == "hangup":
                     break
-        except WebSocketDisconnect:
-            pass
+        except WebSocketDisconnect as exc:
+            # silent-by-design: peer disconnect is the expected end of the receive loop.
+            logger.debug("call_session_hub: peer disconnected: %s", exc, exc_info=True)
         finally:
             sender.cancel()
             async with self._lock:
@@ -127,7 +133,9 @@ class CallSessionHub:
         try:
             while True:
                 await peer.websocket.send_json(await peer.queue.get())
-        except Exception:
+        except Exception as exc:
+            # silent-by-design: sender task ends when the peer socket breaks; cleanup runs in caller.
+            logger.debug("call_session_hub: sender loop ended: %s", exc, exc_info=True)
             return
 
     async def _broadcast(self, call_id: str, sender_id: str, message: dict[str, Any]) -> None:
@@ -142,7 +150,8 @@ class CallSessionHub:
             if peer_id != sender_id:
                 try:
                     peer.queue.put_nowait(message)
-                except asyncio.QueueFull:
+                except asyncio.QueueFull as exc:
+                    logger.warning("call_session_hub: signal message dropped for slow peer %s: %s", peer_id, exc, exc_info=True)
                     continue
 
     def _prune_locked(self) -> None:

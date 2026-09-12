@@ -109,7 +109,9 @@ def cross_verify_entity(entity: str, question: str = "") -> dict[str, Any]:
         # in-progress ones are abandoned (bounded by fetch_with_retry timeout=5).
         try:
             pool.shutdown(wait=False, cancel_futures=True)
-        except TypeError:
+        except TypeError as exc:
+            # silent-by-design: Python <3.9 fallback; wait=False below still avoids blocking.
+            logger.debug("cross_verify: cancel_futures unsupported (%s), using shutdown(wait=False)", exc, exc_info=True)
             # Python <3.9 fallback: cancel_futures kwarg not supported.
             # wait=False still ensures we don't block on running futures.
             pool.shutdown(wait=False)
@@ -192,7 +194,9 @@ def _fetch_wikipedia(entity: str) -> Optional[str]:
         url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(entity_clean.replace(' ', '_'))}"
         try:
             data = fetch_with_retry(url, {"User-Agent": "SCP-V91/1.0"}, timeout=5, max_retries=1)
-        except Exception:
+        except Exception as exc:
+            # silent-by-design: REST summary is best-effort; later strategies still run.
+            logger.debug("cross_verify: wikipedia REST fetch failed: %s", exc, exc_info=True)
             data = None
         if data and data.get("extract") and data.get("type") != "disambiguation":
             # Filter out "year" type responses for book lookups
@@ -214,7 +218,9 @@ def _fetch_wikipedia(entity: str) -> Optional[str]:
                     summary_data = fetch_with_retry(summary_url, {"User-Agent": "SCP-V91/1.0"}, timeout=5, max_retries=1)
                     if summary_data and summary_data.get("extract") and summary_data.get("type") != "disambiguation":
                         return summary_data["extract"][:300]
-                except Exception:  # noqa: S112
+                except Exception as exc:  # noqa: S112
+                    # silent-by-design: one bad page title must not abort the remaining candidates.
+                    logger.debug("cross_verify: page summary fetch failed, skipping: %s", exc, exc_info=True)
                     continue
     except Exception as e:
         logger.debug(f"Wikipedia fetch error: {e}")
@@ -313,7 +319,9 @@ def cross_verify_book(title: str) -> dict[str, Any]:
         url = f"https://openlibrary.org/search.json?title={urllib.parse.quote(title)}&limit=10&sort=edition_count_desc&fields=title,author_name,first_publish_year,edition_count"
         try:
             data = fetch_with_retry(url, {"User-Agent": "SCP-V91/1.0"}, timeout=15, max_retries=1)
-        except Exception:
+        except Exception as exc:
+            # silent-by-design: title= failure falls back to the documented q= query.
+            logger.debug("cross_verify: openlibrary title= failed, using q= fallback: %s", exc, exc_info=True)
             # Fallback: use q= with "book" appended
             url = f"https://openlibrary.org/search.json?q={urllib.parse.quote(title)}&limit=10&fields=title,author_name,first_publish_year,edition_count"
             data = fetch_with_retry(url, {"User-Agent": "SCP-V91/1.0"}, timeout=5, max_retries=1)

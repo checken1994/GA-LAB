@@ -13,8 +13,11 @@ Deterministic hoàn toàn (AST + token match), không LLM, không mạng.
 from __future__ import annotations
 
 import ast
+import logging
 import re
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # [^\W_] = alphanumeric loại trừ underscore → snake_case tách thành token
 # riêng ("validate_password_policy" → validate/password/policy)
@@ -35,7 +38,9 @@ def score_functions(source: str, bug_line: int, description: str) -> list[dict[s
     """Trả về danh sách hàm top-level kèm điểm nóng, sắp giảm dần."""
     try:
         tree = ast.parse(source)
-    except SyntaxError:
+    except SyntaxError as exc:
+        # silent-by-design: source may legitimately be non-Python; hotspots cannot be computed.
+        logger.debug("context_pruner: source not parseable, no hotspots: %s", exc, exc_info=True)
         return []
     desc_tokens = _tokens(description)
     scored: list[dict[str, Any]] = []
@@ -75,7 +80,9 @@ def prune_source(source: str, bug_line: int, description: str, keep_verbatim: in
         return source
     try:
         tree = ast.parse(source)
-    except SyntaxError:
+    except SyntaxError as exc:
+        # silent-by-design: unparseable source is returned unchanged by design.
+        logger.debug("context_pruner: source not parseable, returned unchanged: %s", exc, exc_info=True)
         return source
 
     scored = score_functions(source, bug_line, description)
@@ -108,12 +115,14 @@ def build_context_from_file(path: str, bug_line: int, description: str, fallback
         pruned = prune_source(source, bug_line, description)
         if pruned.strip():
             return pruned
-    except Exception:
-        pass
+    except Exception as exc:
+        # silent-by-design: pruning is an optional refinement; the line-window fallback below is documented.
+        logger.debug("context_pruner: prune failed, using raw line window: %s", exc, exc_info=True)
     try:
         lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
         start = max(1, (bug_line or 1) - fallback_lines)
         end = min(len(lines), (bug_line or 1) + fallback_lines)
         return "\n".join(f"{n}: {lines[n - 1]}" for n in range(start, end + 1))
-    except Exception:
+    except Exception as exc:
+        logger.warning("context_pruner: context build failed, returning empty context: %s", exc, exc_info=True)
         return ""

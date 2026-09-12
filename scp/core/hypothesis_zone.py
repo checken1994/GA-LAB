@@ -26,9 +26,12 @@ Quy trình:
     - PASS khác PARTIAL → rejected + ghi conflicts
   - recall: ưu tiên main_kb, fallback hypothesis (confirmed only)
 """
+import logging
 import os
 import sqlite3
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 from typing import Any, Optional
 
 # ============================================================
@@ -169,6 +172,7 @@ class HypothesisStore:
             """, (question, answer, entity, attribute, str(value), confidence, source, ts))
             return new_id if new_id and new_id > 0 else -1
         except Exception as e:
+            logger.warning("HypothesisStore add_partial failed: %s", e, exc_info=True)
             print(f"HypothesisStore add_partial error: {e}")
             return -1
 
@@ -245,7 +249,9 @@ class HypothesisStore:
                 abs_diff = abs(partial_val - pass_val)
                 epsilon = 0.001 if abs(pass_val) < 100 else abs(pass_val) * 0.001
                 is_match = rel_diff < 0.05 or abs_diff < epsilon
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as exc:
+                # silent-by-design: non-numeric entries fall back to documented string comparison.
+                logger.debug("hypothesis_zone: numeric compare failed, using string compare: %s", exc, exc_info=True)
                 is_match = str(entry["value"]).strip().lower() == str(pass_value).strip().lower()
 
             if is_match:
@@ -287,7 +293,9 @@ class HypothesisStore:
                 "DELETE FROM partial_entries WHERE timestamp < ? AND status IN ('pending', 'rejected')",
                 (cutoff,)
             ) or 0
-        except Exception:
+        except Exception as exc:
+            # silent-by-design: cleanup is best-effort maintenance; stale pending entries are harmless.
+            logger.debug("hypothesis_zone: partial_entries cleanup failed (non-fatal): %s", exc, exc_info=True)
             return 0
 
 
@@ -297,4 +305,5 @@ class HypothesisStore:
 try:
     init_hz_schema()
 except Exception as e:
+    logger.warning("Hypothesis Zone init failed: %s", e, exc_info=True)
     print(f"[WARN] Hypothesis Zone init failed: {e}")

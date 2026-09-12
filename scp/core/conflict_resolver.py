@@ -120,8 +120,9 @@ def get_source_weight(source: str | None, value_dict: dict | None = None) -> flo
         if _ew is not None:
             try:
                 _effective_multiplier = max(0.0, min(1.0, float(_ew)))
-            except (TypeError, ValueError):
-                pass  # fail-open: keep multiplier at 1.0
+            except (TypeError, ValueError) as exc:
+                # silent-by-design: fail-open keeps multiplier at 1.0; made observable.
+                logger.debug("conflict_resolver: effective-weight clamp failed, multiplier=1.0: %s", exc, exc_info=True)
     if not source:
         return 0.5 * _effective_multiplier
     # Direct match
@@ -143,7 +144,9 @@ def _to_float(v: Any) -> float | None:
         return None
     try:
         return float(v)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as exc:
+        # silent-by-design: parse probe; None means "not numeric" by contract.
+        logger.debug("conflict_resolver: value not numeric: %s", exc, exc_info=True)
         return None
 
 
@@ -158,7 +161,9 @@ def _detect_conflict(values: list[dict]) -> bool:
             # [V104.17 #7 FIX] Normalize numbers before comparing (was: str(val))
             try:
                 normalized = str(float(val))
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as exc:
+                # silent-by-design: non-numeric values normalize to their string form by design.
+                logger.debug("conflict_resolver: value normalize fallback: %s", exc, exc_info=True)
                 normalized = str(val)
             distinct.add(normalized)
     return len(distinct) > 1
@@ -180,7 +185,9 @@ def resolve_majority_vote(values: list[dict]) -> ConflictResult:
         if val is not None:
             try:
                 normalized = str(float(val))
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as exc:
+                # silent-by-design: non-numeric values normalize to their string form by design.
+                logger.debug("conflict_resolver: value normalize fallback: %s", exc, exc_info=True)
                 normalized = str(val)
             by_value[normalized].append(v)
 

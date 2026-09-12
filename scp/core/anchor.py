@@ -138,7 +138,9 @@ class RealityAnchor:
                 # with tiny absolute floor for sub-1.0 constants.
                 import math as _math
                 is_match = _math.isclose(anchor_float, value_float, rel_tol=1e-3, abs_tol=1e-12)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as exc:
+                # silent-by-design: non-numeric values fall back to documented string comparison.
+                logger.debug("anchor: numeric compare failed, using string compare: %s", exc, exc_info=True)
                 is_match = str(anchor_value).strip().lower() == str(value).strip().lower()
 
             return {
@@ -154,7 +156,8 @@ class RealityAnchor:
         """Get all anchor entries."""
         try:
             return db_query_all("SELECT * FROM reality_anchor ORDER BY entity")
-        except Exception:
+        except Exception as exc:
+            logger.warning("anchor: get_all_anchors query failed: %s", exc, exc_info=True)
             return []
 
     def get_stats(self) -> dict:
@@ -162,7 +165,8 @@ class RealityAnchor:
         try:
             cnt = db_query_one("SELECT COUNT(*) as cnt FROM reality_anchor")
             return {"total_anchors": cnt["cnt"] if cnt else 0}
-        except Exception:
+        except Exception as exc:
+            logger.warning("anchor: get_stats query failed: %s", exc, exc_info=True)
             return {"total_anchors": 0}
 
     def add_anchor(self, entity: str, attribute: str, value, source: str = "user") -> bool:
@@ -205,5 +209,6 @@ class RealityAnchor:
 try:
     _anchor = RealityAnchor()
 except Exception as e:
+    logger.warning("RealityAnchor init failed: %s", e, exc_info=True)
     print(f"[WARN] RealityAnchor init failed: {e}")
     _anchor = None

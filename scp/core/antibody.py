@@ -17,8 +17,11 @@ Phát hiện "closure words" — từ lảng tránh verification.
 
 V14 Antibody = V13 Antibody + learned patterns + confidence scoring.
 """
+import logging
 import os
 import re
+
+logger = logging.getLogger(__name__)
 
 _RUNTIME_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -141,5 +144,6 @@ class AntibodyEngine:
 try:
     _antibody = AntibodyEngine()
 except Exception as e:
+    logger.warning("AntibodyEngine init failed: %s", e, exc_info=True)
     print(f"[WARN] AntibodyEngine init failed: {e}")
     _antibody = None
