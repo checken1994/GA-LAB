@@ -130,6 +130,11 @@ def fetch_with_retry(url, headers=None, timeout=10, max_retries=3):
     # --- SCP V3 ENTERPRISE: TENACITY RETRY & CIRCUIT BREAKER ---
     from scp.core.url_fetcher import _safe_fetch_url
     try:
+        # [EE] Egress gate FIRST (idempotent — also enforced inside
+        # _safe_fetch_url). EgressDeniedError is a ValueError, so the
+        # "policy violation → no retry, return None" contract below holds.
+        from scp.security.url_safety import enforce_egress_policy
+        enforce_egress_policy(url)
         raw_bytes = _safe_fetch_url(url)
         return json.loads(raw_bytes.decode("utf-8"))
     except ValueError as e:

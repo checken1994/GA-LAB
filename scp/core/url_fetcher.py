@@ -50,6 +50,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from scp.security.url_safety import enforce_egress_policy
+
 logger = logging.getLogger("scp.core.url_fetcher")
 
 # [SCP-DNA-FIX R5-1] Single canonical User-Agent for the safe fetcher.
@@ -235,6 +237,11 @@ def _safe_fetch_url(
         if current.scheme not in ("http", "https") or not current.hostname:
             raise ValueError("redirect target is not a valid HTTP(S) URL")
         # Explicit test/staging egress policy applies to every redirect hop.
+        # [EE] enforce_egress_policy (idempotent, pure check) covers
+        # SCP_EGRESS_MODE=deny/allowlist + production fail-closed for EVERY
+        # hop; EgressDeniedError is a ValueError so the documented
+        # "raises ValueError on policy violation" contract is preserved.
+        enforce_egress_policy(current_url)
         egress_mode = os.environ.get("SCP_EGRESS_MODE", "deny").strip().lower()
         if egress_mode in {"deny", "offline", "disabled"} and current.hostname not in {"localhost", "127.0.0.1", "::1"}:
             raise ValueError("external egress disabled by SCP_EGRESS_MODE")

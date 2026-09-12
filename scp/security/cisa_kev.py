@@ -20,6 +20,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from scp.security.url_safety import safe_urlopen
+
 logger = logging.getLogger("scp.security.cisa_kev")
 
 # [FIX] CISA blocks direct access (403 Akamai). Use GitHub mirror instead.
@@ -48,7 +50,11 @@ def _open_cisa_feed(url: str):
             "Accept": "application/json, text/plain, */*",
         },
     )
-    return urllib.request.urlopen(request, timeout=30)  # nosec B310 — fixed HTTPS host allowlist above.
+    # [EE] Route through the canonical egress choke point (safe_urlopen =
+    # SCP_EGRESS_MODE gate + SSRF validation) instead of raw
+    # urllib.request.urlopen. The fixed host/path allowlist above stays as
+    # defense in depth.
+    return safe_urlopen(request, timeout=30)  # nosec B310 — URL validated by SCP
 
 
 class CisaKevFeed:

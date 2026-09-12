@@ -138,6 +138,15 @@ def _request_one(base_url: str, item: dict[str, Any], index: int, timeout: int, 
     for attempt in range(max_retries + 1):
         attempts = attempt + 1
         try:
+            # [EE] Idempotent egress gate before the self-call. The target is
+            # a local SCP API URL validated by _validate_local_base_url
+            # (loopback only — always allowed in every SCP_EGRESS_MODE); this
+            # guard keeps the route fail-closed if that validation ever
+            # changes. NOTE: raw requests.post here is a pinned call-site in
+            # tests/T03_capability/test_egress_enforcement.py (loopback-only
+            # self-call, not an external fetcher).
+            from scp.security.url_safety import enforce_egress_policy
+            enforce_egress_policy(f"{base_url}/ask")
             response = requests.post(
                 f"{base_url}/ask",
                 json=payload,
