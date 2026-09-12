@@ -27,6 +27,10 @@ from pathlib import Path
 # chặn private/loopback IP; không còn HTTP client thô trong file này.
 from scp.security.url_safety import safe_urlopen
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 BENCHMARK_DIR = Path(__file__).parent
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -43,6 +47,7 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> tuple[
         try:
             text = e.read().decode("utf-8", errors="replace")
         except Exception:
+            logger.warning('_post_json: Exception not handled', exc_info=True)
             text = ""
         return e.code, text
 
@@ -72,6 +77,7 @@ def _load_env_file():
                 print(f"[baseline] loaded .env from {_p}")
                 return
             except Exception as _e:
+                logger.warning('_load_env_file: Exception not handled: %s', _e)
                 print(f"[baseline] failed to load .env from {_p}: {_e}")
 
 _load_env_file()

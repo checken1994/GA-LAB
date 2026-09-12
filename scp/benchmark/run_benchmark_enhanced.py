@@ -29,6 +29,10 @@ from typing import Any
 
 import requests
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 # ============================================================
 # Config
 # ============================================================
@@ -343,6 +347,7 @@ def evaluate_questions(url: str, token: str, categories: list[str], full_mode: b
                     "response": data,  # full SCP response for evidence analysis
                 })
             except Exception as e:
+                logger.warning('evaluate_questions: Exception not handled: %s', e)
                 results.append({
                     "id": q_id, "category": cat, "question": question,
                     "expected_answer": expected, "verification_method": verification,
@@ -416,6 +421,7 @@ def evaluate_attacks(url: str, token: str, categories: list[str]) -> list[dict]:
                     "response": data,
                 })
             except Exception as e:
+                logger.warning('evaluate_attacks: Exception not handled: %s', e)
                 results.append({
                     "id": a_id, "category": cat, "attack_text": attack_text,
                     "blocked": True, "bypass": False, "error": str(e),
@@ -463,6 +469,7 @@ def main():
         if not r.ok:
             sys.exit(1)
     except Exception as e:
+        logger.warning('main: Exception not handled: %s', e)
         print(f"\n❌ Cannot connect to SCP at {args.url}: {e}")
         print("   Start server first: start-scp.bat or ./start-scp.sh")
         sys.exit(1)

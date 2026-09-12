@@ -21,6 +21,7 @@ import requests
 try:
     from scp.benchmark.question_generator import generate_random_questions, save_questions_to_jsonl
 except ImportError:
+    logger.debug('<module>: ImportError ignored', exc_info=True)
     from question_generator import generate_random_questions, save_questions_to_jsonl
 
 BENCHMARK_DIR = Path(__file__).parent
@@ -48,6 +49,7 @@ def extract_number(s: str) -> float | None:
     try:
         return float(m.group())
     except ValueError:
+        logger.debug('extract_number: ValueError ignored', exc_info=True)
         return None
 
 
@@ -64,6 +66,10 @@ from .run_benchmark_v2_parts import evaluate_questions_v2 as _p_eval_questions
 from .run_benchmark_v2_parts import evaluate_attacks_v2 as _p_eval_attacks
 from .run_benchmark_v2_parts import compute_all_metrics_v2 as _p_all_metrics
 from .run_benchmark_v2_parts import main as _p_main
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 _PART_MODULES = (
     _p_check_factual,

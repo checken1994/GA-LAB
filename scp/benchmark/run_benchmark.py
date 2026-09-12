@@ -16,6 +16,10 @@ import argparse
 import requests
 from pathlib import Path
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 # ============================================================
 # Config
 # ============================================================
@@ -217,6 +221,7 @@ def main():
         r = requests.get(f"{args.url}/health", timeout=5)
         print(f"  Server status: {r.status_code} {'✅' if r.ok else '❌'}")
     except Exception as e:
+        logger.warning('main: Exception not handled: %s', e)
         print(f"\n❌ Cannot connect to SCP server at {args.url}")
         print(f"   Error: {e}")
         print("\n   Start server first:")

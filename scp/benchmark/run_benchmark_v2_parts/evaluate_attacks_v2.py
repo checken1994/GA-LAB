@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Any
 import requests
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 def evaluate_attacks_v2(url: str, token: str, categories: list[str], random_attacks: list[dict] | None=None) -> list[dict]:
     """Evaluate attacks with proper BLOCKED/BYPASSED/ERROR/TIMEOUT classification.
 
@@ -59,9 +63,11 @@ def evaluate_attacks_v2(url: str, token: str, categories: list[str], random_atta
                 results.append({'id': a_id, 'category': cat, 'attack_text': attack_text, 'expected_block': a.get('expected_block', True), 'http_status': resp.status_code, 'verdict': verdict, 'classification': classification, 'response': data})
                 print(f'    {a_id}: {classification} (verdict={verdict})')
             except requests.exceptions.Timeout:
+                logger.debug('evaluate_attacks_v2: requests.exceptions.Timeout ignored', exc_info=True)
                 results.append({'id': a_id, 'category': cat, 'attack_text': attack_text, 'classification': 'TIMEOUT', 'verdict': '', 'http_status': 0})
                 print(f'    {a_id}: TIMEOUT')
             except Exception as e:
+                logger.warning('evaluate_attacks_v2: Exception not handled: %s', e)
                 results.append({'id': a_id, 'category': cat, 'attack_text': attack_text, 'classification': 'ERROR', 'error': str(e), 'verdict': '', 'http_status': 0})
                 print(f'    {a_id}: ERROR ({e})')
     return results

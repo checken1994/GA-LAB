@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Any
 import requests
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 def evaluate_questions_v2(url: str, token: str, categories: list[str], inject_corrupted: bool=True, random_questions: list[dict] | None=None) -> list[dict]:
     """Evaluate questions with proper methodology.
 
@@ -77,8 +81,10 @@ def evaluate_questions_v2(url: str, token: str, categories: list[str], inject_co
                 evidence_metrics = compute_evidence_metrics(scp_evidence, gold_evidence)
                 results.append({'id': q_id, 'category': cat, 'question': question, 'expected_answer': expected, 'answer_type': answer_type, 'answerable': answerable, 'gold_evidence': gold_evidence, 'corrupted_answer': corrupted, 'ai_answer_injected': ai_answer, 'correct': is_correct, 'match_method': match_method, 'verdict': verdict, 'confidence': data.get('confidence', 0), 'scp_answer': scp_answer[:500], 'latency_ms': round(latency_ms, 2), 'claim_analysis': claim_analysis, 'evidence_metrics': evidence_metrics, 'response': data})
             except requests.exceptions.Timeout:
+                logger.debug('evaluate_questions_v2: requests.exceptions.Timeout ignored', exc_info=True)
                 results.append({'id': q_id, 'category': cat, 'question': question, 'expected_answer': expected, 'answer_type': answer_type, 'answerable': answerable, 'gold_evidence': gold_evidence, 'corrupted_answer': corrupted, 'ai_answer_injected': ai_answer, 'correct': False, 'error': 'timeout', 'latency_ms': 120000})
             except Exception as e:
+                logger.warning('evaluate_questions_v2: Exception not handled: %s', e)
                 results.append({'id': q_id, 'category': cat, 'question': question, 'expected_answer': expected, 'answer_type': answer_type, 'answerable': answerable, 'gold_evidence': gold_evidence, 'corrupted_answer': corrupted, 'ai_answer_injected': ai_answer, 'correct': False, 'error': str(e)})
         denom = sum((1 for r in results if r.get('category') == cat and r.get('answerable')))
         acc = correct_count / denom if denom > 0 else 0

@@ -27,6 +27,10 @@ import random
 import json
 from typing import Any
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 # ============================================================
 # MATH — deterministic, random arithmetic
@@ -105,6 +109,7 @@ def _generate_math_question(rng: random.Random, idx: int) -> dict:
         ans_int = int(answer)
         corrupted = str(ans_int + rng.randint(1, 10))
     except ValueError:
+        logger.debug('_generate_math_question: ValueError ignored', exc_info=True)
         corrupted = "0"
 
     return {
