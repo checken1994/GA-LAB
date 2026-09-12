@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 import uuid
@@ -23,6 +24,8 @@ from typing import Any
 
 from scp.autofix.classifier import BugReport, BugTier
 from scp.core.request_run_ledger import RequestRunLedger
+
+logger = logging.getLogger(__name__)
 
 
 class AutoFixAdapter:
@@ -86,7 +89,8 @@ class AutoFixAdapter:
                 handle.flush()
                 os.fsync(handle.fileno())
             return True
-        except (OSError, TypeError, ValueError):
+        except (OSError, TypeError, ValueError) as exc:
+            logger.warning("autofix adapter: proposal ledger append failed for %s: %s", self.proposals_path, exc, exc_info=True)
             return False
 
     def _latest(self, proposal_id: str) -> dict[str, Any] | None:
@@ -98,10 +102,14 @@ class AutoFixAdapter:
                 try:
                     item = json.loads(line)
                 except json.JSONDecodeError:
+                    # Corrupt ledger line must be visible; skipping keeps the
+                    # reader resilient but a silent skip would hide corruption.
+                    logger.warning("autofix adapter: corrupt line in proposals ledger %s", self.proposals_path, exc_info=True)
                     continue
                 if item.get("proposal_id") == proposal_id:
                     latest = item
-        except OSError:
+        except OSError as exc:
+            logger.warning("autofix adapter: proposals ledger read failed for %s: %s", self.proposals_path, exc, exc_info=True)
             return None
         return latest
 
@@ -222,7 +230,10 @@ class AutoFixAdapter:
                 # needless rollback.
                 observed_text = path.read_text(encoding="utf-8")
                 evidence_ok = hashlib.sha256(observed_text.encode("utf-8")).hexdigest()[:32] == after_hash
-            except OSError:
+            except OSError as exc:
+                # silent-by-design: fail-safe — evidence stays incomplete so the
+                # caller proceeds to rollback; the failure itself must be visible.
+                logger.warning("autofix adapter: evidence re-read failed for %s: %s", path, exc, exc_info=True)
                 evidence_ok = False
         if evidence_ok:
             return {
