@@ -350,7 +350,9 @@ class IntentInferenceEngine:
         """Signal 2: Check for framework decorators on the function containing bug_line."""
         try:
             tree = ast.parse(source)
-        except SyntaxError:
+        except SyntaxError as parse_err:
+            # silent-by-design: parse probe — unparseable source contributes a neutral 0.0 signal.
+            logger.debug("intent_inference: signal parse failed, contributing 0.0: %s", parse_err, exc_info=True)
             return 0.0
 
         # Find the function that contains bug_line
@@ -372,7 +374,9 @@ class IntentInferenceEngine:
         """Signal 3: Check dataflow context — is dangerous API used safely?"""
         try:
             tree = ast.parse(source)
-        except SyntaxError:
+        except SyntaxError as parse_err:
+            # silent-by-design: parse probe — unparseable source contributes a neutral 0.0 signal.
+            logger.debug("intent_inference: signal parse failed, contributing 0.0: %s", parse_err, exc_info=True)
             return 0.0
 
         # Find the function containing bug_line
@@ -419,7 +423,9 @@ class IntentInferenceEngine:
         # Get the function containing bug_line
         try:
             tree = ast.parse(source)
-        except SyntaxError:
+        except SyntaxError as parse_err:
+            # silent-by-design: parse probe — unparseable source contributes a neutral 0.0 signal.
+            logger.debug("intent_inference: signal parse failed, contributing 0.0: %s", parse_err, exc_info=True)
             return 0.0
 
         for node in ast.walk(tree):
@@ -435,7 +441,9 @@ class IntentInferenceEngine:
         """Signal 6: Check naming conventions."""
         try:
             tree = ast.parse(source)
-        except SyntaxError:
+        except SyntaxError as parse_err:
+            # silent-by-design: parse probe — unparseable source contributes a neutral 0.0 signal.
+            logger.debug("intent_inference: signal parse failed, contributing 0.0: %s", parse_err, exc_info=True)
             return 0.0
 
         # Find the function containing bug_line

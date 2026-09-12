@@ -388,7 +388,7 @@ class _CallSiteCollector(ast.NodeVisitor):
                         return left.id
             return None
         except Exception:  # noqa: BLE001
-            return None
+            return None  # silent-by-design: analysis probe — None means "no none-check detected" per the helper contract
 
     def _snippet(self, node: ast.Call) -> str:
         """Return a short source snippet for the call (best-effort)."""
@@ -399,7 +399,7 @@ class _CallSiteCollector(ast.NodeVisitor):
                 return f"...{node.func.attr}(...)"
             return "<call>"
         except Exception:  # noqa: BLE001
-            return "<call>"
+            return "<call>"  # silent-by-design: best-effort snippet — placeholder marks the failed formatting (documented in docstring)
 
     def _arg_repr(self, node: ast.Call) -> str:
         """Return a short repr of the first positional arg."""
@@ -466,7 +466,7 @@ class _CallSiteCollector(ast.NodeVisitor):
                 return "set"
             return "<other>"
         except Exception:  # noqa: BLE001
-            return ""
+            return ""  # silent-by-design: literal-type probe — empty tag means "unknown literal type" per the helper contract
 
 
 # ============================================================
@@ -583,7 +583,10 @@ def _check_arg_compat(
                 )
             return None
         return None
-    except Exception:  # noqa: BLE001
+    except Exception as narrowing_err:  # noqa: BLE001
+        # silent-by-design: narrowing-analysis probe — None means "no narrowing
+        # violation detected"; a crash here must not flag a false incompatibility.
+        logger.debug("type_flow_verifier: Any-narrowing analysis crashed, no verdict: %s", narrowing_err, exc_info=True)
         return None
 
 
@@ -785,7 +788,9 @@ def summarize_type_flow(result: TypeFlowResult) -> str:
         if len(result.incompatible_sites) > 5:
             lines.append(f"  ... and {len(result.incompatible_sites) - 5} more")
         return "\n".join(lines)
-    except Exception:  # noqa: BLE001
+    except Exception as sum_err:  # noqa: BLE001
+        # silent-by-design: summary formatting probe — placeholder keeps the audit line alive.
+        logger.debug("type_flow_verifier: summary formatting failed: %s", sum_err, exc_info=True)
         return "<summary error>"
 
 

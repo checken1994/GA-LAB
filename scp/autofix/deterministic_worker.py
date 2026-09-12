@@ -264,7 +264,9 @@ class DeterministicWorker:
         finally:
             try:
                 tmp.unlink(missing_ok=True)
-            except OSError:
+            except OSError as tmp_err:
+                # silent-by-design: secondary temp cleanup — the main write/replace already completed.
+                logger.debug("deterministic_worker: temp-file cleanup failed for %s: %s", tmp, tmp_err, exc_info=True)
                 pass
 
     @staticmethod
@@ -279,10 +281,16 @@ class DeterministicWorker:
                 try:
                     if json.loads(line).get("audit_id") == audit_id:
                         return True
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as line_err:
+                    # silent-by-design: corrupt line -> "not logged" (False) keeps the
+                    # decision-replay direction conservative; visible at debug level.
+                    logger.debug("deterministic_worker: corrupt audit line, treating decision as unlogged: %s", line_err, exc_info=True)
                     return False
             return False
-        except OSError:
+        except OSError as audit_err:
+            # fail-loudly (S-B1b): the audit log being unreadable is an audit-path
+            # failure; False means "decision unlogged" so it must be visible.
+            logger.warning("deterministic_worker: audit log unreadable, treating decision as unlogged: %s", audit_err, exc_info=True)
             return False
 
     def _bug_from_payload(self, payload: dict[str, Any]) -> BugReport:
@@ -450,7 +458,7 @@ class DeterministicWorker:
                     try:
                         row["result"] = json.loads(row["result_json"])
                     except json.JSONDecodeError:
-                        row["result"] = {"raw": row["result_json"]}
+                        row["result"] = {"raw": row["result_json"]}  # silent-by-design: degraded record keeps the raw payload visible to the caller
                 row.pop("result_json", None)
                 row["events"] = self.ledger.list_events(job_id)
                 out["job"] = row

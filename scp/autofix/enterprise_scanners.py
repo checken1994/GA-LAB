@@ -228,6 +228,8 @@ def scan_with_mypy(path: Path) -> list[dict]:
             try:
                 line_num = int(parts[1])
             except ValueError:
+                # silent-by-design: malformed tool-output line skipped in aggregation.
+                logger.debug("enterprise: skipping malformed mypy line: %r", line, exc_info=True)
                 continue
             rest = parts[2]  # " error: message  [code]"
             # Extract [code]
@@ -275,6 +277,8 @@ def scan_with_vulture(path: Path) -> list[dict]:
             try:
                 line_num = int(parts[1])
             except ValueError:
+                # silent-by-design: malformed tool-output line skipped in aggregation.
+                logger.debug("enterprise: skipping malformed vulture line: %r", line, exc_info=True)
                 continue
             msg = parts[2].strip()
             out.append({
@@ -315,6 +319,8 @@ def scan_with_bugbear_dlint(path: Path) -> list[dict]:
             try:
                 line_num = int(parts[1])
             except ValueError:
+                # silent-by-design: malformed tool-output line skipped in aggregation.
+                logger.debug("enterprise: skipping malformed pylint line: %r", line, exc_info=True)
                 continue
             msg = parts[3].strip()
             # Extract code (B007, DUO102, etc.)
@@ -664,7 +670,10 @@ def scan_for_secrets(path: Path) -> list[dict]:
         return []
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
+    except Exception as read_err:
+        # fail-loudly (S-B1b): unreadable file must not look like a clean file
+        # in the secret scan; the [] contract for the scan loop is kept.
+        logger.warning("enterprise: secret-scan read failed for %s, returning no findings: %s", path, read_err, exc_info=True)
         return []
     out: list[dict] = []
     lines = content.splitlines()

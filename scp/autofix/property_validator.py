@@ -507,12 +507,13 @@ def _safe_call(fn: Any, arg: Any) -> tuple[bool, Any, str]:
         return True, fn(arg), ""
     except TypeError as e:
         # Could be that fn takes multiple args. Try to pass arg as a tuple/list.
+        # silent-by-design: documented retry heuristic — TypeError triggers a tuple-arg retry below.
         try:
             if isinstance(arg, (tuple, list)):
                 return True, fn(*arg), ""
             return False, None, f"TypeError: {e}"
         except Exception as e2:  # noqa: BLE001
-            return False, None, f"TypeError-retry: {e2}"
+            return False, None, f"TypeError-retry: {e2}"  # silent-by-design: explicit (False, None, reason) error return — crash evidence reaches the caller
     except Exception as e:  # noqa: BLE001 — function crashes are evidence
         return False, None, f"{type(e).__name__}: {e}"
 
@@ -533,7 +534,7 @@ def _check_invariants(
             if not ok:
                 out.append((i, f"invariant[{i}] returned False for {val!r}"))
         except Exception as e:  # noqa: BLE001
-            out.append((i, f"invariant[{i}] raised: {type(e).__name__}: {e}"))
+            out.append((i, f"invariant[{i}] raised: {type(e).__name__}: {e}"))  # silent-by-design: crash recorded in the violations list returned to the caller
     return out
 
 
@@ -570,6 +571,7 @@ def _outputs_differ(orig_out: Any, fixed_out: Any) -> bool:
                 return False
         return orig_out != fixed_out
     except Exception:  # noqa: BLE001
+        # silent-by-design: fail-closed — comparison crash is treated as "outputs differ" (safe direction).
         return True
 
 
@@ -894,7 +896,7 @@ def fingerprint_inputs(spec: PropertySpec, n: int) -> str:
                 try:
                     samples.append(repr(strategy()))
                 except Exception:  # noqa: BLE001
-                    samples.append("<err>")
+                    samples.append("<err>")  # silent-by-design: probe placeholder — crashed sample recorded as '<err>' in the digest
         finally:
             random.setstate(rng_state)
         blob = "\n".join(samples)

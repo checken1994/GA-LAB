@@ -177,7 +177,9 @@ class FileNode:
                     col=int(c.get("col", 0)),
                     is_method_call=bool(c.get("is_method_call", False)),
                 ))
-            except Exception:  # noqa: BLE001
+            except Exception as edge_err:  # noqa: BLE001
+                # silent-by-design: malformed persisted edge skipped during reconstruction.
+                logger.debug("callgraph_delta: skipping malformed call edge %r: %s", c, edge_err, exc_info=True)
                 continue
         return cls(
             path=d.get("path", ""),
@@ -294,10 +296,10 @@ def _analyze_file(path: str) -> FileNode:
         try:
             tree = ast.parse(source, filename=path)
         except SyntaxError as e:
-            node.parse_error = f"SyntaxError: {e}"
+            node.parse_error = f"SyntaxError: {e}"  # silent-by-design: error recorded on FileNode.parse_error and surfaced by delta checks
             return node
         except Exception as e:  # noqa: BLE001
-            node.parse_error = f"{type(e).__name__}: {e}"
+            node.parse_error = f"{type(e).__name__}: {e}"  # silent-by-design: same explicit record on the node
             return node
         analyzer = _FileAnalyzer()
         analyzer.visit(tree)
@@ -602,7 +604,9 @@ class CallGraph:
             with self._lock:
                 node = self._files.get(file_path)
                 return list(node.calls) if node else []
-        except Exception:  # noqa: BLE001
+        except Exception as query_err:  # noqa: BLE001
+            # fail-loudly (S-B1b): query crash must not masquerade as "no calls".
+            logger.warning("callgraph_delta: get_calls_in_file crashed for %s, returning empty: %s", file_path, query_err, exc_info=True)
             return []
 
     def invalidate_file(self, path: str) -> None:
@@ -650,7 +654,9 @@ class CallGraph:
             with self._lock:
                 node = self._files.get(path)
                 return node is not None and node.sha == sha
-        except Exception:  # noqa: BLE001
+        except Exception as fresh_err:  # noqa: BLE001
+            # silent-by-design: False = "not provably current" → caller re-scans (safe direction).
+            logger.debug("callgraph_delta: freshness check crashed for %s: %s", path, fresh_err, exc_info=True)
             return False
 
 
