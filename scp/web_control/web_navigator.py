@@ -5,6 +5,7 @@ pages require a user-provided local DevTools session. No credentials are read.
 """
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 from urllib.parse import urljoin
@@ -14,10 +15,37 @@ import httpx
 from .browser_session import BrowserSession
 from .internet_search import InternetSearch
 
+_WEB_BACKEND_ENV = "SCP_WEB_BACKEND"
+_PLAYWRIGHT_BACKEND_NAME = "playwright"
+_WEB_BACKEND_ALLOW_INTERNAL_ENV = "SCP_WEB_BACKEND_ALLOW_INTERNAL"
+
+
+def _playwright_backend_requested() -> bool:
+    """Opt-in only for the exact value ``playwright`` (trimmed).
+
+    Unset, empty or any other value keeps the default navigator unchanged.
+    """
+    return os.environ.get(_WEB_BACKEND_ENV, "").strip() == _PLAYWRIGHT_BACKEND_NAME
+
+
+def _playwright_allow_internal_requested() -> bool:
+    """Explicit local-loopback opt-in for the Playwright backend (default off)."""
+    return os.environ.get(_WEB_BACKEND_ALLOW_INTERNAL_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
 
 class WebNavigator:
     def __init__(self, browser: BrowserSession | None = None, search: InternetSearch | None = None) -> None:
-        self.browser = browser or BrowserSession()
+        # Opt-in rendered-page backend: only when no explicit browser is
+        # injected AND SCP_WEB_BACKEND=playwright. The default path below is
+        # unchanged when the variable is unset or has any other value.
+        self._playwright_backend: Any = None
+        if browser is None and _playwright_backend_requested():
+            from .playwright_backend import PlaywrightBackend
+
+            self._playwright_backend = PlaywrightBackend(allow_internal=_playwright_allow_internal_requested())
+            self.browser = self._playwright_backend
+        else:
+            self.browser = browser or BrowserSession()
         self.search_engine = search or InternetSearch()
 
     async def status(self) -> dict[str, Any]:
@@ -85,12 +113,16 @@ class WebNavigator:
         }
 
     async def search_public(self, query: str, max_results: int = 10) -> dict[str, Any]:
+        if self._playwright_backend is not None:
+            return await self._playwright_backend.search_public(query, max_results=max_results)
         return await self.search_engine.search(query, max_results=max_results)
 
     async def browse_logged_in(self, url: str) -> dict[str, Any]:
         return await self.browser.navigate_and_read(url)
 
     async def browse(self, url: str, use_logged_in_browser: bool = False) -> dict[str, Any]:
+        if self._playwright_backend is not None:
+            return await self._playwright_backend.browse(url)
         if use_logged_in_browser:
             return await self.browse_logged_in(url)
         return await self.browse_public(url)
