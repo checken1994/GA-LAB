@@ -65,6 +65,14 @@ scp/patches/
 # pytest basetemp artifacts (must never be tracked)
 tmp_pytest/
 data-test/
+reports/pytest-basetemp*/
+reports/pytest_output.txt
+
+# Local tooling state & test caches (regenerable, never source)
+.hypothesis/
+.mimosa/
+.coverage
+reports/pytest-basetemp.corrupt-*/
 
 # External auditor scratch artifacts (regenerable, not source)
 chaos_test.py

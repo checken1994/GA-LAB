@@ -1,1 +1,0 @@
-{"checkpointId": "2026d8125fb54f7da71c6132a0b1e3eb", "timestamp": 1788765415.024165, "action": "pc.write_file", "target": "C:\\Users\\check\\Downloads\\scp\\reports\\pytest-basetemp-clean\\test_hands_executor_rollback_r0\\workspace\\rollback_target.txt", "existed": false, "priorHash": null, "backupPath": null, "backupId": null}

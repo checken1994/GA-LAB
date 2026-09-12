@@ -1,1 +1,0 @@
-{"timestamp": 1788785722.5106437, "iso": "2026-09-07T12:55:22Z", "event": "ACTION_BLOCKED_SCOPE_MISMATCH", "success": false, "action": "pc.write_file", "error": "CapabilityScopeMismatchError: Token subject 'hands:pc.status' does not match required action 'hands:pc.write_file' (INV-AUTH-02)", "verification": {"passed": false}}
