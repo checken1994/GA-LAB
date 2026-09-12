@@ -259,6 +259,16 @@ async def test_webnavigator_revalidates_private_redirect_before_second_request(m
     """A public 302 to a private host must stop before another HTTP request."""
     from scp.web_control import web_navigator
 
+    # [S15 FIX] The EE-G1 egress gate runs BEFORE the first HTTP hop inside
+    # browse_public. Under an ambient SCP_EGRESS_MODE=deny (CI baseline) the
+    # gate would raise on the public fixture URL before the redirect
+    # revalidation this test pins is ever reached. Run under an explicit,
+    # narrow allowlist instead: the public fixture host is permitted, the
+    # redirect target (loopback) passes the egress gate and must then be
+    # rejected by the SSRF revalidation — the contract under test.
+    monkeypatch.setenv("SCP_EGRESS_MODE", "allowlist")
+    monkeypatch.setenv("SCP_EGRESS_ALLOWLIST", "public.example.test")
+
     public_url = "https://public.example.test/start"
     private_url = "http://127.0.0.1:8000/internal"
     requested_urls: list[str] = []
