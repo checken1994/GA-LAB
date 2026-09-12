@@ -38,8 +38,8 @@ import uuid
 from typing import Any
 
 import pytest
-
 import psycopg
+from psycopg import sql as pg_sql
 from psycopg.rows import dict_row
 
 from scp.event_bus_pg import Event, PgEventBus, make_event_bus
@@ -78,7 +78,12 @@ def evb() -> Any:
     except psycopg.OperationalError as exc:
         pytest.skip(f"INFRA-SKIP: PostgreSQL unreachable ({exc})")
     try:
-        admin.execute(f'CREATE SCHEMA "{schema}"')
+        # schema name is a self-generated per-test identifier; it reaches SQL
+        # only through psycopg.sql.Identifier (sanctioned dynamic-identifier
+        # path, same shape as the C1 migration script)
+        admin.execute(
+            pg_sql.SQL("CREATE SCHEMA {}").format(pg_sql.Identifier(schema))
+        )
         scoped = _scoped_dsn(dsn, schema)
         bus = PgEventBus(scoped)
         bus.ensure_schema()
@@ -87,7 +92,9 @@ def evb() -> Any:
         bus.close()
     finally:
         try:
-            admin.execute(f'DROP SCHEMA "{schema}" CASCADE')
+            admin.execute(
+                pg_sql.SQL("DROP SCHEMA {} CASCADE").format(pg_sql.Identifier(schema))
+            )
         finally:
             admin.close()
 

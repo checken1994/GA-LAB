@@ -28,6 +28,7 @@ from typing import Any
 import pytest
 
 import psycopg
+from psycopg import sql as pg_sql
 
 from scp.core.verifier_receipt import VerifierReceipt, sign_verifier_receipt
 from scp.kernel_storage_pg import PgKernelStorage
@@ -51,13 +52,20 @@ def pg_dsn() -> str:
     admin = psycopg.connect(base, autocommit=True, connect_timeout=5)
     try:
         try:
-            admin.execute(f'CREATE SCHEMA "{schema}"')
+            # schema name is a self-generated, regex-pinned identifier; it
+            # reaches SQL only through psycopg.sql.Identifier (sanctioned
+            # dynamic-identifier path, same shape as the C1 migration script)
+            admin.execute(
+                pg_sql.SQL("CREATE SCHEMA {}").format(pg_sql.Identifier(schema))
+            )
         except psycopg.OperationalError as exc:
             pytest.skip(f"INFRA-SKIP: PostgreSQL unreachable ({exc})")
         yield psycopg.conninfo.make_conninfo(base, options=f"-c search_path={schema}")
     finally:
         try:
-            admin.execute(f'DROP SCHEMA "{schema}" CASCADE')
+            admin.execute(
+                pg_sql.SQL("DROP SCHEMA {} CASCADE").format(pg_sql.Identifier(schema))
+            )
         finally:
             admin.close()
 
