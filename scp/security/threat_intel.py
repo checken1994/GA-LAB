@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from scp.security.url_safety import EgressDeniedError, enforce_egress_policy  # [EE-G1]
+
 logger = logging.getLogger("scp.security.threat_intel")
 
 
@@ -164,6 +166,15 @@ class ThreatIntelligenceCrawler:
         import httpx
         last_err = None
         for attempt in range(max_retries):
+            try:
+                # [EE-G1] PEP trước driver: đọc SCP_EGRESS_MODE trước mọi I/O
+                # của attempt này. Denial → None NGAY (không retry/backoff —
+                # policy không thay đổi theo attempt), contract "None on
+                # failure" của hàm giữ nguyên.
+                enforce_egress_policy(url)
+            except EgressDeniedError:
+                logger.debug(f"[ThreatIntel] {url} blocked by SCP_EGRESS_MODE")
+                return None
             try:
                 async with httpx.AsyncClient(timeout=15) as client:
                     r = await client.get(url)

@@ -22,6 +22,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
+from scp.security.url_safety import enforce_egress_policy  # [EE-G1]
+
 logger = logging.getLogger("scp.security.threat_detector")
 
 
@@ -194,6 +196,9 @@ class AsnDetector:
             return
         try:
             import httpx
+            # [EE-G1] feed Tor exit list là external fetch — đọc SCP_EGRESS_MODE
+            # trước mọi I/O; denial → except Exception dưới → skip (best-effort).
+            enforce_egress_policy("https://check.torproject.org/torbulkexitlist")
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get("https://check.torproject.org/torbulkexitlist")
                 if r.status_code == 200:

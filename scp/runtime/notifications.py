@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from scp.security.url_safety import enforce_egress_policy  # [EE-G1]
+
 # [ROOT-FIX Task 38-A / Issue 3] DNA #5 UNKNOWN > wrong answer: SEVERITY_ORDER
 # was missing "high", "medium", "low" — these fell back to 0 (treated as
 # "info") via SEVERITY_ORDER.get(severity, 0). Concrete impact: a "high"
@@ -241,6 +243,9 @@ class UserNotificationSystem:
 
             import asyncio
             async def _send():
+                # [EE-G1] webhook là external WRITE — đọc SCP_EGRESS_MODE
+                # trước mọi I/O; denial → raise → except ngoài → False.
+                enforce_egress_policy(self.config.webhook_url)
                 async with httpx.AsyncClient(timeout=5) as client:
                     r = await client.post(self.config.webhook_url, json=payload)
                     return r.status_code in (200, 204)
