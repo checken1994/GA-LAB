@@ -117,7 +117,9 @@ Output ONLY the JSON object, no markdown fences, no explanation."""
     try:
         confidence = float(parsed.get("confidence", 0.0))
         confidence = max(0.0, min(1.0, confidence))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # silent-by-design: unparseable LLM confidence falls back to the documented 0.0 default.
+        logger.debug("why_v80_modes: confidence unparseable, using 0.0: %s", exc, exc_info=True)
         confidence = 0.0
 
     result = {
@@ -228,7 +230,9 @@ Output ONLY the JSON object, no markdown fences, no explanation."""
 
     try:
         sanitize_missing = bool(parsed.get("sanitize_missing", True))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # silent-by-design: unparseable flag falls back to the documented True default.
+        logger.debug("why_v80_modes: sanitize_missing unparseable, using True: %s", exc, exc_info=True)
         sanitize_missing = True
     risk_level = str(parsed.get("risk_level", "high")).strip().lower()
     if risk_level not in ("high", "medium", "low"):
@@ -240,7 +244,9 @@ Output ONLY the JSON object, no markdown fences, no explanation."""
     try:
         confidence = float(parsed.get("confidence", 0.0))
         confidence = max(0.0, min(1.0, confidence))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # silent-by-design: unparseable LLM confidence falls back to the documented 0.0 default.
+        logger.debug("why_v80_modes: confidence unparseable, using 0.0: %s", exc, exc_info=True)
         confidence = 0.0
 
     result = {
@@ -351,7 +357,9 @@ Output ONLY the JSON object, no markdown fences, no explanation."""
     try:
         confidence = float(parsed.get("confidence", 0.0))
         confidence = max(0.0, min(1.0, confidence))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # silent-by-design: unparseable LLM confidence falls back to the documented 0.0 default.
+        logger.debug("why_v80_modes: confidence unparseable, using 0.0: %s", exc, exc_info=True)
         confidence = 0.0
 
     result = {

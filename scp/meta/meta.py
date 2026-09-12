@@ -165,7 +165,8 @@ class GoalMemory:
             avg_progress = db_query_one("SELECT AVG(progress) as avg FROM meta_goals WHERE status='active'")["avg"] or 0
             return {"total": total, "active": active, "completed": completed,
                     "avg_progress": round(avg_progress, 2)}
-        except Exception:
+        except Exception as exc:
+            logger.warning("meta: goal stats query failed, reporting zeros: %s", exc, exc_info=True)
             return {"total": 0, "active": 0, "completed": 0, "avg_progress": 0}
 
 
@@ -452,7 +453,8 @@ class CuriosityEngine:
             for r in db_query_all("SELECT curiosity_type, COUNT(*) as cnt FROM meta_curiosity GROUP BY curiosity_type"):
                 by_type[r["curiosity_type"]] = r["cnt"]
             return {"total_questions": total, "asked": asked, "by_type": by_type}
-        except Exception:
+        except Exception as exc:
+            logger.warning("meta: curiosity stats query failed, reporting zeros: %s", exc, exc_info=True)
             return {"total_questions": 0, "asked": 0, "by_type": {}}
 
 
@@ -575,7 +577,8 @@ class WorldModel:
             for r in db_query_all("SELECT relation, COUNT(*) as cnt FROM meta_world_model GROUP BY relation"):
                 by_relation[r["relation"]] = r["cnt"]
             return {"total_relations": total, "by_relation": by_relation}
-        except Exception:
+        except Exception as exc:
+            logger.warning("meta: world-model stats query failed, reporting zeros: %s", exc, exc_info=True)
             return {"total_relations": 0, "by_relation": {}}
 
 
@@ -674,7 +677,9 @@ class AbstractionEngine:
                     if abs(existing_count - sample_count) <= 10:
                         return True  # Too similar, skip
             return False
-        except Exception:
+        except Exception as exc:
+            # Fail-open (return False = not similar) is the current dedup contract; visible now.
+            logger.warning("meta: question dedup check failed, treating as dissimilar: %s", exc, exc_info=True)
             return False
 
     def _create_principle(self, lesson_type: str, lessons: list[dict]) -> Optional[dict]:
@@ -733,7 +738,8 @@ class AbstractionEngine:
             total = db_query_one("SELECT COUNT(*) as cnt FROM meta_principles")["cnt"]
             avg_conf = db_query_one("SELECT AVG(confidence) as avg FROM meta_principles")["avg"] or 0
             return {"total_principles": total, "avg_confidence": round(avg_conf, 2)}
-        except Exception:
+        except Exception as exc:
+            logger.warning("meta: principles stats query failed, reporting zeros: %s", exc, exc_info=True)
             return {"total_principles": 0, "avg_confidence": 0}
 
 
@@ -883,6 +889,7 @@ class MetaCognitionEngine:
                             confidence=0.8, source="meta_cognition"
                         )
             except Exception as e:
+                logger.warning("meta: principle verification step failed: %s", e, exc_info=True)
                 print(f"     Error: {e}")
 
         # Report

@@ -185,7 +185,9 @@ class ExternalTrustRoot:
             # Validate date is parseable.
             try:
                 datetime.strptime(m.group(2), "%Y-%m-%d")
-            except ValueError:
+            except ValueError as exc:
+                # silent-by-design: unparseable date means the candidate does not validate, by contract.
+                logger.debug("external_trust: date validation failed: %s", exc, exc_info=True)
                 return False
             return True
         return False

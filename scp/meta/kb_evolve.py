@@ -338,7 +338,9 @@ class ScannerEvolver:
                     })
                     # Record detection
                     self.kb.record_pattern_detection(pat.pattern_id)
-            except re.error:
+            except re.error as exc:
+                # silent-by-design: invalid regex patterns are skipped so one bad KB entry cannot abort matching.
+                logger.debug("kb_evolve: invalid regex skipped: %s", exc, exc_info=True)
                 continue  # Skip invalid regex
         return matches
 

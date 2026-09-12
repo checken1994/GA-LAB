@@ -33,7 +33,9 @@ logger = logging.getLogger("scp.cognitive_gate")
 try:
     from scp.core.db_manager import db_exec, init_db
     _DB_AVAILABLE = True
-except Exception:
+except Exception as exc:
+    # silent-by-design: db_manager import is optional at module load; the flag drives the fallback.
+    logger.debug("cognitive_gate: db_manager unavailable: %s", exc, exc_info=True)
     _DB_AVAILABLE = False
 
 

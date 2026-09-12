@@ -73,10 +73,14 @@ def _parse_vn_number(text: str) -> Optional[float]:
     # we swap the last separator to a dot.
     try:
         value = float(raw_num.replace(",", ""))
-    except ValueError:
+    except ValueError as exc:
+        # silent-by-design: probe order — next probe swaps the last separator to a dot.
+        logger.debug("_number_utils: comma-strip parse failed, trying dot-swap: %s", exc, exc_info=True)
         try:
             value = float(raw_num.replace(",", "."))
-        except ValueError:
+        except ValueError as exc:
+            # silent-by-design: both probes failed; None means "no number" by contract.
+            logger.debug("_number_utils: number parse failed: %s", exc, exc_info=True)
             return None
     if unit:
         mult = _UNIT_MULTIPLIERS.get(unit.lower())
@@ -95,7 +99,9 @@ def _normalize_number(value: Any) -> Optional[float]:
             if math.isnan(f) or math.isinf(f):
                 return None
             return f
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            # silent-by-design: coerce probe; None means "not a finite number" by contract.
+            logger.debug("_number_utils: float coercion failed: %s", exc, exc_info=True)
             return None
     if isinstance(value, str):
         # Try direct float first

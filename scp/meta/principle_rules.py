@@ -418,7 +418,8 @@ class PrincipleRuleEngine:
                 ORDER BY domain
             """)
             return [dict(r) for r in rows] if rows else []
-        except Exception:
+        except Exception as exc:
+            logger.warning("principle_rules: active rules query failed, returning empty: %s", exc, exc_info=True)
             return []
 
     def get_stats(self) -> dict:

@@ -231,6 +231,7 @@ def _fetch_wikipedia_pages(target: str) -> dict | None:
 
         except Exception as exc:
             # Parse error or unexpected — register failure.
+            # silent-by-design: the failure is registered via _wiki_register_failure (source health) and surfaced via last_err.
             _wiki_register_failure(f"unexpected: {exc}")
             last_err = f"unexpected: {exc}"
             if attempt < 2:

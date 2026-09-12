@@ -221,7 +221,9 @@ class QuestionTracker:
                 else:
                     # Truly NEW
                     qtype = "INTERNAL" if is_internal else "NEW"
-            except Exception:
+            except Exception as exc:
+                # silent-by-design: classification falls back to the documented default type.
+                logger.debug("question_tracker: question classification failed, using default type: %s", exc, exc_info=True)
                 qtype = "INTERNAL" if is_internal else "NEW"
 
         # Insert into question_events (every visit logged)

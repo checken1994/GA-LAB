@@ -159,7 +159,9 @@ class BehaviorMonitor:
                         continue
                     try:
                         event = json.loads(line)
-                    except (json.JSONDecodeError, ValueError):
+                    except (json.JSONDecodeError, ValueError) as exc:
+                        # Corrupt event line must be visible, not silently dropped.
+                        logger.warning("behavior_monitor: corrupt event line skipped: %s", exc, exc_info=True)
                         continue
                     sig = self.ingest_event(event, source)
                     if sig is not None:
@@ -374,7 +376,9 @@ def _safe_float(v, default: float = 0.0) -> float:
     """Coerce arbitrary JSON value to float; NaN → default; errors → default."""
     try:
         f = float(v)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        # silent-by-design: coerce probe; caller default is the documented fallback.
+        logger.debug("behavior_monitor: float coercion failed, using default: %s", exc, exc_info=True)
         return default
     if f != f:  # NaN guard
         return default

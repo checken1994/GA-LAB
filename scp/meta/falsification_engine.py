@@ -314,10 +314,14 @@ class FalsificationEngine:
             raw_num, unit = m.group(1), m.group(2)
             try:
                 value = float(raw_num.replace(",", ""))
-            except ValueError:
+            except ValueError as exc:
+                # silent-by-design: probe order — next probe swaps the separator to a dot.
+                logger.debug("falsification_engine: comma-strip parse failed, trying dot-swap: %s", exc, exc_info=True)
                 try:
                     value = float(raw_num.replace(",", "."))
-                except ValueError:
+                except ValueError as exc:
+                    # silent-by-design: both parse probes failed; the token is not a number by contract.
+                    logger.debug("falsification_engine: number parse failed, skipping token: %s", exc, exc_info=True)
                     continue
             if unit:
                 mult = _UNIT_MULTIPLIERS.get(unit.lower())
@@ -679,7 +683,9 @@ class FalsificationEngine:
         reasons: list[str] = []
         try:
             conf = float(confidence)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            # silent-by-design: the 0% treatment is recorded in reasons and returned to the caller.
+            logger.debug("falsification_engine: confidence unparseable, treating as 0: %s", exc, exc_info=True)
             conf = 0.0
             reasons.append("confidence unparseable — treating as 0%")
         if conf < CONFIDENCE_THRESHOLD:

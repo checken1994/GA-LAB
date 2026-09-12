@@ -319,7 +319,9 @@ class CalibrationEngine:
                 factor = row["factor"]
             else:
                 factor = 1.0  # default — no calibration
-        except Exception:
+        except Exception as exc:
+            # Calibration silently degrading to 1.0 would bias downstream verdicts — must be visible.
+            logger.warning("calibration_engine: factor lookup failed, using neutral 1.0: %s", exc, exc_info=True)
             factor = 1.0
 
         # [V104.40 #E] lock-protected cache write
