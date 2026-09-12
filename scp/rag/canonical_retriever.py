@@ -2,6 +2,10 @@ from __future__ import annotations
 import json,re,threading,math
 from pathlib import Path
 from typing import Any
+
+import logging
+logger = logging.getLogger(__name__)
+
 _TOKEN_RE=re.compile(r'[\wÀ-ỹ]{3,}',re.UNICODE)
 _STOP=set('the a an and or of to in on for from is are was were be been being what who when where why how which with that this these those do does did as by at it its their his her our your into about between general terms answer briefly source available explain give say if evidence missing main function difference signal'.split())
 _GENERIC={('united','states'),('new','york'),('world','war'),('president','united')}
@@ -20,6 +24,7 @@ def _records(path:Path):
   if i>=len(s):break
   try:o,j=d.raw_decode(s,i);yield o;i=j
   except json.JSONDecodeError:
+   logger.debug('_records: json.JSONDecodeError ignored', exc_info=True)
    k=s.find('{',i+1)
    if k<0:break
    i=k
