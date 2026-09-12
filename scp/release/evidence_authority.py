@@ -16,6 +16,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 _SCHEMA_VERSION = "scp-evidence-authority-v1"
 _FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -197,4 +201,5 @@ class EvidenceAuthority:
                 return False
             return True
         except (OSError, ValueError, TypeError, json.JSONDecodeError, subprocess.SubprocessError):
+            logger.debug('EvidenceAuthority.validate_evidence: OSError, ValueError, TypeError, json.JSONDecodeError, subprocess.SubprocessError ignored', exc_info=True)
             return False
