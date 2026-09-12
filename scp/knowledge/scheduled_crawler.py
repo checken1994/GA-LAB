@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from scp.security.url_safety import enforce_egress_policy  # [EE-G1]
+
 logger = logging.getLogger("scp.knowledge.crawler")
 
 
@@ -187,6 +189,10 @@ class ScheduledDataCrawler:
         )
 
         try:
+            # [EE-G1] đọc SCP_EGRESS_MODE trước khi mở client; denial →
+            # except Exception cuối hàm → result.error (fail-graceful như
+            # nguồn lỗi network khác).
+            enforce_egress_policy(url)
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(url)
                 if r.status_code != 200:

@@ -12,6 +12,8 @@ from urllib.parse import urljoin
 
 import httpx
 
+from scp.security.url_safety import enforce_egress_policy  # [EE-G1]
+
 from .browser_session import BrowserSession
 from .internet_search import InternetSearch
 
@@ -59,6 +61,10 @@ class WebNavigator:
         httpx must not silently follow a redirect into a private network. The
         response body is streamed with a bounded byte budget before decoding.
         """
+        # [EE-G1] egress gate trước SSRF validate (cùng thứ tự với
+        # safe_urlopen): SCP_EGRESS_MODE=deny chặn public browse trước mọi
+        # I/O; EgressDeniedError là ValueError subclass → cùng raise contract.
+        enforce_egress_policy(url)
         current_url = self.browser.validate_url(url)
         max_chars = max(1, min(int(max_chars), 1_000_000))
         max_bytes = max_chars * 4
@@ -71,6 +77,9 @@ class WebNavigator:
             headers={"User-Agent": "SCP-DNA-WebNavigator/3.1"},
         ) as client:
             for _ in range(5):
+                # [EE-G1] mỗi redirect hop là một destination mới — re-gate
+                # trước khi stream (PEP ngay trước driver, mỗi hop).
+                enforce_egress_policy(current_url)
                 current_url = self.browser.validate_url(current_url)
                 async with client.stream("GET", current_url) as response:
                     if response.status_code in redirect_statuses:

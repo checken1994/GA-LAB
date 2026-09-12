@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 import httpx
 import websockets
 
-from scp.security.url_safety import validate_url as validate_safe_url
+from scp.security.url_safety import enforce_egress_policy, validate_url as validate_safe_url  # [EE-G1] enforce added
 
 import logging
 logger = logging.getLogger(__name__)
@@ -35,6 +35,10 @@ class BrowserSession:
 
     async def targets(self) -> list[dict[str, Any]]:
         try:
+            # [EE-G1] loopback CDP self-call (http://127.0.0.1:<port>) — gate
+            # luôn cho qua loopback trong mọi mode (no-op runtime), thêm để
+            # call-site này có PEP thống nhất với mọi fetcher khác.
+            enforce_egress_policy(f"{self.base_url}/json/list")
             async with httpx.AsyncClient(timeout=2) as client:
                 response = await client.get(f"{self.base_url}/json/list")
                 response.raise_for_status()

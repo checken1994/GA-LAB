@@ -12,6 +12,8 @@ from urllib.parse import quote_plus, urlparse
 
 import httpx
 
+from scp.security.url_safety import enforce_egress_policy  # [EE-G1]
+
 
 class _SearchParser(HTMLParser):
     def __init__(self) -> None:
@@ -121,6 +123,9 @@ class InternetSearch:
             ]
             for name, url in providers:
                 try:
+                    # [EE-G1] đọc SCP_EGRESS_MODE trước mỗi provider fetch;
+                    # denial → except dưới → errors[] (graceful như provider lỗi).
+                    enforce_egress_policy(url)
                     response = await client.get(url)
                     response.raise_for_status()
                     all_results.extend(self._parse(response.text, name, max_results))
