@@ -6,6 +6,10 @@ import urllib.request
 
 from scp.security.url_safety import safe_urlopen
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 # [S6b security sweep] GitHub repo identifier must be a strict owner/name
 # pair — anything else (path segments, scheme, whitespace, control chars)
 # is rejected BEFORE the URL is built, so no request can leave the process
@@ -35,6 +39,7 @@ def parse_top_1_percent_issues(repo="pallets/flask"):
                 return 0
             issues = json.loads(resp.read().decode("utf-8", errors="replace"))
     except urllib.error.HTTPError:
+        logger.debug('parse_top_1_percent_issues: urllib.error.HTTPError ignored', exc_info=True)
         return 0
     with open("data/top1_issues.jsonl", "a", encoding="utf-8") as f:
         for issue in issues:

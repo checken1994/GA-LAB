@@ -10,6 +10,10 @@ from datetime import datetime, timedelta, timezone
 from scp.contracts.time import now_utc_iso
 from scp.knowledge.knowledge_control_db import KnowledgeControlDB
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 class VolatilityClass(str, Enum):
     STATIC = "STATIC"
     LOW = "LOW"
@@ -64,6 +68,7 @@ class RevalidationAuthority:
         try:
             last_dt = datetime.fromisoformat(knowledge_last_verified.replace("Z", "+00:00"))
         except ValueError:
+            logger.debug('RevalidationAuthority.assess_staleness: ValueError ignored', exc_info=True)
             return True # Malformed date means we re-verify
             
         now = datetime.now(timezone.utc)

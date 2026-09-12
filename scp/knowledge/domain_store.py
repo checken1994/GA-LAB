@@ -292,7 +292,7 @@ class DomainKnowledgeStore:
                     fallback_results = compute_tf_idf(question, docs)
                     results = [d["record"] for d in fallback_results]
             except ImportError:
-                pass
+                logger.debug('DomainKnowledgeStore.search: ImportError ignored', exc_info=True)
         # --------------------------------------------------------------------
 
         # Sort by trust tier (lower = better), then by confidence, then by recency

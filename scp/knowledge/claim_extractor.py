@@ -137,6 +137,7 @@ class ClaimExtractor:
                 else:
                     value = float(raw_num)
             except ValueError:
+                logger.debug('ClaimExtractor.extract: ValueError ignored', exc_info=True)
                 continue
 
             if unit in _UNIT_MULTIPLIERS:
