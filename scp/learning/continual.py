@@ -18,6 +18,7 @@ class ReplayBuffer:
             from scp.core.real_learning_engine import RealLearningEngine
             self._engine = RealLearningEngine(scp_db_path=str(Path(buffer_dir) / "v13.db"), data_dir=buffer_dir)
         except ImportError:
+            logger.debug('ReplayBuffer.__init__: ImportError ignored', exc_info=True)
             self._engine = None
 
     def record_feedback(self, task_id: str, prompt: str, completion: str, rating: int) -> None:
