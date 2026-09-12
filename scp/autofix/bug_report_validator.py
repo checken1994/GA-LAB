@@ -161,7 +161,10 @@ class BugReportValidator:
         try:
             from scp.autofix.intent_inference_engine import get_intent_engine
             intent_engine = get_intent_engine()
-        except ImportError:
+        except ImportError as intent_err:
+            # silent-by-design: optional FP-filter component missing — validation
+            # proceeds without intent filtering (feature degrades, not fails).
+            logger.debug("validator: intent engine unavailable — intent FP filter disabled: %s", intent_err, exc_info=True)
             intent_engine = None
 
         validated: list[BugReport] = []
@@ -335,6 +338,7 @@ class BugReportValidator:
         try:
             tree = ast.parse(source, filename=bug.file)
         except SyntaxError:
+            # silent-by-design: explicit skip result with reason — unparseable source cannot be a string-literal finding.
             return ValidationResult(is_valid=True, reason="parse error — skip string check")
 
         # Walk AST and find if bug.line is inside a string constant or comment

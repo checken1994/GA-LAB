@@ -12,6 +12,8 @@ import urllib.request
 from pathlib import Path
 import re as _re_module
 
+logger = logging.getLogger("scp.autofix.llm_fix")
+
 def generate_fix_for_bug(bug) -> str | None:
     """Generate a code fix for a BugReport using LLM.
 
@@ -81,7 +83,10 @@ def generate_fix_for_bug(bug) -> str | None:
                 _cache = get_llm_fix_cache()
                 _cache_key = compute_cache_key(bug)
                 _cache.set(_cache_key, fix_block, bug=bug)
-        except ImportError:
+        except ImportError as cache_import_err:
+            # silent-by-design: optional cache component missing — fix generation
+            # proceeds uncached (documented disable path).
+            logger.debug('[IMP-8] llm_fix_cache module unavailable — no caching: %s', cache_import_err, exc_info=True)
             pass
         except Exception as _cache_set_err:
             logger.debug(f'[IMP-8] cache set failed (non-fatal): {_cache_set_err}')

@@ -385,7 +385,9 @@ def get_llm_fix_cache(
         if ttl_env:
             try:
                 ttl_seconds = int(ttl_env)
-            except ValueError:
+            except ValueError as ttl_err:
+                # silent-by-design: documented default — invalid TTL env keeps the built-in TTL.
+                logger.debug("llm_fix_cache: invalid SCP_LLM_FIX_CACHE_TTL %r, keeping default: %s", ttl_env, ttl_err, exc_info=True)
                 pass
         _cache_singleton = LLMFixCache(
             cache_file=cache_file, ttl_seconds=ttl_seconds

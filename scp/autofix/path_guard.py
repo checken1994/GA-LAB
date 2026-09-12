@@ -84,6 +84,7 @@ def ensure_within(base: str | Path, candidate: str | Path) -> Path | None:
     try:
         cand_resolved = Path(candidate).resolve()
     except (TypeError, ValueError, OSError):
+        # silent-by-design: documented fail-closed contract — None = "write refused".
         return None
     if not cand_resolved.is_relative_to(base_resolved):
         return None
@@ -110,7 +111,10 @@ def sanitize_filename_stem(
     raw = str(name or "")
     try:
         stem = Path(raw).stem
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as stem_err:
+        # silent-by-design: documented default — unusable stem falls through to
+        # the sha256-prefix fallback below (distinct inputs stay distinct).
+        logger.debug("path_guard: stem extraction failed for %r: %s", raw, stem_err, exc_info=True)
         stem = ""
     cleaned = _FILENAME_SAFE_RE.sub("_", stem)
     cleaned = cleaned.strip("._-")

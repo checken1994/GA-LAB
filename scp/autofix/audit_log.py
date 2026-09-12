@@ -59,6 +59,7 @@ try:
     from pydantic import BaseModel, Field, validator  # type: ignore[import-untyped]
     _PYDANTIC_AVAILABLE = True
 except ImportError:  # pragma: no cover — exercised only when Pydantic missing
+    # silent-by-design: documented fail-open import — schema enforcement still happens via __post_init__ without Pydantic.
     _PYDANTIC_AVAILABLE = False
     BaseModel = object  # type: ignore[assignment, misc]
 

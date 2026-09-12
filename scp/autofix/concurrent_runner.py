@@ -122,7 +122,10 @@ def _process_file_bugs_sequential(
                         "source": "ast_scan_parallel",
                         **detail,
                     }, log_path)
-                except ImportError:
+                except ImportError as writer_err:
+                    # silent-by-design: optional deep-audit writer missing —
+                    # scan details are still returned to the caller.
+                    logger.debug(f"[IMP-11] deep-audit writer unavailable, skipping persist: {writer_err}", exc_info=True)
                     pass
                 except Exception as e:  # noqa: BLE001
                     logger.debug(f"[IMP-11] log write failed: {e}")

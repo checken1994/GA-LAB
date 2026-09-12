@@ -144,6 +144,7 @@ def _scan_one_file_worker(args: tuple[str, list[Any]]) -> list[dict[str, Any]]:
             for r in raw:
                 findings.append(_normalize_finding(r, scanner_name, file_path))
         except Exception as e:  # noqa: BLE001 — fail-open per DNA #7
+            # silent-by-design: crash is screamed to stderr per DNA #7; partial findings returned to the aggregator.
             import sys
             print(
                 f"[IMP-18] scanner {scanner_name} crashed on {file_path}: {e}",
@@ -334,7 +335,9 @@ def run_scanners_parallel(
         try:
             cpu = os.cpu_count() or 4
             max_workers = max(1, min(cpu, DEFAULT_MAX_WORKERS_CAP))
-        except Exception:  # noqa: BLE001
+        except Exception as cpu_err:  # noqa: BLE001
+            # silent-by-design: documented default — 4 workers when CPU count is unavailable.
+            logger.debug("parallel_scanner: cpu_count unavailable, defaulting to 4 workers: %s", cpu_err, exc_info=True)
             max_workers = 4
 
     # Single-file or single-worker → sequential.

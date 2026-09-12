@@ -92,7 +92,10 @@ def _replace_node(source: str, node: ast.AST, replacement: str) -> str | None:
     try:
         start = offsets[int(lineno) - 1] + int(col)
         end = offsets[int(end_lineno) - 1] + int(end_col)
-    except (IndexError, TypeError):
+    except (IndexError, TypeError) as offset_err:
+        # silent-by-design: offset probe — None means "no snippet replaceable"
+        # per the patch-builder contract.
+        logger.debug("deterministic_patches: line offsets unusable for %s: %s", getattr(bug, "file", "?"), offset_err, exc_info=True)
         return None
     if start < 0 or end < start or end > len(source):
         return None
@@ -339,7 +342,10 @@ def build_candidate(bug) -> PatchCandidate | None:
     try:
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
-    except (OSError, UnicodeError, SyntaxError):
+    except (OSError, UnicodeError, SyntaxError) as read_err:
+        # silent-by-design: read/parse probe — None means "no patch candidate
+        # extractable from this file".
+        logger.debug("deterministic_patches: source read/parse failed for %s: %s", path, read_err, exc_info=True)
         return None
     for recipe in (_bare_except_candidate, _sql_candidate, _missing_encoding_candidate):
         try:

@@ -578,7 +578,10 @@ class SpeculativeCache:
                 if k in self._lru:
                     self._lru.remove(k)
             return len(expired)
-        except Exception:  # noqa: BLE001
+        except Exception as evict_err:  # noqa: BLE001
+            # silent-by-design: best-effort TTL eviction — 0 evicted keeps the
+            # cache usable; stale entries expire on the next cycle.
+            logger.debug("speculative_prefixer: TTL eviction crashed: %s", evict_err, exc_info=True)
             return 0
 
     # ----- public API -----

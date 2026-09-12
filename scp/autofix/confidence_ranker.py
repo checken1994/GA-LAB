@@ -135,7 +135,8 @@ def _check_ast_parse(patched_source: str) -> bool:
     except SyntaxError as e:
         logger.debug(f"[IMP-14] ast.parse FAIL: {e}")
         return False
-    except Exception:  # noqa: BLE001 — best-effort
+    except Exception as parse_err:  # noqa: BLE001 — best-effort
+        logger.debug("[IMP-14] patched-source read/parse crashed, treating as invalid: %s", parse_err, exc_info=True)
         return False
 
 

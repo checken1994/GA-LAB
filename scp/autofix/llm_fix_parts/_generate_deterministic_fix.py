@@ -12,6 +12,8 @@ import urllib.request
 from pathlib import Path
 import re as _re_module
 
+logger = logging.getLogger("scp.autofix.llm_fix.deterministic")
+
 def _generate_deterministic_fix(bug) -> str | None:
     """Generate fix cho lỗi đơn giản KHÔNG cần LLM.
 
@@ -85,5 +87,8 @@ def _generate_deterministic_fix(bug) -> str | None:
                 new = bug_line.rstrip().replace(f' {var_name} ', f' _{var_name} ', 1)
                 return f'<<<<<<< SEARCH\n{old}\n=======\n{new}\n>>>>>>> REPLACE'
         return None
-    except Exception:
+    except Exception as recipe_err:
+        # silent-by-design: documented default — no deterministic recipe applies,
+        # caller falls back to the LLM path.
+        logger.debug("deterministic fix recipe crashed, falling back to LLM: %s", recipe_err, exc_info=True)
         return None

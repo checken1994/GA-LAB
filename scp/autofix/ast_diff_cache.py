@@ -242,7 +242,10 @@ class ASTDiffCache:
                 path = Path(p)
                 if not path.exists() or not path.is_file():
                     continue
-            except OSError:
+            except OSError as probe_err:
+                # silent-by-design: exists/is_file probe — vanished path is
+                # skipped from this cache refresh.
+                logger.debug("ast_diff_cache: path probe failed for %s: %s", p, probe_err, exc_info=True)
                 continue
 
             if do_full:
@@ -309,7 +312,10 @@ class ASTDiffCache:
                 try:
                     path = Path(abs_path)
                     content_sha, ast_sha, size = _compute_file_hashes(path)
-                except Exception:  # noqa: BLE001
+                except Exception as hash_err:  # noqa: BLE001
+                    # silent-by-design: documented default — empty hashes mark the
+                    # entry as un-hashed; recomputed on next refresh.
+                    logger.debug("ast_diff_cache: hash compute failed for %s: %s", abs_path, hash_err, exc_info=True)
                     content_sha, ast_sha, size = "", "", 0
                 self._data["files"][abs_path] = {
                     "content_sha": content_sha,

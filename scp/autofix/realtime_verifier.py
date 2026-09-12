@@ -165,7 +165,10 @@ def _extract_callables(source: str) -> dict[str, ast.FunctionDef | ast.AsyncFunc
     """Extract top-level + class-method callables from source via AST."""
     try:
         tree = ast.parse(source)
-    except SyntaxError:
+    except SyntaxError as parse_err:
+        # silent-by-design: parse probe — unparseable source yields no callables
+        # to verify (empty extraction is the documented contract).
+        logger.debug("realtime_verifier: source parse failed, no callables extracted: %s", parse_err, exc_info=True)
         return {}
     callables: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
     for node in ast.walk(tree):
