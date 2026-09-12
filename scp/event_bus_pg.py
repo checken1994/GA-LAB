@@ -36,17 +36,18 @@ Delivery semantics:
 
 Security/robustness invariants:
 
-- 100% parameterized DML: every value (including the NOTIFY channel string
-  and notification payload) goes through bind parameters. Identifiers in SQL
-  are compile-time constants; the LISTEN statement composes its channel via
-  ``psycopg.sql.Identifier``. No f-string SQL.
+- 100% parameterized DML: every value (including the channel string and
+  notification payload) goes through bind parameters, and the LISTEN statement
+  is a compile-time constant (fixed wake channel, see ``_WAKE_CHANNEL``):
+  this module constructs no SQL text from variables at all — no f-strings,
+  no concatenation, no psycopg sql composition. Fail-closed.
 - Fail-closed: ``publish()`` never swallows an error (raise on any failure);
   a broken listen/poll connection propagates loudly (fail loudly), because
   events are durable in the table and a supervisor restart + replay is the
   recovery path, not silent reconnection.
-- Channel names are validated (1-63 chars of ``[A-Za-z0-9._:-]``) so a
-  channel is always a safe NOTIFY identifier; DSNs are never logged (only a
-  redacted form is used in messages).
+- Channel names are validated (1-63 chars of ``[A-Za-z0-9._:-]``) so a channel
+  is always safe as data (table filter + NOTIFY channel argument); DSNs are
+  never logged (only a redacted form is used in messages).
 """
 from __future__ import annotations
 
@@ -61,7 +62,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 import psycopg
-from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Json
 
@@ -70,6 +70,18 @@ logger = logging.getLogger(__name__)
 _SCHEMA_FILE = Path(__file__).with_name("event_bus_pg_schema.sql")
 
 _CHANNEL_RE = re.compile(r"^[A-Za-z0-9._:-]{1,63}$")
+# Fixed wake-up bell channel. LISTEN is a PostgreSQL utility statement: it
+# accepts an identifier and NO bind parameters, so a per-event-channel LISTEN
+# would force the SQL statement text to be built from a variable (the exact
+# dynamic-SQL shape the security gate flags). The design contract above makes
+# NOTIFY a pure optimization — the durable table is the source of truth and
+# every poll re-filters by the subscriber's own channel — so ONE constant bell
+# channel for the whole bus preserves every delivery semantic: any publish
+# wakes every listener, each listener's (indexed) poll selects only its own
+# channel's rows, and a bell that carries unrelated news just causes one
+# empty poll. The name is a compile-time constant that satisfies
+# _CHANNEL_RE, so it can never collide with user-channel quoting concerns.
+_WAKE_CHANNEL = "scp_bus_wake"
 # Upper bound on one select.wait slice: bounds subscriber stop() latency and
 # re-checks stop_event without changing table-poll frequency (NOTIFY wakes
 # immediately regardless).
@@ -207,7 +219,9 @@ class PgEventBus:
                 )
                 event_id = int(cur.fetchone()[0])
                 # The bell carries only the id: the table row is the message.
-                conn.execute(_SQL_NOTIFY_EVENT, (channel, str(event_id)))
+                # (Fixed bell channel — see _WAKE_CHANNEL; still parameterized
+                # and still inside the SAME transaction as the insert.)
+                conn.execute(_SQL_NOTIFY_EVENT, (_WAKE_CHANNEL, str(event_id)))
             return event_id
         except Exception:
             # Cleanup, not swallowing: clear the aborted transaction state so
@@ -273,7 +287,9 @@ class PgEventBus:
         try:
             # 1. LISTEN first, 2. THEN snapshot the cursor: any event published
             # after the snapshot rings the bell, so the tail start has no gap.
-            listen_conn.execute(sql.SQL("LISTEN {}").format(sql.Identifier(channel)))
+            # The statement is a compile-time constant (fixed wake channel —
+            # see _WAKE_CHANNEL): no variable ever enters SQL text here.
+            listen_conn.execute("LISTEN scp_bus_wake")
             if start_at == "tail":
                 row = poll_conn.execute(_SQL_MAX_ID, (channel,)).fetchone()
                 cursor = int(row["max_id"])

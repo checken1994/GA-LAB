@@ -51,8 +51,45 @@ COPY_ORDER = (
     "queue_accounts",
 )
 # Compile-time whitelist (SEC-S4 discipline): only these tables are ever
-# touched, and their identifiers enter SQL exclusively via psycopg.sql.Identifier.
+# touched, and their identifiers enter SQL exclusively through compile-time
+# literal statements (constant maps below) or psycopg.sql.Identifier
+# (CREATE SCHEMA / INSERT, whose targets are not statically enumerable).
 assert set(COPY_ORDER) == KERNEL_TABLES
+
+# Compile-time literal SQL per whitelisted table (no dynamic SQL text: no
+# f-strings, no psycopg sql.SQL composition). Keys are pinned to COPY_ORDER so
+# any drift fails loudly at import; a lookup of an unknown table raises
+# KeyError (fail-closed) instead of building a statement.
+_SQLITE_COUNT_SQL: dict[str, str] = {
+    "control": 'SELECT COUNT(*) FROM "control"',
+    "tasks": 'SELECT COUNT(*) FROM "tasks"',
+    "events": 'SELECT COUNT(*) FROM "events"',
+    "leases": 'SELECT COUNT(*) FROM "leases"',
+    "checkpoints": 'SELECT COUNT(*) FROM "checkpoints"',
+    "idempotency": 'SELECT COUNT(*) FROM "idempotency"',
+    "queue_accounts": 'SELECT COUNT(*) FROM "queue_accounts"',
+}
+_PG_COUNT_SQL: dict[str, str] = {
+    "control": 'SELECT COUNT(*) FROM "control"',
+    "tasks": 'SELECT COUNT(*) FROM "tasks"',
+    "events": 'SELECT COUNT(*) FROM "events"',
+    "leases": 'SELECT COUNT(*) FROM "leases"',
+    "checkpoints": 'SELECT COUNT(*) FROM "checkpoints"',
+    "idempotency": 'SELECT COUNT(*) FROM "idempotency"',
+    "queue_accounts": 'SELECT COUNT(*) FROM "queue_accounts"',
+}
+_PG_DELETE_SQL: dict[str, str] = {
+    "control": 'DELETE FROM "control"',
+    "tasks": 'DELETE FROM "tasks"',
+    "events": 'DELETE FROM "events"',
+    "leases": 'DELETE FROM "leases"',
+    "checkpoints": 'DELETE FROM "checkpoints"',
+    "idempotency": 'DELETE FROM "idempotency"',
+    "queue_accounts": 'DELETE FROM "queue_accounts"',
+}
+assert set(_SQLITE_COUNT_SQL) == set(COPY_ORDER)
+assert set(_PG_COUNT_SQL) == set(COPY_ORDER)
+assert set(_PG_DELETE_SQL) == set(COPY_ORDER)
 
 SCHEMA_SQL_PATH = REPO_ROOT / "scp" / "kernel_storage_pg_schema.sql"
 
@@ -78,7 +115,15 @@ def open_sqlite_readonly(path: str) -> sqlite3.Connection:
 
 
 def sqlite_columns(conn: sqlite3.Connection, table: str) -> list[str]:
-    return [row["name"] for row in conn.execute(f'PRAGMA table_info("{table}")')]
+    # pragma_table_info() as a table-valued function keeps the table name a
+    # bound parameter (no dynamic SQL text); rows come back in cid order,
+    # identical to PRAGMA table_info, and a missing table yields no rows.
+    return [
+        row["name"]
+        for row in conn.execute(
+            "SELECT name FROM pragma_table_info(?) ORDER BY cid", (table,)
+        )
+    ]
 
 
 def pg_columns(conn: psycopg.Connection, table: str) -> list[str]:
@@ -132,7 +177,9 @@ def migrate(
                 raise SystemExit(
                     f"FAIL: table '{table}' missing in source SQLite (fail-closed)"
                 )
-            source_counts[table] = src.execute(f"SELECT COUNT(*) FROM \"{table}\"").fetchone()[0]
+            # table is a compile-time whitelist entry (COPY_ORDER); the SQL is
+            # a per-table literal (_SQLITE_COUNT_SQL), not composed text
+            source_counts[table] = src.execute(_SQLITE_COUNT_SQL[table]).fetchone()[0]
         print(f"[2/5] Source row counts: {source_counts}")
 
         dst = psycopg.connect(pg_dsn, autocommit=False)
@@ -206,13 +253,11 @@ def migrate(
                     # the canonical schema seeds control(id=1) for operational
                     # bootstrap; a migration replaces it with source data in
                     # this same transaction, so drop the seed now
-                    cur.execute(pg_sql.SQL("DELETE FROM {}").format(pg_sql.Identifier("control")))
+                    cur.execute(_PG_DELETE_SQL["control"])
                     target_counts = {t: 0 for t in COPY_ORDER}
                 else:
                     target_counts = {
-                        t: cur.execute(
-                            pg_sql.SQL("SELECT COUNT(*) FROM {}").format(pg_sql.Identifier(t))
-                        ).fetchone()[0]
+                        t: cur.execute(_PG_COUNT_SQL[t]).fetchone()[0]
                         for t in COPY_ORDER
                     }
                 print(f"[3/5] Target row counts (before): {target_counts}")
@@ -249,9 +294,7 @@ def migrate(
 
                 if truncate and any(c > 0 for c in target_counts.values()):
                     for table in COPY_ORDER:
-                        cur.execute(
-                            pg_sql.SQL("DELETE FROM {}").format(pg_sql.Identifier(table))
-                        )
+                        cur.execute(_PG_DELETE_SQL[table])
 
                 total_copied = 0
                 for table in COPY_ORDER:
@@ -283,9 +326,7 @@ def migrate(
                 # post-copy verification inside the same transaction
                 mismatches = []
                 for table in COPY_ORDER:
-                    after = cur.execute(
-                        pg_sql.SQL("SELECT COUNT(*) FROM {}").format(pg_sql.Identifier(table))
-                    ).fetchone()[0]
+                    after = cur.execute(_PG_COUNT_SQL[table]).fetchone()[0]
                     if after != source_counts[table]:
                         mismatches.append((table, source_counts[table], after))
                 if mismatches:
