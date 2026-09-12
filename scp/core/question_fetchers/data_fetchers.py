@@ -149,7 +149,9 @@ def fetch_fruityvice(n: int = 5) -> list[dict]:
                 "domain": "biology",
                 "category": "fruit",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("data_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -243,7 +245,9 @@ def fetch_rest_countries(n: int = 5) -> list[dict]:
                 "domain": "geography",
                 "category": qtype,
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("data_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -281,7 +285,9 @@ def fetch_sunrise_sunset(n: int = 2) -> list[dict]:
                 "domain": "geography",
                 "category": "astronomy",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("data_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -316,7 +322,9 @@ def fetch_public_holidays(n: int = 5) -> list[dict]:
                 "domain": "history",
                 "category": "holiday",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("data_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -348,7 +356,9 @@ def fetch_stackoverflow(n: int = 3) -> list[dict]:
                 "domain": "technology",
                 "category": "programming",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("data_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -381,7 +391,9 @@ def fetch_genderize(n: int = 3) -> list[dict]:
                 "domain": "general",
                 "category": "name",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("data_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -414,7 +426,9 @@ def fetch_tv_maze(n: int = 3) -> list[dict]:
                 "domain": "entertainment",
                 "category": "tv_show",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("data_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -493,7 +507,9 @@ def fetch_open_meteo(n: int = 3) -> list[dict]:
                     "domain": "weather",
                     "category": "temperature",
                 })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("data_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 

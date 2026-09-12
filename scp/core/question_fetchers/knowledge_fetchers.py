@@ -77,7 +77,9 @@ def fetch_wikipedia_random(lang: str = "vi", n: int = 5) -> list[dict]:
                 r = future.result(timeout=20)
                 if r:
                     results.append(r)
-            except Exception:  # noqa: S112
+            except Exception as exc:  # noqa: S112
+                # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+                logger.debug("knowledge_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
                 continue
 
     return results
@@ -114,7 +116,9 @@ def fetch_open_library(n: int = 3) -> list[dict]:
                 "domain": "arts",
                 "category": "book",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("knowledge_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -182,7 +186,9 @@ def fetch_open5e_spells(n: int = 3) -> list[dict]:
                 "domain": "arts",
                 "category": "spell",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("knowledge_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -213,7 +219,9 @@ def fetch_bible_api(n: int = 2) -> list[dict]:
                 "domain": "history",
                 "category": "religion",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("knowledge_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 

@@ -33,7 +33,9 @@ from scp.core.question_fetchers._common import (
 # init_db + db helpers needed by RealQuestionFetcher class methods
 try:
     from scp.core.db_manager import db_exec, db_query_all, db_query_one, init_db
-except ImportError:
+except ImportError as exc:
+    # silent-by-design: db helpers are optional at import; callers handle None helpers.
+    logger.debug("db helpers unavailable for RealQuestionFetcher: %s", exc, exc_info=True)
     init_db = None
     db_exec = None
     db_query_all = None

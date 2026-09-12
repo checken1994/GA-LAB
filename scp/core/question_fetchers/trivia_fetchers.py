@@ -38,7 +38,9 @@ def fetch_opentdb(n: int = 5) -> list[dict]:
                 "domain": _map_opentdb_category(category),
                 "category": category,
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("trivia_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -68,7 +70,9 @@ def fetch_trivia_api(n: int = 5) -> list[dict]:
                 "domain": _map_opentdb_category(category),
                 "category": category,
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("trivia_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -231,7 +235,9 @@ def fetch_pokemon(n: int = 5) -> list[dict]:
                 "domain": "biology",
                 "category": "pokemon",
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("trivia_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 
@@ -271,7 +277,9 @@ def fetch_swapi(n: int = 3) -> list[dict]:
                 "domain": "entertainment",
                 "category": ep,
             })
-        except Exception:  # noqa: S112
+        except Exception as exc:  # noqa: S112
+            # silent-by-design: per-item skip in optional external ingestion; one bad item must not kill the batch.
+            logger.debug("trivia_fetchers: item fetch/parse failed; skipping (non-fatal): %s", exc, exc_info=True)
             continue
     return results
 

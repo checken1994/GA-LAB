@@ -28,14 +28,18 @@ try:
                       'Vietnamese educational research project; contact: scp-vietnam@example.com)',
         'Accept': 'application/json',
     })
-except ImportError:
+except ImportError as exc:
+    # silent-by-design: requests is an optional dependency; fetchers degrade to urllib.
+    logger.debug("requests unavailable; fetchers fall back to urllib: %s", exc, exc_info=True)
     HAS_REQUESTS = False
     _SESSION = None
 
 try:
     from scp.core.db_manager import db_exec
     _DB_AVAILABLE = True
-except Exception:
+except Exception as exc:
+    # silent-by-design: db_manager import is optional at module load; availability flag drives fallback.
+    logger.debug("db_manager unavailable for question fetchers: %s", exc, exc_info=True)
     _DB_AVAILABLE = False
 
 #  Source health tracking — skip sources that fail 3 times in a row
