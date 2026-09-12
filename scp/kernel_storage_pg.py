@@ -276,9 +276,7 @@ class PgKernelStorage:
         self._conn_local = threading.local()
         self._all_conns: list[Any] = []
         self._conn_guard = threading.Lock()
-        conn = self._get_conn()
-        # session-scoped, parameterized (psycopg SET cannot bind parameters)
-        conn.execute("SELECT set_config('lock_timeout', %s, false)", (f"{self.lock_timeout_ms}ms",))
+        self._get_conn()  # warm + validate the connection eagerly
 
     # ------------------------------------------------------------------ #
     # connection lifecycle                                                #
@@ -294,6 +292,11 @@ class PgKernelStorage:
 
     def _make_connection(self) -> Any:
         conn = psycopg.connect(self.dsn, autocommit=True, row_factory=_pg_row_factory)
+        # busy_timeout parity: lock_timeout applies to every per-thread
+        # connection (write-slot acquisition), parameterized via set_config.
+        conn.execute(
+            "SELECT set_config('lock_timeout', %s, false)", (f"{self.lock_timeout_ms}ms",)
+        )
         return conn
 
     def _get_conn(self) -> Any:
@@ -427,26 +430,30 @@ class PgKernelStorage:
                 f"PgKernelStorage: table '{table}' is not in the kernel schema whitelist"
             )
         conn = self._get_conn()
-        rows = conn.execute(
-            """
-            SELECT a.attnum AS cid,
-                   a.attname AS name,
-                   format_type(a.atttypid, a.atttypmod) AS type,
-                   a.attnotnull::int AS notnull,
-                   pg_get_expr(d.adbin, d.adrelid) AS dflt_value,
-                   COALESCE(EXISTS (
-                       SELECT 1 FROM pg_index i
-                       WHERE i.indrelid = a.attrelid AND i.indisprimary
-                         AND a.attnum = ANY (i.indkey)
-                   )::int, 0) AS pk
-            FROM pg_attribute a
-            LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-            WHERE a.attrelid = (%s)::regclass
-              AND a.attnum > 0 AND NOT a.attisdropped
-            ORDER BY a.attnum
-            """,
-            (table,),
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                """
+                SELECT a.attnum AS cid,
+                       a.attname AS name,
+                       format_type(a.atttypid, a.atttypmod) AS type,
+                       a.attnotnull::int AS notnull,
+                       pg_get_expr(d.adbin, d.adrelid) AS dflt_value,
+                       COALESCE(EXISTS (
+                           SELECT 1 FROM pg_index i
+                           WHERE i.indrelid = a.attrelid AND i.indisprimary
+                             AND a.attnum = ANY (i.indkey)
+                       )::int, 0) AS pk
+                FROM pg_attribute a
+                LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+                WHERE a.attrelid = (%s)::regclass
+                  AND a.attnum > 0 AND NOT a.attisdropped
+                ORDER BY a.attnum
+                """,
+                (table,),
+            ).fetchall()
+        except pg_errors.UndefinedTable:
+            # SQLite parity: PRAGMA table_info on a missing table yields no rows.
+            rows = []
         return _PragmaResult(list(rows))
 
     def _pragma_quick_check(self) -> _PragmaResult:

@@ -182,19 +182,57 @@ class SQLiteKernelStorage:
             destination.close()
 
 
-def make_storage(db_path: str | Path, backend: str | None = None) -> SQLiteKernelStorage:
+def make_storage(db_path: str | Path, backend: str | None = None) -> KernelStorage:
     """Create the storage backend for a given path.
+
+    Backend resolution order:
+      1. explicit ``backend`` argument;
+      2. ``SCP_KERNEL_BACKEND`` env (canonical switch; ``postgres`` requires
+         ``SCP_KERNEL_PG_DSN`` and returns :class:`PgKernelStorage`);
+      3. ``SCP_STORAGE_BACKEND`` env (legacy switch; keeps its fail-closed
+         sqlite-only contract — ``postgres`` there still raises
+         ``NotImplementedError`` so no deployment silently flips engines);
+      4. default ``sqlite``.
 
     WARNING: SQLite is a Single Point of Failure (SPOF) in distributed deployments.
     It does not support cross-node replication or active-active clustering.
     For high availability or multi-node production setups, a distributed storage backend is required.
     """
-    if backend is None:
-        backend = os.environ.get("SCP_STORAGE_BACKEND", "sqlite")
-    backend = backend.strip().lower()
-    if backend in ("sqlite", ""):
+
+    def _unsupported(name: str) -> NotImplementedError:
+        return NotImplementedError(
+            f"Unsupported storage backend '{name}'. Only 'sqlite' is currently supported. "
+            "For distributed deployments, inject a custom Storage instance into TaskKernel."
+        )
+
+    def _postgres() -> KernelStorage:
+        dsn = os.environ.get("SCP_KERNEL_PG_DSN", "").strip()
+        if not dsn:
+            raise RuntimeError(
+                "SCP_KERNEL_BACKEND=postgres requires SCP_KERNEL_PG_DSN to be set "
+                "(fail-closed: refusing to fall back to SQLite)."
+            )
+        from scp.kernel_storage_pg import PgKernelStorage
+
+        return PgKernelStorage(dsn)
+
+    if backend is not None:
+        backend = str(backend).strip().lower()
+        if backend in ("sqlite", ""):
+            return SQLiteKernelStorage(db_path)
+        if backend == "postgres":
+            return _postgres()
+        raise _unsupported(backend)
+
+    kernel_env = os.environ.get("SCP_KERNEL_BACKEND", "").strip().lower()
+    if kernel_env:
+        if kernel_env == "sqlite":
+            return SQLiteKernelStorage(db_path)
+        if kernel_env == "postgres":
+            return _postgres()
+        raise _unsupported(kernel_env)
+
+    legacy_env = os.environ.get("SCP_STORAGE_BACKEND", "sqlite")
+    if legacy_env.strip().lower() in ("sqlite", ""):
         return SQLiteKernelStorage(db_path)
-    raise NotImplementedError(
-        f"Unsupported storage backend '{backend}'. Only 'sqlite' is currently supported. "
-        "For distributed deployments, inject a custom Storage instance into TaskKernel."
-    )
+    raise _unsupported(legacy_env.strip())
