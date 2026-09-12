@@ -823,64 +823,64 @@ class MetaCognitionEngine:
     def run_meta_cycle(self) -> dict:
         """Chạy 1 meta-cognition cycle."""
         self.cycle_count += 1
-        print(f"\n{'='*60}")
-        print(f"  [BRAIN] META-COGNITION CYCLE {self.cycle_count}")
-        print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{'='*60}")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"  [BRAIN] META-COGNITION CYCLE {self.cycle_count}")
+        logger.info(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"{'='*60}")
 
         # Step 1: Reflect Identity
-        print("\n  1.  IDENTITY")
+        logger.info("\n  1.  IDENTITY")
         mission = self.identity.get_mission()
         ltg = self.identity.get_long_term_goal()
         values = self.identity.get_values()
         forbidden = self.identity.get_forbidden()
-        print(f"     Mission: {mission[:70]}")
-        print(f"     Long-term: {ltg[:70]}")
-        print(f"     Values: {len(values)} | Forbidden: {len(forbidden)}")
+        logger.info(f"     Mission: {mission[:70]}")
+        logger.info(f"     Long-term: {ltg[:70]}")
+        logger.info(f"     Values: {len(values)} | Forbidden: {len(forbidden)}")
 
         # Step 2: Check Goals
-        print("\n  2.  GOALS")
+        logger.info("\n  2.  GOALS")
         active_goals = self.goals.get_active_goals()
         goal_stats = self.goals.get_stats()
-        print(f"     Active: {goal_stats['active']} | Completed: {goal_stats['completed']}")
-        print(f"     Avg progress: {goal_stats['avg_progress']*100:.0f}%")
+        logger.info(f"     Active: {goal_stats['active']} | Completed: {goal_stats['completed']}")
+        logger.info(f"     Avg progress: {goal_stats['avg_progress']*100:.0f}%")
         for g in active_goals[:3]:
-            print(f"     [{g['priority']}] {g['description'][:60]} (progress: {g['progress']*100:.0f}%)")
+            logger.info(f"     [{g['priority']}] {g['description'][:60]} (progress: {g['progress']*100:.0f}%)")
 
         # Step 3: Generate Curiosity
-        print("\n  3.  CURIOSITY (Information Gain)")
+        logger.info("\n  3.  CURIOSITY (Information Gain)")
         curious_questions = self.curiosity.generate_curious_questions(5)
-        print(f"     Generated: {len(curious_questions)} questions")
+        logger.info(f"     Generated: {len(curious_questions)} questions")
         for q in curious_questions[:3]:
-            print(f"     [{q['curiosity_type']:15s}] IG={q['information_gain']:.2f} | {q['question'][:50]}")
-            print(f"     Reason: {q['reason'][:70]}")
+            logger.info(f"     [{q['curiosity_type']:15s}] IG={q['information_gain']:.2f} | {q['question'][:50]}")
+            logger.info(f"     Reason: {q['reason'][:70]}")
             self.curiosity.save_question(q)
 
         # Step 4: Update World Model
-        print("\n  4.  WORLD MODEL")
+        logger.info("\n  4.  WORLD MODEL")
         self.world.auto_build_from_knowledge()
         world_stats = self.world.get_stats()
-        print(f"     Relations: {world_stats['total_relations']}")
-        print(f"     By relation: {world_stats.get('by_relation', {})}")
+        logger.info(f"     Relations: {world_stats['total_relations']}")
+        logger.info(f"     By relation: {world_stats.get('by_relation', {})}")
 
         # Step 5: Abstract Principles
-        print("\n  5.  ABSTRACTION (Lesson -> Principle)")
+        logger.info("\n  5.  ABSTRACTION (Lesson -> Principle)")
         new_principles = self.abstraction.abstract_from_lessons()
-        print(f"     New principles: {len(new_principles)}")
+        logger.info(f"     New principles: {len(new_principles)}")
         for p in new_principles[:3]:
-            print(f"     [{p['domain']:25s}] conf={p['confidence']:.2f} | {p['principle'][:60]}")
+            logger.info(f"     [{p['domain']:25s}] conf={p['confidence']:.2f} | {p['principle'][:60]}")
 
         # Step 6: Execute curious questions (ask 1)
         if curious_questions:
-            print("\n  6.  EXECUTE (ask top curiosity question)")
+            logger.info("\n  6.  EXECUTE (ask top curiosity question)")
             top_q = curious_questions[0]
-            print(f"     Asking: {top_q['question'][:60]}")
-            print(f"     Type: {top_q['curiosity_type']} | IG: {top_q['information_gain']:.2f}")
+            logger.info(f"     Asking: {top_q['question'][:60]}")
+            logger.info(f"     Type: {top_q['curiosity_type']} | IG: {top_q['information_gain']:.2f}")
             try:
                 result = self.engine.process(top_q["question"], "0")
-                print(f"     Verdict: {result.final_verdict}")
+                logger.info(f"     Verdict: {result.final_verdict}")
                 if result.real_value is not None:
-                    print(f"     Real value: {result.real_value} (src: {result.source})")
+                    logger.info(f"     Real value: {result.real_value} (src: {result.source})")
 
                     # Learn from result -> update world model
                     if result.source:
@@ -890,17 +890,17 @@ class MetaCognitionEngine:
                         )
             except Exception as e:
                 logger.warning("meta: principle verification step failed: %s", e, exc_info=True)
-                print(f"     Error: {e}")
+                logger.error(f"     Error: {e}")
 
         # Report
-        print("\n  [STATS] META-STATE:")
-        print(f"     Mission: {mission[:50]}")
-        print(f"     Goals: {goal_stats['active']} active, {goal_stats['completed']} completed")
-        print(f"     Curiosity: {self.curiosity.get_stats()['total_questions']} questions generated")
-        print(f"     World Model: {world_stats['total_relations']} relations")
-        print(f"     Principles: {self.abstraction.get_stats()['total_principles']} abstracted")
-        print(f"     Identity: {len(self.identity.get_all())} defined values")
-        print(f"{'='*60}")
+        logger.info("\n  [STATS] META-STATE:")
+        logger.info(f"     Mission: {mission[:50]}")
+        logger.info(f"     Goals: {goal_stats['active']} active, {goal_stats['completed']} completed")
+        logger.info(f"     Curiosity: {self.curiosity.get_stats()['total_questions']} questions generated")
+        logger.info(f"     World Model: {world_stats['total_relations']} relations")
+        logger.info(f"     Principles: {self.abstraction.get_stats()['total_principles']} abstracted")
+        logger.info(f"     Identity: {len(self.identity.get_all())} defined values")
+        logger.info(f"{'='*60}")
 
         return {
             "cycle": self.cycle_count,
