@@ -786,6 +786,7 @@ class History(Base):
                                             evidence = {"value": year, "source": "wikidata", "entity": entity,
                                                        "qid": qid, "year": year}
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"Wikidata fetch error: {e}"
                     confidence = 0.0
 
