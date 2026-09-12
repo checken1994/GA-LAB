@@ -9,6 +9,7 @@ from typing import Any
 try:
     from fastapi import Header
 except ImportError:
+    logger.debug('<module>: ImportError ignored', exc_info=True)
     Header = None  # type: ignore
 
 logger = logging.getLogger("scp.api")

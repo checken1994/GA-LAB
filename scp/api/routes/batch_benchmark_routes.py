@@ -20,6 +20,10 @@ from .hands_routes import _guard
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 _BATCH_BENCHMARK_ROUTES_LEDGER = RequestRunLedger()
 
 router = APIRouter(prefix="/v3/hands/benchmark", tags=["benchmark-batch"])
@@ -43,6 +47,7 @@ def _read_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, A
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
+        logger.debug('_read_json: FileNotFoundError, json.JSONDecodeError ignored', exc_info=True)
         return dict(default or {})
 
 
@@ -68,6 +73,7 @@ def _load_results(path: Path) -> dict[int, dict[str, Any]]:
             if isinstance(item, dict) and isinstance(item.get("index"), int):
                 results[int(item["index"])] = item
         except json.JSONDecodeError:
+            logger.debug('_load_results: json.JSONDecodeError ignored', exc_info=True)
             continue
     return results
 
@@ -141,6 +147,7 @@ def _request_one(base_url: str, item: dict[str, Any], index: int, timeout: int, 
                 try:
                     body = response.json()
                 except ValueError as exc:
+                    logger.debug('_request_one: ValueError ignored: %s', exc)
                     body = {"raw": response.text[:1000], "parseError": str(exc)}
                 if isinstance(body, dict):
                     body.setdefault("rag_enabled", bool(contexts))
@@ -160,6 +167,7 @@ def _request_one(base_url: str, item: dict[str, Any], index: int, timeout: int, 
                 }
             last_error = f"HTTP {response.status_code}: {response.text[:300]}"
         except requests.RequestException as exc:
+            logger.debug('_request_one: requests.RequestException ignored: %s', exc)
             last_error = str(exc)
         if attempt < max_retries:
             time.sleep(min(2.0 * (2**attempt), 15.0))

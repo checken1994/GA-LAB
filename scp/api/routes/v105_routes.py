@@ -572,6 +572,7 @@ async def v105_autofix_rollback(rollback_token: str):
                 if entry.get("rollback_token") == rollback_token:
                     matching_entry = entry
             except Exception:
+                logger.warning('v105_autofix_rollback: Exception not handled', exc_info=True)
                 continue
     except Exception as e:
         raise HTTPException(500, f"Failed to read audit log: {e}") from e
@@ -671,13 +672,13 @@ async def v105_autofix_rollback(rollback_token: str):
         try:
             _os.unlink(tmp_path)
         except OSError:
-            pass  # tmp may already be gone (os.replace succeeded) Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â fine
+            logger.debug('v105_autofix_rollback: OSError ignored', exc_info=True)  # tmp may already be gone (os.replace succeeded) Ă„â€Ă‚Â¢│Ă¢â‚¬ÂĂ‚Â¬│Ă¢â€Â¬Ă‚Â fine
         raise
     except Exception as e:
         try:
             _os.unlink(tmp_path)
         except OSError:
-            pass
+            logger.debug('v105_autofix_rollback: OSError ignored', exc_info=True)
         raise HTTPException(500, f"Failed to restore file atomically: {e}") from e
     # Verify post-restore hash matches before_hash.
     restored_hash = _hashlib.sha256(file_path.read_bytes()).hexdigest()

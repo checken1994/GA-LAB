@@ -251,6 +251,7 @@ async def scp_chat(websocket: WebSocket):
             await websocket.close(code=1008)
             return
     except Exception:
+        logger.warning('scp_chat: Exception not handled', exc_info=True)
         await websocket.close(code=1011)
         return
 
@@ -313,6 +314,7 @@ async def scp_chat(websocket: WebSocket):
                 msg = json.loads(data)
                 user_message = str(msg.get("message", "") or "").strip()
             except json.JSONDecodeError:
+                logger.debug('scp_chat: json.JSONDecodeError ignored', exc_info=True)
                 user_message = data.strip()
 
             if user_message and len(user_message) > MAX_CHAT_MESSAGE_CHARS:
@@ -382,6 +384,7 @@ async def scp_chat(websocket: WebSocket):
                     await websocket.send_json(task_response)
                     _conversation_mgr.add_message(session_id, "scp", task_response.get("answer", ""), task_response)
                 except Exception as exc:
+                    logger.warning('scp_chat: Exception not handled: %s', exc)
                     failure_status = _CHAT_LEDGER.classify_error(exc)
                     terminal_status, ledger_ok = _CHAT_LEDGER.finish(run, failure_status, error=exc, task_mode=True)
                     await websocket.send_json({

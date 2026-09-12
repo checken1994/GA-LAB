@@ -21,6 +21,10 @@ from scp.api._shared import get_judge, verify_admin
 
 from scp.core.request_run_ledger import RequestRunLedger, traced_request
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 _IMPORT_ROUTES_LEDGER = RequestRunLedger()
 
 router = APIRouter(tags=["import"])
@@ -92,6 +96,7 @@ async def import_jsonl(request: Request, _admin: bool = Depends(verify_admin)):
                 "elapsed_ms": timings.get("total_ms", 0),
             })
         except Exception as e:
+            logger.warning('import_jsonl: Exception not handled: %s', e)
             results.append({"line": i + 1, "error": str(e)})
 
     summary = {
@@ -150,6 +155,7 @@ async def import_excel(request: Request, _admin: bool = Depends(verify_admin)):
                 "elapsed_ms": v.evidence.get("v100_phase_timings", {}).get("total_ms", 0),
             })
         except Exception as e:
+            logger.warning('import_excel: Exception not handled: %s', e)
             results.append({"row": i, "error": str(e)})
 
     summary = {
@@ -201,6 +207,7 @@ async def import_batch(request: Request, _admin: bool = Depends(verify_admin)):
                 "elapsed_ms": v.evidence.get("v100_phase_timings", {}).get("total_ms", 0),
             })
         except Exception as e:
+            logger.warning('import_batch: Exception not handled: %s', e)
             results.append({"item": i, "error": str(e)})
 
     summary = {
