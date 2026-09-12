@@ -424,8 +424,7 @@ class Phase4CallSlmsMixin:
                 try:
                     ctx.confidence = self.calibration.apply_calibration(ctx.confidence, ctx.primary_domain)
                     if os.environ.get('SCP_DEBUG_CONF'):
-                        import sys as _sys
-                        print(f'  [DBG] After calibration: {ctx.confidence} (factor applied)', file=_sys.stderr)
+                        logger.debug(f'  [DBG] After calibration: {ctx.confidence} (factor applied)')
                 except Exception as e:
                     logger.debug(f"Calibration apply error: {e}")
             
@@ -576,8 +575,7 @@ class Phase4CallSlmsMixin:
                             # V48: if adversary final_confidence is HIGHER → boost; if LOWER → keep SLM
                             # Don't reduce confidence just because adversary couldn't run
                             if os.environ.get('SCP_DEBUG_CONF'):
-                                import sys as _sys
-                                print(f'  [DBG] Adversary no_values, final_conf={ctx.adv.final_confidence}', file=_sys.stderr)
+                                logger.debug(f'  [DBG] Adversary no_values, final_conf={ctx.adv.final_confidence}')
                             #  Only update confidence if adversary is MORE confident (cross-checked)
                             # Otherwise preserve SLM confidence
                             if ctx.adv.final_confidence > ctx.confidence:
