@@ -64,6 +64,7 @@ class JudgeUtilMixin:
                         val *= 1_000
                     return str(int(val)) if val == int(val) else str(val)
                 except Exception:
+                    # silent-by-design: number-word parse probe — original token is returned unparsed
                     return m.group(1)
 
         # Nutritional value — extract "calories=X"

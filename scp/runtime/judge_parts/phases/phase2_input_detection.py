@@ -231,6 +231,7 @@ class Phase2InputDetectionMixin:
                                     self.error_store_index.search_similar(ctx.question, top_k=3)
                                 )
                         except Exception:
+                            # silent-by-design: best-effort similar-errors probe — None disables the v104 evidence block below
                             ctx._similar = None
                     if ctx._similar:
                         ctx._pre_verdict_evidence["v104_similar_errors"] = [

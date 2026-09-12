@@ -337,6 +337,7 @@ class Phase9ClaimExtractionMixin:
                             except Exception as _re:
                                 logger.debug(f"[V5.8-OPT] record_outcome failed for SLM source={ctx._src!r}: {_re}")
                     except Exception:  # noqa: S112
+                        # silent-by-design: bad SLM response must not break reputation bookkeeping (defensive skip below)
                         continue  # defensive — bad SLM response shouldn't break reputation
             
                 # Also record reality_check source if present (v13.db, REST Countries, etc.)
@@ -379,6 +380,7 @@ class Phase9ClaimExtractionMixin:
                     ctx.verdict.ctx.verdict = "UNKNOWN"
                     ctx.verdict.ctx.reasoning += ". META: DEFER_HUMAN"
             except Exception as _meta_err:
+                # silent-by-design: failure is already logged via getLogger('scp.judge').debug in the handler body
                 import logging as _logging
                 _logging.getLogger("scp.judge").debug(f"SCPMeta review failed: {_meta_err}")
             

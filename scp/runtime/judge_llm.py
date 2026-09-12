@@ -70,6 +70,7 @@ def _llm_judge(question: str, ai_answer: str, context: str = "") -> bool | None:
             return False
         return None
     except Exception as e:
+        # silent-by-design: error is printed and None returned — caller treats None as 'no verdict'
         print(f"LLM Judge error: {e}")
         return None
 

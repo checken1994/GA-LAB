@@ -221,6 +221,7 @@ class Phase7BuildVerdictMixin:
                 try:
                     ctx._slm_count = len(ctx.valid_responses)
                 except NameError:
+                    # silent-by-design: documented default — missing responses list logs a null slm_count
                     ctx._slm_count = None
                 ctx.tracker.log(
                     question=ctx.question,
@@ -376,6 +377,7 @@ class Phase7BuildVerdictMixin:
                                     )
                                 except Exception:
                                     # Row already exists → UPDATE times_verified + value
+                                    # silent-by-design: documented upsert — INSERT failure means the row exists; the UPDATE path follows
                                     db_exec(
                                         "UPDATE knowledge SET value = ?, confidence = ?, source = ?, timestamp = ?, "
                                         "times_verified = times_verified + 1 "

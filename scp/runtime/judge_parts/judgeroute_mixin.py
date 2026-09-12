@@ -330,6 +330,7 @@ class JudgeRouteMixin:
             try:
                 frame, conf = self.v13.classifier.classify(question)
             except Exception:
+                # silent-by-design: documented default — classifier crash maps to the 'unknown' frame
                 frame, _ = "unknown", 0.0  # [FALSE-POS-FIX] F841: _ prefix marks intentionally-unused tuple element
             if frame != "unknown" and frame in self.slms:
                 domains.append(frame)

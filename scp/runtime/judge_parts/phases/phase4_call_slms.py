@@ -105,6 +105,7 @@ class Phase4CallSlmsMixin:
                             ctx.result = ctx.future.ctx.result(timeout=15)
                             ctx.slm_responses.append(ctx.result)
                         except Exception as e:
+                            # silent-by-design: per-SLM error recorded in the response list with confidence 0 — aggregation continues
                             ctx.domain = ctx.future_to_domain[ctx.future]
                             ctx.slm_responses.append({
                                 "domain": ctx.domain,
@@ -133,10 +134,12 @@ class Phase4CallSlmsMixin:
                             ctx._llm_pool.shutdown(wait=False)
                         except RuntimeError:
                             # [FIX-CRIT-27 BUG 2] was AFTER except Exception (unreachable — RuntimeError is subclass of Exception). Reorder: specific first.
+                            # silent-by-design: documented fallback (FIX-CRIT-27) — loop-bound RuntimeError is retried inline
                             ctx.llm_answer, ctx.llm_model = _a.run(
                                 self.llm_client.chat(ctx.question, context=ctx.llm_context, task="judge")
                             )
                         except Exception as e:
+                            # silent-by-design: LLM failure is carried in llm_model='llm_error: ...' — empty answer is treated as unavailable downstream
                             ctx.llm_answer, ctx.llm_model = "", f"llm_error: {e}"
             
                         if ctx.llm_answer and "không khả dụng" not in ctx.llm_answer:
@@ -650,6 +653,7 @@ class Phase4CallSlmsMixin:
                                         ctx.best_diff = ctx.diff
                                         ctx.best_slm_val = ctx.sv
                                 except ValueError:
+                                    # silent-by-design: non-numeric SLM answer is skipped in the numeric aggregation
                                     continue
                             if ctx.best_slm_val is None:
                                 ctx.best_slm_val = float(ctx.slm_nums[0])
@@ -953,6 +957,7 @@ class Phase4CallSlmsMixin:
                                         ctx.matched_slm = ctx._candidate
                                         break
                     except (ValueError, TypeError, ArithmeticError):
+                        # silent-by-design: documented default — no decimal match means no SLM match
                         ctx.matched_slm = None
             
                 if ctx.matched_slm:

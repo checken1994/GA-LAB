@@ -39,6 +39,7 @@ def _run_crosscheck_sync(question: str, ai_answer: str, context: str) -> dict[st
     try:
         asyncio.get_running_loop()
     except RuntimeError:
+        # silent-by-design: documented nested-loop fallback — no running loop, so one is created for the crosscheck
         return asyncio.run(cross_verify(question, ai_answer, context))
 
     box: dict[str, Any] = {}
@@ -88,8 +89,10 @@ class RealityJudge:
                                     instance = obj()
                                     self._experts[instance.domain] = instance
                                 except Exception:
+                                    # silent-by-design: best-effort expert discovery — a broken expert module is skipped, the rest still load
                                     pass
                     except Exception:
+                        # silent-by-design: same best-effort expert discovery contract as above
                         pass
         return self._experts
     @property
@@ -143,6 +146,7 @@ class RealityJudge:
                         context += f"\n[SYSTEM EXPERT DATA] For {domain}: {resp.answer}"
                         slm_responses_list.append(resp.__dict__)
             except Exception as e:
+                # silent-by-design: failure is already logged via getLogger('scp.judge').debug in the handler body
                 import logging
                 logging.getLogger("scp.judge").debug(f"Expert injection failed: {e}")
 
@@ -243,6 +247,7 @@ class RealityJudge:
                         context += f"\n[SYSTEM EXPERT DATA] For {domain}: {resp.answer}"
                         slm_responses_list.append(resp.__dict__)
             except Exception as e:
+                # silent-by-design: failure is already logged via getLogger('scp.judge').debug in the handler body
                 import logging
                 logging.getLogger("scp.judge").debug(f"Expert injection failed: {e}")
 
@@ -255,6 +260,7 @@ class RealityJudge:
                     if cross["consensus"] == "disagree":
                         failures.append("multi_llm_disagreement")
                 except Exception as _cc_err:
+                    # silent-by-design: documented failover — crosscheck crash falls back to the single-vendor LLM judge below
                     semantic = await _llm_judge_async(question, ai_answer, context)
             else:
                 semantic = await _llm_judge_async(question, ai_answer, context)
