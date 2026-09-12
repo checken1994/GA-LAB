@@ -41,6 +41,7 @@ try:
         Severity.CRITICAL: 5,
     }
 except ImportError:  # pragma: no cover — fallback if severity.py unreachable
+    # silent-by-design: documented fallback — built-in severity map replaces the optional severity module
     _SEVERITY_ORDER_RESOLVED = {
         "info": 0, "low": 1, "medium": 2,
         "warning": 3, "high": 4, "critical": 5,

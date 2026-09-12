@@ -121,6 +121,7 @@ def check_timeout(timer: PhaseTimer, phase_name: str = "", budget: float = _DEFA
         try:
             elapsed = float(timer)  # type: ignore[arg-type]
         except (TypeError, ValueError):
+            # silent-by-design: legacy-compat guard — non-numeric timer can't be budget-checked; the strict PhaseBudget path above still raises QueryTimeoutError.
             return
         if elapsed > budget:
             raise QueryTimeoutError(f"Query exceeded {budget}s budget")

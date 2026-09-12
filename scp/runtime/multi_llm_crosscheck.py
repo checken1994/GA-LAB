@@ -101,6 +101,7 @@ async def cross_verify(
                 "verdict": verdict,
             }
         except Exception as exc:
+            # silent-by-design: per-attempt error recorded in the attempt record ('provider': error:<Exc>) returned to the caller
             attempt = {
                 "family": family,
                 "provider": f"error:{type(exc).__name__}",
