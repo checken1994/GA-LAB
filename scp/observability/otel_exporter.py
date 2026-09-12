@@ -22,7 +22,7 @@ try:
     from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
     _OTEL_AVAILABLE = True
 except ImportError:
-    pass
+    logger.debug('<module>: ImportError ignored', exc_info=True)
 
 _tracer_provider: Any = None
 _meter_provider: Any = None
@@ -54,6 +54,7 @@ def init_otel(service_name: str = "scp") -> bool:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
             exporter = OTLPSpanExporter(endpoint=endpoint)
         except ImportError:
+            logger.debug('init_otel: ImportError ignored', exc_info=True)
             exporter = ConsoleSpanExporter()
     else:
         exporter = ConsoleSpanExporter()
@@ -67,6 +68,7 @@ def init_otel(service_name: str = "scp") -> bool:
             from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
             metric_exporter = OTLPMetricExporter(endpoint=endpoint)
         except ImportError:
+            logger.debug('init_otel: ImportError ignored', exc_info=True)
             metric_exporter = ConsoleMetricExporter()
     else:
         metric_exporter = ConsoleMetricExporter()
