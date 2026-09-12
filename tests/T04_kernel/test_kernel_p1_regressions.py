@@ -295,13 +295,21 @@ def test_bridge_heartbeat_keeps_lease_alive_across_slow_dispatch(tmp_path):
         # Force lease expiry well below the dispatch duration: without the
         # heartbeat loop the lease dies mid-flight and a VERIFIED result can
         # no longer be committed (fail-closed UNKNOWN instead).
-        bridge.lease_ttl_seconds = 1.0
+        #
+        # [S16 FIX 2026-09-13] CI timing, test parameter only (no product
+        # change): with ttl=1.0s the heartbeat interval is ttl/3 = 0.333s and
+        # ANY single event-loop scheduling gap over ~1.0s (sqlite writes +
+        # loaded CI runners) expires the lease mid-flight -> StaleLease,
+        # observed on the windows CI job. ttl=3.0s gives a 1.0s heartbeat
+        # interval and 3x headroom; the dispatch stays > 2 full lease TTLs so
+        # the "must be heartbeated" assertions below keep their force.
+        bridge.lease_ttl_seconds = 3.0
 
         executor = bridge.executor
         real_execute = executor.execute
 
         async def slow_execute(action, params, capability_level, approved, dry_run, capability_token=None, **kwargs):
-            await asyncio.sleep(2.4)  # > 2 full lease TTLs
+            await asyncio.sleep(7.0)  # > 2 full lease TTLs (2 x 3.0s)
             return await real_execute(action, params, capability_level, approved, dry_run, capability_token=capability_token, **kwargs)
 
         executor.execute = slow_execute
