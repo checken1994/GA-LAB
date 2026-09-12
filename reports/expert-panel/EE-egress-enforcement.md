@@ -134,3 +134,67 @@ Evidence files: `reports/circuit-closures/M13-evidence/EE-egress-container-rever
 fail-closed trên mọi fetch path đi qua 3 fetcher chuẩn SCP, kèm gate tĩnh chặn
 call-site bypass mới; M13 G1 đã đảo ngược bằng container runtime proof."
 KHÔNG mở rộng thành "hệ thống egress hoàn chỉnh/production-ready" (EE-G1→G5).
+
+## V-EE verification + S13 remediation (2026-09-12)
+
+Agent V-EE verify lại bằng chứng EE trên runtime và phát hiện **2 residual
+Session-bypass** — call-site `requests.Session` không đọc `SCP_EGRESS_MODE`,
+ngoài pattern của static gate (đúng như EE-G1 đã dự báo). Agent S13 vá theo
+task contract; skill binding đọc đầu session:
+
+| Skill | SHA256 |
+|---|---|
+| `.agents/skills/scp-dna/SKILL.md` | `4aada0be4873598dc50c3a7f38d90151429bb5263c511a838ed1cdcb4d594d10` |
+| `.agents/skills/scp-capability-security-review/SKILL.md` | `83f1633256756f8e4951471a11b9d45c1738d09f4db851df8ee91ee123a235ee` |
+
+### Findings V-EE → fix S13
+
+| ID | Finding | Fix (file:line tại commit S13) | Contract giữ nguyên |
+|---|---|---|---|
+| V-EE-1 | `scp/core/question_fetchers/_common.py::_http_get_json` — nhánh chính `_SESSION.get` chỉ qua `validate_url` (SSRF), KHÔNG đọc `SCP_EGRESS_MODE`; nhánh urllib fallback đã gate sẵn bên trong `safe_urlopen` | `enforce_egress_policy(url)` TRƯỚC `validate_url` (cùng thứ tự với `safe_urlopen`) — phủ CẢ 2 nhánh bằng 1 gate (`_common.py:108`, import `:17-20`; commit `91076a6`) | `EgressDeniedError` là ValueError subclass → rơi vào `except Exception → None` fail-closed có sẵn: contract docstring "Returns None on error" giữ nguyên; loopback không bị siết thêm (gate không chặn loopback; SSRF layer vẫn chặn như cũ) |
+| V-EE-2 | `scp/runtime/engine_parts/direct_api_verifier.py::_session_get` — raw `requests.Session().get` KHÔNG qua gate nào; wired vào /ask judge path (judgecore_mixin V13 UNKNOWN fallback, engine.py:132) | `enforce_egress_policy(url)` là statement đầu tiên — PEP ngay trước driver, fail-closed trước cả việc tạo session/import requests (`direct_api_verifier.py:73`, import `:38`; commit `38cf2fc`) | Mọi caller `_verify_*` bọc `except Exception → verdict UNKNOWN`; denial surface thành UNKNOWN graceful cho /ask — không đổi behavior nào khác |
+
+### Tests (section (i), commit `4ffd15b`)
+
+5 test mới trong `tests/T03_capability/test_egress_enforcement.py`, no-mock
+discipline (negative raise trước mọi I/O; positive dùng sentinel session ghi
+ nhận call, không chạm network):
+
+- deny chặn `_http_get_json` nhánh requests: `None` + **0 fetch attempt**
+  (contract None được pin đúng sau gate).
+- loopback vẫn mở ở egress layer dưới deny + pin layering: ValueError cho
+  loopback URL đến từ SSRF `validate_url`, KHÔNG từ gate egress mới.
+- unset mode: gate no-op, fetch đi tới Session (chống over-tightening).
+- `DirectAPIVerifier._session_get` raise `EgressDeniedError` (ValueError
+  contract) dưới deny; `verify()` đầy đủ vẫn UNKNOWN graceful (integration
+  nhẹ đường /ask judge); không tạo session dưới deny.
+- 4 host domain (restcountries/pubchem/coingecko/wikipedia) bị deny trước
+  I/O; loopback exception vẫn đúng.
+
+### Kết quả chạy thật (S13, working tree sau `4ffd15b`)
+
+- `tests/T03_capability/test_egress_enforcement.py`: **21 passed, 2 skipped**
+  (2 skips = container tests opt-in `SCP_EE_CONTAINER_TESTS=1`, declared).
+- Regression `tests/T03_capability` đầy đủ: **777 passed, 2 skipped, 0
+  failed** — fail không tăng (baseline 0F).
+- Targeted: `test_ssrf_sweep_s2.py` + `tests/T05_gateway`: **73 passed**.
+
+### Commits S13 (branch `audit/runtime-guard-AUDIT-20260909`)
+
+| Commit | Nội dung |
+|---|---|
+| `91076a6` | fix(egress): Session bypass V-EE-1 — `_http_get_json` đọc `SCP_EGRESS_MODE` |
+| `38cf2fc` | fix(egress): Session bypass V-EE-2 — `_session_get` sau egress gate |
+| `4ffd15b` | test(egress): pin closure V-EE-1/2 (section i) |
+| (docs commit) | ledger EE rows + section này |
+
+### Scope còn lại (trung thực)
+
+- Static gate EE-G1 vẫn CHƯA scan method-call trên biến Session — 2 bypass
+  vừa vá được phát hiện bằng review thủ công của V-EE, không phải bởi gate
+  tự động. Việc mở rộng AST scan cho `*.Session.get/post` vẫn là việc cần
+  làm nếu muốn latch tự động cho lớp call-site này.
+- Claim của S13: "2 residual Session-bypass được vá fail-closed, contract
+  caller giữ nguyên, suite T03 0F". KHÔNG claim "mọi call-site HTTP trong
+  scp/ đã qua gate" (EE-G1/G5 còn mở: Session scan tự động, subprocess curl,
+  raw socket, OS-level egress).
