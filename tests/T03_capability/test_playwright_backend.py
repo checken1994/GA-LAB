@@ -169,7 +169,13 @@ def test_opt_on_navigate_and_read_compat_shape(chromium_ready, local_site):
     assert result["method"] == "playwright-ephemeral"
 
 
-def test_backend_status_and_lifecycle_contract():
+def test_backend_status_and_lifecycle_contract(chromium_ready):
+    """Lifecycle contract needs the real playwright import (start() calls it).
+
+    ``chromium_ready`` is the declared infra-skip guard for this file: without
+    the optional playwright package the lifecycle cannot be proven, so the
+    test skips under the same allowlisted contract as the browse tests.
+    """
     backend = PlaywrightBackend()
     status = asyncio.run(backend.status())
     assert status["available"] is True
