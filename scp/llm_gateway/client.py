@@ -45,6 +45,7 @@ def _is_loopback_host(host: str) -> bool:
     try:
         return ipaddress.ip_address(normalized).is_loopback
     except ValueError:
+        logger.debug('_is_loopback_host: ValueError ignored', exc_info=True)
         return False
 
 
@@ -59,6 +60,7 @@ def _llm_egress_allowed(base_url: str) -> bool:
     try:
         parsed = urlparse(base_url)
     except Exception:
+        logger.warning('_llm_egress_allowed: Exception not handled', exc_info=True)
         return False
     host = (parsed.hostname or "").strip().rstrip(".").lower()
     if not host:
@@ -698,6 +700,7 @@ class LLMGateway:
                 asyncio.get_running_loop()
                 _in_async = True
             except RuntimeError:
+                logger.debug('LLMGateway.chat_sync: RuntimeError ignored', exc_info=True)
                 _in_async = False
 
             if _in_async:
@@ -778,7 +781,7 @@ def get_gateway() -> LLMGateway:
                     from scp.llm_gateway.free_catalog import start_background_refresh
                     start_background_refresh()
                 except Exception:
-                    pass
+                    logger.warning('get_gateway: Exception not handled', exc_info=True)
     return _gateway
 
 

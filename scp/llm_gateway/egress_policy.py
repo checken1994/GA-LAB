@@ -14,6 +14,10 @@ from __future__ import annotations
 import os
 from urllib.parse import urlparse
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 _DENY_MODES = {"deny", "offline", "disabled"}
 _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
@@ -22,6 +26,7 @@ def _hostname(base_url: str) -> tuple[str, str]:
     try:
         parsed = urlparse(base_url)
     except Exception:
+        logger.warning('_hostname: Exception not handled', exc_info=True)
         return "", ""
     return (parsed.scheme or "").lower(), (parsed.hostname or "").lower().rstrip(".")
 

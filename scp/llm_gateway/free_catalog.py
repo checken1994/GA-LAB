@@ -52,6 +52,7 @@ def _fetch_catalog_models(timeout: float = FREE_CATALOG_TIMEOUT_SEC) -> list | N
             data = resp.json().get("data", [])
             return data if isinstance(data, list) else None
     except Exception:
+        logger.warning('_fetch_catalog_models: Exception not handled', exc_info=True)
         return None
 
 
@@ -67,6 +68,7 @@ def _fetch_free_models(timeout: float = FREE_CATALOG_TIMEOUT_SEC) -> list | None
             if float(pricing.get("prompt")) == 0 and float(pricing.get("completion")) == 0:
                 out.append(model)
         except (TypeError, ValueError):
+            logger.debug('_fetch_free_models: TypeError, ValueError ignored', exc_info=True)
             continue
     return out
 
@@ -139,6 +141,7 @@ def _persist_pricing_proofs(catalog: list) -> bool:
                 )
             except (TypeError, ValueError):
                 # Malformed pricing is fail-closed: store a paid sentinel proof.
+                logger.debug('_persist_pricing_proofs: TypeError, ValueError ignored', exc_info=True)
                 proofs.record(
                     provider="openrouter",
                     model=str(model["id"]),
@@ -187,6 +190,7 @@ def refresh_free_catalog(force: bool = False) -> bool:
             if float(pricing.get("prompt")) == 0 and float(pricing.get("completion")) == 0:
                 free_models.append(model)
         except (TypeError, ValueError):
+            logger.debug('refresh_free_catalog: TypeError, ValueError ignored', exc_info=True)
             continue
     if not free_models:
         logger.warning("[free_catalog] fresh catalog contains no text-capable exact-$0 models")

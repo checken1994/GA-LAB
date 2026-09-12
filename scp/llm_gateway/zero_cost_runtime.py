@@ -23,6 +23,10 @@ from scp.llm_gateway.zero_cost_guard import (
     ZeroCostRequest,
 )
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 _ROOT = Path(__file__).resolve().parents[2]
 _lock = threading.Lock()
 _store: PricingProofStore | None = None
@@ -112,7 +116,7 @@ def authorize_outbound(
 
             refresh_free_catalog(force=True)
         except Exception:
-            pass
+            logger.warning('authorize_outbound: Exception not handled', exc_info=True)
         proof = guard.authorize(request)
         return request, proof
 
@@ -203,6 +207,7 @@ def install_free_only_provider_router(provider_cls: type) -> bool:
                 )
                 eligible.append(model)
             except ZeroCostDenied as exc:
+                logger.debug('install_free_only_provider_router.free_only_chat: ZeroCostDenied ignored: %s', exc)
                 if exc.decision in {
                     ZeroCostDecision.DENY_UNKNOWN_PRICE,
                     ZeroCostDecision.DENY_STALE_PRICE,
