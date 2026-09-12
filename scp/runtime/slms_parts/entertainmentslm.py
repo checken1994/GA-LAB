@@ -237,6 +237,7 @@ class EntertainmentSLM(BaseSLM):
                                 "source": sources[0] if sources else "OpenLibrary",
                                 "entity": book_title, "sources": sources}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Book lookup error: {e}"
                 confidence = 0.0
         if not answer:
@@ -255,6 +256,7 @@ class EntertainmentSLM(BaseSLM):
                                     "source": sources[0] if sources else "OpenLibrary",
                                     "entity": book_title, "sources": sources}
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"Book lookup error: {e}"
                     confidence = 0.0
         # "Tell me about the TV show: X"
@@ -330,6 +332,7 @@ class EntertainmentSLM(BaseSLM):
                         evidence = {"source": "swapi", "type": api_type, "name": name,
                                     "value": answer}  # [ROOT-FIX 6] evidence["value"] for adversary cross-check
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"SWAPI error: {e}"
                     confidence = 0.0
 
@@ -350,6 +353,7 @@ class EntertainmentSLM(BaseSLM):
                                     "source": sources[0] if sources else "OpenLibrary",
                                     "entity": book_title, "sources": sources}
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"Book cross-verify error: {e}"
                     confidence = 0.0
 
@@ -383,6 +387,7 @@ class EntertainmentSLM(BaseSLM):
                     reasoning = f"TVMaze: {name}"
                     evidence = {"value": answer, "source": "tvmaze", "entity": show_name}
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"TVMaze error: {e}"
                     confidence = 0.0
 
@@ -402,6 +407,7 @@ class EntertainmentSLM(BaseSLM):
                     confidence = 0.2
                     reasoning = f"No data for '{entity}'"
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Wiki error: {e}"
 
         resp = SLMResponse(

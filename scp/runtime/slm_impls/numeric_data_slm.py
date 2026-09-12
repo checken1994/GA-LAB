@@ -40,6 +40,7 @@ class FinanceSLM(BaseSLM):
                 self._end_timer(start, True)
                 return cached
         except Exception:
+            # silent-by-design: cache lookup probe — None means recompute below (documented default)
             cached = None
 
         # [V29 FIX] Use direct API calls instead of deprecated extractor

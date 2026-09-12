@@ -327,6 +327,7 @@ class BiologySLM(BaseSLM):
                         reasoning = f"PokeAPI: {pokemon_name} is {', '.join(types)}"
                         evidence = {"source": "pokeapi", "pokemon": pokemon_name, "types": types, "value": ", ".join(types)}  # [V104.42 #BD] TẠI SAO: was missing value → adversary skip
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"PokeAPI error: {e}"
                     confidence = 0.0
 
@@ -354,6 +355,7 @@ class BiologySLM(BaseSLM):
                     reasoning = f"Fruityvice: {data.get('name', fruit)}"
                     evidence = {"source": "fruityvice", "fruit": fruit, "value": answer[:200]}  # [V104.42 #BD] TẠI SAO: was missing value → adversary skip
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"Fruityvice error: {e}"
                     confidence = 0.0
 

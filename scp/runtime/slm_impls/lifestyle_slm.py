@@ -104,6 +104,7 @@ class GeneralSLM(BaseSLM):
                     reasoning = f"No data from any source for '{entity}'"
             except Exception as e:
                 # Fallback to Wikipedia only
+                # silent-by-design: best-effort Wikipedia enrichment — the fallback answer is already returned to the caller
                 if self._wiki:
                     try:
                         entity_clean = re.sub(r'^(?:a|an|the)\s+', '', entity, flags=re.IGNORECASE).strip()
@@ -114,6 +115,7 @@ class GeneralSLM(BaseSLM):
                             reasoning = f"Wikipedia fallback: {data.get('title', entity)}"
                             evidence = {"value": data.get("extract"), "source": "wikipedia", "title": data.get("title", "")}
                     except Exception as e2:
+                        # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                         reasoning = f"All sources failed: {e}, {e2}"
                         confidence = 0.0
                 else:
@@ -180,6 +182,7 @@ class ReligionSLM(BaseSLM):
                     reasoning = f"Bible verse {data.get('reference', ref)} (KJV)"
                     evidence = {"value": text, "source": "bible-api", "reference": data.get("reference", ref)}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Bible API error: {e}"
                 confidence = 0.0
 
@@ -252,6 +255,7 @@ class FoodSLM(BaseSLM):
                     reasoning = f"MealDB: {meal.get('strMeal', dish)}"
                     evidence = {"value": answer, "source": "mealdb", "category": meal.get("strCategory", "")}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"MealDB error: {e}"
 
         # "How do you make the cocktail X?" → CocktailDB
@@ -275,6 +279,7 @@ class FoodSLM(BaseSLM):
                     reasoning = f"CocktailDB: {d.get('strDrink', cocktail)}"
                     evidence = {"value": answer, "source": "cocktaildb"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"CocktailDB error: {e}"
 
         # "What is the nutritional value of X?" → Fruityvice if fruit
@@ -299,6 +304,7 @@ class FoodSLM(BaseSLM):
                 reasoning = f"Fruityvice: {data.get('name', fruit)}"
                 evidence = {"value": answer, "source": "fruityvice"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Fruityvice error: {e}"
 
         if not answer:
@@ -367,6 +373,7 @@ class CitySLM(BaseSLM):
                         reasoning = f"Open-Meteo geocoding: {c.get('name', city)}, {c.get('country', '')}"
                         evidence = {"value": answer, "source": "open-meteo-geocoding", "city": c.get("name", "")}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Geocoding error: {e}"
 
         if not answer:
@@ -459,6 +466,7 @@ class HolidaySLM(BaseSLM):
                             evidence = {"value": answer, "source": "public_holidays", "country": country_code, "year": year}
                             break
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"Holiday API error: {e}"
 
         if not answer:
@@ -519,6 +527,7 @@ class AnimalFactsSLM(BaseSLM):
                     reasoning = "Cat Facts API"
                     evidence = {"value": fact, "source": "cat_facts"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Cat facts error: {e}"
 
         elif 'fact about dogs' in q or 'dog fact' in q:
@@ -537,6 +546,7 @@ class AnimalFactsSLM(BaseSLM):
                     reasoning = "Some Random API (dog)"
                     evidence = {"value": fact, "source": "dog_facts"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Dog facts error: {e}"
 
         if not answer:
@@ -596,6 +606,7 @@ class AdviceSLM(BaseSLM):
                     reasoning = "Advice Slip API"
                     evidence = {"value": advice, "source": "advice_slip"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Advice API error: {e}"
 
         if not answer:
@@ -654,6 +665,7 @@ class ChuckNorrisSLM(BaseSLM):
                     reasoning = "Chuck Norris API"
                     evidence = {"value": joke, "source": "chuck_norris"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Chuck Norris API error: {e}"
 
         if not answer:

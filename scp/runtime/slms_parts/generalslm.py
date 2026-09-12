@@ -234,6 +234,7 @@ class GeneralSLM(BaseSLM):
                     reasoning = f"No data from any source for '{entity}'"
             except Exception as e:
                 # Fallback to Wikipedia only
+                # silent-by-design: best-effort Wikipedia enrichment — the fallback answer is already returned to the caller
                 if self._wiki:
                     try:
                         entity_clean = re.sub(r'^(?:a|an|the)\s+', '', entity, flags=re.IGNORECASE).strip()
@@ -244,6 +245,7 @@ class GeneralSLM(BaseSLM):
                             reasoning = f"Wikipedia fallback: {data.get('title', entity)}"
                             evidence = {"value": data.get("extract"), "source": "wikipedia", "title": data.get("title", "")}
                     except Exception as e2:
+                        # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                         reasoning = f"All sources failed: {e}, {e2}"
                         confidence = 0.0
                 else:

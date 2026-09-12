@@ -116,6 +116,7 @@ class BaseSLM(ABC):
             normalized = normalize_question(question)
             return hashlib.sha256(normalized.encode()).hexdigest()
         except ImportError:
+            # silent-by-design: optional normalizer missing — plain-text hash fallback is the documented contract
             return hashlib.sha256(question.encode()).hexdigest()
 
     def _keyword_match(self, question: str, keywords) -> bool:
@@ -128,6 +129,7 @@ class BaseSLM(ABC):
             return keyword_match(question, keywords)
         except ImportError:
             # Fallback: original substring match
+            # silent-by-design: optional normalizer missing — substring fallback is documented in the handler
             q_lower = question.lower()
             return any(kw.lower() in q_lower for kw in keywords if kw)
 

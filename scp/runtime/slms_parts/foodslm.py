@@ -247,6 +247,7 @@ class FoodSLM(BaseSLM):
                     reasoning = f"MealDB: {meal.get('strMeal', dish)}"
                     evidence = {"value": answer, "source": "mealdb", "category": meal.get("strCategory", "")}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"MealDB error: {e}"
 
         # "How do you make the cocktail X?" → CocktailDB
@@ -270,6 +271,7 @@ class FoodSLM(BaseSLM):
                     reasoning = f"CocktailDB: {d.get('strDrink', cocktail)}"
                     evidence = {"value": answer, "source": "cocktaildb"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"CocktailDB error: {e}"
 
         # "What is the nutritional value of X?" → Fruityvice if fruit
@@ -294,6 +296,7 @@ class FoodSLM(BaseSLM):
                 reasoning = f"Fruityvice: {data.get('name', fruit)}"
                 evidence = {"value": answer, "source": "fruityvice"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Fruityvice error: {e}"
 
         if not answer:

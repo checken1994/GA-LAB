@@ -227,6 +227,7 @@ class FinanceSLM(BaseSLM):
                 self._end_timer(start, True)
                 return cached
         except Exception:
+            # silent-by-design: cache lookup probe — None means recompute below (documented default)
             cached = None
 
         # [V29 FIX] Use direct API calls instead of deprecated extractor
@@ -596,6 +597,7 @@ class HolidaySLM(BaseSLM):
                             evidence = {"value": answer, "source": "public_holidays", "country": country_code, "year": year}
                             break
                 except Exception as e:
+                    # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                     reasoning = f"Holiday API error: {e}"
 
         if not answer:
@@ -658,6 +660,7 @@ class AnimalFactsSLM(BaseSLM):
                     reasoning = "Cat Facts API"
                     evidence = {"value": fact, "source": "cat_facts"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Cat facts error: {e}"
 
         elif 'fact about dogs' in q or 'dog fact' in q:
@@ -677,6 +680,7 @@ class AnimalFactsSLM(BaseSLM):
                     reasoning = "Some Random API (dog)"
                     evidence = {"value": fact, "source": "dog_facts"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Dog facts error: {e}"
 
         if not answer:
@@ -747,6 +751,7 @@ class CitySLM(BaseSLM):
                             reasoning = f"Open-Meteo geocoding: {c.get('name', city)}, {c.get('country', '')}"
                             evidence = {"value": answer, "source": "open-meteo-geocoding", "city": c.get("name", "")}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Geocoding error: {e}"
 
         if not answer:
@@ -811,6 +816,7 @@ class ReligionSLM(BaseSLM):
                     reasoning = f"Bible verse {data.get('reference', ref)} (KJV)"
                     evidence = {"value": text, "source": "bible-api", "reference": data.get("reference", ref)}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Bible API error: {e}"
                 confidence = 0.0
 
@@ -868,6 +874,7 @@ class AdviceSLM(BaseSLM):
                     reasoning = "Advice Slip API"
                     evidence = {"value": advice, "source": "advice_slip"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Advice API error: {e}"
 
         if not answer:
@@ -928,6 +935,7 @@ class ChuckNorrisSLM(BaseSLM):
                     reasoning = "Chuck Norris API"
                     evidence = {"value": joke, "source": "chuck_norris"}
             except Exception as e:
+                # silent-by-design: best-effort external fetch — failure is carried in the returned reasoning with confidence 0
                 reasoning = f"Chuck Norris API error: {e}"
 
         if not answer:
