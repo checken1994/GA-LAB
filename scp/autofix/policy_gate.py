@@ -431,8 +431,7 @@ class ImmutableAuditLog:
                 return entry_hash
         except OSError as e:
             # Disk full / permission denied — scream to stderr (DNA #11).
-            # silent-by-design: failure is screamed to stderr and the append
-            # returns None to the caller (fail-open decided upstream).
+            # silent-by-design: failure is screamed to stderr; append returns None to the caller (fail-open decided upstream).
             sys.stderr.write(
                 f"[IMP-24] AUDIT LOG UNWRITABLE: {e}\n"
                 f"[IMP-24] Entry dropped: {entry}\n"
