@@ -41,6 +41,9 @@ from scp.core.real_learning_engine import RealLearningEngine
 from scp.api.route_profile import resolve_api_profile, route_group_enabled
 from pydantic import BaseModel
 
+logger = logging.getLogger(__name__)
+
+
 
 def _extend_ask_response_degradation_fields() -> None:
     """[AUDIT-20260909 MACH2-BUG2] Declare degradation-observability fields on
@@ -139,6 +142,7 @@ async def _ask_impl(req: AskRequest, request: Request):
         try:
             _host = (_up.urlsplit(str(u or "")).hostname or "").lower()
         except Exception:
+            logger.warning('_ask_impl._is_local_media_url: Exception not handled', exc_info=True)
             return False
         return _host in {"localhost", "127.0.0.1", "::1", "[::1]"}
 
@@ -236,7 +240,7 @@ async def _ask_impl(req: AskRequest, request: Request):
                         if _env_timeout > 0 and _env_timeout != float('inf'):
                             _transcribe_timeout = _env_timeout
                     except (TypeError, ValueError):
-                        pass
+                        logger.debug('_ask_impl: TypeError, ValueError ignored', exc_info=True)
                     try:
                         _voice_transcription = await asyncio.wait_for(asyncio.to_thread(_vh.transcribe, _voice_bytes), timeout=_transcribe_timeout)
                     except asyncio.TimeoutError:
@@ -305,12 +309,14 @@ async def _ask_impl(req: AskRequest, request: Request):
                 try:
                     _candidates = _registry.get_sources_for_intent('fact_check') or []
                 except Exception:
+                    logger.warning('_ask_impl: Exception not handled', exc_info=True)
                     _candidates = list(getattr(_registry, '_sources', {}).values())
                 for _src in _candidates:
                     try:
                         if _src.can_handle('fact_check'):
                             _fc_sources.append(_src)
                     except Exception:
+                        logger.warning('_ask_impl: Exception not handled', exc_info=True)
                         continue
             except Exception as _reg_err:
                 logger.debug(f'[OPT-22] registry lookup failed: {_reg_err}')
@@ -327,6 +333,7 @@ async def _ask_impl(req: AskRequest, request: Request):
                     elif _verdict == 'TRUE':
                         _extra_verified += 1
                 except Exception:
+                    logger.warning('_ask_impl: Exception not handled', exc_info=True)
                     continue
             if _extra_verified or _extra_contradicted:
                 fact_result['verified'] = fact_result.get('verified', 0) + _extra_verified
