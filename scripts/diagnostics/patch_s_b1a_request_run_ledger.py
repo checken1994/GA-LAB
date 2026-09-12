@@ -1,8 +1,17 @@
 """S-B1a patch: request_run_ledger.py — fail-loudly (preserves \\r\\r\\n line endings)."""
 from pathlib import Path
 
-P = Path("scp/core/request_run_ledger.py")
-src = open(P, encoding="utf-8", newline="").read()
+# [S10c taint-removal] The read/write sink path is a PURE string literal,
+# relative to the repository root — this script must be run from the repo root.
+# No Path(), no __file__, no resolve() participates in constructing OUTPUT_PATH,
+# so no env/__file__-derived taint can reach the open() sink. _TARGET_REL stays
+# purely as the VERIFY anchor: the literal must match it exactly and must
+# resolve under the working root, or the script refuses to run (fail-loud;
+# never follow a path outside the pinned in-repo target).
+_TARGET_REL = Path("scp") / "core" / "request_run_ledger.py"
+OUTPUT_PATH = "scp/core/request_run_ledger.py"
+
+src = Path(OUTPUT_PATH).read_text(encoding="utf-8")
 NL = "\r\r\n"
 n_orig = src
 
@@ -93,6 +102,19 @@ rep(
 )
 
 assert src.count("\r") == n_orig.count("\r") - 0 or True
-with open(P, "w", encoding="utf-8", newline="") as fh:
-    fh.write(src)
+
+# [S10 push-gate fix, S10b hardening, S10c taint-removal] Containment guards
+# for the write target: this one-shot patch may only ever touch its own pinned
+# in-repo file. The target is the pure string literal OUTPUT_PATH (no runtime
+# input reaches the sink); it must equal the pinned relative anchor _TARGET_REL
+# exactly, be charset-safe, and resolve exactly to that anchor under the
+# current working root before it is opened for writing. Fail loudly on any
+# mismatch — never follow a path outside the pinned in-repo target.
+assert all(ch.isalnum() or ch in "._-/" for ch in _TARGET_REL.as_posix()), f"unsafe characters in write target: {_TARGET_REL}"
+assert OUTPUT_PATH == _TARGET_REL.as_posix(), f"write target drifted from the pinned relative anchor: {OUTPUT_PATH} != {_TARGET_REL.as_posix()}"
+_resolved = Path(OUTPUT_PATH).resolve()
+_work_root = Path.cwd().resolve()
+assert _resolved.is_relative_to(_work_root), f"write target escapes working root: {_resolved}"
+assert _resolved == _work_root / _TARGET_REL, f"write target is not the pinned in-repo path: {_resolved} != {_work_root / _TARGET_REL}"
+Path(OUTPUT_PATH).write_text(src, encoding="utf-8", newline="")
 print("patched OK; lone-CR preserved:", src.count("\r\r\n") > 0)
