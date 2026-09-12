@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import inspect
+import logging
 import json
 import os
 import threading
@@ -24,9 +25,13 @@ from typing import Any, ParamSpec, TypeVar
 
 from .trace_contract import TraceSpanContract
 
+logger = logging.getLogger(__name__)
+
 try:
     from fastapi import HTTPException
-except Exception:  # pragma: no cover - keeps the module importable outside FastAPI
+except Exception as exc:  # pragma: no cover
+    # silent-by-design: FastAPI is an optional dependency; the module must stay importable without it.
+    logger.debug("fastapi unavailable; HTTPException disabled: %s", exc, exc_info=True)
     HTTPException = ()  # type: ignore[assignment]
 
 P = ParamSpec("P")
@@ -112,7 +117,8 @@ class RequestRunLedger:
                 handle.flush()
                 os.fsync(handle.fileno())
             return True
-        except (OSError, ValueError, TypeError):
+        except (OSError, ValueError, TypeError) as exc:
+            logger.warning("request_run_ledger: ledger append failed for %s: %s", self.path, exc, exc_info=True)
             return False
 
     def _event(self, run: RequestRun, event: str, status: str, **fields: Any) -> bool:
@@ -183,9 +189,9 @@ class RequestRunLedger:
             )
             span_status = "OK" if status in {"RUNNING", "RECEIVED", "AUDIT_READY", "SUCCESS"} else ("UNKNOWN" if status == "UNKNOWN" else "ERROR")
             self.trace_contract.finish(span, status=span_status, attributes={"terminal_status": status})
-        except (OSError, RuntimeError, TypeError, ValueError):
-            # The request ledger remains authoritative; tracing is observability only.
-            pass
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            # silent-by-design: the request ledger remains authoritative; tracing is observability only.
+            logger.debug("trace span finish failed (non-fatal): %s", exc, exc_info=True)
         return ok
 
     def finish(self, run: RequestRun, status: str, *, result: Any = None, error: BaseException | None = None, **fields: Any) -> tuple[str, bool]:
@@ -282,8 +288,9 @@ class RequestRunLedger:
                 result.headers["X-SCP-Trace-ID"] = run.trace_id
                 result.headers["X-SCP-Run-Status"] = status
                 result.headers["X-SCP-Ledger-Status"] = fields["ledger_status"]
-            except Exception:
-                pass
+            except Exception as exc:
+                # silent-by-design: header enrichment is best-effort; response identity stays in the ledger.
+                logger.debug("ledger response-header attach failed (non-fatal): %s", exc, exc_info=True)
             return result
         if isinstance(result, dict):
             out = dict(result)
@@ -332,8 +339,9 @@ def traced_request(ledger: RequestRunLedger, require_write: bool = False, action
                     attributes={"run_id": run.run_id, "source": run.source, "domain": run.domain, "action": action},
                     input_value=next((getattr(req, name, None) for name in ("question", "prompt", "message", "command", "content") if getattr(req, name, None) is not None), None),
                 )
-            except (OSError, TypeError, ValueError):
-                # Observability must not turn a normal API request into a failure.
+            except (OSError, TypeError, ValueError) as exc:
+                # silent-by-design: observability must not turn a normal API request into a failure.
+                logger.debug("root span start failed (non-fatal): %s", exc, exc_info=True)
                 root_span = None
             http_request = kwargs.get("request")
             if http_request is None and len(args) > 1:
@@ -342,16 +350,18 @@ def traced_request(ledger: RequestRunLedger, require_write: bool = False, action
                 if http_request is not None and hasattr(http_request, "state"):
                     http_request.state.scp_run = run
                     http_request.state.scp_request_ledger = ledger
-            except Exception:
-                pass
+            except Exception as exc:
+                # silent-by-design: state attach is observability only; request must proceed.
+                logger.debug("request.state ledger attach failed (non-fatal): %s", exc, exc_info=True)
             if require_write and not run.ledger_write_ok:
                 exc = HTTPException(status_code=503, detail="Audit ledger unavailable; high-risk action blocked")
                 ledger.finish(run, "DB_WRITE_FAILED", error=exc, action=str(action)[:100])
                 if root_span is not None:
                     try:
                         ledger.trace_contract.finish(root_span, status="ERROR", error=exc)
-                    except (OSError, RuntimeError, TypeError, ValueError):
-                        pass
+                    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                        # silent-by-design: tracing is observability only; the ledger stays authoritative.
+                        logger.debug("trace span finish failed (non-fatal): %s", exc, exc_info=True)
                 raise exc
             if require_write:
                 ledger.stage(run, "high_risk_guard", "AUDIT_READY", action=str(action)[:100])
@@ -366,8 +376,9 @@ def traced_request(ledger: RequestRunLedger, require_write: bool = False, action
                     try:
                         span_status = "OK" if status == "SUCCESS" else ("UNKNOWN" if status == "UNKNOWN" else "ERROR")
                         ledger.trace_contract.finish(root_span, status=span_status, output_value=result)
-                    except (OSError, RuntimeError, TypeError, ValueError):
-                        pass
+                    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                        # silent-by-design: tracing is observability only; the ledger stays authoritative.
+                        logger.debug("trace span finish failed (non-fatal): %s", exc, exc_info=True)
                 return ledger.attach(result, run, status, write_ok)
             except BaseException as exc:
                 status = ledger.classify_error(exc)
@@ -376,8 +387,9 @@ def traced_request(ledger: RequestRunLedger, require_write: bool = False, action
                 if root_span is not None:
                     try:
                         ledger.trace_contract.finish(root_span, status="ERROR", error=exc)
-                    except (OSError, RuntimeError, TypeError, ValueError):
-                        pass
+                    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                        # silent-by-design: tracing is observability only; the ledger stays authoritative.
+                        logger.debug("trace span finish failed (non-fatal): %s", exc, exc_info=True)
                 _ = terminal_status
                 _ = write_ok
                 raise
