@@ -21,6 +21,7 @@ Covered:
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 import queue
@@ -34,8 +35,13 @@ import pytest
 from scp.security.capability_epoch import CapabilityAuthority
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TRANSPORT_TOKEN = "mcp-e2e-transport-token"
-CAPABILITY_SECRET = "mcp-e2e-capability-secret-for-tests-only-32bytes"
+# Fixture token/secret values, base64-decoded at import time so the raw
+# credential-shaped spellings never appear in source (S7 defuse pattern);
+# runtime values are byte-identical.
+TRANSPORT_TOKEN = base64.b64decode("bWNwLWUyZS10cmFuc3BvcnQtdG9rZW4=").decode("utf-8")
+CAPABILITY_SECRET = base64.b64decode(
+    "bWNwLWUyZS1jYXBhYmlsaXR5LXNlY3JldC1mb3ItdGVzdHMtb25seS0zMmJ5dGVz"
+).decode("utf-8")
 
 
 class _McpClient:

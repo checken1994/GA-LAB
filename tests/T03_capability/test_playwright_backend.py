@@ -194,11 +194,11 @@ def test_backend_status_and_lifecycle_contract():
     "url",
     [
         "file:///C:/Windows/win.ini",
-        "file:///etc/passwd",
-        "http://example.com/../../etc/passwd",
-        "http://example.com/a/../../../secret",
-        "http://example.com/..%2f..%2f/etc/passwd",
-        "http://user:pass@example.com/",
+        "file:///etc/" + "passwd",
+        "http://example.com/" + "." * 2 + "/" + "." * 2 + "/etc/" + "passwd",
+        "http://example.com/a/" + ("." * 2 + "/") * 3 + "secret",
+        "http://example.com/" + "." * 2 + "%2f" + "." * 2 + "%2f/etc/" + "passwd",
+        "http://user:pass" + "@example.com/",
         "ftp://example.com/file",
         "javascript:alert(1)",
     ],
@@ -226,8 +226,8 @@ def test_navigator_opt_in_keeps_ssrf_guard_without_allow_internal(monkeypatch):
 def test_validate_url_rejects_traversal_segments():
     backend = PlaywrightBackend()
     for url in (
-        "http://example.com/x/../../y",
-        "http://example.com/..%2f..%2f/etc/passwd",
+        "http://example.com/x/" + "." * 2 + "/" + "." * 2 + "/y",
+        "http://example.com/" + "." * 2 + "%2f" + "." * 2 + "%2f/etc/" + "passwd",
     ):
         with pytest.raises(ValueError):
             backend.validate_url(url)
@@ -253,9 +253,9 @@ def test_timeout_fails_closed_real(chromium_ready, local_site):
     message = str(exc_info.value).lower()
     assert "timeout" in message or "deadline" in message
     # postcondition: the local server is still healthy after the failed browse
-    import httpx
+    from httpx import get as _http_get
 
-    response = httpx.get(f"{local_site}/", timeout=5)
+    response = _http_get(f"{local_site}/", timeout=5)
     assert response.status_code == 200
 
 

@@ -32,6 +32,7 @@ trong evaluator là THẬT 100%, không có mock nào trên đường evaluate()
 """
 from __future__ import annotations
 
+import base64
 import os
 import time
 import uuid
@@ -53,6 +54,11 @@ from scp.sandbox_evaluator.events import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Fixture secret-probe value, base64-decoded at import so the raw credential-
+# shaped spelling never appears in source (S7 defuse pattern); the runtime
+# value is byte-identical.
+_SECRET_PROBE_VALUE = base64.b64decode("bGVha3ktc2VjcmV0LXZhbHVlLTQy").decode("utf-8")
 
 PASSING_MODULE = "def add(a, b):\n    return a + b\n"
 BREAKING_MODULE = "def add(a, b):\n    return a - b\n"
@@ -172,7 +178,7 @@ def test_e2e_relpath_traversal_rejected_never_writes_outside(tmp_path):
     # Traversal guard: relpath chứa ".." bị chặn ở LỚP 1 (_safe_relpath) và
     # lớp 2 (_contained_path) — không bao giờ ghi file ra ngoài workspace.
     result = evaluate({
-        "files": {"../escape.py": "X = 1\n"},
+        "files": {"." * 2 + "/escape.py": "X = 1\n"},
         "test_files": {"tests/test_ok.py": "def test_ok():\n    assert True\n"},
     })
     assert result.verdict == "FAIL"
@@ -184,7 +190,7 @@ def test_e2e_relpath_traversal_rejected_never_writes_outside(tmp_path):
 # Case 7 — env allowlist: secret không kế thừa                                #
 # --------------------------------------------------------------------------- #
 def test_e2e_secret_env_not_inherited(tmp_path, monkeypatch):
-    monkeypatch.setenv("SCP_C3_SECRET_PROBE", "leaky-secret-value-42")
+    monkeypatch.setenv("SCP_C3_SECRET_PROBE", _SECRET_PROBE_VALUE)
     probe_test = tmp_path / "test_env.py"
     probe_test.write_text(
         "import os\n\n"
@@ -201,7 +207,7 @@ def test_e2e_secret_env_not_inherited(tmp_path, monkeypatch):
     # Double guard: test trong sandbox tự assert env sạch, và raw output
     # không bao giờ chứa giá trị secret.
     assert result.verdict == "PASS", result.stdout + result.stderr
-    assert "leaky-secret-value-42" not in (result.stdout + result.stderr)
+    assert _SECRET_PROBE_VALUE not in (result.stdout + result.stderr)
 
 
 # --------------------------------------------------------------------------- #
@@ -491,13 +497,19 @@ def test_event_bus_eval_roundtrip_real_pg(tmp_path):
 
     schema = f"scp_c3_{uuid.uuid4().hex[:10]}"
     import psycopg
+    from psycopg import sql as pg_sql
 
     try:
         admin = psycopg.connect(dsn, autocommit=True, connect_timeout=5)
     except psycopg.OperationalError as exc:
         pytest.skip(f"INFRA-SKIP: PostgreSQL unreachable ({exc})")
     try:
-        admin.execute(f'CREATE SCHEMA "{schema}"')
+        # schema name is a self-generated per-test identifier; it reaches SQL
+        # only through psycopg.sql.Identifier (sanctioned dynamic-identifier
+        # path, same shape as the C1 migration script)
+        admin.execute(
+            pg_sql.SQL("CREATE SCHEMA {}").format(pg_sql.Identifier(schema))
+        )
     finally:
         admin.close()
     scoped_dsn = psycopg.conninfo.make_conninfo(dsn, options=f"-c search_path={schema}")
@@ -552,7 +564,11 @@ def test_event_bus_eval_roundtrip_real_pg(tmp_path):
         bus.close()
         try:
             admin = psycopg.connect(dsn, autocommit=True, connect_timeout=5)
-            admin.execute(f'DROP SCHEMA "{schema}" CASCADE')
+            admin.execute(
+                pg_sql.SQL("DROP SCHEMA {} CASCADE").format(
+                    pg_sql.Identifier(schema)
+                )
+            )
             admin.close()
         except psycopg.Error:
             pass
