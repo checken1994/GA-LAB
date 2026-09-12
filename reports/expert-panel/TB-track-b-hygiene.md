@@ -93,3 +93,6 @@ Verdict: dead code, không caller thật → XÓA. Test T01 boot: 27 passed sau 
   medium GIẢM 20→15, đúng 5 finding insecure-temp-file đã fix; low 97 không đổi.
 - Phạm vi còn lại (không claim): các medium BY_DESIGN/FP theo `TB-triage-117.md`
   chưa được sửa theo thiết kế; pytest hang transient đầu tiên chưa root-cause (môi trường network).
+
+## FOLLOW-UP (orchestrator, V-TB finding)
+- B2 deletions (_lifespan.py, smart_classifier.py.tier3bak) missed staging in 4e935a7 — committed in follow-up commit after V-TB verification. Title "relocate canary fixture" was misnomer (kept at pinned path, header added).
