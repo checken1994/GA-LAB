@@ -107,6 +107,7 @@ class GeologyDataSource(IDataSource):
                 try:
                     dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
                 except Exception:
+                    logger.warning('GeologyDataSource._fetch_from_usgs: Exception not handled', exc_info=True)
                     dt = ''
                 parts = []
                 if mag is not None:

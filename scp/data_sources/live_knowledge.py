@@ -552,6 +552,7 @@ def fetch_live(query: str, domain: str = "",
                     metadata = json.loads(cached.get("metadata", "{}"))
                     sources_succeeded = json.loads(cached.get("sources_succeeded", "[]"))
                 except Exception:
+                    logger.warning('fetch_live: Exception not handled', exc_info=True)
                     metadata = {}
                     sources_succeeded = []
                 return {

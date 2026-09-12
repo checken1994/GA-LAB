@@ -218,6 +218,7 @@ class GeographyDataSource(IDataSource):
             with safe_urlopen(req, timeout=3) as response:
                 api_ok = getattr(response, "status", 200) == 200
         except Exception:
+            logger.warning('GeographyDataSource.health_check: Exception not handled', exc_info=True)
             api_ok = False
         healthy = api_ok or bool(self._local_data)
         self._cache[cache_key] = healthy

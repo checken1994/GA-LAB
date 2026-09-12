@@ -154,6 +154,7 @@ def classify_question(question: str, top_k: int = 3) -> list[tuple[str, float]]:
                 scores[domain] = scores.get(domain, 0) + 10.0
         except re.error:
             # If wrapped pattern fails, fall back to original
+            logger.debug('classify_question: re.error ignored', exc_info=True)
             if re.search(pattern, q_lower, re.IGNORECASE):
                 scores[domain] = scores.get(domain, 0) + 10.0
 

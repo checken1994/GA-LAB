@@ -152,6 +152,7 @@ class DataSourceRegistry:
             try:
                 results[name] = source.health_check()
             except Exception:
+                logger.warning('DataSourceRegistry.health_check_all: Exception not handled', exc_info=True)
                 results[name] = False
         return results
 

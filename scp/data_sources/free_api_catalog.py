@@ -190,6 +190,7 @@ class FreeAPICatalog:
         try:
             return json.loads(self.cache_path.read_text(encoding="utf-8"))
         except (TypeError, ValueError, OSError):
+            logger.debug('FreeAPICatalog._load_cache: TypeError, ValueError, OSError ignored', exc_info=True)
             return None
 
     def entries(self) -> list[dict[str, Any]]:

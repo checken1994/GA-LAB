@@ -125,6 +125,10 @@ from .tourism import TourismDataSource
 from .transport import TransportDataSource
 from .uxui import UXUIDataSource
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 def register_all_sources(registry: DataSourceRegistry = None) -> DataSourceRegistry:
     """
     Đăng ký tất cả 34 data sources (13 V44/V46 + 5 V5.8 + 16 fix17-19).
@@ -213,10 +217,7 @@ def register_all_sources(registry: DataSourceRegistry = None) -> DataSourceRegis
         try:
             registry.register(src)
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(
-                f"[INIT] Failed to register {src.name}: {e}"
-            )
+            logger.warning(f"[INIT] Failed to register {src.name}: {e}")
 
     return registry
 
