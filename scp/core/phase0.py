@@ -361,7 +361,9 @@ class EvidenceStore:
                 VALUES (?, ?, ?, ?, ?, ?, 'UNVERIFIED')
             """, (evidence_id, ts, evidence_type, source, raw_str, sha))
             return True
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as exc:
+            # silent-by-design: duplicate id is an expected idempotent no-op; False signals "not inserted".
+            logger.debug("phase0: insert skipped (integrity conflict): %s", exc, exc_info=True)
             return False
         except Exception as e:
             logger.warning(f"EvidenceStore.insert failed: {e}")
@@ -445,7 +447,9 @@ class ConclusionStore:
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (conclusion_id, ts, description, verdict, reasoning, sha))
             return True
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as exc:
+            # silent-by-design: duplicate id is an expected idempotent no-op; False signals "not inserted".
+            logger.debug("phase0: insert skipped (integrity conflict): %s", exc, exc_info=True)
             return False
         except Exception as e:
             logger.warning(f"ConclusionStore.create failed: {e}")
@@ -519,7 +523,9 @@ class ReasonChainStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'WEAKENED')
             """, (chain_id, ts, question, conclusion_id, steps_json, total_steps, verified_str))
             return True
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as exc:
+            # silent-by-design: duplicate id is an expected idempotent no-op; False signals "not inserted".
+            logger.debug("phase0: insert skipped (integrity conflict): %s", exc, exc_info=True)
             return False
         except Exception as e:
             logger.warning(f"ReasonChainStore.create failed: {e}")
@@ -558,7 +564,9 @@ class EvidenceLinkStore:
             # Recalculate chain state after link
             ChainStateService.recalculate_chain_state(chain_id)
             return True
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as exc:
+            # silent-by-design: duplicate id is an expected idempotent no-op; False signals "not inserted".
+            logger.debug("phase0: insert skipped (integrity conflict): %s", exc, exc_info=True)
             return False
         except Exception as e:
             logger.warning(f"EvidenceLinkStore.link failed: {e}")
@@ -689,4 +697,6 @@ init_schema = init_phase0_schema
 try:
     init_phase0_schema()
 except Exception as e:
+    # Fail-loudly: import-time schema init failure must reach structured logs too.
+    logger.warning("Phase 0 init failed: %s", e, exc_info=True)
     print(f"[WARN] Phase 0 init failed: {e}")
