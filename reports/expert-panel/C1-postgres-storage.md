@@ -155,3 +155,62 @@ Reality test: `python -m pytest "tests/T04_kernel/test_adversarial_kernel_flaws.
 4. D4 seal chưa quét lại các commit Track C1; D5 chưa có reviewer độc lập riêng; D7 CIRCUIT-FLOW-MAP + header chưa có hàng Track C1.
 5. `backup_to` trên host không có pg_dump → RuntimeError fail-closed (đúng contract); round-trip được chứng minh qua pg_dump binary trong container; host-native path chỉ chứng minh được trên máy có binary.
 6. SQLite-assumption census 2 chỗ chưa sửa (ngoài scope, cần session riêng nếu muốn clean-up).
+
+---
+
+# C2 — PgEventBus (durable table + NOTIFY wake-up) — 2026-09-12
+
+> Branch: `audit/runtime-guard-AUDIT-20260909`, tiếp nối sau closure C1 (`6184b7e`).
+> Worker Agent C2. Thiết kế bắt buộc: **bảng `scp_events` durable là source of
+> truth; NOTIFY chỉ là chuông wake-up** — NOTIFY mất ≠ event mất.
+
+## Skill binding (SHA256, đọc đầu phiên C2 — không đổi so với pin C1)
+
+| Skill | SHA256 |
+|---|---|
+| `.agents/skills/scp-dna/SKILL.md` | `4aada0be4873598dc50c3a7f38d90151429bb5263c511a838ed1cdcb4d594d10` |
+| `.agents/skills/scp-task-kernel-review/SKILL.md` | `f9b4e31004662c2c3e3ea88c5be755d29ee7b9268d667daae07d8c09b0bc1334` |
+| `.agents/skills/scp-reality-verifier/SKILL.md` | `a9d65ce53b18f8310ceeb302b18b341a0e1b8b19cddc7f46d4fa6ee99432269e` |
+
+## Commits (per milestone)
+
+| # | SHA | Nội dung |
+|---|---|---|
+| 1 | `c0867c5` | `scp/event_bus_pg_schema.sql` (bảng `scp_events`: id BIGSERIAL, channel, payload JSONB, created_at, delivered_at NULLABLE, correlation_id, attempts, dead; index (channel,id) + partial undelivered) + `scp/event_bus_pg.py` (`PgEventBus.publish/subscribe_poll/replay_undelivered/ensure_schema` + factory `make_event_bus`) |
+| 2 | `5b4a6da` | `tests/T04_kernel/test_pg_event_bus.py` — 9/9 PASS ×2 lần chạy độc lập trên docker PG thật + evidence `C2-evidence/` |
+| 3 | (commit này) | Closure record `reports/circuit-closures/C2-eventbus-closure.json` + STATUS-LEDGER hàng Track C2 |
+
+## Thiết kế đã chứng minh
+
+- **publish() = INSERT + `pg_notify(channel, event_id)` trong CÙNG transaction** (atomic, psycopg `conn.transaction()`): row thấy được ⇔ bell có thể kêu; bell payload chỉ là event id (message là row trong bảng). Fail-closed: mọi lỗi publish raise, không row mồ côi; connection được cleanup (rollback) rồi re-raise nguyên gốc.
+- **subscribe_poll()**: cursor id (last_seen_id) poll bảng `dead = FALSE ORDER BY id`; LISTEN qua connection riêng, chờ bằng `select.select`; NOTIFY đến → drain non-blocking (`notifies(timeout=0)`) → poll ngay (deadline=0). Thứ tự khởi động an toàn: LISTEN trước, snapshot cursor sau → tail-start không mất event. Connection chết → raise loudly (events vẫn durable; recovery = restart + replay).
+- **Handler exception**: log kèm traceback + KHÔNG mark delivered + attempts+1 + cursor KHÔNG tiến (head-of-line bounded) → retry lần sau; đủ `max_attempts` (default 3) → `dead=TRUE` + log CRITICAL + cursor tiến qua (poison message không chặn channel vô hạn).
+- **replay_undelivered()**: một pass mọi `delivered_at IS NULL AND dead=FALSE` theo id; fail → vẫn để undelivered cho lần replay sau (fetch cursor tiến để không tái xử lý trong cùng pass).
+- **Fan-out**: mỗi subscriber cursor riêng; `delivered_at` là ack cấp channel ("ít nhất một subscriber đã xử lý") dùng bởi replay — per-subscriber semantics nằm ở cursor, không ở cột.
+- **Security**: 100% parameterized DML (kể cả chuỗi channel `pg_notify(%s)`); LISTEN compose bằng `sql.Identifier`; channel validate `^[A-Za-z0-9._:-]{1,63}$`; DSN chỉ log dạng redacted (`***`); không f-string SQL.
+
+## Test results (docker `postgres:16-alpine`, digest `sha256:cf78e766…` — cùng image C1, PG 16.15, no-mock)
+
+`tests/T04_kernel/test_pg_event_bus.py` — **9/9 PASS, exit 0, ×2 lần chạy độc lập** (3.52s / 3.54s; evidence `pytest-pg-event-bus-run1.txt`, `run2`):
+
+| # | Test | Kết quả |
+|---|---|---|
+| a | publish → poll nhận đúng payload + correlation_id, đúng thứ tự id, delivered_at set | PASS |
+| b | **listener chết giữa chuỗi publish** (0 subscriber) → 5 events durable, delivered_at NULL → instance PgEventBus MỚI replay_undelivered → đủ 5, đúng thứ tự id, đúng payload, attempts=0, dead=FALSE; sau đó publish mới + subscriber mới sống lại | PASS (test then chốt) |
+| c | handler raise 2 lần → retry → lần 3 pass → delivered; attempts==2, dead=FALSE, đúng 3 lần chạy handler | PASS |
+| d | handler raise > max_attempts → dead=TRUE đúng sau 3 attempts + log CRITICAL (caplog), KHÔNG loop vô hạn; event khỏe tiếp theo vẫn delivered (cursor trôi qua dead row) | PASS |
+| e | NOTIFY wake-up: poll_interval=60s, handler nhận event <10s và stats.notify_wakes ≥ 1 → bell path, không phải periodic poll | PASS |
+| f | 2 subscriber cùng channel → cả hai nhận đủ 3 events đúng thứ tự (fan-out qua cursor riêng) | PASS |
+| g | publish fail-closed: payload không serialize được → raise, 0 row durable; channel invalid → ValueError trước khi chạm DB; connection sống sau publish lỗi | PASS |
+| h | schema objects trên PG thật: 8 cột (delivered_at NULLABLE), index (channel,id) + partial undelivered index | PASS |
+| i | factory không cần PG: default → None (disabled); enabled thiếu `SCP_EVENT_BUS_DSN` → RuntimeError fail-closed | PASS |
+
+Regression: **T04 FULL với `SCP_PG_TEST_DSN`: 209 passed, 0 failed, exit 0** (25.18s; `pytest-T04-full-after-C2.txt`) = 200 của C1 + 9 mới. Không skip/xfail để qua lỗi; thiếu env → 8 declared infra-skips + docker hint (`pytest-pg-event-bus-skip-mode.txt`), test (i) vẫn chạy không cần PG.
+
+## Wiring
+
+`make_event_bus()` — opt-in như C1: `SCP_EVENT_BUS_ENABLED` falsey/mất → `None` (caller phải xử lý None); truthy + `SCP_EVENT_BUS_DSN` → `PgEventBus`; truthy thiếu DSN → RuntimeError fail-closed (không fallback âm thầm). Chưa wire vào TaskKernel/dashboard (known gap).
+
+## Reality-verifier verdict (C2)
+
+**VERIFIED (PASS_WITHIN_SCOPE)** — claim: "pattern bảng-durable + NOTIFY-wake hoạt động thật trên PostgreSQL; NOTIFY mất không làm mất event; retry/dead-letter bounded; không làm đỏ T04". Bằng chứng: pytest exit codes thu trực tiếp ×2 runs trên PG 16.15 docker thật (no-mock), regression T04 209/0. Verdict chỉ đúng trong phạm vi: single-node, infra + API, handler test giả định đơn giản; chưa gồm kernel wiring/multi-node/performance.
