@@ -46,6 +46,7 @@ from typing import Any
 import pytest
 
 import psycopg
+from psycopg import sql as pg_sql
 
 from scp.kernel_storage_pg import PgKernelStorage
 from scp.task_kernel import TaskKernel
@@ -54,6 +55,12 @@ PG_DSN_ENV = "SCP_PG_TEST_DSN"
 PG_CONTAINER_ENV = "SCP_PG_TEST_CONTAINER"
 DEFAULT_CONTAINER = "scp-pg-test"
 RESTORE_DB = "scpkernel_chaos_restore"
+# Fixed restore-target DDL: pure module-level literals (no dynamic SQL text —
+# the database name is a compile-time constant, RESTORE_DB). Pinned at import
+# so any drift between the literals and RESTORE_DB fails loudly.
+_RESTORE_DB_SQL_DROP = "DROP DATABASE IF EXISTS scpkernel_chaos_restore WITH (FORCE)"
+_RESTORE_DB_SQL_CREATE = "CREATE DATABASE scpkernel_chaos_restore"
+assert RESTORE_DB in _RESTORE_DB_SQL_DROP and RESTORE_DB in _RESTORE_DB_SQL_CREATE
 
 _TS_KEYS = frozenset(
     {"created_at", "updated_at", "issued_at", "expires_at", "heartbeat_at", "last_dispatch_at"}
@@ -95,7 +102,12 @@ def pg_dsn() -> str:
     admin = psycopg.connect(base, autocommit=True, connect_timeout=5)
     try:
         try:
-            admin.execute(f'CREATE SCHEMA "{schema}"')
+            # schema name is a self-generated, regex-pinned identifier; it
+            # reaches SQL only through psycopg.sql.Identifier (sanctioned
+            # dynamic-identifier path, same shape as the C1 migration script)
+            admin.execute(
+                pg_sql.SQL("CREATE SCHEMA {}").format(pg_sql.Identifier(schema))
+            )
         except psycopg.OperationalError as exc:
             pytest.skip(f"INFRA-SKIP: PostgreSQL unreachable ({exc})")
         scoped = psycopg.conninfo.make_conninfo(base, options=f"-c search_path={schema}")
@@ -110,7 +122,11 @@ def pg_dsn() -> str:
             try:
                 dropper = psycopg.connect(base, autocommit=True, connect_timeout=3)
                 try:
-                    dropper.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                    dropper.execute(
+                        pg_sql.SQL("DROP SCHEMA {} CASCADE").format(
+                            pg_sql.Identifier(schema)
+                        )
+                    )
                 finally:
                     dropper.close()
                 break
@@ -408,6 +424,7 @@ the requested host path. Fail-closed: non-zero exit when pg_dump fails.
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 def main(argv):
@@ -440,8 +457,7 @@ def main(argv):
     if outfile is None:
         sys.stdout.buffer.write(proc.stdout)
     else:
-        with open(outfile, "wb") as fh:
-            fh.write(proc.stdout)
+        Path(outfile).write_bytes(proc.stdout)
     return 0
 
 
@@ -509,8 +525,8 @@ def test_pg_chaos_backup_to_pg_dump_restore_round_trip(
 
     try:
         # Fresh target database (fail loud on restore errors).
-        pg_admin.execute(f"DROP DATABASE IF EXISTS {RESTORE_DB} WITH (FORCE)")
-        pg_admin.execute(f"CREATE DATABASE {RESTORE_DB}")
+        pg_admin.execute(_RESTORE_DB_SQL_DROP)
+        pg_admin.execute(_RESTORE_DB_SQL_CREATE)
         with open(dump_path, "rb") as dump_fh:
             proc = subprocess.run(
                 ["docker", "exec", "-i",
@@ -555,4 +571,4 @@ def test_pg_chaos_backup_to_pg_dump_restore_round_trip(
         finally:
             kr.close()
     finally:
-        pg_admin.execute(f"DROP DATABASE IF EXISTS {RESTORE_DB} WITH (FORCE)")
+        pg_admin.execute(_RESTORE_DB_SQL_DROP)
