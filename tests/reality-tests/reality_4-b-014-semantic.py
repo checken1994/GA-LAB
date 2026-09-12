@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
-def _handler_at(path: Path, line: int) -> ast.ExceptHandler:
+def _handler_at(path: Path, line: int, func_name: str) -> ast.ExceptHandler:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     matches = [
         node
@@ -18,7 +18,28 @@ def _handler_at(path: Path, line: int) -> ast.ExceptHandler:
         if isinstance(node, ast.ExceptHandler) and node.lineno == line
     ]
     assert len(matches) == 1, f"expected one except handler at {path}:{line}, got {len(matches)}"
-    return matches[0]
+    handler = matches[0]
+    # S17 strictness increase: pin the handler IDENTITY, not just a line
+    # number. The target must be a plain `except Exception` handler (the
+    # narrowing the semantic claim is about) and must live inside the
+    # expected function — a coincidental handler at the same line would
+    # otherwise pass.
+    assert isinstance(handler.type, ast.Name) and handler.type.id == "Exception", (
+        f"{path}:{line} no longer narrows to a plain `except Exception` "
+        f"(got: {ast.dump(handler.type) if handler.type else 'bare'})"
+    )
+    enclosing = [
+        n.name
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(h is handler for h in ast.walk(n))
+    ]
+    assert func_name in enclosing, (
+        f"{path}:{line} handler is no longer inside expected function "
+        f"{func_name!r} (found in: {enclosing}) — pin drifted again, "
+        "re-verify semantics before repinning"
+    )
+    return handler
 
 
 def _run_bare(exc_type: type[BaseException]) -> str:
@@ -40,12 +61,19 @@ def _run_typed(exc_type: type[BaseException]) -> str:
 
 def main() -> None:
     root = Path(__file__).resolve().parents[2]
+    # S17 drift update (post-campaign reality): S-B1b fail-loudly commit
+    # 265ea20 + B1 logging converted the silent except blocks and shifted
+    # lines. Old pins speculative_prefixer.py:559 (_touch) and
+    # type_flow_verifier.py:717 (verify_type_flow) moved to 565 and 720
+    # respectively — same handlers, same semantics, verified via AST + git
+    # history before repinning. The handler-identity assertions below keep
+    # this pin honest (strictness >= original line-only pin).
     checks = {
-        root / "scp/autofix/speculative_prefixer.py": 559,
-        root / "scp/autofix/type_flow_verifier.py": 717,
+        (root / "scp/autofix/speculative_prefixer.py", 565): "_touch",
+        (root / "scp/autofix/type_flow_verifier.py", 720): "verify_type_flow",
     }
-    for path, line in checks.items():
-        handler = _handler_at(path, line)
+    for (path, line), func_name in checks.items():
+        handler = _handler_at(path, line, func_name)
         assert handler.type is not None, f"{path}:{line} is a bare except unexpectedly"
         assert handler.body, f"{path}:{line} has an empty typed exception handler"
         assert not (len(handler.body) == 1 and isinstance(handler.body[0], ast.Pass)), f"{path}:{line} still uses typed-except-pass"

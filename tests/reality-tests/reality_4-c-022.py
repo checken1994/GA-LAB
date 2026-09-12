@@ -1,147 +1,90 @@
 #!/usr/bin/env python3
-"""Reality test for Fix 4-c-022: SA-4 finding corrected as FALSE (R7-2 fix IS real).
+"""RETIRED reality test 4-c-022 — target deleted by legitimate dead-code cleanup.
 
-DNA #22 (PASS ≠ TRUE, recursion level 3 — the auditor's auditor was wrong)
-+ #14 (evidence must match cited file:line) + #26 (reality test — grep the
-actual file).
+RETIREMENT (S17, 2026-09-13 — explicit, not silent):
 
-Before fix:
-  - dashboard/src/lib/audit-data/self-audit.ts SA-4 reality field said:
-    "The `beforeCode` shown in `bugs-critical.ts`... is a fictional paraphrase
-    — the real wiring stores the task. The dashboard's central R7-2 narrative
-    ('task GC'd → is_tor always False') is unsupported by the code."
-  - This claim was itself FALSE: scp/api/_lifespan.py:393-445 actually
-    contains `_tor_refresh_tasks: set = set()` + `_tor_refresh_tasks.add(
-    _tor_task)` + `task.add_done_callback(_tor_refresh_tasks.discard)` —
-    exactly the R7-2 fix shown in bugs-critical.ts afterCode.
-  - DNA #22 recursion level 3: R7 (claimed a bug) → R8 SA-4 (claimed the
-    fix was fictional) → R20 verifies R8 was wrong.
+This test verified the SA-4 correction (DNA #22 recursion level 3): that the
+R7-2 fix — the `_tor_refresh_tasks: set` + `.add(_tor_task)` +
+`add_done_callback(...discard)` GC-prevention pattern for the TOR refresh
+task — genuinely existed in `scp/api/_lifespan.py:393-445`, grounding the
+dashboard's SA-4 "CORRECTION" entry (dashboard/src/lib/audit-data/self-audit.ts)
+in backend reality.
 
-After fix:
-  - SA-4's reality field is updated to record that the finding was FALSE:
-    R7-2 fix IS real, verified at scp/api/_lifespan.py:393-445.
-  - The dashboard's display of SA-4 is retained for traceability of the
-    recursion (R7 → R8 → R20), but the verdict is now CORRECT.
+Reality changed: `scp/api/_lifespan.py` (764 LOC, dead code — no importer)
+was deleted by the B2 dead-code cleanup:
 
-Reality-test checks:
-  1. SA-4 entry in self-audit.ts mentions "FALSE" / "incorrect" / "corrected".
-  2. SA-4 entry references R7-2 being real (the R7-2 fix IS applied, not
-     "fictional" or "unsupported").
-  3. SA-4 entry references scp/api/_lifespan.py:393 (or :393-445).
-  4. The actual file scp/api/_lifespan.py contains the _tor_refresh_tasks
-     pattern (the fix is genuinely present — DNA #26 reality test).
+  - 4e935a7 "chore(cleanup): remove dead _lifespan, relocate canary fixture,
+    drop tier3bak (B2)"
+  - c1dcde4 "chore(cleanup): commit B2 deletions missed from 4e935a7
+    (V-TB follow-up — _lifespan dead-code + legacy tier3bak ...)"
+
+The live lifespan is now `scp/api_server_parts/lifespan.py`, which does NOT
+contain the TOR refresh loop or the `_tor_refresh_tasks` pattern: the R7-2
+fix was removed together with the dead file that hosted it (repo-wide grep at
+retirement time finds the pattern only inside tests/reality-tests/ scripts).
+The check therefore has no living target. Repointing it to
+`scp/api_server_parts/lifespan.py` would manufacture a PASS against a pattern
+that no longer exists — so the test is retired instead, openly, per the
+mandatory contract that a green result may never be manufactured.
+
+FAIL-CLOSED GUARDS (this stub refuses to stay green if its premise breaks):
+  1. If `scp/api/_lifespan.py` reappears -> FAIL: the retirement premise is
+     void; restore/rewrite the original test from git history.
+  2. If the `_tor_refresh_tasks` pattern reappears anywhere under `scp/` ->
+     FAIL: that is a new R7-2-style fix and deserves a NEW reality test.
+
+RUNNER INTEGRATION: listed in RETIRED_REALITY_TESTS in
+tests/run-reality-tests.sh — skipped VISIBLY ("⊘ RETIRED"), never silently.
+The original test body remains recoverable from git history (the commit that
+retired it).
+
+KNOWN STALE CITATION (flagged, out of S17 scope): the dashboard SA-4 entry
+(self-audit.ts) still cites `scp/api/_lifespan.py` as a historical audit
+record. Updating that audit narrative is a dashboard-data decision recorded
+in reports/expert-panel/S-B3-print-logging.md (mục S17) for the owner.
 
 Run:
     python3 tests/reality-tests/reality_4-c-022.py
 """
 
-import re
 import sys
 from pathlib import Path
 
-SELF_AUDIT_PATH = Path(
-    str(Path(__file__).resolve().parents[2]) + '/dashboard/src/lib/audit-data/self-audit.ts'
-)
-LIFESPAN_PATH = Path(
-    str(Path(__file__).resolve().parents[2]) + '/scp/api/_lifespan.py'
-)
-
 
 def main() -> int:
-    assert SELF_AUDIT_PATH.exists(), f"FAIL: self-audit.ts not found at {SELF_AUDIT_PATH}"
-    sa_src = SELF_AUDIT_PATH.read_text(encoding="utf-8")
+    root = Path(__file__).resolve().parents[2]
+    lifespan_path = root / "scp" / "api" / "_lifespan.py"
 
-    # Find the SA-4 entry (between `id: "SA-4"` and the next `id: "SA-5"` or
-    # the closing `]`).
-    sa4_start = sa_src.find('"SA-4"')
-    if sa4_start == -1:
-        sa4_start = sa_src.find("'SA-4'")
-    assert sa4_start >= 0, "FAIL: SA-4 entry not found in self-audit.ts"
+    # Guard 1 — the deleted file must stay deleted.
+    assert not lifespan_path.exists(), (
+        "RETIRED 4-c-022 premise void: scp/api/_lifespan.py exists again. "
+        "The original SA-4 reality check must be restored/rewritten from git "
+        "history instead of riding on this retirement stub."
+    )
 
-    # Look ahead 5000 chars for the SA-4 entry body.
-    sa4_end = sa_src.find('"SA-5"', sa4_start)
-    if sa4_end == -1:
-        sa4_end = sa4_start + 5000
-    sa4_block = sa_src[sa4_start:sa4_end]
+    # Guard 2 — the R7-2 pattern must not have been reintroduced anywhere
+    # under product code (scp/). A reappearance means a new fix exists that
+    # needs a NEW reality test, not a silent green from this stub.
+    pattern_hits: list[str] = []
+    for py in sorted((root / "scp").rglob("*.py")):
+        try:
+            src = py.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if "_tor_refresh_tasks" in src or "tor_refresh_loop" in src:
+            pattern_hits.append(str(py.relative_to(root)))
+    assert not pattern_hits, (
+        "RETIRED 4-c-022 premise void: the R7-2 `_tor_refresh_tasks` pattern "
+        f"reappeared in product code: {pattern_hits}. Write a NEW reality "
+        "test covering it; do not rely on this retired stub."
+    )
 
-    # -------------------------------------------------------------------------
-    # TEST 1 — SA-4 entry mentions FALSE / incorrect / corrected.
-    # -------------------------------------------------------------------------
-    has_false_marker = (
-        "FALSE" in sa4_block.upper()
-        or "incorrect" in sa4_block.lower()
-        or "corrected" in sa4_block.lower()
-        or "CORRECTION" in sa4_block.upper()
-    )
-    assert has_false_marker, (
-        "FAIL: SA-4 entry in self-audit.ts does not mention FALSE / incorrect / "
-        "corrected / CORRECTION — the finding has not been flipped to FALSE."
-    )
-    print("PASS [1/4]: SA-4 entry mentions FALSE / corrected / CORRECTION")
-
-    # -------------------------------------------------------------------------
-    # TEST 2 — SA-4 entry references R7-2 being real (the fix IS applied,
-    # not "fictional" or "unsupported").
-    # -------------------------------------------------------------------------
-    # Must contain a phrase indicating R7-2 is real.
-    reality_indicators = [
-        "R7-2 fix IS real",
-        "R7-2 was a real bug",
-        "fix IS applied",
-        "fix IS present",
-        "fix is real",
-        "fix was actually applied",
-        "R7-2 IS real",
-    ]
-    has_real_marker = any(ind.lower() in sa4_block.lower() for ind in reality_indicators)
-    assert has_real_marker, (
-        "FAIL: SA-4 entry does not state that the R7-2 fix IS real/applied. "
-        f"Looked for indicators like: {reality_indicators}"
-    )
-    print("PASS [2/4]: SA-4 entry states R7-2 fix IS real/applied")
-
-    # -------------------------------------------------------------------------
-    # TEST 3 — SA-4 entry references scp/api/_lifespan.py:393 (the verified
-    # location of the _tor_refresh_tasks fix).
-    # -------------------------------------------------------------------------
-    has_lifespan_ref = (
-        "_lifespan.py:393" in sa4_block
-        or "_lifespan.py:180" in sa4_block
-        or "scp/api/_lifespan.py" in sa4_block
-    )
-    assert has_lifespan_ref, (
-        "FAIL: SA-4 entry does not reference scp/api/_lifespan.py — the "
-        "verified location of the R7-2 fix. Must cite the file:line."
-    )
-    print("PASS [3/4]: SA-4 entry references scp/api/_lifespan.py (the verified file)")
-
-    # -------------------------------------------------------------------------
-    # TEST 4 — REALITY TEST (DNA #26): the actual file scp/api/_lifespan.py
-    # contains the _tor_refresh_tasks pattern (the fix is genuinely present).
-    # This is the cross-lineage check: the dashboard's claim is verified
-    # against the actual Python backend code.
-    # -------------------------------------------------------------------------
-    assert LIFESPAN_PATH.exists(), (
-        f"FAIL: scp/api/_lifespan.py not found at {LIFESPAN_PATH} — cannot "
-        "reality-test the SA-4 correction against the actual file."
-    )
-    lifespan_src = LIFESPAN_PATH.read_text(encoding="utf-8")
-    has_tor_refresh_tasks = (
-        "_tor_refresh_tasks" in lifespan_src
-        or "tor_refresh_tasks" in lifespan_src
-    )
-    has_add_done_callback = "add_done_callback" in lifespan_src
-    assert has_tor_refresh_tasks, (
-        "FAIL: scp/api/_lifespan.py does NOT contain `_tor_refresh_tasks` — "
-        "the R7-2 fix is NOT present in the actual backend code. The SA-4 "
-        "correction (claiming the fix IS real) would itself be FALSE. DNA #22 "
-        "recursion level 4 — verify the verifier."
-    )
-    print("PASS [4/4]: scp/api/_lifespan.py contains _tor_refresh_tasks (fix IS real)")
-    if has_add_done_callback:
-        print("  (add_done_callback also present — confirms GC-prevention pattern)")
-
-    print("\n✓ Reality test 4-c-022 PASSED")
+    print("RETIRED [4-c-022]: SA-4 target scp/api/_lifespan.py was deleted as")
+    print("  dead code (B2 cleanup: commits 4e935a7 + c1dcde4); the R7-2")
+    print("  `_tor_refresh_tasks` fix no longer exists anywhere under scp/,")
+    print("  so the check has no living target. See this file's docstring.")
+    print("  Fail-closed guards verified: target still absent, pattern still")
+    print("  absent under scp/ — retirement premise still holds.")
     return 0
 
 
