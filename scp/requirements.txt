@@ -83,6 +83,13 @@ tenacity==9.0.0
 # aiofiles (async file I/O — hiện tại dùng sync open() với Path.read_text).
 # aiofiles==24.1.0
 
+# === TaskKernel storage — PostgreSQL backend (ADOPT-AND-FIX Track C1) ===
+# PgKernelStorage (scp/kernel_storage_pg.py): production PostgreSQL storage
+# backend for TaskKernel. Default storage backend remains SQLite; opt in via
+# SCP_KERNEL_BACKEND=postgres + SCP_KERNEL_PG_DSN. psycopg 3.x (psycopg[binary]
+# ships prebuilt wheels — no libpq build step required).
+psycopg[binary]==3.3.5
+
 # === Windows-only runtime dependency (REQUIRED on win32) ===
 # Verified: security/os_sandbox.py dùng win32process/win32job/win32file... cho
 # Job Object sandbox (runtime path trên Windows). Marker giới hạn về win32.
