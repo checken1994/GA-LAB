@@ -699,4 +699,4 @@ try:
 except Exception as e:
     # Fail-loudly: import-time schema init failure must reach structured logs too.
     logger.warning("Phase 0 init failed: %s", e, exc_info=True)
-    print(f"[WARN] Phase 0 init failed: {e}")
+    logger.debug(f"[WARN] Phase 0 init failed: {e}")

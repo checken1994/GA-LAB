@@ -210,5 +210,5 @@ try:
     _anchor = RealityAnchor()
 except Exception as e:
     logger.warning("RealityAnchor init failed: %s", e, exc_info=True)
-    print(f"[WARN] RealityAnchor init failed: {e}")
+    logger.debug(f"[WARN] RealityAnchor init failed: {e}")
     _anchor = None

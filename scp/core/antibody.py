@@ -145,5 +145,5 @@ try:
     _antibody = AntibodyEngine()
 except Exception as e:
     logger.warning("AntibodyEngine init failed: %s", e, exc_info=True)
-    print(f"[WARN] AntibodyEngine init failed: {e}")
+    logger.debug(f"[WARN] AntibodyEngine init failed: {e}")
     _antibody = None

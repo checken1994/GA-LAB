@@ -125,7 +125,7 @@ def init_hz_schema():
 
     conn.commit()
     conn.close()
-    print("Hypothesis Zone schema created (hypothesis_zone.db)")
+    logger.info("Hypothesis Zone schema created (hypothesis_zone.db)")
 
 
 # ============================================================
@@ -173,7 +173,7 @@ class HypothesisStore:
             return new_id if new_id and new_id > 0 else -1
         except Exception as e:
             logger.warning("HypothesisStore add_partial failed: %s", e, exc_info=True)
-            print(f"HypothesisStore add_partial error: {e}")
+            logger.error(f"HypothesisStore add_partial error: {e}")
             return -1
 
     @staticmethod
@@ -306,4 +306,4 @@ try:
     init_hz_schema()
 except Exception as e:
     logger.warning("Hypothesis Zone init failed: %s", e, exc_info=True)
-    print(f"[WARN] Hypothesis Zone init failed: {e}")
+    logger.debug(f"[WARN] Hypothesis Zone init failed: {e}")
