@@ -94,15 +94,21 @@ Evidence files: `reports/circuit-closures/M13-evidence/EE-egress-container-rever
 ## Test results
 
 - `tests/T03_capability/test_egress_enforcement.py`: **18 passed** (a–g: 16
-  unit + h: 2 container với `SCP_EGress_CONTAINER_TESTS` opt-in — tên env đúng
-  là `SCP_EE_CONTAINER_TESTS`), 0 failed, 0 xfail, 0 mock. No-mock discipline:
-  negative cases raise trước I/O; positive loopback dùng http.server thật;
-  positive external dùng `.invalid` (chứng minh egress layer pass mà không cần
-  internet).
+  unit + h: 2 container tests, opt-in `SCP_EE_CONTAINER_TESTS=1`), 0 failed,
+  0 xfail, 0 mock. No-mock discipline: negative cases raise trước I/O;
+  positive loopback dùng http.server thật; positive external dùng `.invalid`
+  (chứng minh egress layer pass mà không cần internet).
 - Targeted regression: ssrf_sweep_s1 + ssrf_sweep_s2 + T05 egress policy +
   flow_02 + flow_13 = **178 passed**.
-- Full regression T03 + T04 + T05: xem `reports/tmp-ee-regression-full.txt`
-  (baseline fail set không tăng — kết quả ghi ở phần cuối file này).
+- Full regression A/B (cùng máy, cùng untracked filesystem state, cùng pytest
+  config; evidence `M13-evidence/EE-regression-ab.txt`):
+  - A — baseline `e09edf3` (trước EE): **1009 passed, 23 skipped, 0 failed**.
+  - B — EE HEAD `56a4566`: **1025 passed, 25 skipped, 0 failed**
+    (+16 unit EE tests, +2 container skips opt-in). Fail set 0 → 0, không tăng.
+  - Disclosure: 1 run T03+T04+T05 đầu có 1 FAILED hiện đại duy nhất
+    (`test_flow_07...::test_auto_rollback_triggers_on_regression`); không tái
+    hiện ở cả 2 run A/B đầy đủ và pass khi chạy đơn lẻ → flaky one-off, không
+    liên quan egress (autofix rollback test, không chạm network).
 
 ## Commits (branch `audit/runtime-guard-AUDIT-20260909`)
 
