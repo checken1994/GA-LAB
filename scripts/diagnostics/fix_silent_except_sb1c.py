@@ -137,7 +137,7 @@ def logger_info(tree, src):
     if not last_import_end:
         if tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Constant):
             last_import_end = tree.body[0].end_lineno or 0
-    need_import = re.search(r"^\s*import logging\b", src, re.M) is None
+    need_import = re.search(r"^import logging\b", src, re.M) is None
     return name, last_import_end, need_import
 
 
