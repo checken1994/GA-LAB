@@ -14,7 +14,11 @@ import threading
 import urllib.request
 from typing import Optional
 
-from scp.security.url_safety import safe_urlopen, validate_url  # noqa: B310
+from scp.security.url_safety import (  # noqa: B310
+    enforce_egress_policy,
+    safe_urlopen,
+    validate_url,
+)
 
 logger = logging.getLogger("scp.real_fetcher")
 
@@ -95,6 +99,13 @@ def _http_get_json(url: str, timeout: int = _DEFAULT_TIMEOUT, headers: Optional[
         # [AUDIT-20260909 SSRF-S1] validate_url trước MỌI fetch — chặn scheme
         # lạ + private/loopback IP cho cả nhánh requests.Session lẫn urllib.
         # Input xấu → ValueError → nhánh except → trả None (fail-closed).
+        # [V-EE-1] enforce_egress_policy chạy TRƯỚC validate_url (cùng thứ tự
+        # với safe_urlopen) — SCP_EGRESS_MODE=deny/allowlist chặn TRƯỚC mọi
+        # DNS I/O, phủ CẢ nhánh requests.Session lẫn nhánh urllib fallback.
+        # EgressDeniedError là ValueError subclass → rơi vào cùng nhánh except
+        # dưới → trả None (contract "Returns None on error" giữ nguyên).
+        # Nhánh urllib còn được gate lần 2 bên trong safe_urlopen (idempotent).
+        enforce_egress_policy(url)
         validate_url(url)
         if HAS_REQUESTS and _SESSION is not None:
             #  Use persistent session — connection pooling reduces overhead ~30%
