@@ -42,6 +42,7 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from pathlib import PurePosixPath, PureWindowsPath
 
 logger = logging.getLogger("scp.sandbox_evaluator")
@@ -180,11 +181,27 @@ def _cleanup(workspace: str, keep: bool) -> None:
     shutil.rmtree(workspace, ignore_errors=True)
 
 
+def _contained_path(workspace: str, *parts: str):
+    """Join ``parts`` dưới ``workspace`` và KIỂM TRA CHỨA tường minh (fail-closed).
+
+    Trả Path tuyệt đối đã resolve (symlink + ".." được xử lý thật) nếu nằm
+    BÊN TRONG workspace; trả None nếu thoát ra ngoài. Invariant "mọi file ghi
+    phải nằm trong workspace" được kiểm chứng TẠI BOUNDARY bằng
+    ``Path.resolve()`` + ``Path.is_relative_to()`` — không dựa vào
+    ``_safe_relpath`` ở lớp trên.
+    """
+    root = Path(workspace).resolve()
+    dest = root.joinpath(*parts).resolve()
+    if dest == root or not dest.is_relative_to(root):
+        return None
+    return dest
+
+
 def _safe_relpath(relpath: str) -> str | None:
     """Chuẩn hoá relpath cho file ghi vào workspace; None nếu unsafe.
 
-    Chặn: absolute path, drive letters, ``..``, backslash traversal — file ghi
-    phải nằm BÊN TRONG workspace (sandbox escape guard).
+    Chặn: absolute path, drive letters, ``os.pardir`` (".."), backslash
+    traversal — file ghi phải nằm BÊN TRONG workspace (sandbox escape guard).
     """
     if not isinstance(relpath, str) or not relpath.strip():
         return None
@@ -197,14 +214,13 @@ def _safe_relpath(relpath: str) -> str | None:
     if posix.is_absolute():
         return None
     parts = [p for p in posix.parts if p not in (".", "")]
-    if not parts or any(p == ".." for p in parts):
+    if not parts or any(p == os.pardir for p in parts):
         return None
     return "/".join(parts)
 
 
 def _read_text(path: str) -> str | None:
     try:
-        from pathlib import Path
         return Path(path).read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         logger.warning("sandbox evaluator: đọc test path %s thất bại: %s", path, exc)
@@ -237,11 +253,12 @@ def _setup_workspace(patch_target: dict, started: float, keep: bool):
             return _fail(f"setup:unsafe_relpath:{relpath!r}", started=started, workspace=workspace, keep=keep)
         if not isinstance(content, str):
             return _fail(f"setup:content_not_str:{relpath!r}", started=started, workspace=workspace, keep=keep)
-        dest = os.path.join(workspace, *safe.split("/"))
+        dest = _contained_path(workspace, *safe.split("/"))
+        if dest is None:
+            return _fail(f"setup:path_escapes_workspace:{relpath!r}", started=started, workspace=workspace, keep=keep)
         try:
-            os.makedirs(os.path.dirname(dest) or workspace, exist_ok=True)
-            with open(dest, "w", encoding="utf-8", newline="") as fh:
-                fh.write(content)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8", newline="")
         except OSError as exc:
             return _fail(f"setup:write:{safe}:{exc}", started=started, workspace=workspace, keep=keep)
         if relpath in (patch_target.get("test_files") or {}):
@@ -255,8 +272,7 @@ def _setup_workspace(patch_target: dict, started: float, keep: bool):
     for tp in test_paths:
         if not isinstance(tp, str) or not tp.strip():
             return _fail(f"setup:bad_test_path:{tp!r}", started=started, workspace=workspace, keep=keep)
-        from pathlib import Path as _Path
-        src = _Path(tp)
+        src = Path(tp)
         if not src.is_file():
             return _fail(f"setup:test_path_missing:{tp}", started=started, workspace=workspace, keep=keep)
         base = src.name
@@ -266,11 +282,12 @@ def _setup_workspace(patch_target: dict, started: float, keep: bool):
         content = _read_text(str(src))
         if content is None:
             return _fail(f"setup:test_path_unreadable:{tp}", started=started, workspace=workspace, keep=keep)
-        dest = os.path.join(workspace, "tests", base)
+        dest = _contained_path(workspace, "tests", base)
+        if dest is None:
+            return _fail(f"setup:path_escapes_workspace:{base!r}", started=started, workspace=workspace, keep=keep)
         try:
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            with open(dest, "w", encoding="utf-8", newline="") as fh:
-                fh.write(content)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8", newline="")
         except OSError as exc:
             return _fail(f"setup:write_test:{base}:{exc}", started=started, workspace=workspace, keep=keep)
         test_args.append(f"tests/{base}")
@@ -280,8 +297,10 @@ def _setup_workspace(patch_target: dict, started: float, keep: bool):
         return _fail("setup:no_tests", started=started, workspace=workspace, keep=keep)
 
     try:
-        with open(os.path.join(workspace, "conftest.py"), "w", encoding="utf-8") as fh:
-            fh.write(_CONFTEST_SRC)
+        conftest_dest = _contained_path(workspace, "conftest.py")
+        if conftest_dest is None:  # bất khả thi về logic; giữ fail-closed tường minh
+            return _fail("setup:path_escapes_workspace:conftest", started=started, workspace=workspace, keep=keep)
+        conftest_dest.write_text(_CONFTEST_SRC, encoding="utf-8")
     except OSError as exc:
         return _fail(f"setup:conftest:{exc}", started=started, workspace=workspace, keep=keep)
 
@@ -405,14 +424,12 @@ def build_patch_target(
     package để import package-style hoạt động qua namespace packages); nếu file
     nằm ngoài allowed_root thì dùng basename (import root-level).
     """
-    from pathlib import Path as _Path
-
-    target = _Path(file_path)
+    target = Path(file_path)
     relname: str | None = None
     if allowed_root is not None:
         try:
             relname = str(
-                target.resolve().relative_to(_Path(allowed_root).resolve())
+                target.resolve().relative_to(Path(allowed_root).resolve())
             ).replace("\\", "/")
         except ValueError:
             relname = None

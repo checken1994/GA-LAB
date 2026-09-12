@@ -168,6 +168,18 @@ def test_e2e_no_tests_collected_exit5_not_pass(tmp_path):
     assert result.returncode == 5
 
 
+def test_e2e_relpath_traversal_rejected_never_writes_outside(tmp_path):
+    # Traversal guard: relpath chứa ".." bị chặn ở LỚP 1 (_safe_relpath) và
+    # lớp 2 (_contained_path) — không bao giờ ghi file ra ngoài workspace.
+    result = evaluate({
+        "files": {"../escape.py": "X = 1\n"},
+        "test_files": {"tests/test_ok.py": "def test_ok():\n    assert True\n"},
+    })
+    assert result.verdict == "FAIL"
+    assert result.reason.startswith("setup:unsafe_relpath")
+    assert not (tmp_path / "escape.py").exists()
+
+
 # --------------------------------------------------------------------------- #
 # Case 7 — env allowlist: secret không kế thừa                                #
 # --------------------------------------------------------------------------- #
