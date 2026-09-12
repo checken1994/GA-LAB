@@ -22,10 +22,18 @@ Section (i) pins the S13 remediation of the 2 residual Session-based bypasses
 found by V-EE: `question_fetchers._common._http_get_json` (requests branch
 skipped SCP_EGRESS_MODE) and `DirectAPIVerifier._session_get` (raw
 requests.Session with no gate, wired to the /ask judge path).
+
+Section (g2) is the EE-G1 latch (S14): the raw direct-spelling gate was blind
+to method calls on client VARIABLES (``s = requests.Session(); s.get(url)``)
+— exactly how V-EE-1/2 escaped it. The client-tracking AST scan in
+``scp/security/egress_static_scan.py`` (shared with tools/ee_g1_census.py)
+tracks Session/Client/opener constructors, with-bindings, self-attribute
+chains, aliases, inline constructors and one-hop argument passing, and fails
+on any ungated site (gated = enforce_egress_policy in the same function scope
+before the call) that is not a documented pin.
 """
 from __future__ import annotations
 
-import ast
 import http.server
 import json
 import os
@@ -259,45 +267,18 @@ _GATE_EXCLUDED_MODULES = {
     "scp/core/api_utils.py",        # canonical fetcher wrapper (gated)
 }
 
+# The scan implementation lives in scp/security/egress_static_scan.py — shared
+# with the census runner tools/ee_g1_census.py so the gate and the census can
+# never drift apart (single AST implementation, EE-G1).
+from scp.security.egress_static_scan import (  # noqa: E402
+    GATE_EXCLUDED_MODULES as _SCAN_EXCLUDED_MODULES,
+    scan_client_method_calls,
+    scan_raw_http_calls,
+)
 
-def _dotted_name(node) -> str | None:
-    parts = []
-    while isinstance(node, ast.Attribute):
-        parts.append(node.attr)
-        node = node.value
-    if isinstance(node, ast.Name):
-        parts.append(node.id)
-        return ".".join(reversed(parts))
-    return None
-
-
-def scan_raw_http_calls(paths) -> list[tuple[str, int, str]]:
-    """AST scan for raw HTTP call-sites: urllib.request.urlopen,
-    requests.get/post, httpx.get/post. Returns (path, line, kind) tuples."""
-    violations: list[tuple[str, int, str]] = []
-    for path in paths:
-        p = Path(path)
-        files = sorted(p.rglob("*.py")) if p.is_dir() else [p]
-        for f in files:
-            try:
-                tree = ast.parse(f.read_text(encoding="utf-8", errors="replace"))
-            except SyntaxError:
-                continue
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
-                    continue
-                base = _dotted_name(node.func.value)
-                attr = node.func.attr
-                kind = None
-                if attr == "urlopen" and base and base.startswith("urllib.request"):
-                    kind = "urllib.request.urlopen"
-                elif attr in {"get", "post"} and base in {"requests", "httpx"}:
-                    kind = f"{base}.{attr}"
-                elif attr in {"get", "post"} and base and base.startswith("httpx."):
-                    kind = "httpx." + attr
-                if kind:
-                    violations.append((f.as_posix(), node.lineno, kind))
-    return violations
+assert _GATE_EXCLUDED_MODULES == set(_SCAN_EXCLUDED_MODULES), (
+    "gate exclusion list drifted from the shared scanner's GATE_EXCLUDED_MODULES"
+)
 
 
 def test_g_static_gate_flags_raw_urllib_in_dirty_file(tmp_path):
@@ -370,6 +351,146 @@ def test_g_scp_tree_has_no_unpinned_raw_http_calls():
     # Sanity: the inventory must still pin exactly what exists today.
     assert actual.keys() == pinned.keys(), (
         f"inventory mismatch. Actual raw call-sites: {details}"
+    )
+
+
+# ----------------------------------- (g2) EE-G1 latch: client method calls
+# Method calls on tracked HTTP client variables (requests.Session /
+# httpx.Client / AsyncClient / urllib opener / aiohttp.ClientSession) that
+# are NOT gated by enforce_egress_policy in their enclosing function scope.
+# Today's inventory is EMPTY: every one of the 12 call-sites found by the S14
+# census now calls enforce_egress_policy in scope (loopback-only sites included
+# — the gate is a no-op for loopback in every mode). A NEW ungated site fails
+# here; a site with a justified reason must be pinned below, like the raw gate.
+PINNED_CLIENT_CALL_SITES: dict[str, dict[str, str]] = {}
+
+
+def test_g2_static_gate_flags_ungated_session_method_call(tmp_path):
+    """The exact V-EE-1 pre-fix shape (validate_url + Session.get) that
+    escaped the raw gate must be flagged UNGATED by the client scan."""
+    dirty = tmp_path / "dirty_session.py"
+    dirty.write_text(
+        "import requests\n"
+        "from scp.security.url_safety import validate_url\n"
+        "def fetch(url):\n"
+        "    validate_url(url)\n"
+        "    s = requests.Session()\n"
+        "    return s.get(url)\n",
+        encoding="utf-8",
+    )
+    found = scan_client_method_calls([dirty])
+    ungated = [s for s in found if not s["gated"]]
+    assert len(ungated) == 1, f"expected the Session.get bypass to be flagged: {found}"
+    assert ungated[0]["method"] == "get"
+    assert ungated[0]["receiver"] == "s"
+
+
+def test_g2_static_gate_with_binding_and_param_passing_flagged(tmp_path):
+    """with-binding clients and one-hop parameter passing are both tracked."""
+    dirty = tmp_path / "dirty_with.py"
+    dirty.write_text(
+        "import httpx\n"
+        "async def caller(url):\n"
+        "    async with httpx.AsyncClient() as client:\n"
+        "        return await _post(client, url)\n"
+        "async def _post(c, url):\n"
+        "    return await c.post(url)\n",
+        encoding="utf-8",
+    )
+    ungated = [s for s in scan_client_method_calls([dirty]) if not s["gated"]]
+    assert [(s["receiver"], s["method"], s["function"]) for s in ungated] == [
+        ("c", "post", "_post")
+    ]
+
+
+def test_g2_static_gate_no_false_positives_on_lookalikes(tmp_path):
+    """dict.get / cookie-jar.get / non-HTTP session methods are NOT flagged."""
+    clean = tmp_path / "clean_lookalikes.py"
+    clean.write_text(
+        "import requests\n"
+        "def fetch(url):\n"
+        "    s = requests.Session()\n"
+        "    ua = s.headers.get('User-Agent')\n"
+        "    sid = s.cookies.get('sid')\n"
+        "    d = {}\n"
+        "    s.mount('https://', object())\n"
+        "    s.close()\n"
+        "    return d.get('k'), ua, sid\n",
+        encoding="utf-8",
+    )
+    assert scan_client_method_calls([clean]) == []
+
+
+def test_g2_enforced_call_site_is_gated(tmp_path):
+    """A Session call behind enforce_egress_policy in the same scope is GATED
+    (exempt), matching how the 2 remediated V-EE sites are wired."""
+    gated_src = tmp_path / "gated_session.py"
+    gated_src.write_text(
+        "import requests\n"
+        "from scp.security.url_safety import enforce_egress_policy\n"
+        "def fetch(url):\n"
+        "    enforce_egress_policy(url)\n"
+        "    s = requests.Session()\n"
+        "    return s.get(url)\n",
+        encoding="utf-8",
+    )
+    found = scan_client_method_calls([gated_src])
+    assert len(found) == 1 and found[0]["gated"] is True
+
+
+def test_g2_scp_tree_has_no_unpinned_client_method_calls():
+    """THE EE-G1 latch: every method call on a tracked HTTP client variable
+    in scp/ (outside the 3 gated modules) must read SCP_EGRESS_MODE via
+    enforce_egress_policy in its enclosing function scope, or be a documented
+    pin below. New ungated call-sites fail with the file:line list."""
+    sites = scan_client_method_calls([REPO_ROOT / "scp"])
+    lines_by_site: dict[tuple[str, str], list[int]] = {}
+    found: dict[str, set[str]] = {}
+    gated = 0
+    for s in sites:
+        rel = os.path.relpath(s["file"], REPO_ROOT).replace("\\", "/")
+        if rel in _GATE_EXCLUDED_MODULES:
+            continue
+        if s["gated"]:
+            gated += 1
+            continue
+        found.setdefault(rel, set()).add(s["method"])
+        lines_by_site.setdefault((rel, s["method"]), []).append(s["line"])
+    pinned = {rel: set(kinds) for rel, kinds in PINNED_CLIENT_CALL_SITES.items()}
+    unexpected = {
+        rel: sorted(kinds) for rel, kinds in found.items() if rel not in pinned
+    }
+    drifted = {
+        rel: sorted(found[rel] - pinned.get(rel, set()))
+        for rel in found
+        if rel in pinned and found[rel] - pinned.get(rel, set())
+    }
+    stale = {
+        rel: sorted(kinds)
+        for rel, kinds in pinned.items()
+        if rel not in found
+    }
+    details = [
+        f"{rel}:{sorted(lines_by_site[(rel, kind)])} {kind}"
+        for rel, kinds in sorted(found.items())
+        for kind in sorted(kinds)
+    ]
+    assert not unexpected, (
+        "UNPINNED HTTP CLIENT METHOD CALL (EE-G1 latch) — route through "
+        "scp.security.url_safety (enforce_egress_policy/safe_urlopen) or pin "
+        f"with justification in PINNED_CLIENT_CALL_SITES: {unexpected}"
+    )
+    assert not drifted, f"new ungated client call kinds in pinned files: {drifted}"
+    assert not stale, (
+        "pinned client-call inventory is stale (site is gated/fixed — remove "
+        f"the pin): {stale}"
+    )
+    # Census evidence: the tracked-client scan must still see the 12 known
+    # call-sites, ALL gated (0 unpinned) — see
+    # reports/expert-panel/EE-G1-client-method-census.json.
+    assert gated >= 12, (
+        f"client scan regressed: only {gated} gated call-sites detected "
+        "(expected >= 12 from the S14 census)"
     )
 
 

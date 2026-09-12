@@ -198,3 +198,117 @@ discipline (negative raise trước mọi I/O; positive dùng sentinel session g
   caller giữ nguyên, suite T03 0F". KHÔNG claim "mọi call-site HTTP trong
   scp/ đã qua gate" (EE-G1/G5 còn mở: Session scan tự động, subprocess curl,
   raw socket, OS-level egress).
+
+## S14 — đóng gap EE-G1: static gate mù với method-call trên biến Session/Client (2026-09-12)
+
+Agent S14 mở rộng static gate cho LỚP bypass mà raw direct-spelling gate không
+thấy: `s = requests.Session(); s.get(url)`. V-EE-1/2 thuộc đúng lớp này và chỉ
+được phát hiện bằng review thủ công — census + gate mới làm nó machine-detectable.
+
+Skill binding đọc đầu session S14:
+
+| Skill | SHA256 |
+|---|---|
+| `.agents/skills/scp-dna/SKILL.md` | `4aada0be4873598dc50c3a7f38d90151429bb5263c511a838ed1cdcb4d594d10` |
+| `.agents/skills/scp-capability-security-review/SKILL.md` | `83f1633256756f8e4951471a11b9d45c1738d09f4db851df8ee91ee123a235ee` |
+
+### Thiết kế census/gate dùng chung (commit `09d1764`)
+
+- `scp/security/egress_static_scan.py` — AST walker (không regex source):
+  - track biến/attribute được gán từ client constructors: `requests.Session()`
+    /`requests.session()`, `httpx.Client()`/`httpx.AsyncClient()`,
+    `urllib.request.build_opener()`/`OpenerDirector()`, `aiohttp.ClientSession()`
+    (kèm alias import `import requests as rq`, `from httpx import AsyncClient`);
+  - bắt cả `with ... as client` (sync/async), walrus, chain `self._session`
+    /`Cls._session` (mọi method, không chỉ `__init__`), alias `s = session`,
+    inline `requests.Session().get(url)`, và one-hop interprocedural: truyền
+    client vào hàm cùng file → track param tương ứng (fixpoint);
+  - flag method `get/post/put/delete/patch/head/options/request/stream/send/
+    open/urlopen` gọi TRỰC TIẾP trên client (không flag `session.cookies.get`,
+    `session.headers.update`, `dict.get` — receiver là attribute CỦA client);
+  - exemption fail-closed: site chỉ "gated" khi function scope chứa call
+    `enforce_egress_policy` tại dòng <= dòng call. `validate_url`/SSRF KHÔNG
+    được exempt — V-EE-1 đã chứng minh "SSRF-only + Session.get" là bypass.
+- `tools/ee_g1_census.py` — runner ghi
+  `reports/expert-panel/EE-G1-client-method-census.json` (file:line, method,
+  receiver, function, gated/ungated). Gate và census dùng MỘT implementation
+  (không thể drift).
+
+### Census ban đầu (tại `f4b61b0`, trước S14 fix): 10 call-site UNGATED
+
+| # | Site (census) | Function | Lỗi | Fix S14 |
+|---|---|---|---|---|
+| 1 | `scp/meta/logical_auditor.py:204` `client.post` | `_call_llm` | OpenRouter judge path — client truyền qua param, KHÔNG đọc SCP_EGRESS_MODE (authorize_outbound là zero-cost PEP, không phải egress) | `enforce_egress_policy(self._base_url)` đầu try → except → None → UNKNOWN graceful |
+| 2 | `scp/runtime/notifications.py:245` `client.post` | `_send_webhook._send` | webhook = external WRITE không gate | enforce trước async-with → outer except → False |
+| 3 | `scp/web_control/web_navigator.py:75` `client.stream` | `browse_public` | SSRF validate mỗi hop nhưng không đọc egress mode | enforce trước fetch đầu + RE-GATE mỗi redirect hop |
+| 4 | `scp/web_control/internet_search.py:124` `client.get` | `search` | DuckDuckGo/Bing không gate | enforce per-provider → errors[] graceful |
+| 5 | `scp/knowledge/scheduled_crawler.py:191` `client.get` | `_crawl_entity` | crawler external không gate | enforce trước khi mở client → result.error |
+| 6 | `scp/security/threat_detector.py:198` `client.get` | `refresh_tor_exits` | feed Tor exit list (URL constant, external) không gate — nhất quán với CISA KEV đã gate | enforce → best-effort skip |
+| 7 | `scp/security/threat_intel.py:169` `client.get` | `_fetch_with_retry` | threat-intel fetch không gate; except tuple không bắt EgressDenied | enforce per-attempt → None NGAY (không retry) — contract "None on failure" giữ nguyên |
+| 8 | `scp/llm_gateway/client.py:355` `self._client.post` | `_call_model_once` | chỉ có llm_egress_allowed (list riêng SCP_LLM_EGRESS_ALLOWLIST), thiếu generic gate | enforce URL thật → denial map sang sentinel `egress_denied` có sẵn (không retry, breaker không ghi failure) |
+| 9 | `scp/llm_gateway/free_catalog.py:49` `client.get` | `_fetch_catalog_models` | catalog fetch thiếu generic gate | enforce đầu try → None |
+| 10 | `scp/web_control/browser_session.py:39` `client.get` | `targets` | loopback CDP self-call | enforce thêm để đồng bộ PEP (loopback được allow mọi mode → runtime no-op) |
+
+`PINNED_CLIENT_CALL_SITES` trong gate hiện RỖNG: mọi site đã qua
+`enforce_egress_policy` trong scope nên không cần pin (khác raw gate nơi
+scan không nhìn thấy enforce). Cơ chế pin vẫn sẵn sàng cho site tương lai có
+lý do (mẫu batch_benchmark).
+
+### Static gate mới (section g2, commit cuối S14)
+
+`test_g2_scp_tree_has_no_unpinned_client_method_calls`: scan toàn `scp/`
+(loại trừ 3 module gate), FAIL trên bất kỳ site ungated không pin, kèm
+anti-drift/anti-stale như raw gate + sanity `gated >= 12`. 4 unit test kèm
+chứng minh scanner: (1) flag đúng pre-fix V-EE-1 shape, (2) with-binding +
+param-passing, (3) không false-positive với dict/cookie-jar/mount/close,
+(4) site có enforce trong scope = gated.
+
+### Regression fail mới do EE lộ ra + harness fix (commit `de1e405`)
+
+T03 full suite fail ổn định 3 lần: `test_web_browse_requires_token` —
+`EgressDeniedError: host 'example.com' not in SCP_EGRESS_ALLOWLIST
+(mode=allowlist)`. Root cause (audit hook + import-bisect): import test module
+nào kéo `scp.api_server` → `load_selected_env()` (api_server.py:12) nạp
+`<repo>/.env` lúc COLLECTION → `.env` chứa `SCP_EGRESS_MODE=allowlist` +
+`SCP_PRODUCTION_MODE=1` → CẢ suite âm thầm chạy dưới egress policy server.
+Trước EE, web_navigator không đọc mode nên pollution vô hình — EE enforcement
+đã lộ nó (đúng hành vi, sai môi trường test). Fix harness tại điểm lỗi:
+`tests/conftest.py` snapshot env cha và restore CHÍNH XÁC 3 egress keys sau
+collection (pytest_collection_finish) — chỉ XÓA nguồn policy ngẫu nhiên,
+không thêm policy nào, không sửa assertion/test case.
+
+### Kết quả chạy thật (S14, working tree sau `de1e405`)
+
+- `tests/T03_capability/test_egress_enforcement.py`: **26 passed, 2 skipped**
+  (2 skips = container opt-in, declared).
+- Regression T03 đầy đủ: trước fix **781 passed, 1 failed** (3 lần tái hiện) →
+  sau harness fix **782 passed, 0 failed, 2 skipped** (fail không tăng so với
+  baseline S13 0F).
+- Regression T04_kernel: **205 passed, 0 failed, 23 skipped**.
+- Census cuối (HEAD `de1e405`): **12/12 client call-sites gated, 0 ungated**;
+  raw direct-spelling: 9 sites khớp PINNED_RAW_CALL_SITES (không drift).
+- `py_compile` OK cho 12 file chạm/sửa.
+
+### Commits S14 (branch `audit/runtime-guard-AUDIT-20260909`)
+
+| Commit | Nội dung |
+|---|---|
+| `09d1764` | feat(egress): shared AST client-tracking scanner + census runner |
+| `2540e83` | fix(egress): gate LLM/judge client call-sites (logical_auditor, free_catalog, llm client) |
+| `77467aa` | fix(egress): gate security-intel + webhook call-sites (threat_detector, threat_intel, notifications) |
+| `015b3d6` | fix(egress): gate web-control + crawler call-sites (internet_search, web_navigator, browser_session, scheduled_crawler) |
+| `de1e405` | fix(test-harness): isolate suite from .env egress keys loaded at collection |
+| (docs commit) | gate g2 + census JSON cuối + mục S14 + M13 G1 note |
+
+### Scope còn lại (trung thực)
+
+- Scanner per-file: client tạo ở module A, import sang module B không được
+  track xuyên import; constructor SUBCLASS (`class S(requests.Session)`) chưa
+  track. Cả hai là hạn chế đặt tên, không phải claim "bắt được hết".
+- Exemption là function-scope + line-order, chưa phải dataflow URL chính xác —
+  bù bằng việc census in `function` + `receiver` cho review thủ công.
+- Vẫn ngoài scope EE-G1 (đã ghi từ trước): subprocess curl, raw socket,
+  OS-level egress (G5), non-HTTP scheme fetch.
+- Claim S14: "mọi method-call trên biến HTTP client trong scp/ hiện đọc
+  SCP_EGRESS_MODE qua enforce_egress_policy, và latch g2 chặn tái diễn lớp
+  này". KHÔNG claim "mọi đường egress trong scp/ đã được chặn" (xem scope trên).
