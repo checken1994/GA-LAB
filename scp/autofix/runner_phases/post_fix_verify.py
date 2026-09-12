@@ -30,6 +30,7 @@ DNA principles applied:
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import logging
 import subprocess
 import sys
@@ -70,7 +71,16 @@ def _try_import_module(file_path: str) -> tuple[bool, str]:
     """
     try:
         # Convert file path to module path: scp/runtime/judge.py → scp.runtime.judge
-        rel = Path(file_path).relative_to(_SCP_ROOT.parent)
+        try:
+            rel = Path(file_path).relative_to(_SCP_ROOT.parent)
+        except ValueError:
+            # [S15 FIX] The patched file lives OUTSIDE the repository tree
+            # (tmp verification workspace, as used by the T09 golden task).
+            # The import check must still prove the patched module compiles
+            # and executes at import time — verify it through its file
+            # location under a private, throwaway module name instead of
+            # failing the whole base phase with a path arithmetic ValueError.
+            return _import_module_by_location(Path(file_path))
         if rel.suffix != ".py":
             return True, "not a .py file, skip import check"
         module_path = str(rel.with_suffix("")).replace("/", ".").replace("\\", ".")
@@ -90,6 +100,31 @@ def _try_import_module(file_path: str) -> tuple[bool, str]:
         # A module-level exception means the patched module was not verified.
         logger.warning(" import check failed; verification is UNVERIFIED: %s", type(e).__name__)
         return False, f"module import failed: {type(e).__name__}"
+
+
+def _import_module_by_location(path: Path) -> tuple[bool, str]:
+    """Compile+exec a standalone patched module via its file location.
+
+    Used for verification targets outside the repository tree. The module is
+    loaded under a private throwaway name and removed afterwards, so repo
+    modules and sys.modules state stay untouched. Any load/execution error
+    propagates to the caller's fail-closed reporting.
+    """
+    if path.suffix != ".py":
+        return True, "not a .py file, skip import check"
+    import uuid as _uuid
+
+    module_name = f"_scp_autofix_verify_{_uuid.uuid4().hex[:12]}"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        return False, f"module import failed: no importable spec for {path.name}"
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(module_name, None)
+    return True, "import OK (standalone verification target)"
 
 
 def _try_hypothesis_test(file_path: str) -> tuple[bool, str]:
