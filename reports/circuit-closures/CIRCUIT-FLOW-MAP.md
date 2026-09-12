@@ -41,6 +41,22 @@ Chi tiết đầy đủ (danh sách test FAILED, việc còn lại cho từng m�
 >
 > **Cập nhật 2026-09-12 (DNA-2):** (1) refresh bảng theo STATUS-LEDGER + closure records; (2) M12: multi-source empty-evidence fix (DNA #22, commit `4f451df`) — nhánh multi-source của `why_execute_plan.py` không còn auto-PASS với `ai_answer=''`, test pin đổi từ PASS → UNKNOWN + `empty_evidence` (strictness TĂNG) kèm control PASS cho match thật; flow_12 = 29 passed @`4f451df`; (3) D7: header `# SCP CIRCUIT: MXX — STATUS: CLOSED_WITH_KNOWN_GAP` đã thêm vào 69 file scope .py của M02–M14 (commit `514f1c9`) — commit này CHẠM file phạm vi của các mạch nên theo regression clause phải chạy lại tối thiểu D1+D2+D4 cho từng mạch: D1 của M12+M02 đã chạy lại (63 passed, exit 0); D2/D4 còn nợ owner. Header của 4 module M1 giữ nguyên (đã có từ M01, để tránh vô hiệu hoá pin 7650753 thêm lần nữa — reviewer_limits L5).
 
+## Các track adoption ngoài 14 mạch (Track C1–C3, ADOPT-AND-FIX)
+
+Ba track dưới đây **không thuộc** hợp đồng D0–D8 của 14 mạch M1–M14; chúng có
+trạng thái riêng ghi tại `STATUS-LEDGER.md`. **Không** đọc các hàng này thành
+`CLOSED` — đây là adoption track (infra/mở rộng năng lượng), không phải mạch
+sản phẩm đóng theo D0–D8.
+
+| Track | Tên | Suite chính | Runtime probe | Trạng thái |
+|---|---|---|---|---|
+| Track C1 | PostgreSQL KernelStorage (kernel storage thay SQLite) | `tests/T04_kernel/test_pg_storage_parity.py` + `test_pg_migration.py` + `test_pg_storage_chaos.py` + `test_pg_boot_runtime.py` (cần `SCP_PG_TEST_DSN` = docker PG thật; thiếu env = declared infra-skip) | **đã** — PG thật docker postgres:16-alpine: chaos injection (`pg_terminate_backend`), docker restart giữa claim, 2-process claim race, `pg_dump` → restore → verify, boot lifecycle qua TaskKernel API thật | **CLOSED_WITH_KNOWN_GAP** (`C1-postgres-closure.json`, sha_pin `72da6d3…`; performance/multi-node/HA chưa đo — đọc known_gaps) |
+| Track C2 | PgEventBus: bảng `scp_events` durable + NOTIFY wake-up (NOTIFY chỉ là chuông, không phải queue) | `tests/T04_kernel/test_pg_event_bus.py` (cần `SCP_PG_TEST_DSN`; test factory opt-in chạy không cần PG) | **đã** — 9/9 ×2 lần chạy độc lập trên PG thật, trong đó replay sau listener chết đủ 5/5 đúng thứ tự (NOTIFY mất không mất event) | **CLOSED_WITH_KNOWN_GAP** (`C2-eventbus-closure.json`, sha_pin `5b4a6da…`; CHƯA wire vào kernel events thực — chỉ infra + API opt-in) |
+| Track C3 | SandboxEvaluator: autofix không tự chấm bài — pytest thật trên bản sao workspace temp, fail-closed (wire opt-in `SCP_SANDBOX_EVALUATOR=1`) | `tests/T04_kernel/test_sandbox_evaluator_e2e.py` (NO-MOCK, subprocess pytest thật; 1 case PG-gated) | **đã (một phần)** — E2E 18 passed + 1 PG-gated PASSED trên PG thật; event-path smoke (publish `EVAL_REQUEST` → durable → replay → evaluate → `EVAL_RESULT`) + loop fail-closed exit 2; container compose `sandbox-evaluator` chưa có probe runtime riêng | **PASS_WITHIN_SCOPE** (pin tại commit `45a7dc8`; record = `reports/expert-panel/C3-sandbox-evaluator.md` — **evidence report, không phải closure JSON chuẩn**, vì C3 là adoption track ngoài hợp đồng D0–D8; KHÔNG đọc thành CLOSED) |
+
+Chi tiết đầy đủ từng track: `STATUS-LEDGER.md` (bảng trạng thái, các hàng
+Track C1/C2/C3) + record tương ứng.
+
 ## Ghi chú về cột "Suite chính"
 
 - Đường dẫn ở cột Suite chính là **tên file đang tồn tại trên đĩa** tại thời điểm lập bản đồ (kiểm bằng `ls`), không phải bằng chứng các test đó đã PASS.
