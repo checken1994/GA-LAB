@@ -122,6 +122,7 @@ def _atomic_append(path: Path, line: str) -> None:
                     logger.debug(f"[V104.37] brain/error_store.py: e={e}")
             return
         except Exception as exc:  # pragma: no cover - defensive
+            logger.warning('_atomic_append: Exception not handled: %s', exc)
             last_exc = exc
             time.sleep(0.05 * (attempt + 1))
     if last_exc:
@@ -141,6 +142,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
                 try:
                     out.append(json.loads(line))
                 except json.JSONDecodeError:
+                    logger.debug('_read_jsonl: json.JSONDecodeError ignored', exc_info=True)
                     continue
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning(f"[PersistentStore] Failed to read {path}: {exc}")
@@ -488,6 +490,7 @@ class KnowledgeStore:
             old_f = float(old_value)
             new_f = float(new_value)
         except (TypeError, ValueError):
+            logger.debug('KnowledgeStore.relative_error: TypeError, ValueError ignored', exc_info=True)
             return float("inf")
         # [V104.38 #89] symmetric: max(old, new, epsilon)
         denom = max(abs(old_f), abs(new_f), 1e-300)
