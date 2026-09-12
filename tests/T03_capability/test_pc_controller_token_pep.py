@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import platform
+import sys
 import uuid
 from pathlib import Path
 
@@ -96,27 +96,38 @@ def test_pc_controller_execute_rejects_revoked_epoch(tmp_path: Path):
 
 
 def test_pc_controller_execute_succeeds_with_valid_token(tmp_path: Path):
-    """Calling execute() with a valid pc.execute token runs allowlisted command and records audit."""
-    if platform.system() != "Windows":
-        pytest.skip(
-            "PCController._run_sync executes through powershell.exe (Windows-only "
-            "product executor); the real-execution contract is Windows-specific"
-        )
+    """Calling execute() with a valid pc.execute token runs allowlisted command and records audit.
+
+    [S16 FIX 2026-09-13] No skip markers: both T00 gates reject new
+    pytest.skip() calls and new skip/xfail/skipif decorators
+    (tools/t00_meta_audit.py FA-01 delta, tests/T00_integrity/test_meta_audit.py).
+    PCController._run_sync executes through powershell.exe (Windows-only
+    product executor), so Windows asserts the full success + audit contract
+    while every other OS asserts the fail-closed executor-absent result
+    (success=False, returnCode=None). The PEP token echo is asserted on every
+    OS.
+    """
     controller, authority, _ws = _create_controller_with_authority(tmp_path)
     token = authority.issue("pc.execute")
 
     result = asyncio.run(controller.execute("whoami", capability_token=token))
 
-    assert result.get("success") is True, f"Execution failed: {result}"
-    assert result.get("returnCode") == 0
     assert result.get("tokenId") == token.token_id
     assert result.get("epoch") == token.epoch
+    if sys.platform == "win32":
+        assert result.get("success") is True, f"Execution failed: {result}"
+        assert result.get("returnCode") == 0
 
-    # Verify physical audit log on disk contains token id
-    assert controller.audit_path.exists()
-    audit_lines = [json.loads(line) for line in controller.audit_path.read_text(encoding="utf-8").splitlines()]
-    token_audits = [a for a in audit_lines if a.get("tokenId") == token.token_id]
-    assert len(token_audits) >= 2  # EXECUTE_INTENT and EXECUTE
+        # Verify physical audit log on disk contains token id
+        assert controller.audit_path.exists()
+        audit_lines = [json.loads(line) for line in controller.audit_path.read_text(encoding="utf-8").splitlines()]
+        token_audits = [a for a in audit_lines if a.get("tokenId") == token.token_id]
+        assert len(token_audits) >= 2  # EXECUTE_INTENT and EXECUTE
+    else:
+        # Executor absent on this OS: the product must fail closed (OSError →
+        # success=False), never fake success.
+        assert result.get("success") is False, f"Non-Windows must fail closed: {result}"
+        assert result.get("returnCode") is None
 
 
 # ------------------------------------------------------------------------------
@@ -338,12 +349,15 @@ def test_pc_controller_routes_rejects_missing_capability_token(monkeypatch, tmp_
 
 
 def test_pc_controller_routes_succeeds_with_valid_capability_token(monkeypatch, tmp_path: Path):
-    """POST /v3/pc/execute with valid capability token returns HTTP 200."""
-    if platform.system() != "Windows":
-        pytest.skip(
-            "Route executes through PCController._run_sync (powershell.exe, "
-            "Windows-only product executor); real-execution contract is Windows-specific"
-        )
+    """POST /v3/pc/execute with valid capability token returns HTTP 200.
+
+    [S16 FIX 2026-09-13] No skip markers: both T00 gates reject new
+    pytest.skip() calls and new skip/xfail/skipif decorators. The route
+    executes through PCController._run_sync (powershell.exe, Windows-only
+    product executor): Windows asserts the full success contract on the HTTP
+    200 body, every other OS asserts the fail-closed executor-absent body
+    (success=False, returnCode=None) on the same HTTP 200.
+    """
     from scp.api.routes import pc_controller_routes
     from scp.security.capability_epoch import CapabilityAuthority
 
@@ -373,5 +387,10 @@ def test_pc_controller_routes_succeeds_with_valid_capability_token(monkeypatch, 
 
     assert response.status_code == 200, f"Route returned error: {response.text}"
     body = response.json()
-    assert body.get("success") is True
-    assert body.get("returnCode") == 0
+    if sys.platform == "win32":
+        assert body.get("success") is True
+        assert body.get("returnCode") == 0
+    else:
+        # Executor absent on this OS: fail-closed body on the same HTTP 200.
+        assert body.get("success") is False
+        assert body.get("returnCode") is None
