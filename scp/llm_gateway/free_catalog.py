@@ -23,6 +23,7 @@ from scp.epistemic.evidence_writer import GovernedEvidenceWriter
 from scp.governance.privacy import PrivacyWriteGate
 from scp.llm_gateway.egress_policy import llm_egress_allowed
 from scp.llm_gateway.zero_cost_guard import PricingProofStore
+from scp.security.url_safety import enforce_egress_policy  # [EE-G1]
 
 logger = logging.getLogger("scp.llm_gateway.free_catalog")
 
@@ -45,6 +46,10 @@ def _fetch_catalog_models(timeout: float = FREE_CATALOG_TIMEOUT_SEC) -> list | N
         logger.info("[free_catalog] external refresh skipped by SCP LLM egress policy")
         return None
     try:
+        # [EE-G1] generic egress gate (idempotent): SCP_EGRESS_MODE áp cho cả
+        # catalog fetch, cùng lớp với các fetcher chuẩn. EgressDeniedError →
+        # except dưới → None ("forbidden/failure" contract giữ nguyên).
+        enforce_egress_policy(OPENROUTER_CATALOG_URL)
         with httpx.Client(timeout=timeout) as client:
             resp = client.get(OPENROUTER_CATALOG_URL)
             if resp.status_code != 200:

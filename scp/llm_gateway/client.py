@@ -133,6 +133,7 @@ OPENROUTER_FREE_MODELS: list[str] = [
 
 
 from scp.security.provider_keys import ProviderCredentialError, load_openrouter_keys
+from scp.security.url_safety import EgressDeniedError, enforce_egress_policy  # [EE-G1]
 
 
 class CircuitBreaker:
@@ -343,6 +344,14 @@ class OpenRouterProvider:
                 self.PROVIDER_NAME,
                 self.base_url,
             )
+            return None, "egress_denied"
+        # [EE-G1] Generic egress gate (idempotent, SCP_EGRESS_MODE-aware) on
+        # the real request URL. Denial maps to the SAME "egress_denied"
+        # sentinel as the LLM check above — _call_model returns it without
+        # retry and without recording a breaker failure (fail-closed, no I/O).
+        try:
+            enforce_egress_policy(f"{self.base_url}/chat/completions")
+        except EgressDeniedError:
             return None, "egress_denied"
         try:
             # [Fix 4-a-014] Double-checked locking — only the first concurrent
