@@ -167,25 +167,25 @@ class DataCrawler:
 
     def crawl_all(self) -> dict:
         """Crawl tất cả nguồn."""
-        print("  ? Crawling crypto...")
+        logger.info("  ? Crawling crypto...")
         crypto = self.crawl_crypto()
-        print(f"     {len(crypto)} coins crawled")
+        logger.info(f"     {len(crypto)} coins crawled")
 
-        print("  ? Crawling weather (Hanoi, Tokyo, London)...")
+        logger.info("  ? Crawling weather (Hanoi, Tokyo, London)...")
         weather = {}
         for city in ["Hanoi", "Tokyo", "London"]:
             w = self.crawl_weather_forecast(city)
             if w:
                 weather[city] = w
-        print(f"     {len(weather)} cities crawled")
+        logger.info(f"     {len(weather)} cities crawled")
 
-        print("  ? Crawling exchange rates...")
+        logger.info("  ? Crawling exchange rates...")
         fx = self.crawl_exchange_rates()
-        print(f"     {len(fx.get('rates', {}))} rates crawled")
+        logger.info(f"     {len(fx.get('rates', {}))} rates crawled")
 
-        print("  ? Crawling NASA asteroids...")
+        logger.info("  ? Crawling NASA asteroids...")
         nasa = self.crawl_asteroids()
-        print(f"     {nasa.get('count', 0)} asteroids today")
+        logger.info(f"     {nasa.get('count', 0)} asteroids today")
 
         return {"crypto": crypto, "weather": weather, "fx": fx, "nasa": nasa}
 
@@ -472,14 +472,14 @@ class Verifier:
             })
 
             if is_correct:
-                print(f"  [OK] CORRECT: {pred['question'][:50]}")
-                print(f"     Predicted: {pred['predicted_answer'][:50]}")
-                print(f"     Actual: {actual}")
+                logger.info(f"  [OK] CORRECT: {pred['question'][:50]}")
+                logger.info(f"     Predicted: {pred['predicted_answer'][:50]}")
+                logger.info(f"     Actual: {actual}")
             else:
-                print(f"  [FAIL] WRONG: {pred['question'][:50]}")
-                print(f"     Predicted: {pred['predicted_answer'][:50]}")
-                print(f"     Actual: {actual}")
-                print(f"     Error: {error_type} — {error_reason}")
+                logger.error(f"  [FAIL] WRONG: {pred['question'][:50]}")
+                logger.info(f"     Predicted: {pred['predicted_answer'][:50]}")
+                logger.info(f"     Actual: {actual}")
+                logger.error(f"     Error: {error_type} — {error_reason}")
 
         return results
 
@@ -794,21 +794,21 @@ class PredictiveOrchestrator:
     def run_cycle(self) -> dict:
         """Chạy 1 cycle: Crawl -> Generate -> Predict -> Verify -> Learn."""
         self.cycle_count += 1
-        print(f"\n{'='*60}")
-        print(f"  [LOOP] PREDICTIVE CYCLE {self.cycle_count} — {datetime.now().strftime('%H:%M:%S')}")
-        print(f"{'='*60}")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"  [LOOP] PREDICTIVE CYCLE {self.cycle_count} — {datetime.now().strftime('%H:%M:%S')}")
+        logger.info(f"{'='*60}")
 
         # Step 1: Crawl
-        print("\n  ? STEP 1: Crawl dữ liệu từ Internet")
+        logger.info("\n  ? STEP 1: Crawl dữ liệu từ Internet")
         data = self.crawler.crawl_all()
 
         # Step 2: Generate questions
-        print("\n  ? STEP 2: Tạo câu hỏi dự đoán")
+        logger.info("\n  ? STEP 2: Tạo câu hỏi dự đoán")
         questions = self.generator.generate(data)
-        print(f"     Sinh {len(questions)} câu hỏi dự đoán")
+        logger.info(f"     Sinh {len(questions)} câu hỏi dự đoán")
 
         # Step 3: Save predictions
-        print("\n  ? STEP 3: Lưu predictions vào SQLite")
+        logger.info("\n  ? STEP 3: Lưu predictions vào SQLite")
         for q in questions:
             pred_id = self.predictor.save_prediction(
                 question=q["question"],
@@ -820,35 +820,35 @@ class PredictiveOrchestrator:
                 current_value=q.get("current_value"),
                 confidence=0.5,
             )
-            print(f"     [{q['domain']:10s}] {q['question'][:55]}")
-            print(f"       -> Predicted: {q['ai_answer'][:50]}")
-            print(f"       -> Check date: {q['check_date']} | ID: {pred_id}")
+            logger.info(f"     [{q['domain']:10s}] {q['question'][:55]}")
+            logger.info(f"       -> Predicted: {q['ai_answer'][:50]}")
+            logger.info(f"       -> Check date: {q['check_date']} | ID: {pred_id}")
 
         # Step 4: Verify pending
-        print("\n  [OK] STEP 4: Kiểm chứng predictions đã đến hạn")
+        logger.info("\n  [OK] STEP 4: Kiểm chứng predictions đã đến hạn")
         verified = self.verifier.verify_pending()
         if verified:
             correct = sum(1 for v in verified if v["status"] == "verified_correct")
             wrong = sum(1 for v in verified if v["status"] == "verified_wrong")
-            print(f"     Verified: {len(verified)} ({correct} correct, {wrong} wrong)")
+            logger.info(f"     Verified: {len(verified)} ({correct} correct, {wrong} wrong)")
         else:
-            print("     Không có prediction nào đến hạn kiểm chứng")
+            logger.info("     Không có prediction nào đến hạn kiểm chứng")
 
         # Step 5: Learn
-        print("\n  [BRAIN] STEP 5: Tự học từ lỗi")
+        logger.error("\n  [BRAIN] STEP 5: Tự học từ lỗi")
         learn_result = self.learner.learn_from_errors()
         learn_msg = learn_result.get('message', f"Học từ {learn_result.get('learned', 0)} predictions sai")
-        print(f"     {learn_msg}")
+        logger.info(f"     {learn_msg}")
 
         # Report
         stats = self.learner.get_stats()
-        print("\n  [STATS] BÁO CÁO:")
-        print(f"     Total predictions: {stats['total_predictions']}")
-        print(f"     Correct: {stats['correct']} | Wrong: {stats['wrong']} | Pending: {stats['pending']}")
-        print(f"     Accuracy: {stats['accuracy']}%")
+        logger.info("\n  [STATS] BÁO CÁO:")
+        logger.info(f"     Total predictions: {stats['total_predictions']}")
+        logger.info(f"     Correct: {stats['correct']} | Wrong: {stats['wrong']} | Pending: {stats['pending']}")
+        logger.info(f"     Accuracy: {stats['accuracy']}%")
         if stats["error_types"]:
-            print(f"     Error types: {stats['error_types']}")
-        print(f"\n{'='*60}")
+            logger.error(f"     Error types: {stats['error_types']}")
+        logger.info(f"\n{'='*60}")
 
         return stats
 
