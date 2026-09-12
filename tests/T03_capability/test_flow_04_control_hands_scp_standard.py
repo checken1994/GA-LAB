@@ -51,9 +51,28 @@ class TestFlow04ControlHands:
         return "test_pc_controller_token"
 
     @pytest.fixture
-    def app_with_pc_token(self, pc_token, monkeypatch):
-        """FastAPI app with PC_CONTROLLER_TOKEN configured."""
+    def app_with_pc_token(self, pc_token, monkeypatch, tmp_path):
+        """FastAPI app with PC_CONTROLLER_TOKEN configured.
+
+        [S16 FIX 2026-09-13] The route module's singleton PCController is
+        bound to the repository data/ directory, and several tests below
+        engage POST /v3/pc/kill — that used to write
+        data/pc_controller/KILL_SWITCH into the repo and poison later tests
+        in the same pytest process (observed on CI as PolicyDecision(False,
+        'Kill switch is engaged') in
+        scp/tests/external_audit/test_security.py). Every request in this
+        module now runs against a tmp-isolated controller, so kill-switch
+        state lives and dies with tmp_path and never touches repo data/.
+        """
         monkeypatch.setenv("SCP_PC_CONTROLLER_TOKEN", pc_token)
+        monkeypatch.setattr(
+            pc_controller_routes,
+            "_controller",
+            PCController(
+                working_dir=tmp_path / "route_workspace",
+                capability_authority=CapabilityAuthority(tmp_path / "route_capability_state.json"),
+            ),
+        )
         app = FastAPI()
         app.include_router(pc_controller_routes.router)
         app.include_router(hands_routes.router)

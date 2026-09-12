@@ -172,11 +172,19 @@ def test_bandit_no_new_high_severity_via_bandit():
     )
 
 
-def test_pc_read_only_allowlist_rejects_command_chains():
+def test_pc_read_only_allowlist_rejects_command_chains(tmp_path):
     """A read-only prefix must not permit a second shell command."""
     from scp.pc_control.pc_controller import PCController
 
-    controller = PCController()
+    # [S16 FIX 2026-09-13] Bind the controller to a tmp working dir. The
+    # default constructor binds kill_switch_path to the repository data/
+    # directory, so a kill switch engaged by ANY earlier test in the same
+    # pytest process (previously: the /v3/pc/kill route tests in
+    # tests/T03_capability/, now tmp-isolated) turned every evaluate() into
+    # PolicyDecision(False, 'Kill switch is engaged') before the
+    # chain-rejection logic under test ever ran (observed on CI). The
+    # allowlist/chain logic itself is data-dir independent.
+    controller = PCController(working_dir=tmp_path)
     for command in (
         "whoami; Start-Process calc",
         "whoami ; Start-Process calc",
