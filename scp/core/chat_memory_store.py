@@ -8,12 +8,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import tempfile
 import time
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class ChatMemoryStore:
@@ -78,7 +81,8 @@ class ChatMemoryStore:
                 os.fsync(handle.fileno())
             self._prune_if_needed()
             return True
-        except (OSError, TypeError, ValueError):
+        except (OSError, TypeError, ValueError) as exc:
+            logger.warning("chat_memory_store: append failed for %s: %s", self.path, exc, exc_info=True)
             return False
 
     def load(self, session_id: str, limit: int = 20) -> list[dict[str, Any]]:
@@ -92,6 +96,8 @@ class ChatMemoryStore:
                 try:
                     row = json.loads(line)
                 except json.JSONDecodeError:
+                    # Corrupt record must be visible; skipping keeps the reader resilient.
+                    logger.warning("chat_memory_store: corrupt line in %s", self.path, exc_info=True)
                     continue
                 if row.get("session_id") != wanted or float(row.get("ts", 0)) < cutoff:
                     continue
@@ -101,7 +107,8 @@ class ChatMemoryStore:
                     "timestamp": float(row.get("ts", 0)),
                     "metadata": self._metadata(row.get("metadata", {})),
                 })
-        except OSError:
+        except OSError as exc:
+            logger.warning("chat_memory_store: read failed for %s: %s", self.path, exc, exc_info=True)
             return []
         return rows[-max(1, min(int(limit), 100)) :]
 
@@ -115,6 +122,8 @@ class ChatMemoryStore:
                 try:
                     row = json.loads(line)
                 except json.JSONDecodeError:
+                    # Corrupt record must be visible; skipping keeps the reader resilient.
+                    logger.warning("chat_memory_store: corrupt line in %s", self.path, exc_info=True)
                     continue
                 if float(row.get("ts", 0)) >= cutoff:
                     rows.append(row)
@@ -130,9 +139,10 @@ class ChatMemoryStore:
             finally:
                 if os.path.exists(temp_name):
                     os.unlink(temp_name)
-        except (OSError, TypeError, ValueError):
-            # Persistence is best-effort; failure is visible through caller
-            # diagnostics but must not turn chat into an unbounded memory path.
+        except (OSError, TypeError, ValueError) as exc:
+            # silent-by-design: prune is best-effort; failure must not turn chat
+            # into an unbounded memory path, but it must be observable.
+            logger.debug("chat_memory_store: prune failed for %s (non-fatal): %s", self.path, exc, exc_info=True)
             return
 
 

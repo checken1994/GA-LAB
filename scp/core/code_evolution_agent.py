@@ -141,7 +141,9 @@ class CodeEvolutionAgent:
             for br in scan_summary.get("bugs", []):
                 try:
                     tier = int(getattr(br, "tier", 1) or 1)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError) as exc:
+                    # silent-by-design: unparseable tier falls back to documented default 1.
+                    logger.debug("code_evolution_agent: bug tier unparseable, defaulting to 1: %s", exc, exc_info=True)
                     tier = 1
                 if tier < 2:
                     continue
@@ -164,7 +166,8 @@ class CodeEvolutionAgent:
         filepath = SCP_ROOT / bug["file"]
         try:
             original = filepath.read_text(encoding="utf-8")
-        except Exception:
+        except Exception as exc:
+            logger.warning("code_evolution_agent: cannot read bug file %s — fix skipped: %s", filepath, exc, exc_info=True)
             return None
         prompt = f"""Fix this Python bug with the smallest safe change.
 
@@ -230,8 +233,10 @@ If no safe fix exists, return CANNOT_FIX."""
             pruned = prune_source(content, line or 0, description)
             if pruned.strip():
                 return pruned
-        except Exception:
-            pass
+        except Exception as exc:
+            # silent-by-design: context pruning is an optional refinement; the raw
+            # line-window fallback below is the documented behavior.
+            logger.debug("code_evolution_agent: prune_source failed, using raw window: %s", exc, exc_info=True)
         lines = content.split("\n")
         start = max(0, line - radius)
         end = min(len(lines), line + radius)
@@ -244,7 +249,9 @@ If no safe fix exists, return CANNOT_FIX."""
     def _relative_repo_path(self, filepath: Path) -> str:
         try:
             return filepath.resolve().relative_to(SCP_ROOT.resolve()).as_posix()
-        except ValueError:
+        except ValueError as exc:
+            # silent-by-design: paths outside the repo root are reported verbatim.
+            logger.debug("code_evolution_agent: path outside SCP_ROOT, using as_posix: %s", exc, exc_info=True)
             return filepath.as_posix()
 
     def _drift_allows(self, filepath: Path, original: str, patched: str) -> bool:
@@ -465,7 +472,9 @@ def run_evolution_cycle_once() -> dict:
         coro = agent.run_cycle()
         try:
             loop = asyncio.get_running_loop()
-        except RuntimeError:
+        except RuntimeError as exc:
+            # silent-by-design: no running loop is the expected sync-context case.
+            logger.debug("code_evolution_agent: no running asyncio loop: %s", exc, exc_info=True)
             loop = None
         if loop is not None:
             import concurrent.futures as futures
