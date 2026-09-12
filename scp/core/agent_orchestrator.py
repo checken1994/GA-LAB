@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 import uuid
@@ -22,6 +23,8 @@ from scp.core.agent_autofix_adapter import AutoFixAdapter
 from scp.hands.goal_parser import GoalParser
 from scp.hands.hands_executor import HandsExecutor
 from scp.hands.planner import HandsPlanner
+
+logger = logging.getLogger(__name__)
 
 
 class AgentOrchestrator:
@@ -75,7 +78,8 @@ class AgentOrchestrator:
                 handle.flush()
                 os.fsync(handle.fileno())
             return True
-        except (OSError, TypeError, ValueError):
+        except (OSError, TypeError, ValueError) as exc:
+            logger.warning("agent orchestrator: state append failed for %s: %s", self.state_path, exc, exc_info=True)
             return False
 
     def _latest_state(self, agent_run_id: str) -> dict[str, Any] | None:
@@ -87,10 +91,14 @@ class AgentOrchestrator:
                 try:
                     item = json.loads(line)
                 except json.JSONDecodeError:
+                    # Corrupt state line must be visible; skipping keeps the
+                    # reader resilient but a silent skip would hide corruption.
+                    logger.warning("agent orchestrator: corrupt line in state ledger %s", self.state_path, exc_info=True)
                     continue
                 if item.get("agent_run_id") == agent_run_id:
                     latest = item
-        except OSError:
+        except OSError as exc:
+            logger.warning("agent orchestrator: state read failed for %s: %s", self.state_path, exc, exc_info=True)
             return None
         return latest
 
@@ -262,9 +270,14 @@ class AgentOrchestrator:
                     try:
                         rows.append(json.loads(line))
                     except json.JSONDecodeError:
+                        # Corrupt state line must be visible, not silently dropped
+                        # from the reported recentRuns history.
+                        logger.warning("agent orchestrator: corrupt line in state ledger %s", self.state_path, exc_info=True)
                         continue
-            except OSError:
-                pass
+            except OSError as exc:
+                # silent-by-design: status() is a best-effort report; an unread
+                # state file must not fail the whole status payload.
+                logger.warning("agent orchestrator: state read failed for %s: %s", self.state_path, exc, exc_info=True)
         return {"version": self.VERSION, "orchestrator": "online", "statePath": str(self.state_path), "recentRuns": rows}
 
 
