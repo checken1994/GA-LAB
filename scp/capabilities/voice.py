@@ -41,7 +41,7 @@ class VoiceHandler:
                     try:
                         os.unlink(tmp_path)
                     except OSError:
-                        pass
+                        logger.debug('VoiceHandler.transcribe: OSError ignored', exc_info=True)
         except ImportError:
             logger.warning("whisper not installed — pip install openai-whisper")
             return ""
@@ -70,7 +70,7 @@ class VoiceHandler:
                     try:
                         os.unlink(tmp_path)
                     except OSError:
-                        pass
+                        logger.debug('VoiceHandler.speak: OSError ignored', exc_info=True)
         except ImportError:
             logger.warning("edge-tts not installed — pip install edge-tts")
             return b""
