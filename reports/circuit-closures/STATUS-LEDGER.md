@@ -49,6 +49,9 @@ Tổng hợp theo exit code (inventory lập sổ 2026-09-10): **8 mạch xanh D
 
 ## KNOWN-RED (policy conflict, chờ owner quyết)
 
+> **RESOLVED (policy A — commit `cb1c99e3c0c94818902836eb238d5813222d0518`, 2026-09-12):** T00 gate đã cài `tests/T00_integrity/declared_infra_skips.json` allowlist tường minh (7 file, env-guard token bắt buộc còn trong source, reason-pattern khớp; pytestmark/decorator không bao giờ allowlist). Contract tests 9 case fail-closed; T00 72/72 exit 0; T00+T04 277 passed/23 declared skips. Known-red này KHÔNG còn áp dụng.
+
+
 > Pin ngày 2026-09-12 (Agent S11, V6 concern 1). Đã xác minh bằng chạy thật:
 > `python -m pytest "tests/T00_integrity/test_meta_audit.py::test_meta_audit_no_skip_in_mandatory_tests" -q`
 > → **1 failed** (AST scan bắt `pytest.skip` call thật trong mandatory test
