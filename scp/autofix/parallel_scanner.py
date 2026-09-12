@@ -144,11 +144,9 @@ def _scan_one_file_worker(args: tuple[str, list[Any]]) -> list[dict[str, Any]]:
             for r in raw:
                 findings.append(_normalize_finding(r, scanner_name, file_path))
         except Exception as e:  # noqa: BLE001 — fail-open per DNA #7
-            # silent-by-design: crash is screamed to stderr per DNA #7; partial findings returned to the aggregator.
-            import sys
-            print(
-                f"[IMP-18] scanner {scanner_name} crashed on {file_path}: {e}",
-                file=sys.stderr,
+            # silent-by-design: crash is screamed via logger.error per DNA #7; partial findings returned to the aggregator.
+            logger.error(
+                f"[IMP-18] scanner {scanner_name} crashed on {file_path}: {e}"
             )
     return findings
 
