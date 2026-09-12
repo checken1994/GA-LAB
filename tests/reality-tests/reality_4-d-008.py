@@ -33,7 +33,42 @@ import subprocess
 import time
 import tempfile
 import socket
+import queue
+import threading
 import http.client
+
+
+def _collect_boot_log(proc: "subprocess.Popen[str]", timeout_s: float, trigger: str = "listening"):
+    """Collect child boot output until `trigger` appears or the deadline expires.
+
+    S17 harness repair: the previous `proc.stdout.readline()` loop inside
+    `while time.time() < deadline` could hang FOREVER once the child went
+    quiet — a blocking read cannot observe a deadline, and the loop-scheduler
+    prints a fixed number of boot lines and then stays silent. A daemon reader
+    thread + queue keeps the deadline enforceable. Strictness increased: the
+    caller now gets an explicit trigger_seen flag instead of an implicit
+    fall-through, and this test fails fast with the collected log instead of
+    blocking the whole reality gate.
+    """
+    lines_queue: "queue.Queue[str]" = queue.Queue()
+    threading.Thread(
+        target=lambda: [lines_queue.put(line) for line in iter(proc.stdout.readline, "")],
+        daemon=True,
+    ).start()
+    collected: list[str] = []
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            line = lines_queue.get(timeout=0.1)
+        except queue.Empty:
+            if proc.poll() is not None:
+                break  # child exited — no further output will arrive
+            continue
+        collected.append(line)
+        if trigger in line:
+            return "".join(collected), True
+    return "".join(collected), False
+
 
 # TEST 4: Bun.serve() call must include hostname: <loopback>
 # Pattern: Bun.serve({ ... hostname: "127.0.0.1" or process.env.LOOP_SCHEDULER_HOST ... })
@@ -93,26 +128,22 @@ proc = subprocess.Popen(
 )
 boot_log = ""
 try:
-    # Poll for boot log lines until we see "listening on"
-    deadline = time.time() + 5.0
-    while time.time() < deadline:
-        line = proc.stdout.readline()
-        if not line:
-            time.sleep(0.05)
-            continue
-        boot_log += line
-        if "listening on" in line:
-            break
-        if "error" in line.lower() or "Error" in line:
-            break
+    # S17: collect boot log via enforceable deadline (old blocking readline
+    # hung the whole reality gate once the scheduler went quiet).
+    boot_log, listening_seen = _collect_boot_log(proc, timeout_s=5.0, trigger="listening")
 
-    # (a) boot log mentions 127.0.0.1
-    assert "127.0.0.1" in boot_log, (
-        f"FAIL: boot log does not mention 127.0.0.1: {boot_log!r}"
+    # (a) boot completed. S17 pin update: the banner was reworded by commit
+    # 3f1690d to "[loop-scheduler] listening (loopback only — DNA #6;
+    # host/port from config)" — it no longer contains the literal
+    # "listening on" or "127.0.0.1" strings. The real loopback proof is the
+    # runtime connect in (b): an actual TCP connect to 127.0.0.1 is stronger
+    # evidence than an IP string inside a log line.
+    assert listening_seen, (
+        f"FAIL: scheduler never reported 'listening' within 5s — boot_log: {boot_log!r}"
     )
-    # (a+) boot log mentions "loopback"
-    assert "loopback" in boot_log.lower() or "127.0.0.1" in boot_log, (
-        f"FAIL: boot log does not mention loopback binding: {boot_log!r}"
+    # (a+) boot log declares loopback binding
+    assert "loopback" in boot_log.lower(), (
+        f"FAIL: boot log does not declare loopback binding: {boot_log!r}"
     )
 
     # (b) connect via 127.0.0.1 works (GET /healthz)

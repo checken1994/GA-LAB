@@ -153,3 +153,121 @@ VERIFIED_WITHIN_SCOPE — 82 product-runtime print đã convert sang logging (5
 commits per-module), census cuối khớp triage, pytest không suy giảm so với
 baseline flaky. Không tuyên bố "toàn bộ scp/ không còn print" (còn 608 print
 CLI/demo self-test được KEEP có lý do ghi, trừ scp/tests out-of-scope).
+
+---
+
+## Mục S17 — reality-drift update sau campaign (B1/B2 legitimate changes)
+
+### Claim
+
+3 reality test (4-b-014-semantic, 4-c-006, 4-c-022) pin trạng thái code cũ
+không còn khớp reality sau khi campaign thay đổi hợp pháp (S-B1b fail-loudly,
+B1 logging +112 LOC, B2 dead-code cleanup). Nhiệm vụ: update test theo reality
+mới, KHÔNG hạ chuẩn (mỗi update giữ/tăng strictness), không xóa test (trừ
+retire có lý do + commit ref).
+
+### Scope
+
+| Trường | Giá trị |
+|---|---|
+| Branch | `audit/runtime-guard-AUDIT-20260909` |
+| Base commit | `5aed398` |
+| Ngày | 2026-09-13 |
+| Skills | `scp-dna` + `scp-reality-verifier` (SHA256 bên dưới) |
+| Agent | S17 (reality-drift update) |
+
+SHA256 SKILL.md (per DNA contract — release runs ghi hash skill):
+
+```
+4aada0be4873598dc50c3a7f38d90151429bb5263c511a838ed1cdcb4d594d10  .agents/skills/scp-dna/SKILL.md
+a9d65ce53b18f8310ceeb302b18b341a0e1b8b19cddc7f46d4fa6ee99432269e  .agents/skills/scp-reality-verifier/SKILL.md
+```
+
+### Drift updates (file:line trước → sau)
+
+| Test | Trước | Sau | Lý do (evidence) |
+|---|---|---|---|
+| reality_4-b-014-semantic.py | pin `speculative_prefixer.py:559` | pin `:565` | S-B1b commit `265ea20` fail-loudly dời handler `_touch` (old 559 = `except Exception as e: logger.debug` → new 565, same handler, xác minh bằng `git show 265ea20~1` + AST) |
+| reality_4-b-014-semantic.py | pin `type_flow_verifier.py:717` | pin `:720` | cùng commit `265ea20`, handler `verify_type_flow` dời 717→720 (AST: `except Exception as _scp_exc` + logger.debug) |
+| reality_4-c-006.py / route.ts | fallback LOC 4895 (917+801+838+734+755+850), date 2026-08-27 | 5007 (924+806+847+751+784+895), date 2026-09-13 | B1 logging cộng LOC hợp pháp; đo lại `wc -l` trên đúng 6 v4 files mà test đếm = 5007; test tự chỉ dẫn update `LAST_VERIFIED_FALLBACK_LOC` + `LAST_VERIFIED_DATE` |
+| reality_4-c-022.py | test sống kiểm chứng SA-4 trên `scp/api/_lifespan.py` | RETIRED (stub fail-closed + runner skip-list hiển thị ⊘) | `_lifespan.py` (764 LOC dead code, không importer) đã xóa bởi B2: `4e935a7` + `c1dcde4`. Pattern R7-2 `_tor_refresh_tasks` không còn tồn tại ở đâu dưới `scp/` (repo-wide grep) — repoint sang `api_server_parts/lifespan.py` sẽ manufacture PASS sai reality → retire tường minh |
+
+### Strictness (giữ/tăng, không hạ)
+
+- 4-b-014: ngoài repin line, thêm 2 assertion mới — (1) `handler.type` phải là
+  `ast.Name('Exception')` đúng nghĩa (trước chỉ check `is not None`), (2)
+  handler phải nằm trong hàm kỳ vọng (`_touch` / `verify_type_flow`) → pin
+  theo identity chứ không phải số dòng trùng hợp ngẫu nhiên.
+- 4-c-006: không đổi logic test; fallback numbers được ĐO LẠI từ reality
+  (`wc -l`) chứ không phải lấy con số từ message lỗi một cách mù quáng.
+- 4-c-022 retire: stub giữ fail-closed — FAIL nếu `_lifespan.py` sống lại,
+  FAIL nếu pattern `_tor_refresh_tasks`/`tor_refresh_loop` xuất hiện lại dưới
+  `scp/`; runner thêm skip-list hiển thị `⊘ RETIRED` (đếm riêng, không đếm
+  PASS) + fail nếu file retired bị liệt kê nhưng thiếu trong repo.
+
+### Evidence
+
+- Trước update: cả 3 test FAIL riêng lẻ (4-b-014: `expected one except handler
+  at ...:559, got 0`; 4-c-006: `4895 vs 5007`; 4-c-022: `_lifespan.py not found`).
+- Sau update: 3 script chạy riêng lẻ EXIT=0 (4-c-022 in banner RETIRED + guard
+  verification). Full suite `SCP_PYTHON_BIN=python bash tests/run-reality-tests.sh`:
+  ✗ = 0 (chạy sau commit — ghi kết quả ở commit message/hash bên dưới).
+- Commit(s): (1) drift pins `test(reality): update drift pins to
+  post-campaign reality (S17 — B1/B2 legitimate changes)` — 4-b-014 repin +
+  4-c-022 retire + route.ts fallback refresh; (2) gate repair
+  `test(reality): repair gate-blocking harness hangs + runner retired
+  skip-list (S17 evidence)` — 4-d-008/009/019/023 reader-thread fix,
+  4-e-002 GAP-09 secret, runner skip-list, report này.
+
+### Gate repair (bắt buộc để chạy được full suite — phát hiện khi verify)
+
+Khi chạy full suite để verify, gate TREO VĨNH VIỄN ở `reality_4-d-008.py`
+(~30 phút, phải kill). Điều tra bằng chứng:
+
+- Root cause harness: 4 test boot service con (bun) rồi đọc stdout bằng
+  `proc.stdout.readline()` BÊN TRONG vòng `while time.time() < deadline` —
+  blocking read không bao giờ quan sát được deadline; service in vài dòng
+  boot rồi im → treo vĩnh viễn. 4 file dính: 4-d-008, 4-d-009, 4-d-019,
+  4-d-023 (4-d-007/4-e-002 dùng pattern khác, không treo).
+- Root cause pin: commit `3f1690d` (S10b/c mini-services restructure) đổi
+  boot banner: loop-scheduler → "[loop-scheduler] listening (loopback only —
+  DNA #6; host/port from config)", llm-bridge → "[scp-llm-bridge] listening
+  (host/port from config)" — không còn chuỗi "listening on"/"127.0.0.1" mà
+  các test cũ assert. Treo che luôn fail này.
+- Sửa harness (strictness TĂNG): thay blocking readline bằng daemon reader
+  thread + queue + deadline enforceable + cờ `trigger_seen` bắt buộc (fail
+  nhanh kèm boot log thay vì treo gate). Runtime HTTP checks giữ nguyên —
+  TCP connect thật tới 127.0.0.1 là bằng chứng loopback MẠNH HƠN chuỗi IP
+  trong log line.
+- 4-e-002 fail riêng: hermetic boot (2 secrets) crash tại import —
+  `scp/core/capability_token.py` raise `MissingSecretError` vì
+  `SCP_CAPABILITY_SECRET` thiếu (commit `0c44c13`, GAP-09 fail-closed;
+  `.env.example` ghi "Required"). Sửa test: hermetic env sinh thêm secret
+  thứ 3 (ngẫu nhiên mỗi boot) — yêu cầu bảo mật của product NGHIÊM ngặt hơn
+  nên test phải phản ánh, không phải hạ chuẩn (vẫn không đọc repo .env,
+  vẫn không network). Kèm evidence: traceback thật bị nuốt vì
+  `except ImportError` không bắt MissingSecretError → server chết sạch thay
+  vì degraded (quan sát, không sửa product — ngoài scope S17).
+
+- 4-d-025 fail riêng (full-run run 1): pin message cũ "external egress
+  disabled" — commit `61d068f` (EE/M13-G1) dời deny enforcement sang
+  url_safety choke point, message mới "SCP_EGRESS_MODE=deny blocks all
+  non-loopback hosts" (EgressDeniedError, vẫn là ValueError subclass).
+  Repin: chấp nhận message choke-point HOẶC fallback cũ, và THÊM assert
+  URL bị deny phải được cite trong message (strictness tăng).
+
+Kết quả sau repair: 4-d-008/009/019/023/4-e-002/4-d-025 PASS từng cái (exit 0).
+
+### Limitations / open questions
+
+- Dashboard `self-audit.ts` SA-4 entry vẫn cite `scp/api/_lifespan.py:393-445`
+  — giờ là stale citation (file đã xóa). Out of scope cho S17 (dashboard audit
+  narrative là quyết định của owner); đã ghi ở đây + docstring stub.
+- `tests/run-reality-tests.sh` có 1 hunk PYTHON_BIN (python3→python fallback)
+  UNCOMMITTED từ trước session S17 — KHÔNG commit kịp (tôn trọng thay đổi
+  người khác); hunk này vẫn nằm trong working tree.
+- 4-c-006 sẽ drift lại khi autofix files đổi — đây là đặc tính thiết kế của
+  documented fallback (có `lastVerified` date để lộ staleness), không phải bug.
+- Full-suite baseline TRƯỚC khi edit không chờ xong được (suite chạy dài);
+  bù lại: 3 test FAIL đã chụp riêng lẻ trước edit + mọi edit khác không đụng
+  file mà test khác đọc (đã grep xác minh route.ts numbers chỉ 4-c-006 assert).

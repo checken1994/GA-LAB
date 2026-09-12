@@ -23,11 +23,42 @@ import re
 import sys
 import os
 import json
+import queue
 import subprocess
+import threading
 import time
 import tempfile
 import http.client
 from pathlib import Path
+
+
+def _collect_boot_log(proc: "subprocess.Popen[str]", timeout_s: float, trigger: str = "listening"):
+    """Collect child boot output until `trigger` appears or the deadline expires.
+
+    S17 harness repair: the previous `proc.stdout.readline()` loop inside
+    `while time.time() < deadline` could hang FOREVER once the child went
+    quiet — a blocking read cannot observe a deadline. A daemon reader thread
+    + queue keeps the deadline enforceable so the reality gate cannot be
+    blocked by a silent child.
+    """
+    lines_queue: "queue.Queue[str]" = queue.Queue()
+    threading.Thread(
+        target=lambda: [lines_queue.put(line) for line in iter(proc.stdout.readline, "")],
+        daemon=True,
+    ).start()
+    collected: list[str] = []
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            line = lines_queue.get(timeout=0.1)
+        except queue.Empty:
+            if proc.poll() is not None:
+                break  # child exited — no further output will arrive
+            continue
+        collected.append(line)
+        if trigger in line:
+            return "".join(collected), True
+    return "".join(collected), False
 
 SOURCE_PATH = Path(
     str(Path(__file__).resolve().parents[2]) + '/mini-services/loop-scheduler/index.ts'
@@ -162,15 +193,13 @@ def main() -> int:
         text=True,
     )
     try:
-        # Wait for boot
-        deadline = time.time() + 4.0
-        while time.time() < deadline:
-            line = proc1.stdout.readline()
-            if not line:
-                time.sleep(0.05)
-                continue
-            if "listening on" in line:
-                break
+        # Wait for boot (S17: trigger "listening" — commit 3f1690d reworded
+        # the banner to "listening (loopback only — DNA #6; ...)"; deadline
+        # is now enforceable via reader thread, no more gate hang).
+        boot_log1, listening_seen = _collect_boot_log(proc1, timeout_s=4.0, trigger="listening")
+        assert listening_seen, (
+            f"FAIL: scheduler (boot #1) never reported 'listening' within 4s — boot_log: {boot_log1!r}"
+        )
         # POST /pause
         conn = http.client.HTTPConnection("127.0.0.1", 3041, timeout=3)
         conn.request("POST", "/pause", headers={"Authorization": "Bearer " + env["SCP_SCHEDULER_ADMIN_TOKEN"]})
@@ -206,16 +235,11 @@ def main() -> int:
         text=True,
     )
     try:
-        deadline = time.time() + 4.0
-        boot_log = ""
-        while time.time() < deadline:
-            line = proc2.stdout.readline()
-            if not line:
-                time.sleep(0.05)
-                continue
-            boot_log += line
-            if "listening on" in line:
-                break
+        # S17: enforceable boot wait (reader thread) + reworded-banner pin.
+        boot_log2, listening_seen2 = _collect_boot_log(proc2, timeout_s=4.0, trigger="listening")
+        assert listening_seen2, (
+            f"FAIL: scheduler (boot #2) never reported 'listening' within 4s — boot_log: {boot_log2!r}"
+        )
         # GET / — must report paused:true
         conn = http.client.HTTPConnection("127.0.0.1", 3041, timeout=3)
         conn.request("GET", "/")

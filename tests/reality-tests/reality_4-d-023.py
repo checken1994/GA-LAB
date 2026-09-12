@@ -24,10 +24,41 @@ Tier-A (static-source) reality test + light runtime verification.
 import re
 import sys
 import os
+import queue
 import subprocess
+import threading
 import time
 import http.client
 from pathlib import Path
+
+
+def _collect_boot_log(proc: "subprocess.Popen[str]", timeout_s: float, trigger: str = "listening"):
+    """Collect child boot output until `trigger` appears or the deadline expires.
+
+    S17 harness repair: the previous `proc.stdout.readline()` loop inside
+    `while time.time() < deadline` could hang FOREVER once the child went
+    quiet — a blocking read cannot observe a deadline. A daemon reader thread
+    + queue keeps the deadline enforceable so the reality gate cannot be
+    blocked by a silent child.
+    """
+    lines_queue: "queue.Queue[str]" = queue.Queue()
+    threading.Thread(
+        target=lambda: [lines_queue.put(line) for line in iter(proc.stdout.readline, "")],
+        daemon=True,
+    ).start()
+    collected: list[str] = []
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            line = lines_queue.get(timeout=0.1)
+        except queue.Empty:
+            if proc.poll() is not None:
+                break  # child exited — no further output will arrive
+            continue
+        collected.append(line)
+        if trigger in line:
+            return "".join(collected), True
+    return "".join(collected), False
 
 SOURCE_PATH = Path(
     str(Path(__file__).resolve().parents[2]) + '/mini-services/llm-bridge/core.ts'
@@ -139,20 +170,12 @@ def main() -> int:
         errors="replace",
     )
     try:
-        boot_log = ""
-        deadline = time.time() + 5.0
-        while time.time() < deadline:
-            line = proc.stdout.readline()
-            if not line:
-                time.sleep(0.05)
-                continue
-            boot_log += line
-            if "listening on" in line:
-                break
-            if "error" in line.lower() and "syntax" in line.lower():
-                break
-        assert "listening on" in boot_log, (
-            f"FAIL: bridge did not boot cleanly — boot_log: {boot_log!r}"
+        # S17: enforceable boot wait (reader thread) + reworded-banner pin —
+        # commit 3f1690d changed the banner to "[scp-llm-bridge] listening
+        # (host/port from config env)" (no more "listening on" literal).
+        boot_log, listening_seen = _collect_boot_log(proc, timeout_s=5.0, trigger="listening")
+        assert listening_seen, (
+            f"FAIL: bridge did not boot cleanly (no 'listening' within 5s) — boot_log: {boot_log!r}"
         )
         # GET /api/tags should work without an API key.
         conn = http.client.HTTPConnection("127.0.0.1", 11445, timeout=3)

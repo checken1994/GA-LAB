@@ -31,7 +31,39 @@ import os
 import re
 import subprocess
 import time
+import queue
+import threading
 import http.client
+
+
+def _collect_boot_log(proc: "subprocess.Popen[str]", timeout_s: float, trigger: str = "listening"):
+    """Collect child boot output until `trigger` appears or the deadline expires.
+
+    S17 harness repair: the previous `proc.stdout.readline()` loop inside
+    `while time.time() < deadline` could hang FOREVER once the child went
+    quiet — a blocking read cannot observe a deadline. A daemon reader thread
+    + queue keeps the deadline enforceable so the reality gate cannot be
+    blocked by a silent child.
+    """
+    lines_queue: "queue.Queue[str]" = queue.Queue()
+    threading.Thread(
+        target=lambda: [lines_queue.put(line) for line in iter(proc.stdout.readline, "")],
+        daemon=True,
+    ).start()
+    collected: list[str] = []
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            line = lines_queue.get(timeout=0.1)
+        except queue.Empty:
+            if proc.poll() is not None:
+                break  # child exited — no further output will arrive
+            continue
+        collected.append(line)
+        if trigger in line:
+            return "".join(collected), True
+    return "".join(collected), False
+
 
 # TEST 4: HOST default must be 127.0.0.1 (loopback)
 host_match = re.search(
@@ -81,22 +113,17 @@ proc = subprocess.Popen(
 )
 boot_log = ""
 try:
-    # Poll for boot log lines
-    deadline = time.time() + 5.0
-    while time.time() < deadline:
-        line = proc.stdout.readline()
-        if not line:
-            time.sleep(0.05)
-            continue
-        boot_log += line
-        if "listening on" in line:
-            break
-        if "error" in line.lower():
-            break
+    # Poll for boot log lines (S17: enforceable deadline via reader thread —
+    # the old blocking readline hung the gate once the bridge went quiet).
+    boot_log, listening_seen = _collect_boot_log(proc, timeout_s=5.0, trigger="listening")
 
-    # (a) boot log mentions 127.0.0.1
-    assert "127.0.0.1" in boot_log, (
-        f"FAIL: boot log does not mention 127.0.0.1: {boot_log!r}"
+    # (a) boot completed. S17 pin update: commit 3f1690d reworded the banner
+    # to "[scp-llm-bridge] listening (host/port from config env)" — it no
+    # longer contains "listening on" or the literal "127.0.0.1". Loopback is
+    # proven by the runtime HTTP checks below, which connect to literal
+    # 127.0.0.1:11444 — stronger evidence than an IP string in a log line.
+    assert listening_seen, (
+        f"FAIL: bridge never reported 'listening' within 5s — boot_log: {boot_log!r}"
     )
 
     # (b) OPTIONS with disallowed origin → no ACAO header

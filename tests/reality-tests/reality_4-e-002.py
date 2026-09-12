@@ -2,9 +2,16 @@ from pathlib import Path
 """Reality test 4-e-002 — Cổng A: HERMETIC BOOT với bằng chứng.
 
 "Tính tất định môi trường": clone repo về một máy TRẮNG (không .env, không
-Ollama, không cấu hình tay) → chỉ cần 2 secret ngẫu nhiên là server phải
+Ollama, không cấu hình tay) → chỉ cần 3 secret ngẫu nhiên là server phải
 boot và trả contract xác định. Test tự sinh env file cô lập (không đọc .env
 của repo), boot thật trên port riêng, đối chiếu contract, rồi kill.
+
+S17 (2026-09-13): hermetic contract đổi 2→3 secrets — commit `0c44c13`
+(GAP-05/06/08/09 security hardening) làm `SCP_CAPABILITY_SECRET` thành
+fail-closed bắt buộc (`scp/core/capability_token.py` raise MissingSecretError
+ngay tại import; `.env.example` ghi "Required"). Yêu cầu bảo mật mới NGHIÊM
+ngặt hơn → test phản ánh reality mới, vẫn giữ nguyên tính hermetic (secret
+sinh ngẫu nhiên mỗi boot, không đọc repo .env, không network).
 
 Bài học ghi tại đây (DNA #26): khi probe boot, stdout PHẢI ghi ra FILE —
 dùng PIPE thì buffer 64KB đầy, logging block event loop, mọi request treo
@@ -48,7 +55,11 @@ def main() -> int:
         env_file = Path(tmp) / "hermetic.env"
         env_file.write_text(
             f"SCP_JWT_SECRET={secrets.token_hex(32)}\n"
-            f"SCP_ADMIN_KEY={secrets.token_urlsafe(24)}\n",
+            f"SCP_ADMIN_KEY={secrets.token_urlsafe(24)}\n"
+            # S17: GAP-09 (commit 0c44c13) made this secret fail-closed at
+            # import (capability_token.get_capability_secret). Random per
+            # boot keeps the boot hermetic AND the security posture intact.
+            f"SCP_CAPABILITY_SECRET={secrets.token_hex(32)}\n",
             encoding="utf-8",
         )
         boot_log = Path(tmp) / "boot.log"
