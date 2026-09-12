@@ -17,6 +17,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class ManagedProcessManager:
     def __init__(self, data_dir: Path, project_root: Path) -> None:
@@ -78,6 +82,7 @@ class ManagedProcessManager:
             self._record("PROCESS_WORKSPACE_CLEANED", {"pid": pid, "workspaceId": resolved.name})
             return True
         except (OSError, ValueError) as exc:
+            logger.debug('ManagedProcessManager._cleanup_workspace: OSError, ValueError ignored: %s', exc)
             self._record(
                 "PROCESS_WORKSPACE_CLEANUP_FAILED",
                 {"pid": pid, "workspaceId": workspace.name, "error": str(exc)},
@@ -135,7 +140,7 @@ class ManagedProcessManager:
                 try:
                     shutil.rmtree(workspace)
                 except OSError:
-                    pass
+                    logger.debug('ManagedProcessManager.start: OSError ignored', exc_info=True)
             result = {"success": False, "commandId": command_id, "error": str(exc)}
             self._record("PROCESS_START_FAILED", result)
             return result
@@ -173,6 +178,7 @@ class ManagedProcessManager:
                 try:
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
+                    logger.debug('ManagedProcessManager.stop: subprocess.TimeoutExpired ignored', exc_info=True)
                     process.kill()
                     process.wait(timeout=5)
             cleaned = self._cleanup_workspace(pid)

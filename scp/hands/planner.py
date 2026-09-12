@@ -20,6 +20,10 @@ from typing import Any
 
 from .hands_executor import HandsExecutor
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 PLAN_VERSION = "3.7"
 PLAN_STATES = {"PLANNED", "RUNNING", "WAITING_APPROVAL", "VERIFIED", "FAILED", "ROLLED_BACK", "COMPLETED", "UNKNOWN", "HUMAN_REVIEW"}
 STEP_STATES = {"PLANNED", "RUNNING", "WAITING_APPROVAL", "VERIFIED", "FAILED", "ROLLED_BACK", "UNKNOWN", "HUMAN_REVIEW"}
@@ -77,6 +81,7 @@ class HandsPlanner:
                 try:
                     current = json.loads(lease_path.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
+                    logger.debug('HandsPlanner._claim_lease: OSError, json.JSONDecodeError ignored', exc_info=True)
                     current = {}
                 if float(current.get("expiresAt", 0) or 0) > now:
                     return None
@@ -84,6 +89,7 @@ class HandsPlanner:
                 try:
                     os.replace(lease_path, stale_path)
                 except FileNotFoundError:
+                    logger.debug('HandsPlanner._claim_lease: FileNotFoundError ignored', exc_info=True)
                     return None
             token = uuid.uuid4().hex
             payload = {"planId": plan_id, "token": token, "ownerPid": os.getpid(), "startedAt": now, "heartbeatAt": now, "expiresAt": now + ttl_seconds}
@@ -97,12 +103,14 @@ class HandsPlanner:
                 try:
                     lease_path.unlink(missing_ok=True)
                 except OSError:
-                    pass
+                    logger.debug('HandsPlanner._claim_lease: OSError ignored', exc_info=True)
                 raise
             return token
         except FileExistsError:
+            logger.debug('HandsPlanner._claim_lease: FileExistsError ignored', exc_info=True)
             return None
         except OSError:
+            logger.debug('HandsPlanner._claim_lease: OSError ignored', exc_info=True)
             return None
 
     def _lease_is_valid(self, plan_id: str, token: str) -> bool:
@@ -110,6 +118,7 @@ class HandsPlanner:
             lease = json.loads(self._lease_path(plan_id).read_text(encoding="utf-8"))
             return self._constant_time_equal(lease.get("token"), token) and float(lease.get("expiresAt", 0) or 0) > self._now()
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            logger.debug('HandsPlanner._lease_is_valid: OSError, json.JSONDecodeError, TypeError, ValueError ignored', exc_info=True)
             return False
 
     def _renew_lease(self, plan_id: str, token: str, ttl_seconds: int = 120) -> bool:
@@ -125,6 +134,7 @@ class HandsPlanner:
             os.replace(temporary, lease_path)
             return True
         except (OSError, json.JSONDecodeError):
+            logger.debug('HandsPlanner._renew_lease: OSError, json.JSONDecodeError ignored', exc_info=True)
             return False
 
     def _release_lease(self, plan_id: str, token: str) -> None:
@@ -133,7 +143,7 @@ class HandsPlanner:
         try:
             self._lease_path(plan_id).unlink(missing_ok=True)
         except OSError:
-            pass
+            logger.debug('HandsPlanner._release_lease: OSError ignored', exc_info=True)
 
     async def _lease_heartbeat(self, plan_id: str, token: str) -> None:
         while True:
@@ -158,6 +168,7 @@ class HandsPlanner:
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
             # A corrupt journal is not silently repaired here. New writes continue
             # with sequence 0 and the audit/reality gate must report the corruption.
+            logger.debug('HandsPlanner._restore_journal_state: OSError, TypeError, ValueError, json.JSONDecodeError ignored', exc_info=True)
             self._event_seq = 0
             self._previous_event_hash = ""
 
@@ -196,6 +207,7 @@ class HandsPlanner:
             try:
                 record = json.loads(line)
             except json.JSONDecodeError:
+                logger.debug('HandsPlanner._load_latest: json.JSONDecodeError ignored', exc_info=True)
                 continue
             plan = record.get("plan")
             if isinstance(plan, dict) and plan.get("planId"):

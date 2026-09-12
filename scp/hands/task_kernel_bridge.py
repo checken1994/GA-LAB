@@ -23,6 +23,10 @@ from scp.kernel_storage import StorageIntegrityError
 from scp.security.capability_epoch import CapabilityToken, parse_capability_token
 from scp.task_kernel import KernelError, TaskKernel, stable_hash
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class TaskKernelHandsBridge:
     """Durably wrap mutating Hands actions with the TaskKernel lifecycle.
@@ -280,10 +284,11 @@ class TaskKernelHandsBridge:
                 await asyncio.wait_for(stop.wait(), timeout=interval)
                 return
             except asyncio.TimeoutError:
-                pass
+                logger.debug('TaskKernelHandsBridge._heartbeat_until_finished: asyncio.TimeoutError ignored', exc_info=True)
             try:
                 self.kernel.heartbeat(task_id, lease_id, extend_seconds=ttl_seconds)
             except KernelError:
+                logger.debug('TaskKernelHandsBridge._heartbeat_until_finished: KernelError ignored', exc_info=True)
                 return
 
 
@@ -358,6 +363,7 @@ class TaskKernelHandsBridge:
             # type and a raw backend IntegrityError for custom storage.
             except (StorageIntegrityError, sqlite3.IntegrityError):
 
+                logger.debug('TaskKernelHandsBridge.execute: StorageIntegrityError, sqlite3.IntegrityError ignored', exc_info=True)
                 created = False
 
                 existing = self.kernel.get_task(task_id)
@@ -598,7 +604,7 @@ class TaskKernelHandsBridge:
 
             except Exception:
 
-                pass
+                logger.warning('TaskKernelHandsBridge.execute: Exception not handled', exc_info=True)
 
             return {
 
@@ -624,7 +630,7 @@ class TaskKernelHandsBridge:
 
                 except KernelError:
 
-                    pass
+                    logger.debug('TaskKernelHandsBridge.execute: KernelError ignored', exc_info=True)
 
 
 

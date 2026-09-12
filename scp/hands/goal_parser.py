@@ -18,6 +18,10 @@ import httpx
 
 from .planner import PLAN_VERSION, HandsPlanner
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class GoalParser:
     """Convert natural-language goals to validated, reviewable plan proposals."""
@@ -81,6 +85,7 @@ Trả về JSON đúng schema, không markdown. Mục tiêu không chắc chắn
             value = json.loads(text)
             return value if isinstance(value, dict) else None
         except json.JSONDecodeError:
+            logger.debug('GoalParser._extract_json: json.JSONDecodeError ignored', exc_info=True)
             match = re.search(r"\{.*\}", text, flags=re.DOTALL)
             if not match:
                 return None
@@ -88,6 +93,7 @@ Trả về JSON đúng schema, không markdown. Mục tiêu không chắc chắn
                 value = json.loads(match.group(0))
                 return value if isinstance(value, dict) else None
             except json.JSONDecodeError:
+                logger.debug('GoalParser._extract_json: json.JSONDecodeError ignored', exc_info=True)
                 return None
 
     def _deterministic_fallback(self, goal: str) -> dict[str, Any]:

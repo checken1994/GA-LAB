@@ -22,6 +22,10 @@ from scp.web_control.web_navigator import WebNavigator
 from .action_registry import ActionDefinition, ActionRegistry
 from .process_manager import ManagedProcessManager
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class _LinkParser(HTMLParser):
     def __init__(self) -> None:
@@ -217,6 +221,7 @@ class HandsExecutor:
                                     if len(matches) >= 50:
                                         break
                         except OSError:
+                            logger.debug('HandsExecutor.execute: OSError ignored', exc_info=True)
                             continue
                 result = {"success": bool(query) and self.controller._inside_root(root), "query": query, "matches": matches, "evidence": {"scannedFiles": scanned, "matchCount": len(matches)}}
                 result["verification"] = {"passed": bool(result.get("success")), "rule": definition.verifier}
@@ -229,6 +234,7 @@ class HandsExecutor:
                         try:
                             relative = candidate.relative_to(root)
                         except ValueError:
+                            logger.debug('HandsExecutor.execute: ValueError ignored', exc_info=True)
                             continue
                         if len(relative.parts) <= max_depth and not self.controller._sensitive(candidate):
                             entries.append(str(relative))
@@ -251,6 +257,7 @@ class HandsExecutor:
                             json.loads(line)
                             valid_count += 1
                         except json.JSONDecodeError as exc:
+                            logger.debug('HandsExecutor.execute: json.JSONDecodeError ignored: %s', exc)
                             if len(invalid_records) < 20:
                                 invalid_records.append({"line": line_number, "error": str(exc)})
                 result = {"success": target.is_file() and self.controller._inside_root(target), "path": str(target), "validLines": valid_count, "invalidLines": len(invalid_records), "invalid": invalid_records}
@@ -381,6 +388,7 @@ class HandsExecutor:
             try:
                 record = json.loads(line)
             except json.JSONDecodeError:
+                logger.debug('HandsExecutor.rollback: json.JSONDecodeError ignored', exc_info=True)
                 continue
             if record.get("checkpointId") == checkpoint_id:
                 selected = record
