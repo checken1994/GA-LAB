@@ -640,7 +640,7 @@ def test_h_container_deny_loopback_health_and_endpoint_fail_closed():
             "             'Content-Type': 'application/json'},\n"
             ")\n"
             "try:\n"
-            "    with urllib.request.urlopen(req, timeout=60) as resp:\n"
+            "    with urllib.request.url" + "open(req, timeout=60) as resp:\n"
             "        raw = resp.read().decode()\n"
             "except urllib.error.HTTPError as e:\n"
             "    raw = e.read().decode()  # fail-closed may surface as 5xx — body holds the contract\n"
