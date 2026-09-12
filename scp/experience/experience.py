@@ -238,6 +238,7 @@ def _migrate_experiences_unique_sha256():
 
         _logger.info("[V104.38] Migration complete: UNIQUE(sha256) added to experiences")
     except Exception as e:
+        logger.warning('_migrate_experiences_unique_sha256: Exception not handled: %s', e)
         _logger.warning(f"[V104.38] experiences migration failed (non-fatal): {e}")
 
 
@@ -673,6 +674,7 @@ class ExperienceEngine:
         try:
             knowledge_count = db_query_one("SELECT COUNT(*) as cnt FROM knowledge")["cnt"]
         except Exception:
+            logger.warning('ExperienceEngine.run_reflection_cycle: Exception not handled', exc_info=True)
             knowledge_count = 0
 
         print(f"     Memory:       {memory_count} entries")
@@ -781,6 +783,7 @@ class ExperienceEngine:
                 by_type[r["lesson_type"]] = r["cnt"]
             return {"total_experiences": total, "applied": applied, "by_type": by_type}
         except Exception:
+            logger.warning('ExperienceEngine.get_stats: Exception not handled', exc_info=True)
             return {"total_experiences": 0, "applied": 0, "by_type": {}}
 
 
