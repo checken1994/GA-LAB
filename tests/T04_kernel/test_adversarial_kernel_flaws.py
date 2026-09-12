@@ -1197,9 +1197,33 @@ def test_branch_8_ask_kernel_adapter_fail_integration(tmp_path):
 
 @pytest.mark.asyncio
 async def test_branch_9_task_kernel_bridge_policy_denial_integration(tmp_path):
-    """Branch 9: TaskKernelHandsBridge routes policy denial to commit_failed() with verified indictment."""
-    from scp.task_kernel import TaskKernel
+    """Branch 9: TaskKernelHandsBridge routes policy denial to commit_failed() with verified indictment.
+
+    [C1s2 TRIAGE 2026-09-12] Pre-existing failure root-caused: this test pinned
+    the PRE-M4 contract where a missing capability token still created kernel
+    state (task/lease/checkpoint) and only failed at the executor PEP afterwards.
+    Commit 0d13c85 (M4 FIX 2026-09-11) deliberately changed the product contract
+    to fail closed: a request with no parsable capability token raises
+    PermissionError (CapabilityRequiredError, FA-05) BEFORE action resolution and
+    BEFORE any TaskKernel mutation. The product is correct (fail-closed, no
+    kernel side effects for unauthorized callers); this test pinned the outdated
+    ordering. Strictness INCREASED, no assertion loosened:
+    - Leg A (new): missing token -> PermissionError AND no kernel task exists
+      (deterministic task id from request_key proves zero kernel mutation).
+    - Leg B (original intent preserved): WITH a valid token the executor policy
+      denial is still routed to commit_failed() -> FAILED state with a
+      hands:// indictment, exactly one TASK_FAILED event, actor pinned, and the
+      journal hash chain still verifies.
+    """
+    import time as _time
+
+    from scp.core.capability_token import (
+        CapabilityToken,
+        compute_token_signature,
+        get_capability_secret,
+    )
     from scp.hands.task_kernel_bridge import TaskKernelHandsBridge
+    from scp.task_kernel import NotFound, TaskKernel
 
     class FakeActionDef:
         mutates_state = True
@@ -1233,12 +1257,37 @@ async def test_branch_9_task_kernel_bridge_policy_denial_integration(tmp_path):
     kernel = TaskKernel(db_path)
     bridge = TaskKernelHandsBridge(executor=FakePolicyDeniedExecutor(), kernel=kernel)
     try:
+        # Leg A — M4 fail-closed ordering: missing token is a PermissionError
+        # before ANY kernel mutation (no task, no lease, no checkpoint).
+        with pytest.raises(PermissionError) as perm_exc:
+            await bridge.execute(
+                action="restricted_read",
+                params={"target": "/etc/shadow"},
+                capability_level=2,
+                approved=False,
+                request_key="b9-policy-denial-no-token",
+                capability_token=None,
+            )
+        assert "CapabilityRequiredError" in str(perm_exc.value)
+        assert "FA-05" in str(perm_exc.value)
+        unmutated_task_id = bridge._task_id("b9-policy-denial-no-token")
+        with pytest.raises(NotFound):
+            kernel.get_task(unmutated_task_id)
+
+        # Leg B — original Branch 9 intent: a token-carrying request that the
+        # executor PEP denies is routed to commit_failed() with indictment.
+        secret = get_capability_secret()
+        now_ts = _time.time()
+        token_sig = compute_token_signature(secret, "hands:restricted_read", 1, "tok-b9-denial", now_ts)
+        valid_token = CapabilityToken("hands:restricted_read", 1, "tok-b9-denial", now_ts, token_sig)
+
         result = await bridge.execute(
             action="restricted_read",
             params={"target": "/etc/shadow"},
             capability_level=2,
             approved=False,
-            capability_token=None,
+            request_key="b9-policy-denial-with-token",
+            capability_token=valid_token,
         )
         assert result["success"] is False
         assert result["kernel"]["taskState"] == "FAILED"
@@ -1253,7 +1302,11 @@ async def test_branch_9_task_kernel_bridge_policy_denial_integration(tmp_path):
         assert len(failed_events) == 1
         payload = json.loads(failed_events[0]["payload_json"])
         assert "hands://" in payload["indictment_ref"]
+        assert "/policy_denied/restricted_read" in payload["indictment_ref"]
         assert payload["actor"] == bridge.worker_id
+
+        journal_report = kernel.verify_journal(task_id)
+        assert journal_report["hash_chain_valid"] is True, journal_report
     finally:
         kernel.close()
 

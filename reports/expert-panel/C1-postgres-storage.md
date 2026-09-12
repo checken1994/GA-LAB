@@ -97,3 +97,29 @@ An toàn: shape check cột 1:1 fail-closed; BLOB abort; identifier chỉ qua `p
 4. **PgKernelStorage chỉ được consume qua TaskKernel SQL surface hiện tại** — SQL SQLite-dialect mới của kernel tương lai có thể cần mở rộng translator (fail-closed sẽ báo thay vì chạy sai).
 5. Load/performance PG vs SQLite chưa đo (scope là correctness parity).
 6. Container test đã teardown (`docker stop scp-pg-test`); không để lộ DSN password trong repo (DSN chỉ qua env).
+
+---
+
+# Phiên 2 (C1s2) — 2026-09-12
+
+## Skill pins (SHA256, đọc trước khi làm việc theo binding)
+
+| SKILL.md | SHA256 |
+|---|---|
+| `.agents/skills/scp-dna/SKILL.md` | `4aada0be4873598dc50c3a7f38d90151429bb5263c511a838ed1cdcb4d594d10` |
+| `.agents/skills/scp-task-kernel-review/SKILL.md` | `f9b4e31004662c2c3e3ea88c5be755d29ee7b9268d667daae07d8c09b0bc1334` |
+| `.agents/skills/scp-reality-verifier/SKILL.md` | `a9d65ce53b18f8310ceeb302b18b341a0e1b8b19cddc7f46d4fa6ee99432269e` |
+
+## Milestone 1 — Triage branch-9 fail (pre-existing từ phiên 1)
+
+**Verdict: TEST pin contract CŨ — sai; product (M4) đúng.** Bằng chứng:
+
+- Fail: `PermissionError: CapabilityRequiredError: Hands action requires an authorized capability token (FA-05)` tại `scp/hands/task_kernel_bridge.py:314` khi `capability_token=None`.
+- Product change: commit `0d13c85` (M4 FIX 2026-09-11) cố ý đổi thứ tự fail-closed: token không parse được → `PermissionError` TRƯỚC `registry.require` và TRƯỚC mọi kernel mutation (task/lease/idempotency/checkpoint). Contract mới được pin bởi `tests/T03_capability/test_flow_04_control_hands_scp_standard.py::test_hands_executor_rejects_missing_token_fail_closed` (không có test T04 nào pin contract mới).
+- Test cũ (`test_branch_9...`, viết pre-M4) pin contract cũ "kernel mutation trước authz" — vi phạm FA-05 intent: caller KHÔNG được phép tạo kernel side effects khi chưa authorized.
+
+**Fix (test-only, strictness TĂNG):** `tests/T04_kernel/test_adversarial_kernel_flaws.py` — test viết lại 2 leg:
+- Leg A (mới, pin contract M4): `capability_token=None` → `pytest.raises(PermissionError)` với cả marker `CapabilityRequiredError` + `FA-05`; đồng thời chứng minh KHÔNG kernel mutation: `request_key` cố định → task id deterministic `bridge._task_id(...)` → `kernel.get_task` phải raise `NotFound`.
+- Leg B (giữ intent gốc): token CapabilityToken hợp lệ (HMAC signature thật qua `get_capability_secret`/`compute_token_signature`) → executor PEP từ chối → bridge route `commit_failed()` → FAILED, `active_lease_id is None`, đúng 1 `TASK_FAILED`, indictment `hands://.../policy_denied/restricted_read`, actor == worker_id, + THÊM strictness: `verify_journal(task_id).hash_chain_valid is True`.
+
+Reality test: `python -m pytest "tests/T04_kernel/test_adversarial_kernel_flaws.py::test_branch_9_task_kernel_bridge_policy_denial_integration" -x -q` → **1 passed**, exit 0. Không sửa product (không cần), không skip/xfail, không hạ assertion nào.
