@@ -55,6 +55,7 @@ class EvolutionEngineBuildMixin:
                 # pylint E1101 caught it.
                 return {"status": "blocked", "reason": f"capability_level={_cap.get_current_level()} denies build_module"}
         except Exception as _e:
+            # silent-by-design: explicit blocked status carrying the error reason is returned to the caller.
             return {"status": "blocked", "reason": f"CapabilityManager error: {_e}"}
         action_desc = f"build_module: {spec.name} ({spec.purpose[:100]})"
 
@@ -205,9 +206,9 @@ class EvolutionEngineBuildMixin:
                 _code = filepath.read_text(encoding="utf-8")
                 _ast.parse(_code, filename=str(filepath))
             except SyntaxError as _se:
-                return False, f"module SyntaxError: {_se}"
+                return False, f"module SyntaxError: {_se}"  # silent-by-design: explicit (False, reason) error return — validation fails closed
             except Exception as _parse_err:
-                return False, f"parse check failed: {_parse_err}"
+                return False, f"parse check failed: {_parse_err}"  # silent-by-design: same fail-closed contract
 
             #  Check 2: importlib.import_module — module can be imported
             # TẠI SAO: syntax OK ≠ importable. Module might have missing deps,
@@ -227,7 +228,7 @@ class EvolutionEngineBuildMixin:
                 # For now, just verify the loader exists (above) — that's the cheap
                 # "can we even start to import this?" check.
             except Exception as _import_err:
-                return False, f"import setup failed: {_import_err}"
+                return False, f"import setup failed: {_import_err}"  # silent-by-design: explicit (False, reason) error return — validation fails closed
 
             #  Check 3: required interfaces present (check via AST)
             # TẠI SAO: spec.interfaces lists the public functions/classes the module
@@ -340,6 +341,7 @@ Output ONLY the Python code, no markdown fences, no explanation.
                 # _cap.level → _cap.get_current_level(). pylint E1101.
                 return {"status": "blocked", "reason": f"capability_level={_cap.get_current_level()} denies build_module"}
         except Exception as _e:
+            # silent-by-design: explicit blocked status carrying the error reason is returned to the caller.
             return {"status": "blocked", "reason": f"CapabilityManager error: {_e}"}
         try:
             if ":" not in wire_point:

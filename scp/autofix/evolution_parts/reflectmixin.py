@@ -92,7 +92,10 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
         try:
             from scp.autofix.llm_fix import _call_openrouter
             why1_response = _call_openrouter(why1_prompt, max_tokens=300) or ""
-        except Exception:
+        except Exception as why1_err:
+            # silent-by-design: documented default — WHY1 enrichment is
+            # best-effort; reflection continues with an empty WHY1 response.
+            logger.debug("[reflect] WHY1 LLM enrichment failed, continuing without it: %s", why1_err, exc_info=True)
             why1_response = ""
 
         # WHY layer 2: falsification
@@ -302,6 +305,7 @@ Hỏi: "Tại sao bug này xảy ra?" — tìm root cause (1-2 câu).
                 # pylint E1101 caught it. Same fix as buildmixin.py:47,330.
                 return {"status": "blocked", "reason": f"capability_level={_cap.get_current_level()} denies build_module"}
         except Exception as _e:
+            # silent-by-design: explicit blocked status carrying the error reason is returned to the caller.
             return {"status": "blocked", "reason": f"CapabilityManager error: {_e}"}
         action_desc = f"fix_dead_slm: {bug.description[:100]}"
         if not self._should_evolve(action_desc):

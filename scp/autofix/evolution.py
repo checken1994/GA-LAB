@@ -252,7 +252,10 @@ class EvolutionEngine(EvolutionEngineBuildMixin, EvolutionEngineReflectMixin, Ev
             from scp.autofix.runner import ast_scan_scp
             bugs = ast_scan_scp(max_files=100, max_bugs=int(os.environ.get("SCP_MAX_EVOLUTION_BUGS", "100")))  # [ROOT-FIX 47] was 50
             return len(bugs)
-        except Exception:
+        except Exception as count_err:
+            # fail-loudly (S-B1b): a scan crash reporting "0 bugs" hides real
+            # breakage from the re-scan check; keep the 0 contract, surface it.
+            logger.warning("[evolution] bug re-scan crashed, reporting 0 bugs: %s", count_err, exc_info=True)
             return 0
 
     # ============================================================
