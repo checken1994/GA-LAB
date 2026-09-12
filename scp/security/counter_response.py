@@ -636,6 +636,7 @@ class CounterResponseEngine:
             )
             result["reverse_dns"] = hostname[0] if hostname else ""
         except Exception:
+            logger.warning('CounterResponseEngine._reverse_probe: Exception not handled', exc_info=True)
             result["reverse_dns"] = "unknown"
 
         # Port-scan: OPT-IN only (see P2-23 comment above)

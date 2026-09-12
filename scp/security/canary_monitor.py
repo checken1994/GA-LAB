@@ -253,6 +253,7 @@ class CanaryTokenMonitor:
                                 remaining_lines.append(line)
                         except Exception:
                             # Keep unparseable lines (don't lose data).
+                            logger.warning('CanaryTokenMonitor.cleanup_expired: Exception not handled', exc_info=True)
                             remaining_lines.append(line)
                     tmp = self.triggers_file.with_suffix(".tmp")
                     tmp.write_text("\n".join(remaining_lines) + ("\n" if remaining_lines else ""), encoding="utf-8")

@@ -18,6 +18,10 @@ from scp.core.capability_token import (
     verify_token_signature,
 )
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class CapabilityRevokedError(RuntimeError):
     """Raised when a new action cannot receive a capability token."""
@@ -61,6 +65,7 @@ def parse_capability_token(token: Any) -> CapabilityToken | None:
             else:
                 return None
         except Exception:
+            logger.warning('parse_capability_token: Exception not handled', exc_info=True)
             return None
     if isinstance(token, dict):
         try:
@@ -81,6 +86,7 @@ def parse_capability_token(token: Any) -> CapabilityToken | None:
                 signature=signature,
             )
         except (ValueError, TypeError):
+            logger.debug('parse_capability_token: ValueError, TypeError ignored', exc_info=True)
             return None
     return None
 
@@ -139,6 +145,7 @@ class CapabilityAuthority:
         except (OSError, ValueError, json.JSONDecodeError):
             # Corrupt control state is fail-closed. A deliberate restore call
             # writes a fresh valid epoch; no action is silently permitted.
+            logger.debug('CapabilityAuthority._load: OSError, ValueError, json.JSONDecodeError ignored', exc_info=True)
             state = self._default_state()
             state.update({"epoch": 0, "revoked": True, "reason": "state_corrupt", "actor": "system"})
             return state

@@ -246,6 +246,7 @@ class AttackPredictor:
             try:
                 _conf = float(confidence) if confidence is not None else 0.0
             except (TypeError, ValueError):
+                logger.debug('AttackPredictor._verify_prediction: TypeError, ValueError ignored', exc_info=True)
                 return False, f"confidence not numeric: {confidence!r}"
             if _conf <= 0.5:
                 return False, f"confidence too low ({_conf:.2f} ≤ 0.5) — don't act"

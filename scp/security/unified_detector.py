@@ -103,12 +103,14 @@ def _try_base64_decode(text: str) -> list[str]:
                 try:
                     text_decoded = decoded.decode('utf-8')
                 except UnicodeDecodeError:
+                    logger.debug('_try_base64_decode: UnicodeDecodeError ignored', exc_info=True)
                     continue
                 # Reject if decoded has too many non-printable chars (likely random)
                 printable = sum(1 for c in text_decoded if c.isprintable() or c in '\n\r\t ')
                 if len(text_decoded) > 0 and printable / len(text_decoded) > 0.8:
                     candidates.append(text_decoded)
             except Exception:  # noqa: S112
+                logger.warning('_try_base64_decode: Exception not handled', exc_info=True)
                 continue
     return candidates
 
@@ -118,6 +120,7 @@ def _try_rot13_decode(text: str) -> str:
     try:
         return codecs.encode(text, 'rot_13')
     except Exception:
+        logger.warning('_try_rot13_decode: Exception not handled', exc_info=True)
         return text
 
 

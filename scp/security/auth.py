@@ -45,6 +45,7 @@ from scp.security.auth_config import AuthConfigError, load_auth_config
 try:
     from fastapi import Header, Request
 except ImportError:  # pragma: no cover — fastapi is a hard dep of the API server
+    logger.debug('<module>: ImportError ignored', exc_info=True)
     Header = None  # type: ignore
     Request = Any  # type: ignore[misc,assignment]
 

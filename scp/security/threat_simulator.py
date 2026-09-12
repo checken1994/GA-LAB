@@ -342,6 +342,7 @@ class ThreatSimulatorEngine:
                             if text and text not in base:
                                 base.append(text)
                         except Exception:  # noqa: S112
+                            logger.warning('ThreatSimulatorEngine.generate_variants: Exception not handled', exc_info=True)
                             continue
                 logger.info(f"ThreatSimulator: loaded {len(base) - len(BASE_ATTACKS)} crawled attacks")
         except Exception as e:

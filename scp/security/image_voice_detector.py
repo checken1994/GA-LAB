@@ -109,6 +109,7 @@ class ImageJailbreakDetector:
                 text = pytesseract.image_to_string(img)
                 result.text_extracted = text[:500]
             except ImportError:
+                logger.debug('ImageJailbreakDetector.detect: ImportError ignored', exc_info=True)
                 result.error = "pytesseract not installed — pip install pytesseract pillow"
                 result.method = "ocr_unavailable"
                 self._stats["ocr_failures"] += 1
@@ -165,6 +166,7 @@ class ImageJailbreakDetector:
                     logger.debug(f"[OPT-21] adversarial patch check failed: {_adv_err}")
 
         except Exception as e:
+            logger.warning('ImageJailbreakDetector.detect: Exception not handled: %s', e)
             result.error = f"Image processing error: {e}"
             self._stats["ocr_failures"] += 1
 
@@ -261,6 +263,7 @@ class VoiceJailbreakDetector:
             try:
                 import whisper
             except ImportError:
+                logger.debug('VoiceJailbreakDetector.detect: ImportError ignored', exc_info=True)
                 result.error = "whisper not installed — pip install openai-whisper"
                 result.method = "whisper_unavailable"
                 self._stats["transcribe_failures"] += 1
@@ -303,6 +306,7 @@ class VoiceJailbreakDetector:
                     )
 
         except Exception as e:
+            logger.warning('VoiceJailbreakDetector.detect: Exception not handled: %s', e)
             result.error = f"Audio processing error: {e}"
             self._stats["transcribe_failures"] += 1
 

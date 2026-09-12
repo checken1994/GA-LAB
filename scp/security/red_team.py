@@ -12,6 +12,10 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 # Vector tấn công deterministic — bắn vào output/behavior của bản vá
 ATTACK_VECTORS: tuple[dict[str, Any], ...] = (
     {"name": "empty_input", "value": ""},
@@ -47,6 +51,7 @@ class RedTeamAgent:
                 if result and not result.get("safe", False):
                     breaches.append({"vector": vector["name"], "detail": str(result.get("detail", ""))[:200]})
             except Exception as exc:
+                logger.warning('RedTeamAgent.attack: Exception not handled: %s', exc)
                 breaches.append({"vector": vector["name"], "detail": f"executor_crash: {type(exc).__name__}: {str(exc)[:100]}"})
         return {
             "verdict": "SURVIVED" if not breaches else "BREACHED",

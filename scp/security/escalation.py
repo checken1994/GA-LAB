@@ -69,7 +69,7 @@ class EscalationManager:
                     try:
                         temporary.unlink()
                     except OSError:
-                        pass
+                        logger.debug('EscalationManager._persist_state: OSError ignored', exc_info=True)
 
     def _restore_state(self) -> None:
         """Restore state and re-arm non-terminal deadlines after restart."""
@@ -77,6 +77,7 @@ class EscalationManager:
             raw = self.escalation_state_path.read_text(encoding="utf-8")
             payload = json.loads(raw)
         except FileNotFoundError:
+            logger.debug('EscalationManager._restore_state: FileNotFoundError ignored', exc_info=True)
             return
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning("[escalation] state restore skipped: %s", exc)
@@ -219,6 +220,7 @@ class EscalationManager:
         try:
             confidence = float(confidence)
         except (TypeError, ValueError):
+            logger.debug('EscalationManager.classify_threat: TypeError, ValueError ignored', exc_info=True)
             confidence = 0.0
 
         # Indicator type — production callers use `type` (e.g.

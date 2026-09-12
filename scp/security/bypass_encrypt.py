@@ -207,7 +207,7 @@ class BypassEncryptor:
         try:
             return json.loads(raw.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
-            pass  # fall through to decryption attempt
+            logger.debug('BypassEncryptor.decrypt_bypass_if_enabled: json.JSONDecodeError, UnicodeDecodeError ignored', exc_info=True)  # fall through to decryption attempt
 
         # If encryption is enabled, try decrypting as a Fernet token
         if encryptor is None:
@@ -282,6 +282,7 @@ class BypassEncryptor:
                     f.decrypt(line.encode("utf-8"))
                     decrypted += 1
                 except Exception:
+                    logger.warning('BypassEncryptor.decrypt_file: Exception not handled', exc_info=True)
                     failed += 1
             return {"count": decrypted, "failed": failed, "encrypted": True}
 
@@ -314,6 +315,7 @@ class BypassEncryptor:
                             new_enc = new_fernet.encrypt(plaintext)
                             reencrypted.append(new_enc.decode("utf-8"))
                         except Exception:
+                            logger.warning('BypassEncryptor.rotate_key: Exception not handled', exc_info=True)
                             reencrypted.append(line)  # keep as-is if decrypt fails
                     bf.write_text("\n".join(reencrypted) + "\n", encoding="utf-8")
                 except Exception as e:

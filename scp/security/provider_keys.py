@@ -11,6 +11,10 @@ import os
 from pathlib import Path
 from typing import Mapping
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 _OPENROUTER_SLOTS = (
     "OPENROUTER_API_KEY",
@@ -73,5 +77,6 @@ def provider_key_status(environ: Mapping[str, str] | None = None) -> dict[str, i
     try:
         keys = load_openrouter_keys(environ)
     except ProviderCredentialError:
+        logger.debug('provider_key_status: ProviderCredentialError ignored', exc_info=True)
         return {"configured": False, "key_count": 0, "config_error": True}
     return {"configured": bool(keys), "key_count": len(keys), "config_error": False}

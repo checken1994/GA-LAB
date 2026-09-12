@@ -581,6 +581,7 @@ class H8RedTeamBridge:
                     elif d.get("type") == "caught_with_signatures":
                         blocked += 1
                 except Exception:  # noqa: S112
+                    logger.warning('H8RedTeamBridge._load_stats: Exception not handled', exc_info=True)
                     continue
             # [SCP-DNA-FIX R5-4] _stats mutations in _load_stats() — called
             # from __init__ on main thread; harmless today (workers haven't
@@ -609,9 +610,11 @@ class H8RedTeamBridge:
                             if len(bypasses) >= limit:
                                 break
                     except Exception:  # noqa: S112
+                        logger.warning('H8RedTeamBridge.get_recent_bypasses: Exception not handled', exc_info=True)
                         continue
             return bypasses
         except Exception:
+            logger.warning('H8RedTeamBridge.get_recent_bypasses: Exception not handled', exc_info=True)
             return []
 
     def get_recent_analyses(self, limit: int = 20) -> list[dict[str, Any]]:
@@ -629,9 +632,11 @@ class H8RedTeamBridge:
                         if len(analyses) >= limit:
                             break
                     except Exception:  # noqa: S112
+                        logger.warning('H8RedTeamBridge.get_recent_analyses: Exception not handled', exc_info=True)
                         continue
             return analyses
         except Exception:
+            logger.warning('H8RedTeamBridge.get_recent_analyses: Exception not handled', exc_info=True)
             return []
 
     def stats(self) -> dict[str, Any]:

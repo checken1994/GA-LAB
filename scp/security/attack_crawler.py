@@ -99,6 +99,7 @@ class AttackCrawler:
                         entry = json.loads(line.strip())
                         self._seen_hashes.add(hashlib.sha256(entry.get("attack_text", "").encode()).hexdigest()[:16])  # [V104.32 #26a]
                     except Exception:  # noqa: S112
+                        logger.warning('AttackCrawler._load_seen: Exception not handled', exc_info=True)
                         continue
 
     async def crawl_all(self) -> list[CrawledAttack]:
@@ -160,6 +161,7 @@ class AttackCrawler:
             try:
                 cache = json.loads(cache_file.read_text())
             except Exception:
+                logger.warning('AttackCrawler._crawl_github: Exception not handled', exc_info=True)
                 cache = {}
         now = time.time()
         cache_ttl = 86400  # 24 hours
@@ -239,6 +241,7 @@ class AttackCrawler:
                         used_split = split_name
                         break
                     except Exception:  # noqa: S112
+                        logger.warning('AttackCrawler._crawl_huggingface: Exception not handled', exc_info=True)
                         continue
                 if ds is None:
                     # Thử không specify split (lấy tất cả)
@@ -417,6 +420,7 @@ class AttackCrawler:
                         if not entry.get("tested"):
                             attacks.append(entry.get("attack_text", ""))
                     except Exception:  # noqa: S112
+                        logger.warning('AttackCrawler.get_new_attacks: Exception not handled', exc_info=True)
                         continue
         return attacks
 

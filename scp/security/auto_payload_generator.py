@@ -206,6 +206,7 @@ class AutoPayloadGenerator:
                 try:
                     payloads.append(json.loads(line.strip()))
                 except Exception:  # noqa: S112
+                    logger.warning('AutoPayloadGenerator._load_pool: Exception not handled', exc_info=True)
                     continue
         return payloads
 

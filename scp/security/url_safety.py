@@ -38,6 +38,7 @@ def _is_private_ip(host: str) -> bool:
         try:
             infos = socket.getaddrinfo(host, None)
         except socket.gaierror:
+            logger.debug('_is_private_ip: socket.gaierror ignored', exc_info=True)
             return True  # unresolvable = treat as unsafe
         for info in infos:
             ip = ipaddress.ip_address(info[4][0])
@@ -45,6 +46,7 @@ def _is_private_ip(host: str) -> bool:
                 return True
         return False
     except Exception:
+        logger.warning('_is_private_ip: Exception not handled', exc_info=True)
         return True
 
 

@@ -7,6 +7,10 @@ import threading
 from typing import Any, List
 from scp.security.capability_epoch import CapabilityToken, CapabilityAuthority
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 def build_bwrap_argv(cmd: List[str]) -> List[str]:
     """[C2 — Gemini indictment: rlimit là hàng rào đồ chơi] Xây argv Bubblewrap
@@ -35,6 +39,7 @@ def isolation_capability() -> dict[str, Any]:
 
             caps["job_object"] = True
         except ImportError:
+            logger.debug('isolation_capability: ImportError ignored', exc_info=True)
             caps["job_object"] = False
     else:
         try:
@@ -42,6 +47,7 @@ def isolation_capability() -> dict[str, Any]:
 
             caps["rlimit"] = True
         except ImportError:
+            logger.debug('isolation_capability: ImportError ignored', exc_info=True)
             caps["rlimit"] = False
         caps["bwrap"] = shutil.which("bwrap") is not None
     if caps["job_object"]:
@@ -136,6 +142,7 @@ class ProcessIsolationEnvironment:
                 try:
                     _, data = win32file.ReadFile(handle, 65536)
                 except pywintypes.error:
+                    logger.debug('ProcessIsolationEnvironment._execute_windows_job._drain: pywintypes.error ignored', exc_info=True)
                     break
                 if not data:
                     break
@@ -160,7 +167,7 @@ class ProcessIsolationEnvironment:
                 try:
                     win32api.CloseHandle(handle)
                 except pywintypes.error:
-                    pass
+                    logger.debug('ProcessIsolationEnvironment._execute_windows_job: pywintypes.error ignored', exc_info=True)
         return subprocess.CompletedProcess(cmd, exit_code, "".join(buffers["out"]), "".join(buffers["err"]))
 
     def execute_bounded(self, capability_token: CapabilityToken, cmd: List[str], cwd: str = None) -> subprocess.CompletedProcess:
@@ -226,7 +233,7 @@ class ProcessIsolationEnvironment:
                         _resource.setrlimit(_resource.RLIMIT_CPU, (30, 30))
                     preexec = _set_limits
                 except Exception:
-                    pass  # resource module unavailable — proceed without rlimits
+                    logger.warning('ProcessIsolationEnvironment.execute_bounded: Exception not handled', exc_info=True)  # resource module unavailable — proceed without rlimits
 
         return subprocess.run(
             cmd, cwd=cwd, capture_output=True, text=True, timeout=15,

@@ -4,6 +4,10 @@ import os
 import re
 from datetime import datetime
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 LOG_FILE = "data/archives/patrol_reports.jsonl"
 os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
 
@@ -31,6 +35,7 @@ def block_malicious_ip(ip):
             log_event("MITIGATION_FAILED", f"Thiếu quyền Admin để chặn IP {ip}. Cần chạy SCP bằng Run as Administrator.")
             return False
     except Exception as e:
+        logger.warning('block_malicious_ip: Exception not handled: %s', e)
         log_event("MITIGATION_ERROR", str(e))
         return False
 
@@ -39,6 +44,7 @@ def scan_network():
         result = subprocess.run(["netstat", "-ano"], capture_output=True, text=True)
         return [line.strip() for line in result.stdout.split('\n') if "ESTABLISHED" in line]
     except Exception as e:
+        logger.warning('scan_network: Exception not handled: %s', e)
         return []
 
 def patrol_cycle():

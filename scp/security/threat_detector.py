@@ -233,9 +233,11 @@ class AsnDetector:
             try:
                 hostname = await asyncio.get_event_loop().run_in_executor(None, socket.gethostbyaddr, ip)
             except Exception:
+                logger.warning('AsnDetector.lookup: Exception not handled', exc_info=True)
                 hostname = None
             reverse_dns = hostname[0] if hostname else ""
         except Exception:
+            logger.warning('AsnDetector.lookup: Exception not handled', exc_info=True)
             reverse_dns = ""
 
         # Heuristic: datacenter indicators in reverse DNS
