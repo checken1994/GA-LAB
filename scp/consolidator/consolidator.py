@@ -140,6 +140,7 @@ class KnowledgeConsolidator:
             median_val = _median(pass_values) if pass_values else None
             mean_val = sum(pass_values) / len(pass_values) if pass_values else None
         except (TypeError, ValueError):
+            logger.debug('KnowledgeConsolidator._consolidate_group: TypeError, ValueError ignored', exc_info=True)
             median_val, mean_val = None, None
 
         return {
