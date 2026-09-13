@@ -24,7 +24,10 @@ services:
       # demanded a TLS gateway this stack does not have. Pin local-candidate
       # mode; switch deliberately for a production compose deployment.
       SCP_PRODUCTION_MODE: "0"
-      SCP_EGRESS_MODE: deny
+      SCP_EGRESS_MODE: ${SCP_EGRESS_MODE:-deny}
+      # LLM operator allowlist is deployment config (.env), not compose code:
+      # the gateway passes it as extra_allowed_hosts to the generic egress gate.
+      SCP_LLM_EGRESS_ALLOWLIST: ${SCP_LLM_EGRESS_ALLOWLIST:-}
       # No TLS gateway exists in this stack; FORCE_HTTPS=1 redirected every
       # request (incl. /health) to https://host:port that nothing serves.
       SCP_FORCE_HTTPS: "0"
