@@ -19,7 +19,7 @@ forbidden_actions:
   FA_03:
     name: "Unproven Claims"
     rule: "Cannot claim PASS/DONE without same-SHA terminal output evidence."
-    status: "PENDING_IMPLEMENTATION (Not enforced by T00)"
+    status: "ENFORCED for evidence records validated by EvidenceAuthority"
   FA_04:
     name: "Manufactured Green"
     rule: "Simulated verification or hardcoded unconditional VERIFIED returns are strictly forbidden."
@@ -30,8 +30,8 @@ forbidden_actions:
     status: "PENDING_IMPLEMENTATION (Not enforced by T00)"
 
 evidence_requirements:
-  same_sha_enforcement: false # Changed: Pending real validator
-  evidence_target: "T00_Meta_Audit"
+  same_sha_enforcement: true
+  evidence_target: "T03_Evidence_Authority"
   required_fields:
     - "tested_sha"
     - "tree_hash"
@@ -49,5 +49,5 @@ protected_paths:
   - "AGENTS.md"
   - ".agents/"
   - ".github/"
-  - "tools/t00"
+  - "tools/"
   - "scp/contracts/"
