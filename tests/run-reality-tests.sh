@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-PYTHON_BIN="${SCP_PYTHON_BIN:-python3}"
+PYTHON_BIN="${SCP_PYTHON_BIN:-$(command -v python3 >/dev/null 2>&1 && echo python3 || echo python)}"
 export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 run_python() {
   local target="$1"
