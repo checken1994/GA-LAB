@@ -40,6 +40,10 @@ services:
       # without this the adapter defaults to /app/data/ask_task_kernel.sqlite3
       # — same volume, but a second, divergent kernel file.
       SCP_KERNEL_DB_PATH: /var/lib/scp/data/task_kernel.sqlite3
+      # [S20] Ask lease TTL (seconds). Default 60 is unchanged; only overridable
+      # via the host env for controlled proof runs (e.g. SCP_ASK_LEASE_TTL_SECONDS=5
+      # to demonstrate the heartbeat surviving a slow real provider).
+      SCP_ASK_LEASE_TTL_SECONDS: ${SCP_ASK_LEASE_TTL_SECONDS:-60}
       # Optional provider/bridge URL. Keep credentials out of this file.
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
     ports:

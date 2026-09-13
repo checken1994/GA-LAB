@@ -700,6 +700,104 @@ class TaskKernel:
             self._rollback()
             raise
 
+    # [S20] States in which a live lease still carries execution authority and
+    # an expiry-only renewal is meaningful. Terminal/recovery states are
+    # excluded: once expire_leases/boot-recovery moved the task, the holder's
+    # authority is gone and renew must refuse (finalize then routes
+    # fail-closed through the state-race path).
+    _RENEWABLE_LEASE_STATES = frozenset({"LEASED", "RUNNING", "WAITING_TOOL", "VERIFYING"})
+
+    def renew_lease(self, task_id: str, lease_id: str, fencing_token: int, ttl_seconds: float | None = None) -> bool:
+        """[S20] Expiry-only lease renewal for long-running holders (slow LLM
+        providers whose latency legitimately exceeds the claim TTL).
+
+        NOT a replacement for crash detection: this only moves ``expires_at``
+        (and ``heartbeat_at``) forward on the CURRENT live attempt. The caller
+        must present ``lease_id`` + ``fencing_token`` that match the task's
+        active lease and the highest fencing token ever issued for the task —
+        a previous (fenced-off) holder is refused fail-closed, so a zombie
+        worker can never keep a revoked attempt alive.
+
+        Returns False (never raises) when:
+          * the lease row does not exist, belongs to another task, is already
+            released, or has already expired (no resurrection — once the
+            watchdog swept it, authority is gone);
+          * the presented fencing token does not match the lease row or is not
+            the latest token for the task (stale attempt);
+          * the task's active_lease_id no longer points at this lease, the
+            task sits in a non-renewable state (terminal/RECOVERING/
+            RECONCILING/UNKNOWN/...), a global kill is active, or the lease's
+            global_kill epoch was bumped;
+          * an optimistic lease-version conflict raced the update.
+
+        Deliberately does NOT touch the tasks row: no state change, no
+        state-machine version bump, no event (the leases table version is the
+        existing per-row OCC counter, same pattern as heartbeat()).
+        """
+        if not task_id or not lease_id:
+            return False
+        try:
+            presented_token = int(fencing_token)
+        except (TypeError, ValueError):
+            return False
+        if ttl_seconds is not None:
+            try:
+                presented_ttl = float(ttl_seconds)
+            except (TypeError, ValueError):
+                return False
+            if presented_ttl <= 0:
+                return False
+        else:
+            presented_ttl = None
+        self._begin()
+        try:
+            lease = self.conn.execute('SELECT * FROM leases WHERE lease_id=?', (lease_id,)).fetchone()
+            if lease is None or str(lease['task_id']) != str(task_id):
+                self._commit()
+                return False
+            now = time.time()
+            if int(lease['released']) != 0 or float(lease['expires_at']) <= now:
+                # released or already expired: no resurrection.
+                self._commit()
+                return False
+            if int(lease['fencing_token']) != presented_token:
+                self._commit()
+                return False
+            latest = self.conn.execute('SELECT COALESCE(MAX(fencing_token), 0) AS n FROM leases WHERE task_id=?', (task_id,)).fetchone()['n']
+            if presented_token != int(latest):
+                # a newer attempt exists: this caller is a stale holder.
+                self._commit()
+                return False
+            control = self._control()
+            if int(control['global_kill']) != 0 or int(lease['global_kill_epoch']) != int(control['global_kill_epoch']):
+                self._commit()
+                return False
+            task = self.conn.execute('SELECT * FROM tasks WHERE task_id=?', (task_id,)).fetchone()
+            if task is None:
+                self._commit()
+                return False
+            if (task['active_lease_id'] is None or str(task['active_lease_id']) != str(lease_id)) or str(task['state']) not in self._RENEWABLE_LEASE_STATES:
+                self._commit()
+                return False
+            extend = presented_ttl if presented_ttl is not None else (float(lease['expires_at']) - float(lease['issued_at']))
+            if extend <= 0:
+                self._commit()
+                return False
+            expires = now + extend
+            lease_version = int(lease['version']) if 'version' in lease.keys() else 1
+            cur = self.conn.execute(
+                'UPDATE leases SET heartbeat_at=?,expires_at=?,version=version+1 WHERE lease_id=? AND released=0 AND version=?',
+                (now, expires, lease_id, lease_version),
+            )
+            if cur.rowcount != 1:
+                self._commit()
+                return False
+            self._commit()
+            return True
+        except Exception:
+            self._rollback()
+            raise
+
     def expire_leases(self, now: float | None=None) -> list[str]:
         now = now or time.time()
         expired = []

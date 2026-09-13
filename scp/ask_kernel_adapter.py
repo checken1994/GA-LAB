@@ -1,6 +1,7 @@
 # SCP CIRCUIT: M02 — STATUS: CLOSED_WITH_KNOWN_GAP (closure: reports/circuit-closures/M02-closure.json)
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -39,6 +40,44 @@ _TERMINAL = {"COMPLETED", "FAILED", "CANCELLED"}
 # boot-recovery, lease expiry or a previous escalation already moved the
 # task out of the happy path — finalize must route, not assume.
 _ASK_LIFECYCLE_INTACT_STATES = {"RUNNING", "VERIFYING"}
+
+# [S20 2026-09-13] Long-LLM availability. Runtime evidence (bench_final_seed99
+# + GA.md B11): free-tier provider latency measured 30-260s (mean 85.6s) while
+# the /ask claim lease TTL was a fixed 60s. The lease expired mid-handler, the
+# watchdog moved the task, and S19's fail-closed state-route correctly
+# discarded a real, correct answer (2/10 asks on seed 99). The fix is NOT a
+# bigger TTL (that just slows real crash detection): the holder renews the
+# lease while it is alive (kernel.renew_lease, expiry-only, fencing-checked),
+# so an expired lease again proves the worker is *dead*, not merely *slow*.
+DEFAULT_ASK_LEASE_TTL_SECONDS = 60
+
+
+def ask_lease_ttl_seconds() -> int:
+    """SCP_ASK_LEASE_TTL_SECONDS as int seconds; default 60 preserved.
+
+    Parse errors / zero / negative fall back to the default — importing or
+    starting the adapter must never crash on a bad env value, and a
+    non-positive TTL would violate the kernel lease contract (claim raises).
+    """
+    raw = os.environ.get("SCP_ASK_LEASE_TTL_SECONDS", "")
+    try:
+        value = int(raw.strip())
+    except (TypeError, ValueError):
+        return DEFAULT_ASK_LEASE_TTL_SECONDS
+    if value <= 0:
+        return DEFAULT_ASK_LEASE_TTL_SECONDS
+    return value
+
+
+def ask_lease_heartbeat_enabled() -> bool:
+    """Kill switch SCP_ASK_LEASE_HEARTBEAT=0|false|off|no disables renewal.
+
+    Kept for the deterministic anti-placebo control test (T04 S20): with the
+    heartbeat off and a slow provider, the old lifecycle_authority_lost
+    failure must reproduce — proving the test actually exercises the bug.
+    """
+    raw = os.environ.get("SCP_ASK_LEASE_HEARTBEAT", "").strip().lower() or "1"
+    return raw not in {"0", "false", "off", "no"}
 
 
 def _dump(obj: Any) -> dict[str, Any]:
@@ -203,7 +242,8 @@ class AskKernelAdapter:
             self.kernel.create_task(task_id, "ask-route", "rag-verified /ask", "R0", input_hash=input_hash)
             for state in ("PLANNING", "READY", "QUEUED"):
                 self.kernel.transition(task_id, state, actor="ask-kernel-adapter", reason="ask_lifecycle")
-            lease = self.kernel.claim(task_id, "ask-route-worker", ttl_seconds=60)
+            lease_ttl = ask_lease_ttl_seconds()
+            lease = self.kernel.claim(task_id, "ask-route-worker", ttl_seconds=lease_ttl)
             self.kernel.start(task_id, lease.lease_id)
             logical_key, claimed = self.kernel.idempotency_claim(
                 task_id,
@@ -242,6 +282,8 @@ class AskKernelAdapter:
                 "task_id": task_id,
                 "lease_id": lease.lease_id,
                 "attempt_id": lease.attempt_id,
+                "fencing_token": lease.fencing_token,
+                "lease_ttl_seconds": lease_ttl,
                 "checkpoint_id": checkpoint_id,
                 "input_hash": input_hash,
             }
@@ -685,6 +727,49 @@ class AskKernelAdapter:
             ledger_status="BLOCKED",
         )
 
+    async def _lease_heartbeat(
+        self,
+        task: dict[str, Any],
+        stop: asyncio.Event,
+    ) -> None:
+        """[S20] Renew the ask lease every ttl/3 while the in-process attempt
+        still holds it, so a slow (but alive) provider no longer forfeits a
+        correct answer to lease expiry.
+
+        Invariant-safe: renew_lease is expiry-only (no state change) and
+        fencing-checked, so this can only extend the CURRENT attempt. When it
+        returns False the lease is already gone (released/expired/fenced-off/
+        killed) — log, stop, and let finalize's state-route fail-closed
+        (S19 path) decide the outcome. NEVER raise from here: a heartbeat
+        must not kill the request it is trying to protect.
+        """
+        ttl = float(task.get("lease_ttl_seconds") or DEFAULT_ASK_LEASE_TTL_SECONDS)
+        interval = max(ttl / 3.0, 0.05)
+        task_id, lease_id = task["task_id"], task["lease_id"]
+        while True:
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+                return  # requested stop (handler + finalize finished)
+            except asyncio.TimeoutError:
+                pass
+            try:
+                renewed = self.kernel.renew_lease(
+                    task_id, lease_id, task["fencing_token"], ttl_seconds=ttl
+                )
+            except Exception as exc:  # infra fault: stop, do not mask request path
+                logger.warning(
+                    "[ask-kernel] lease heartbeat error for %s (lease %s): %s — stopping heartbeat",
+                    task_id, lease_id, type(exc).__name__,
+                )
+                return
+            if not renewed:
+                _c3_logger.warning(
+                    "[S20] lease renew refused for %s (lease %s, attempt %s) — "
+                    "heartbeat stopped; finalize will route by current state (fail-closed)",
+                    task_id, lease_id, task.get("attempt_id"),
+                )
+                return
+
     async def run_rag(
         self,
         req: Any,
@@ -701,6 +786,15 @@ class AskKernelAdapter:
             )
         except Exception as exc:
             return self._kernel_blocked_response(req, exc)
+        # [S20] Provider calls legitimately run 30-260s (free tier); the fixed
+        # TTL would expire the lease under a living worker and force S19's
+        # fail-closed state-route to discard correct answers. Keep the lease
+        # alive ONLY while this coroutine owns the attempt; crash detection is
+        # preserved because a dead process stops renewing.
+        stop = asyncio.Event()
+        heartbeat: asyncio.Task | None = None
+        if ask_lease_heartbeat_enabled():
+            heartbeat = asyncio.create_task(self._lease_heartbeat(task, stop))
         try:
             response = await handler(req, request)
             result = await self.finalize(task, response, req)
@@ -708,6 +802,13 @@ class AskKernelAdapter:
         except Exception:
             self.fail(task, "ask_rag_exception")
             raise
+        finally:
+            if heartbeat is not None:
+                stop.set()
+                try:
+                    await asyncio.wait_for(heartbeat, timeout=5.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    heartbeat.cancel()
 
 
 def json_bytes(value: Any) -> bytes:
