@@ -391,3 +391,27 @@ Forbidden now:
   3. Khi gates pass → manifest-only freeze → guarded PR merge
   4. Fresh full-system customer handoff trên merge SHA
   5. (Optional) Challenger Audit khi teamwork quota reset (~89h)
+
+## B10. Owner correction — zero-cost wall thành opt-in (S18, 2026-09-13)
+
+- **OWNER DIRECTIVE:** "tôi chỉ bảo dùng API free cho trường hợp của tôi, CHỨ KHÔNG phải
+  mã hóa cứng bắt buộc SCP đòi API free — xóa cái này đi." → free-only là deployment
+  preference, KHÔNG phải compile-time mandate.
+- **Correction (commit S18, branch `audit/runtime-guard-AUDIT-20260909`):** zero-cost $0
+  wall đổi từ "install vô điều kiện lúc import" → **opt-in qua `SCP_LLM_COST_MODE=free_only`**.
+  Single control point = gate trong `scp/llm_gateway/zero_cost_runtime.py`
+  (`_free_only_policy_active` + short-circuit trong `authorize_outbound`/`record_outbound_sent`).
+  Mặc định (unset) → wall tắt, provider paid/free cấu hình chạy bình thường. Không thêm env
+  mới; máy owner vẫn set `free_only` → giữ 100% hành vi cũ. `install_egress_guard` (destination
+  authority) KHÔNG đổi, luôn always-on.
+- **Tác động runtime:** container hiện tại có `SCP_LLM_COST_MODE` UNSET nên trước fix mọi LLM
+  call chết im lặng (accuracy 0%); sau fix default-off → **unblock re-run benchmark** (cần
+  `docker compose restart`/rebuild image để mang code mới).
+- **Governance:** 4 file `spec/` vẫn tham chiếu zero-cost/$0 — KHÔNG sửa (protected). Đề xuất
+  cập nhật spec nằm ở `data/governance/proposals/PROP-zero-cost-optin-2026-09-13.md`,
+  trạng thái `PENDING_OWNER_APPROVAL`.
+- **Evidence:** T05 + T02 flow02 + T01 boot = 122 passed exit 0; `t00_meta_audit` 0 new
+  regressions; `verify_scp_test_skill_contract` PASS_WITHIN_SCOPE exit 0; runtime proof
+  default-off (`authorize_outbound` → `(request, None)`, `_guard is None`); strictness TĂNG
+  qua `tests/T05_gateway/test_zero_cost_optin.py`. Báo cáo:
+  `reports/expert-panel/S18-zero-cost-optin.md`.

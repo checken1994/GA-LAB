@@ -4,6 +4,14 @@ Z2 installs a PEP immediately before provider network drivers.
 Z3 replaces the legacy paid-primary provider chat semantics with candidate
 filtering that only attempts models carrying a fresh exact-$0 proof. The PEP
 remains installed underneath Z3 so routing bugs still cannot spend money.
+
+Activation is an OPT-IN deployment policy, not a compile-time mandate: the
+Z2/Z3 wrappers are always installed, but the cost wall only *enforces* while
+the deployment explicitly sets ``SCP_LLM_COST_MODE=free_only``. The single
+control point is :func:`authorize_outbound` / :func:`record_outbound_sent`,
+which short-circuit to a passthrough while the policy is inactive (default),
+so a configured provider — paid or free — answers normally. Egress authority
+(install_egress_guard) is orthogonal and always on.
 """
 from __future__ import annotations
 
@@ -82,6 +90,18 @@ def _request(
     )
 
 
+def _free_only_policy_active() -> bool:
+    """Return True only while the deployment opts into the exact-$0 wall.
+
+    Owner directive (2026-09-13): free-only is a deployment *preference*, not a
+    compile-time mandate. The wall enforces only when ``SCP_LLM_COST_MODE`` is
+    explicitly set to ``free_only`` (case/whitespace tolerant). Every other
+    value — including the default unset — leaves the policy inactive so the
+    provider chain runs its configured paid/free models normally.
+    """
+    return str(os.environ.get("SCP_LLM_COST_MODE", "")).strip().lower() == "free_only"
+
+
 def authorize_outbound(
     *,
     provider: str,
@@ -94,7 +114,21 @@ def authorize_outbound(
     OpenRouter UNKNOWN/STALE proof gets exactly one bounded catalog refresh.
     PAID and DATA_CLASS denials are never retried. A failed refresh still ends
     in the second authoritative fail-closed decision.
+
+    Cost wall activation is opt-in: while ``SCP_LLM_COST_MODE`` is not
+    ``free_only`` (the default), the guard is never constructed and the call is
+    a passthrough returning ``(request, None)``.
     """
+    if not _free_only_policy_active():
+        return (
+            _request(
+                provider=provider,
+                model=model,
+                task_class=task_class,
+                data_class=data_class,
+            ),
+            None,
+        )
     request = _request(
         provider=provider,
         model=model,
@@ -122,6 +156,10 @@ def authorize_outbound(
 
 
 def record_outbound_sent(request: ZeroCostRequest, proof: PricingProof | None) -> str:
+    # No-op while the opt-in cost wall is inactive: there is no guard/DB to
+    # touch and no proof event to record for a passthrough call.
+    if not _free_only_policy_active():
+        return ""
     return get_runtime_guard().record_sent(request, proof)
 
 
