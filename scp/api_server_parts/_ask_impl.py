@@ -525,23 +525,39 @@ async def _ask_impl(req: AskRequest, request: Request):
         logger.warning(f'[RESTORED-SYSTEMS] history hook failed: {_hook_exc}')
 
     # 3. World State (if PASS, record an event)
+    # [C-S2 AUDIT-20260913] Root cause (evidence: scp/world_state/
+    # temporal_authority.py:91-92): hook passed evidence_refs=[] while
+    # record_observation() defaults epistemic_status="OBSERVED", and an
+    # OBSERVED assertion REQUIRES evidence_refs ("unaudited world writes are
+    # forbidden"). Result: WorldStateError raised on EVERY judge PASS, caught
+    # below as a warning only — world_state never received a /ask record.
+    # Fix at the failure point: the auditable provenance of this /ask run is
+    # its request-ledger run_id (attached to request.state.scp_run by the
+    # traced_request wrapper, same object stage_request already reads), so the
+    # event is recorded with evidence_refs=[run_id]. Store-level failures stay
+    # fail-open for /ask (hook is auxiliary) but MUST be logged — never silent.
     try:
         if v.verdict == 'PASS':
-            from scp.world_state import EntityEventAuthority, TemporalAuthority
-            from scp.contracts.time import now_utc_iso
-            _temporal = TemporalAuthority(db_path=str(_data_dir / "world_state.sqlite"))
-            try:
-                _eea = EntityEventAuthority(_temporal)
-                _eea.record_event(
-                    entity_id="ask_session",
-                    event_kind="pass_verdict",
-                    payload={"confidence": v.confidence, "question": req.question[:100]},
-                    valid_time=now_utc_iso(),
-                    evidence_refs=[],
-                    actor_id="scp-judge"
-                )
-            finally:
-                _temporal.close()
+            _ws_run = getattr(getattr(request, "state", None), "scp_run", None)
+            _ask_run_id = str(getattr(_ws_run, "run_id", "") or "")
+            if _ask_run_id:
+                from scp.world_state import EntityEventAuthority, TemporalAuthority
+                from scp.contracts.time import now_utc_iso
+                _temporal = TemporalAuthority(db_path=str(_data_dir / "world_state.sqlite"))
+                try:
+                    _eea = EntityEventAuthority(_temporal)
+                    _eea.record_event(
+                        entity_id="ask_session",
+                        event_kind="pass_verdict",
+                        payload={"confidence": v.confidence, "question": req.question[:100]},
+                        valid_time=now_utc_iso(),
+                        evidence_refs=[_ask_run_id],
+                        actor_id="scp-judge"
+                    )
+                finally:
+                    _temporal.close()
+            else:
+                logger.warning('[RESTORED-SYSTEMS] world_state hook: judge PASS without request run_id - world write skipped (unaudited world writes are forbidden)')
     except Exception as _hook_exc:
         logger.warning(f'[RESTORED-SYSTEMS] world_state hook failed: {_hook_exc}')
 
