@@ -405,9 +405,9 @@ class AutoFixEngine(VerifyMixin, AutoFixMixin):
                 import ast as _ast
                 _ast.parse(_new_source)  # proposal must at least compile
 
-                from scp.core.code_evolution_agent import _relative_repo_path
                 try:
-                    _rel = _relative_repo_path(_p)
+                    from scp.core.code_evolution_agent import CodeEvolutionAgent
+                    _rel = CodeEvolutionAgent()._relative_repo_path(_p)
                 except Exception as _rel_err:
                     # silent-by-design: proposal file naming fallback — module path is
                     # a valid identifier for the proposal title, failure is best-effort.

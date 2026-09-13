@@ -428,6 +428,37 @@ async def lifespan(app: FastAPI):
             logger.info('[S23-DISCOVERY] Free discovery wired: FreeAPICatalog + LLM free-model catalog refresh on 6h cadence with jitter')
     except Exception as exc:
         logger.warning('[S23-DISCOVERY] scheduler failed to start (non-fatal): %s', exc)
+
+    # --- [Tripwire 5 / R2] DomainKnowledgeStore baseline verification on startup ---
+    try:
+        from scp.knowledge.domain_store import DomainKnowledgeStore
+        _kb_store = DomainKnowledgeStore()
+        for _f in _kb_store.data_dir.glob("*.jsonl"):
+            _kb_store.register_file(_f.name)
+        _record_res = _kb_store.verify_all_baselines()
+        _file_res = _kb_store.verify_all_file_baselines()
+        if any(v.get("corrupted", 0) > 0 for v in _record_res.values()):
+            logger.error("[domain_store] RECORD CORRUPTION DETECTED: %s", _record_res)
+        else:
+            logger.info("[domain_store] Baseline integrity verified across all domain files")
+    except Exception as _e:
+        logger.warning("[Lifespan] domain_store baseline verification skipped: %s", _e)
+
+    # --- [Tripwire 5 / R2] ExternalTrustRoot baseline verification on startup ---
+    try:
+        from scp.meta.external_trust import get_external_trust_root
+        _trust_root = get_external_trust_root()
+        for _f in _trust_root.EXPECTED_FILES:
+            if not _f.endswith("/"):
+                _trust_root.register_file(_f)
+        _trust_res = _trust_root.verify_all_baselines()
+        if not all(_trust_res.values()):
+            logger.error("[external_trust] TAMPER DETECTED: %s", _trust_res)
+        else:
+            logger.info("[external_trust] Baseline integrity verified across anchor files")
+    except Exception as _e:
+        logger.warning("[Lifespan] external_trust baseline verification skipped: %s", _e)
+
     yield
     app.state.judge_ready = False
     app.state.startup_status = 'stopping'

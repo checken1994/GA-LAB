@@ -696,14 +696,7 @@ class AskKernelAdapter:
                     reason=reason,
                 )
         except Exception as exc:  # non-fatal audit fallback; original error wins
-            logger.warning('AskKernelAdapter.fail: Exception not handled: %s', exc)
-            try:
-                from scp.core.exception_policy import observe_nonfatal
-
-                observe_nonfatal(component="scp/ask_kernel_adapter.py:fail", exception_type=type(exc).__name__)
-            except Exception:
-                logger.warning('AskKernelAdapter.fail: Exception not handled', exc_info=True)
-                return
+            logger.warning('AskKernelAdapter.fail: Exception not handled: %s (%s)', exc, type(exc).__name__)
 
     def _kernel_blocked_response(self, req: Any, exc: Exception) -> Any:
         session = getattr(req, "session_id", None) or "ask-kernel-blocked"

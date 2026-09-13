@@ -136,6 +136,20 @@ CISA_VENDOR_PROFILES = {
 }
 
 
+def cisa_kev_match_recent(cve_id: str) -> bool:
+    """Check if CVE is actively exploited in the CISA KEV catalog."""
+    if not cve_id or not isinstance(cve_id, str):
+        return False
+    try:
+        from scp.security.cisa_kev import CisaKevFeed
+        _kev_feed = CisaKevFeed()
+        _kev_feed.refresh_feed()
+        return _kev_feed.is_in_kev(cve_id)
+    except Exception as exc:
+        logger.warning("cisa_kev_match_recent failed (%s): %s", type(exc).__name__, exc)
+        return False
+
+
 def _boost_confidence_with_intel(threat_type: str, signals: dict, base_confidence: float) -> float:
     """ Boost confidence using honeypot patterns + ATT&CK + CISA KEV.
 
@@ -144,6 +158,9 @@ def _boost_confidence_with_intel(threat_type: str, signals: dict, base_confidenc
     from Cowrie/Dionaea + Mandiant APT reports + Socket.dev supply chain.
     When honeypot indicators match, confidence boosted to 0.80-0.92.
     """
+    # Check CISA KEV catalog if a CVE signal is present
+    cve_id = signals.get("cve_id") or signals.get("cve")
+    cisa_boost = 0.40 if (cve_id and isinstance(cve_id, str) and cisa_kev_match_recent(cve_id)) else 0.0
     # V2: Check honeypot patterns first (higher confidence)
     honeypot = HONEYPOT_PATTERNS.get(threat_type, {})
     hp_indicators = honeypot.get("real_world_indicators", [])
@@ -155,7 +172,7 @@ def _boost_confidence_with_intel(threat_type: str, signals: dict, base_confidenc
         for sig_name, sig_val in signals.items():
             # Match signal keywords against indicator text
             sig_keywords = sig_name.replace("_", " ").split()
-            if any(kw in ind for kw in sig_keywords) and sig_val > 0.5:
+            if any(kw in ind for kw in sig_keywords) and isinstance(sig_val, (int, float)) and sig_val > 0.5:
                 hp_matched += 1
                 break
 
@@ -168,18 +185,16 @@ def _boost_confidence_with_intel(threat_type: str, signals: dict, base_confidenc
     matched = 0
     for ind in indicators:
         for sig_name, sig_val in signals.items():
-            if any(kw in ind for kw in sig_name.split("_")) and sig_val > 0.5:
+            if any(kw in ind for kw in sig_name.split("_")) and isinstance(sig_val, (int, float)) and sig_val > 0.5:
                 matched += 1
                 break
     match_ratio = matched / max(len(indicators), 1)
 
     # V2 boosting: signal strength + honeypot/ATT&CK correlation
-    # TẠI SAO: keyword matching is imprecise (2/11 match). Need to also
-    # boost based on signal MAGNITUDE — if signals are very strong
-    # (e.g., request_rate_anomaly=0.95), that itself indicates real threat.
-    max_signal = max(signals.values()) if signals else 0.0
-    avg_signal = sum(signals.values()) / len(signals) if signals else 0.0
-    strong_signals = sum(1 for v in signals.values() if v > 0.7)
+    num_signals = [v for v in signals.values() if isinstance(v, (int, float))]
+    max_signal = max(num_signals) if num_signals else 0.0
+    avg_signal = sum(num_signals) / len(num_signals) if num_signals else 0.0
+    strong_signals = sum(1 for v in num_signals if v > 0.7)
 
     if hp_match_ratio > 0.1 or strong_signals >= 3:
         # Honeypot indicators matched OR 3+ strong signals — high confidence
@@ -195,6 +210,9 @@ def _boost_confidence_with_intel(threat_type: str, signals: dict, base_confidenc
     else:
         # No matches — use base confidence
         boosted = max(base_confidence, max_signal * 0.3)
+
+    if cisa_boost:
+        boosted = max(boosted + cisa_boost, 0.90)
 
     return min(boosted, 0.95)  # cap at 0.95
 
@@ -332,6 +350,8 @@ class AttackPredictor:
         weights = SIGNAL_WEIGHTS.get(threat_type, {})
         score = 0.0
         for signal_name, signal_value in signals.items():
+            if not isinstance(signal_value, (int, float)):
+                continue
             weight = weights.get(signal_name, 0)
             score += weight * signal_value
         return score
@@ -377,7 +397,8 @@ class AttackPredictor:
         actions = THREAT_ACTIONS.get(best_type, ["alert_human"])
 
         # Build why explanation
-        top_signals = sorted(signals.items(), key=lambda x: x[1], reverse=True)[:3]
+        numeric_signals = {s: float(v) for s, v in signals.items() if isinstance(v, (int, float))}
+        top_signals = sorted(numeric_signals.items(), key=lambda x: x[1], reverse=True)[:3]
         why = (
             f"Threat type '{best_type}' scored highest ({best_score:.2f}) "
             f"based on signals: {', '.join(f'{s}={v:.2f}' for s, v in top_signals)}. "
@@ -385,7 +406,14 @@ class AttackPredictor:
             f"Recommended: {actions}."
         )
 
-        evidence = [f"signal:{s}={v:.2f}" for s, v in signals.items()]
+        evidence = [
+            f"signal:{s}={v:.2f}" if isinstance(v, (int, float)) else f"signal:{s}={v}"
+            for s, v in signals.items()
+        ]
+        cve_id = signals.get("cve_id") or signals.get("cve")
+        if cve_id and isinstance(cve_id, str) and cisa_kev_match_recent(cve_id):
+            evidence.append(f"cisa_kev:actively_exploited({cve_id})")
+            why += f" [CISA KEV: {cve_id} actively exploited]"
 
         forecast = CyberThreatForecast(
             threat_type=best_type,

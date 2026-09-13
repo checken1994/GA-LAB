@@ -161,7 +161,7 @@ async def h8_analyses(limit: int = 20):
 @traced_request(_ADMIN_V100_LEDGER, require_write=False, action="release_evidence")
 async def release_evidence():
     """Release evidence authority endpoint (Wave 1)."""
-    from scp.release.evidence_authority import ReleaseEvidenceAuthority
+    from scp.release.evidence_authority import EvidenceAuthority as ReleaseEvidenceAuthority
     auth = ReleaseEvidenceAuthority(Path("data") / "evidence.sqlite")
     evidence = auth.generate_release_claim()
     return {"evidence": evidence}

@@ -159,16 +159,12 @@ class CisaKevFeed:
     #   1. Public `is_in_kev()` + `refresh_feed()` aliases (canonical names that
     #      match the bug spec — keeps the existing is_exploited/refresh methods
     #      working as thin wrappers for backward-compat).
-    #   2. Wire-in TODO for the predictor (parent-owned).
-    #
-    # TODO(parent — scp/security/predictor.py owner): the predictor's
-    # `cisa_kev_match_recent` should be implemented as:
-    #     from scp.security.cisa_kev import CisaKevFeed
-    #     _kev_feed = CisaKevFeed()
-    #     _kev_feed.refresh_feed()  # cached + TTL — safe to call every time
-    #     if _kev_feed.is_in_kev(cve_id):
-    #         # boost severity / mark as actively exploited
-    # Until the predictor wires this in, callers can use the API directly.
+    #   2. [WIRED in scp/security/predictor.py via cisa_kev_match_recent]:
+    #      from scp.security.cisa_kev import CisaKevFeed
+    #      _kev_feed = CisaKevFeed()
+    #      _kev_feed.refresh_feed()
+    #      if _kev_feed.is_in_kev(cve_id):
+    #          # boost confidence / record actively exploited CVE evidence
     def is_in_kev(self, cve_id: str) -> bool:
         """Public alias for `is_exploited` — check if a CVE is in the CISA KEV
         catalog (i.e., actively exploited in the wild).
