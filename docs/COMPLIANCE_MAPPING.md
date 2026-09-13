@@ -43,5 +43,5 @@
 ## C.4 Cách đọc
 
 - Bảng này là **map** — không phải chứng nhận. Mỗi dòng "✅" = có test/scan evidence trong repo tại SHA nêu trên.
-- Số liệu benchmark (accuracy, self-correction) đo trên môi trường **không có LLM provider hoạt động** (zero-cost wall chặn — W2 bug #2) → accuracy 0% phản ánh pipeline không có generation, KHÔNG phản ánh chất lượng khi có provider.
-- Lần benchmark kế tiếp cần: provider hoạt động (record $0 pricing proof như W2) → accuracy thực sự → điền số cạnh dòng tương ứng.
+- Số liệu benchmark (`bench_w2_seed42.json` → `bench_after_fix_seed42.json`) accuracy 0% **không còn** do compile-time cost wall — đã bỏ, đổi thành opt-in `SCP_LLM_COST_MODE=free_only` (commit `c45d973`, V18 verify 10/10). Root cause còn lại: container chạy `SCP_EGRESS_MODE=deny` → egress authority (always-on, đúng thiết kế) chặn openrouter.ai → provider không gọi được mạng → `/ask` withhold → accuracy 0. **Security attack resistance vẫn 100%** (PEP/egress/kernel nguyên vẹn).
+- Muốn accuracy thật: deployment owner tự `SCP_EGRESS_MODE=allowlist` + allowlist host provider (quyết định security-posture — KHÔNG tự đổi). Đây không còn là "mandate mã hóa cứng" mà là knob cấu hình.
