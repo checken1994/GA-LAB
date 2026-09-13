@@ -245,7 +245,7 @@ def check_code_owner_violations(policy):
     changed_files = run_git_cmd(["diff", "--cached", "--name-only"]).splitlines()
     if not changed_files:
         changed_files = run_git_cmd(["diff", "--name-only"]).splitlines()
-        
+
     protected = policy.get("protected_paths", [])
     violations = []
     for f in changed_files:
@@ -255,6 +255,34 @@ def check_code_owner_violations(policy):
                 violations.append(f"L4 Protected Path Modified: {f}")
                 break
     return violations
+
+def run_stale_code_tripwire_check():
+    """T00-extension (S25, 2026): stale-code tripwire.
+
+    Detects code-drifted-from-reality automatically: blueprint modules
+    missing/unimportable, imports of non-existent symbols/modules, duplicated
+    judge prompts, and metric drift (print()/silent-except > +5% vs baseline).
+
+    Fail-closed: a tripwire tool crash is itself a violation. First run seeds
+    data/governance/tripwire_baseline.json (metrics + known findings as
+    BASELINE_DEBT, same philosophy as FA-01/FA-04 above); later runs reject
+    only NEW findings, so pre-existing debt never turns the current tree red
+    while genuine new drift does.
+    """
+    try:
+        import importlib.util
+        tool_path = PROJECT_ROOT / "tools" / "stale_code_tripwire.py"
+        if not tool_path.exists():
+            return [f"TRIPWIRE: tool file missing: {tool_path}"]
+        spec = importlib.util.spec_from_file_location("stale_code_tripwire", tool_path)
+        mod = importlib.util.module_from_spec(spec)
+        # Register before exec_module: @dataclass in the tool resolves
+        # annotations through sys.modules[cls.__module__].
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        return mod.run_for_t00(PROJECT_ROOT)
+    except Exception as e:  # fail-closed: a broken gate must block, never pass
+        return [f"TRIPWIRE: tool failed to run (fail-closed): {type(e).__name__}: {e}"]
 
 def main():
     policy = load_policy()
@@ -272,6 +300,7 @@ def main():
     print(" * FA-03 (Same-SHA Evidence): NOT ENFORCED by T00 (Requires dedicated evidence tool).")
     print(" * FA-04 (Manufactured Green): Regex-based. Complex AST tracking requires L4 human review.")
     print(" * FA-05 (Self-Granting Auth): NOT ENFORCED by T00 (Requires capability scanner).")
+    print(" * T00-extension stale-code tripwire: blueprint-vs-code, unresolved imports, duplicated prompt logic, metric drift (delta vs data/governance/tripwire_baseline.json).")
     
     all_new_violations = []
     all_debts = []
@@ -299,7 +328,10 @@ def main():
         all_debts.extend(debts)
         
     l4_violations = check_code_owner_violations(policy)
-    
+
+    # --- T00-extension: stale-code tripwire (S25) ---
+    all_new_violations.extend(run_stale_code_tripwire_check())
+
     if all_debts:
         print("\n--- BASELINE_DEBT (Tracked, Not Blocking) ---")
         for debt in sorted(all_debts):
