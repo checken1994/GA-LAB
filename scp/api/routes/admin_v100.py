@@ -88,11 +88,19 @@ async def antibody_check(request: Request, _admin: bool = Depends(verify_admin))
 @router.get("/v100/knowledge/stats", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth
 @traced_request(_ADMIN_V100_LEDGER, require_write=False, action="knowledge_stats")
 async def knowledge_stats():
-    """DomainKnowledgeStore stats."""
+    """DomainKnowledgeStore stats.
+
+    [B-S1] Trước wire: RealityJudge.domain_knowledge_store trả None cứng →
+    endpoint này 503 vĩnh viễn (audit 52-mảnh @9ec8d6b). Sau wire: property
+    judge lazy-khởi tạo store thật; response thêm judge_consults (số lần
+    judge consult KB — counter ở RealityJudge.knowledge_consult_count).
+    """
     judge = get_judge()
     if not judge.domain_knowledge_store:
         raise HTTPException(status_code=503, detail="DomainKnowledgeStore not available")
-    return judge.domain_knowledge_store.stats()
+    data = judge.domain_knowledge_store.stats()
+    data["judge_consults"] = getattr(judge, "knowledge_consult_count", 0)
+    return data
 
 
 @router.get("/v100/knowledge/search", dependencies=[Depends(verify_admin)])  # RC-2 FIX: BFLA auth

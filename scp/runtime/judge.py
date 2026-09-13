@@ -67,6 +67,8 @@ class RealityJudge:
         self.verifier = IndependentVerifier()
         self.judged_count = 0
         self.fail_count = 0
+        # [B-S1] Số lần judge consult KB thành công (search không raise, kể cả 0 hit).
+        self.knowledge_consult_count = 0
 
 
     @property
@@ -108,7 +110,68 @@ class RealityJudge:
     @property
     def attack_memory(self): return None
     @property
-    def domain_knowledge_store(self): return None
+    def domain_knowledge_store(self):
+        """[B-S1] Lazy DomainKnowledgeStore — audit 52-mảnh @9ec8d6b (commit
+        e0696f5): property cũ trả None cứng tại line này → KB nội bộ chết
+        (không consult khi thẩm định, /v100/knowledge/* luôn 503).
+        Fail-closed: constructor lỗi → None + log WARNING, judge vẫn chạy như cũ.
+        Test/ops có thể pre-seed `self._kb_store` để inject store riêng."""
+        if not hasattr(self, "_kb_store"):
+            try:
+                from scp.knowledge.domain_store import DomainKnowledgeStore
+                self._kb_store = DomainKnowledgeStore()
+            except Exception as exc:
+                logger.warning(
+                    "[B-S1] DomainKnowledgeStore unavailable (%s: %s) — judge continues without KB",
+                    type(exc).__name__,
+                    exc,
+                )
+                self._kb_store = None
+        return self._kb_store
+
+    def _consult_knowledge(self, question: str, limit: int = 3) -> list[dict[str, Any]]:
+        """[B-S1] Consult DomainKnowledgeStore — kết quả CHỈ là evidence bổ trợ:
+        không quyết định thay verifier/Tier-1/Tier-2 (DNA #4, #11 — LLM/KB không
+        phải Single Point of Truth). Refs được ghi vào verdict output
+        evidence["knowledge"] và inject vào context cho cascade ngữ nghĩa.
+        Fail-closed: KB lỗi/empty → [] + log, judge chạy như cũ (không raise).
+        """
+        store = self.domain_knowledge_store
+        if store is None:
+            return []
+        try:
+            records = store.search(question, limit=limit)
+        except Exception as exc:
+            logger.warning(
+                "[B-S1] KB consult failed (%s: %s) — verdict proceeds without KB",
+                type(exc).__name__,
+                exc,
+            )
+            return []
+        self.knowledge_consult_count += 1
+        return [
+            {
+                "question": r.question,
+                "answer": r.answer,
+                "domain": r.domain,
+                "source": r.source,
+                "tier": int(r.source_tier),
+                "confidence": float(r.confidence),
+            }
+            for r in records
+        ]
+
+    def _inject_kb_refs(self, context: str, kb_refs: list[dict[str, Any]]) -> str:
+        """[B-S1] Ghép KB refs vào context như evidence bổ trợ cho cascade."""
+        if not kb_refs:
+            return context
+        lines = "".join(
+            f"\n- ({r['domain']}/{r['source']} tier={r['tier']} conf={r['confidence']:.2f}) "
+            f"Q: {r['question']} A: {r['answer']}"
+            for r in kb_refs
+        )
+        return context + "\n[KNOWLEDGE BASE REF]" + lines
+
     @property
     def h8_redteam(self): return None
     def judge(self, question: str, ai_answer: str = "", cycle_count: int = 0, context: str = "", **kwargs) -> dict[str, Any]:
@@ -132,6 +195,7 @@ class RealityJudge:
         # 2. TIER-1 deterministic guard — chém trước, không tốn LLM.
         tier1 = tier1_check(question, ai_answer, context)
         slm_responses_list = []
+        kb_refs: list[dict[str, Any]] = []  # [B-S1] KB refs — evidence bổ trợ
         if not tier1.passed:
             failures.extend(tier1.failures)
         elif is_structurally_pass and ai_answer:
@@ -149,6 +213,12 @@ class RealityJudge:
                 # silent-by-design: failure is already logged via getLogger('scp.judge').debug in the handler body
                 import logging
                 logging.getLogger("scp.judge").debug(f"Expert injection failed: {e}")
+
+            # 2.6. [B-S1] KB consult — tri thức nội bộ là evidence BỔ TRỢ cho
+            # cascade ngữ nghĩa, không bao giờ quyết định thay verifier.
+            # Fail-closed: KB lỗi/empty → kb_refs rỗng, flow như cũ.
+            kb_refs = self._consult_knowledge(question)
+            context = self._inject_kb_refs(context, kb_refs)
 
         # 3. TIER-2 semantic cascade — chỉ chạy khi Tier-1 sạch.
         #    [MẢNH 5+43] Cross-vendor verification: 2 provider khác nhau đánh giá
@@ -195,6 +265,7 @@ class RealityJudge:
             "slm_responses": slm_responses_list,
                 "evidence": {
                     "governance_decision": "ESCALATE",
+                    "knowledge": kb_refs,  # [B-S1] KB consult refs (bổ trợ)
                 },
             }
 
@@ -210,7 +281,8 @@ class RealityJudge:
             "final_answer": ai_answer,
             "slm_responses": slm_responses_list,
             "evidence": {
-                "governance_decision": "UPHOLD" if is_pass else "KILL"
+                "governance_decision": "UPHOLD" if is_pass else "KILL",
+                "knowledge": kb_refs  # [B-S1] KB consult refs (bổ trợ)
             }
         }
 
@@ -234,6 +306,7 @@ class RealityJudge:
 
         tier1 = tier1_check(question, ai_answer, context)
         slm_responses_list = []
+        kb_refs: list[dict[str, Any]] = []  # [B-S1] KB refs — evidence bổ trợ
         if not tier1.passed:
             failures.extend(tier1.failures)
         elif is_structurally_pass and ai_answer:
@@ -250,6 +323,12 @@ class RealityJudge:
                 # silent-by-design: failure is already logged via getLogger('scp.judge').debug in the handler body
                 import logging
                 logging.getLogger("scp.judge").debug(f"Expert injection failed: {e}")
+
+            # 2.6. [B-S1] KB consult — tri thức nội bộ là evidence BỔ TRỢ cho
+            # cascade ngữ nghĩa, không bao giờ quyết định thay verifier.
+            # Fail-closed: KB lỗi/empty → kb_refs rỗng, flow như cũ.
+            kb_refs = self._consult_knowledge(question)
+            context = self._inject_kb_refs(context, kb_refs)
 
             import os as _os
             if _os.environ.get("SCP_MULTI_LLM_CROSSCHECK", "1") == "1":
@@ -285,7 +364,7 @@ class RealityJudge:
                 "failures": failures + ["semantic_judge_unavailable"],
                 "final_answer": ai_answer,
                 "slm_responses": slm_responses_list,
-                "evidence": {"governance_decision": "ESCALATE"},
+                "evidence": {"governance_decision": "ESCALATE", "knowledge": kb_refs},  # [B-S1] KB refs (bổ trợ)
             }
 
         return {
@@ -299,7 +378,7 @@ class RealityJudge:
             "failures": failures,
             "final_answer": ai_answer,
             "slm_responses": slm_responses_list,
-            "evidence": {"governance_decision": "UPHOLD" if is_pass else "KILL"}
+            "evidence": {"governance_decision": "UPHOLD" if is_pass else "KILL", "knowledge": kb_refs}  # [B-S1] KB refs (bổ trợ)
         }
 
     async def judge_with_react_fallback(self, *args, **kwargs) -> dict[str, Any]:

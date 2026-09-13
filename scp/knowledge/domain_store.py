@@ -492,11 +492,34 @@ class DomainKnowledgeStore:
         return results
 
     def stats(self) -> dict[str, Any]:
+        """[B-S1] Extended stats cho /v100/knowledge/stats.
+
+        Bổ sung (giữ nguyên các key cũ để backward-compatible):
+          - concepts / total_records: tổng số knowledge records đang active
+          - sources: đếm số record theo nguồn (provenance)
+          - fresh_records / stale_records: active vs is_expired (đo lúc gọi,
+            vì record có thể hết hạn sau khi load vào cache)
+        """
+        total = sum(len(r) for r in self._cache.values())
+        sources: dict[str, int] = {}
+        fresh = 0
+        stale = 0
+        for records in self._cache.values():
+            for r in records:
+                sources[r.source] = sources.get(r.source, 0) + 1
+                if is_expired(r):
+                    stale += 1
+                else:
+                    fresh += 1
         return {
             **self._stats,
+            "concepts": total,
+            "total_records": total,
             "domains": len(self._cache),
-            "total_records": sum(len(r) for r in self._cache.values()),
             "by_domain": {d: len(r) for d, r in self._cache.items()},
+            "sources": sources,
+            "fresh_records": fresh,
+            "stale_records": stale,
         }
 
     def close(self):
