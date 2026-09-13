@@ -86,11 +86,23 @@ def _disable_openrouter(monkeypatch):
     the client's _init_keys resolves, and reset the class-level key cache.
     Credential/environment removal, not a subsystem mock."""
     for key in list(os.environ):
-        if key.startswith("OPENROUTER_") or key in {
-            "OPENAI_API_KEY",
-            "OPENAI_BASE_URL",
-            "OPENAI_MODEL",
-        }:
+        if (
+            key.startswith((
+                "OPENROUTER_",
+                "GROQ_",
+                "CEREBRAS_",
+                "SAMBANOVA_",
+                "GEMINI_",
+                "NVIDIA_",
+                "GITHUB_",
+            ))
+            or key in {
+                "OPENAI_API_KEY",
+                "OPENAI_BASE_URL",
+                "OPENAI_MODEL",
+                "SCP_LLM_FALLBACK_PROVIDERS",
+            }
+        ):
             monkeypatch.delenv(key, raising=False)
     from scp.llm_gateway import client as _gw_client
     from scp.llm_gateway.client import OpenRouterProvider

@@ -38,8 +38,8 @@ logger = logging.getLogger("scp.autofix.scanners.routing_gap")
 
 _SCP_ROOT = Path(__file__).resolve().parent.parent.parent  # .../scp/
 _JUDGE_PATH = _SCP_ROOT / "runtime" / "judge.py"
-# [GLM-AUDIT-FIX-①] Also scan judge_parts/ since routing logic may be split
-_JUDGE_PARTS_DIR = _SCP_ROOT / "runtime" / "judge_parts"
+# [S26 2026-09-13] judge_parts/ đã xóa (god-split cũ, 0 caller sống) —
+# scan target duy nhất là runtime/judge.py.
 
 # Domains that are fallbacks (routed by classifier or unconditional append)
 _FALLBACK_DOMAINS = {"universal", "general"}
@@ -145,26 +145,17 @@ class RoutingGapScanner:
     def scan(self) -> list[BugReport]:
         """Run the scanner. Returns list of BugReports for routing gaps.
 
-        [GLM-AUDIT-FIX] Scans both judge.py AND judge_parts/*.py so that
-        routing keywords split across multiple files are not missed.
+        [GLM-AUDIT-FIX] Trước đây scan cả judge_parts/*.py; [S26] judge_parts/
+        đã xóa nên chỉ còn judge.py là nguồn routing duy nhất.
         """
         sources_to_parse: list[Path] = []
         if self.judge_path.exists():
             sources_to_parse.append(self.judge_path)
-        elif not _JUDGE_PARTS_DIR.exists():
+        else:
             logger.warning(
-                f"[RoutingGapScanner] judge.py not found at {self.judge_path} "
-                f"and judge_parts/ not found at {_JUDGE_PARTS_DIR}"
+                f"[RoutingGapScanner] judge.py not found at {self.judge_path}"
             )
             return []
-
-        # Also add all .py files from judge_parts/ directory
-        if _JUDGE_PARTS_DIR.exists():
-            for part_file in sorted(_JUDGE_PARTS_DIR.glob("*.py")):
-                if part_file.name.startswith("__"):
-                    continue
-                if part_file not in sources_to_parse:
-                    sources_to_parse.append(part_file)
 
         kw_collector = _RoutingKeywordCollector()
         slms_init: dict[str, int] = {}
@@ -173,7 +164,7 @@ class RoutingGapScanner:
             try:
                 source = source_path.read_text(encoding="utf-8", errors="replace")
                 if not source.strip():
-                    continue  # Skip empty files (e.g. judge_phase_4_governance.py)
+                    continue  # Skip empty files
                 tree = ast.parse(source, filename=str(source_path))
             except SyntaxError as e:
                 logger.error(f"[RoutingGapScanner] SyntaxError in {source_path}: {e}")

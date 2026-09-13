@@ -14,12 +14,15 @@ from typing import Any, Optional
 from scp.runtime.slm_base import BaseSLM as Base, SLMResponse
 from scp.security.url_safety import safe_urlopen  # noqa: B310
 # [AUDIT-20260909 S2-SSRF] Reuse pure URL builders (single source of truth):
-from scp.runtime.slms_parts.foodslm import (
+# [S26 2026-09-13] builders moved từ slms_parts/ (cây cũ đã xóa) sang
+# scp/runtime/experts/url_builders.py — cùng behavior, cùng host cố định.
+from scp.runtime.experts.url_builders import (
+    build_city_search_url,
     build_cocktaildb_search_url,
     build_fruityvice_url,
+    build_holiday_url,
     build_mealdb_search_url,
 )
-from scp.runtime.slms_parts.misc_slms2 import build_city_search_url
 
 logger = logging.getLogger("scp.slms")
 
@@ -443,11 +446,14 @@ class Holiday(Base):
                 'switzerland': 'CH', 'austria': 'AT', 'belgium': 'BE',
             }
             country_code = country_codes.get(country.lower(), country.upper())[:2]
+            # [S26 2026-09-13] build_holiday_url chặn country_code xấu (regex
+            # ^[A-Za-z]{2}$) TRƯỚC khi fetch — fail-closed giống HolidaySLM cây
+            # cũ; URL cho code hợp lệ byte-identical với f-string cũ.
             # Try current year + previous year
             from datetime import datetime as _dt
             for year in [_dt.now().year, _dt.now().year - 1]:
                 try:
-                    url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code}"
+                    url = build_holiday_url(year, country_code)
                     req = urllib.request.Request(url, headers={
                         'User-Agent': 'SCP-V78-Bot/1.0 (educational research)'
                     })

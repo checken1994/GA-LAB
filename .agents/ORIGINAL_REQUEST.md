@@ -29,3 +29,34 @@ MANDATORY BINDING: You are strictly bound by Zero-Trust and Fail-Closed principl
 - Vẽ Causal Graph và tạo file báo cáo `EMERGENCY_GAP_REPORT.md` (nếu phát hiện lỗ hổng lân cận).
 - Phủ test cho toàn bộ nhân quả (Causal-Driven Test Generation) trong thư mục `tests/`. Chạy `pytest` phải xanh.
 - Cuối cùng, tổng hợp kết quả (Fix steps, Test outcomes) vào artifact báo cáo.
+
+## 2026-09-13T21:15:02Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Launched
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: [none — teamwork routes from the description]
+
+Hoàn thiện, kiểm thử và hợp nhất (commit) toàn bộ công việc của S26 (xóa 13.8k dòng code cũ) và S24 (logic Question Router T2-first) trong một lần một cách an toàn.
+
+Working directory: `c:\Users\check\Downloads\scp`
+
+## Requirements
+
+### R1. Tích hợp S26 (Expert Unification)
+Hoàn thành việc loại bỏ các file legacy (`judge_parts`, `slm_impls`, `slms.py`) theo đúng những gì S26 đã chuẩn bị. Đảm bảo code không bị gãy dependencies.
+
+### R2. Tích hợp S24 (T2-first Routing)
+Tích hợp file `question_router.py` và các đoạn code móc nối dở dang trong `ask_kernel_adapter.py`. 
+
+### R3. Sửa lỗi Test (Khắc phục di chứng S22)
+Sửa lại hàm `_disable_openrouter` trong bài test `test_ws_chat_fail_closed_when_no_answer_source_available` (thuộc T02) để tắt toàn bộ các LLM Provider mới (Groq, Cerebras, Gemini, Nvidia) vốn được thêm vào từ S22, giúp bài test này xanh trở lại.
+
+## Acceptance Criteria
+
+### Verification & Commit
+- [ ] Chạy lệnh `pytest tests/T02_contract tests/T03_capability tests/T07_learning -q` trả về 0 failures.
+- [ ] Các lỗi "đỏ" do test cũ gọi vào file đã bị xóa (FA-02) được báo cáo rõ hoặc có cơ chế bypass hợp lệ khi commit.
+- [ ] Sau khi test pass, thực hiện chốt commit toàn bộ S24 và S26 vào nhánh hiện tại (`audit/runtime-guard-AUDIT-20260909`).
+

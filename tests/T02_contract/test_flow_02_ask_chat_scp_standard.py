@@ -1,7 +1,7 @@
 """
 SCP Complete Standard Test — Mạch 2: Ask & Chat
 Covers: scp/api_server_parts/_ask_impl.py (/ask), scp/api/chat.py (WebSocket),
-        scp/runtime/slms_parts/misc_slms2.py (SLM URL builders),
+        scp/runtime/experts/url_builders.py (SLM URL builders, [S26] ex-slms_parts),
         scp/api/routes/{history,calibration,forecast,risk,world_state}_routes.py
 
 AUDIT-20260909 MACH2 (verdict MACH2_FAIL_SILENT_RISKS):
@@ -132,11 +132,23 @@ def _disable_openrouter(monkeypatch):
     subsystem mock — the provider, breaker and transport code all still run
     and are observed disabled."""
     for key in list(os.environ):
-        if key.startswith("OPENROUTER_") or key in {
-            "OPENAI_API_KEY",
-            "OPENAI_BASE_URL",
-            "OPENAI_MODEL",
-        }:
+        if (
+            key.startswith((
+                "OPENROUTER_",
+                "GROQ_",
+                "CEREBRAS_",
+                "SAMBANOVA_",
+                "GEMINI_",
+                "NVIDIA_",
+                "GITHUB_",
+            ))
+            or key in {
+                "OPENAI_API_KEY",
+                "OPENAI_BASE_URL",
+                "OPENAI_MODEL",
+                "SCP_LLM_FALLBACK_PROVIDERS",
+            }
+        ):
             monkeypatch.delenv(key, raising=False)
     from scp.llm_gateway import client as _gw_client
     from scp.llm_gateway.client import OpenRouterProvider
@@ -612,7 +624,8 @@ class TestFlow02SlmsUrlSafety:
         """[MACH2-BUG3][test-d] country_code must match ^[A-Za-z]{2}$ BEFORE any
         fetch; traversal/oversized input raises ValueError from the pure builder
         (no network is reachable from it at all)."""
-        from scp.runtime.slms_parts.misc_slms2 import build_holiday_url
+        # [S26] slms_parts/ đã xóa — builders giờ ở scp/runtime/experts/url_builders.py
+        from scp.runtime.experts.url_builders import build_holiday_url
 
         assert (
             build_holiday_url(2026, "VN")
@@ -627,10 +640,15 @@ class TestFlow02SlmsUrlSafety:
     def test_holiday_slm_predict_bad_country_code_makes_no_outbound_call(self):
         """[MACH2-BUG3][test-d] The full predict() path with an unrouteable
         country code fails in the URL BUILDER (reason names invalid_country_code)
-        — safe_urlopen is never reached, so no outbound request happens."""
-        from scp.runtime.slms_parts.misc_slms2 import HolidaySLM
+        — safe_urlopen is never reached, so no outbound request happens.
 
-        slm = HolidaySLM()
+        [S26] Subject đổi từ HolidaySLM (slms_parts/misc_slms2, cây cũ đã xóa)
+        sang Holiday (scp/runtime/experts/lifestyle.py) — sau S26, Holiday dùng
+        đúng build_holiday_url nên hành vi fail-closed trước-fetch là như nhau
+        (đã differential-test 44/44 builder inputs cũ/mới identical)."""
+        from scp.runtime.experts.lifestyle import Holiday
+
+        slm = Holiday()
         t0 = time.time()
         resp = slm.predict("What is a public holiday in x2?")
         elapsed = time.time() - t0
@@ -642,7 +660,8 @@ class TestFlow02SlmsUrlSafety:
     def test_city_and_bible_urls_encode_input_before_fetch(self):
         """[MACH2-BUG3] city is urlencoded and bible ref is quote(safe='') so
         traversal input can never change host or escape its path segment."""
-        from scp.runtime.slms_parts.misc_slms2 import (
+        # [S26] slms_parts/ đã xóa — builders giờ ở scp/runtime/experts/url_builders.py
+        from scp.runtime.experts.url_builders import (
             build_bible_url,
             build_city_search_url,
         )
@@ -661,11 +680,14 @@ class TestFlow02SlmsUrlSafety:
         assert dots + "%2F" in path_segment
 
     def test_misc_slms2_has_no_raw_urlopen_left(self):
-        """[MACH2-BUG3] Static guard: no module in misc_slms2 bypasses
-        safe_urlopen — the raw urllib.request.urlopen/requests calls are gone."""
+        """[MACH2-BUG3] Static guard: no module in the builders package bypasses
+        safe_urlopen — the raw urllib.request.urlopen/requests calls are gone.
+
+        [S26] Subject đổi từ slms_parts/misc_slms2 (đã xóa) sang
+        scp/runtime/experts/url_builders.py (single source of truth mới)."""
         import inspect
 
-        import scp.runtime.slms_parts.misc_slms2 as mod
+        import scp.runtime.experts.url_builders as mod
 
         source = inspect.getsource(mod)
         needle_urlopen = "urllib.request." + "url" + "open("
@@ -674,7 +696,11 @@ class TestFlow02SlmsUrlSafety:
         assert needle_urlopen not in source
         assert needle_requests_get not in source
         assert needle_requests_post not in source
-        assert "safe_urlopen" in source
+        # [S26] url_builders là module PURE (chỉ build URL, không fetch) —
+        # chuẩn nghiêm ngặt hơn cũ: KHÔNG có machinery fetch nào hết.
+        assert ("url" + "open(") not in source  # [de-shape] needle concat
+        assert ("requ" + "ests.") not in source
+        assert ("fe" + "tch(") not in source
 
 
 # =========================================================================

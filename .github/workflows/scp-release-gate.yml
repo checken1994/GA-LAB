@@ -106,7 +106,6 @@ jobs:
           scp/core/knowledge_io.py
           scp/core/policy_materializer.py
           scp/history/migration.py
-          scp/runtime/judge_parts/judgecore_mixin.py
           scp/runtime/safe_math.py
           scp/security/cisa_kev.py
           tests/T11_release/test_scp_skill_dna_contract.py

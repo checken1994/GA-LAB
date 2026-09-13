@@ -39,18 +39,10 @@ _SCP_ROOT = Path(__file__).resolve().parent.parent.parent  # .../scp/
 # R13 META-BUG 1: scanner used _JUDGE_PATH = runtime/judge.py but Task 10-B moved
 # SLM routing logic to judge_parts/judgeroute_mixin.py. Result: 51/51 findings were
 # false positives (scanner couldn't find routing → thought all SLMs were dead).
-# Fix: try BOTH paths — new location first, old location as fallback.
-_JUDGE_PATH_PRIMARY = _SCP_ROOT / "runtime" / "judge_parts" / "judgeroute_mixin.py"
-_JUDGE_PATH_FALLBACK = _SCP_ROOT / "runtime" / "judge.py"
-
-
-def _find_judge_path() -> Path:
-    """Find the actual judge routing file (R15: handles Task 10-B refactor)."""
-    if _JUDGE_PATH_PRIMARY.exists():
-        return _JUDGE_PATH_PRIMARY
-    if _JUDGE_PATH_FALLBACK.exists():
-        return _JUDGE_PATH_FALLBACK
-    return _JUDGE_PATH_PRIMARY  # default (will report not-found)
+# [S26 2026-09-13] judge_parts/ đã bị XÓA (god-split thế hệ cũ, 0 caller sống —
+# judge.py hiện hành là RealityJudge tier1+LLM, không dùng self.slms dict).
+# Scan target duy nhất trở lại là runtime/judge.py.
+_JUDGE_PATH = _SCP_ROOT / "runtime" / "judge.py"
 
 # SLMs explicitly marked as "fallback" — never dead even without explicit append
 _FALLBACK_SLMS = {"universal", "general"}
@@ -148,8 +140,7 @@ class DeadSLMScanner:
     bug_type: str = "DeadSLM"
 
     def __init__(self, judge_path: Path | None = None):
-        # [SCP-DNA-FIX R15] Use _find_judge_path() to handle Task 10-B refactor
-        self.judge_path = judge_path or _find_judge_path()
+        self.judge_path = judge_path or _JUDGE_PATH
 
     def scan(self) -> list[BugReport]:
         """Run the scanner. Returns list of BugReports for dead SLMs."""
