@@ -1043,3 +1043,6 @@ except Exception as _v2_inj_err:  # noqa: BLE001
     logger.warning(
         f"[R7-Full] v2 extension injection failed (non-fatal): {_v2_inj_err}"
     )
+
+# harmless comment
+
