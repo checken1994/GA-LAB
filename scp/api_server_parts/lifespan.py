@@ -409,6 +409,25 @@ async def lifespan(app: FastAPI):
         # Required-job failure must abort boot — re-raise, do not swallow.
         logger.error('[MACH1-FIX-1] Background job registry failed to start: %s', exc)
         raise
+
+    # --- [S23-DISCOVERY] Free discovery scheduler — owner directive "tự động
+    # tìm và cập nhật hơn 1000 API". Blueprint scp/core/free_discovery_scheduler.py
+    # xây mới (S23): asyncio task nền, tick ĐẦU chạy ngay khi boot, các tick sau
+    # mỗi 6h ± 10% jitter; mỗi tick refresh ĐỘC LẬP FreeAPICatalog + OpenRouter
+    # free-model catalog (CHỈ GỌI seam refresh_free_catalog có sẵn). Kill-switch:
+    # SCP_DISCOVERY_SCHEDULER=off. Mọi lỗi log WARNING, KHÔNG raise (non-fatal,
+    # cùng contract với các background subsystem phía trên).
+    try:
+        from scp.core.free_discovery_scheduler import FreeDiscoveryScheduler
+        _discovery = FreeDiscoveryScheduler()
+        _discovery_task = _discovery.start()
+        app.state.discovery_scheduler = _discovery
+        if _discovery_task is None:
+            logger.info('[S23-DISCOVERY] FreeDiscoveryScheduler not started (kill-switch SCP_DISCOVERY_SCHEDULER=off)')
+        else:
+            logger.info('[S23-DISCOVERY] Free discovery wired: FreeAPICatalog + LLM free-model catalog refresh on 6h cadence with jitter')
+    except Exception as exc:
+        logger.warning('[S23-DISCOVERY] scheduler failed to start (non-fatal): %s', exc)
     yield
     app.state.judge_ready = False
     app.state.startup_status = 'stopping'
@@ -429,6 +448,15 @@ async def lifespan(app: FastAPI):
     for _stop_event in (getattr(app.state, 'deep_audit_stop', None), getattr(app.state, 'attack_monitor_stop', None), getattr(app.state, 'retry_policy_stop', None)):
         if _stop_event is not None:
             _stop_event.set()
+    # [S23-DISCOVERY] Hủy scheduler sạch (cancel + await, no leak) trước khi
+    # cancel các task bootstrap khác.
+    _discovery = getattr(app.state, 'discovery_scheduler', None)
+    if _discovery is not None:
+        try:
+            await _discovery.stop(timeout=5.0)
+            logger.info('[S23-DISCOVERY] FreeDiscoveryScheduler stopped cleanly')
+        except Exception as exc:
+            logger.warning('[S23-DISCOVERY] scheduler stop failed (non-fatal): %s', exc)
     for _task in (_scheduler_bootstrap_task, _evolution_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
         if _task is not None and (not _task.done()):
             _task.cancel()
