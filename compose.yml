@@ -44,6 +44,13 @@ services:
       # via the host env for controlled proof runs (e.g. SCP_ASK_LEASE_TTL_SECONDS=5
       # to demonstrate the heartbeat surviving a slow real provider).
       SCP_ASK_LEASE_TTL_SECONDS: ${SCP_ASK_LEASE_TTL_SECONDS:-60}
+      # [S21] Hedged LLM race (owner directive: LLM chậm ~10s → bắn LLM/API
+      # khác song song, ai trả trước thắng). Defaults mirror client.py:
+      # ATTEMPT_TIMEOUT=10s deadline per attempt, HEDGE_MAX=90s total cap
+      # (fail-closed khi quá cap), HEDGE=on kill-switch (off → tuần tự cũ).
+      SCP_LLM_HEDGE: ${SCP_LLM_HEDGE:-on}
+      SCP_LLM_ATTEMPT_TIMEOUT_SECONDS: ${SCP_LLM_ATTEMPT_TIMEOUT_SECONDS:-10}
+      SCP_LLM_HEDGE_MAX_SECONDS: ${SCP_LLM_HEDGE_MAX_SECONDS:-90}
       # Optional provider/bridge URL. Keep credentials out of this file.
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
     ports:

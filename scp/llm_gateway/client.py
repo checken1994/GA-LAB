@@ -22,6 +22,7 @@ import asyncio
 import ipaddress
 import itertools
 import logging
+import math
 import os
 import random
 import threading
@@ -35,6 +36,48 @@ logger = logging.getLogger("scp.llm_gateway")
 # Sync wrapper hard timeout: OpenRouter client timeout is 60s inside
 # _call_model; the sync wrapper adds headroom for thread-pool scheduling.
 SYNC_CALL_TIMEOUT_SECONDS = 90
+
+# ============================================================
+# [S21 HEDGE] Hedged LLM race — owner directive: "khi LLM trả kết quả chậm
+# khoảng 10s -> chuyển sang LLM khác hoặc API khác".
+#   - SCP_LLM_ATTEMPT_TIMEOUT_SECONDS (default 10): deadline cho MỖI attempt;
+#     quá hạn → bắn provider kế tiếp trong chain vào race SONG SONG (provider
+#     cũ không bị hủy — ai về trước thắng).
+#   - SCP_LLM_HEDGE_MAX_SECONDS (default 90): cap tổng cho toàn bộ race;
+#     quá cap → fail-closed (None + error rõ), không chờ vô hạn.
+#   - SCP_LLM_HEDGE=off: kill-switch → quay về failover tuần tự cũ.
+# Env parse FAIL-CLOSED: giá trị lỗi/0/âm/non-finite → default.
+# ============================================================
+HEDGE_DEFAULT_ATTEMPT_TIMEOUT_SECONDS = 10.0
+HEDGE_DEFAULT_MAX_SECONDS = 90.0
+_HEDGE_OFF_VALUES = {"off", "0", "false", "no"}
+
+
+def _parse_positive_seconds(raw: str | None, default: float) -> float:
+    """Parse giây từ env; giá trị lỗi/0/âm/non-finite → default (fail-closed)."""
+    if raw is None:
+        return default
+    try:
+        value = float(raw.strip())
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(value) or value <= 0:
+        return default
+    return value
+
+
+def _hedge_settings() -> tuple[bool, float, float]:
+    """(enabled, attempt_deadline_seconds, hedge_max_seconds) từ env."""
+    enabled = os.environ.get("SCP_LLM_HEDGE", "on").strip().lower() not in _HEDGE_OFF_VALUES
+    attempt_deadline = _parse_positive_seconds(
+        os.environ.get("SCP_LLM_ATTEMPT_TIMEOUT_SECONDS"),
+        HEDGE_DEFAULT_ATTEMPT_TIMEOUT_SECONDS,
+    )
+    hedge_cap = _parse_positive_seconds(
+        os.environ.get("SCP_LLM_HEDGE_MAX_SECONDS"),
+        HEDGE_DEFAULT_MAX_SECONDS,
+    )
+    return enabled, attempt_deadline, hedge_cap
 
 
 def _is_loopback_host(host: str) -> bool:
@@ -573,6 +616,10 @@ class LLMGateway:
             "extra_calls": 0,
             "failover_count": 0,
             "failures": 0,
+            # [S21 HEDGE] telemetry — cùng store _stats hiện có, không store mới.
+            "hedge_fires": 0,
+            "hedge_wins": 0,
+            "hedge_caps": 0,
         }
 
     def _parse_extra_providers(self) -> None:
@@ -668,6 +715,28 @@ class LLMGateway:
         self._rr_counter += 1
         rotation = pool[start:] + pool[:start]
 
+        # [S21 HEDGE] Owner directive: LLM chậm ~10s → bắn LLM/API khác song
+        # song, ai trả trước thắng. Kill-switch SCP_LLM_HEDGE=off hoặc chain
+        # chỉ có 1 provider → failover tuần tự cũ (giữ nguyên hành vi).
+        hedge_on, attempt_deadline, hedge_cap = _hedge_settings()
+        if hedge_on and len(rotation) > 1:
+            return await self._chat_hedged(
+                rotation, question, context, system_prompt, prioritize_free,
+                attempt_deadline, hedge_cap,
+            )
+        return await self._chat_sequential(
+            rotation, question, context, system_prompt, prioritize_free,
+        )
+
+    async def _chat_sequential(
+        self,
+        rotation: list,
+        question: str,
+        context: str,
+        system_prompt: str,
+        prioritize_free: bool,
+    ) -> tuple[str | None, str]:
+        """Failover TUẦN TỰ gốc (SCP_LLM_HEDGE=off hoặc chain 1 provider)."""
         attempted = 0
         for provider in rotation:
             attempted += 1
@@ -685,6 +754,146 @@ class LLMGateway:
             # provider trả None (quota/rate-limit/breaker) → sang provider kế
 
         self._stats["failures"] += 1
+        return None, "none"
+
+    async def _chat_hedged(
+        self,
+        rotation: list,
+        question: str,
+        context: str,
+        system_prompt: str,
+        prioritize_free: bool,
+        attempt_deadline: float,
+        hedge_cap: float,
+    ) -> tuple[str | None, str]:
+        """[S21] Hedged race — first-result-wins đa provider.
+
+        Provider đầu tiên chạy NGAY; quá ``attempt_deadline`` mà chưa có kết
+        quả thì provider KẾ TIẾP theo chain sẵn có được bắn vào race SONG
+        SONG (task đang chạy KHÔNG bị hủy — "ai về trước thắng"). Answer
+        thành công đầu tiên của bất kỳ provider nào được trả về ngay; các
+        task còn lại chỉ bị hủy ở bước DỌN DẸP sau khi winner đã chắc chắn
+        (hủy sau khi đã có winner là an toàn, không double-spend vô nghĩa).
+        Provider LỖI (không chậm) vẫn failover NGAY sang kế tiếp như tuần tự.
+        Mỗi provider chỉ 1 hedge attempt — retry logic cũ giữ nguyên trong
+        provider.chat(). Quá ``hedge_cap``: fail-closed (None + error rõ),
+        không chờ vô hạn. Mọi attempt vẫn đi qua breaker + egress guard của
+        provider (không đổi).
+        """
+        loop = asyncio.get_running_loop()
+        start = time.monotonic()
+        cap_at = start + hedge_cap
+        pending: set[asyncio.Task] = set()
+        idx_by_task: dict[asyncio.Task, int] = {}
+        expiry: dict[asyncio.Task, float] = {}  # hedge-fire deadline per attempt
+        next_idx = 0
+        errors: list[str] = []
+
+        def _launch_next(reason: str, slow_provider: str = "") -> None:
+            nonlocal next_idx
+            if next_idx >= len(rotation):
+                return
+            provider = rotation[next_idx]
+            task_idx = next_idx
+            next_idx += 1
+            self._stats[f"{provider.PROVIDER_NAME}_calls"] = (
+                self._stats.get(f"{provider.PROVIDER_NAME}_calls", 0) + 1
+            )
+            task = loop.create_task(
+                provider.chat(question, context, system_prompt, prioritize_free=prioritize_free)
+            )
+            pending.add(task)
+            idx_by_task[task] = task_idx
+            expiry[task] = time.monotonic() + attempt_deadline
+            if reason == "hedge":
+                self._stats["hedge_fires"] += 1
+                logger.info(
+                    "[S21 HEDGE] fire: %s chưa trả sau deadline %.1fs → bắn thêm %s (chain idx %d) vào race song song",
+                    slow_provider, attempt_deadline, provider.PROVIDER_NAME, task_idx,
+                )
+
+        _launch_next("first")
+        winner: tuple[str, str, int] | None = None
+        cap_hit = False
+        try:
+            while pending or next_idx < len(rotation):
+                now = time.monotonic()
+                if now >= cap_at:
+                    cap_hit = True
+                    break
+                if not pending:
+                    # Defensive: hết task đang chạy mà còn provider → bắn tiếp.
+                    _launch_next("after-failure")
+                    continue
+                # Thức dậy sớm nhất tại: hedge-fire deadline gần nhất (nếu còn
+                # provider để bắn) hoặc hedge cap — không bao giờ chờ vô hạn.
+                wake = cap_at
+                if next_idx < len(rotation) and expiry:
+                    wake = min(wake, min(expiry[t] for t in pending if t in expiry))
+                timeout = max(0.0, wake - now)
+                done, _still_pending = await asyncio.wait(
+                    set(pending), timeout=timeout, return_when=asyncio.FIRST_COMPLETED
+                )
+                # Winner: success đầu tiên theo THỨ TỰ chain (deterministic
+                # tie-break khi nhiều task về đích cùng một lượt wait).
+                for task in sorted(done, key=lambda t: idx_by_task[t]):
+                    pending.discard(task)
+                    expiry.pop(task, None)
+                    idx = idx_by_task.pop(task)
+                    try:
+                        answer, label = task.result()
+                    except Exception as exc:  # provider.chat tự nuốt lỗi; phòng hộ fail-closed
+                        errors.append(f"{rotation[idx].PROVIDER_NAME}: {type(exc).__name__}")
+                        continue
+                    if answer:
+                        winner = (answer, label, idx)
+                        break
+                    errors.append(f"{rotation[idx].PROVIDER_NAME}: {label}")
+                if winner is not None:
+                    break
+                if done and next_idx < len(rotation):
+                    # Provider vừa LỖI → chuyển NGAY sang kế tiếp (failover
+                    # tuần tự giữa các lỗi; hedge song song chỉ cho provider CHẬM).
+                    _launch_next("after-failure")
+                # Hedge-fire: task còn chạy quá attempt deadline → bắn kế tiếp
+                # SONG SONG vào race (không hủy task đang chạy).
+                now = time.monotonic()
+                for task in [t for t in list(expiry) if expiry[t] <= now]:
+                    expiry.pop(task, None)  # mỗi provider chỉ được fire đúng 1 lần
+                    if next_idx < len(rotation):
+                        _launch_next("hedge", slow_provider=rotation[idx_by_task[task]].PROVIDER_NAME)
+        finally:
+            # Dọn dẹp: winner đã chắc chắn (hoặc cap/toàn fail) → hủy phần còn
+            # lại. Hủy DIỄN RA SAU khi winner đã được lấy kết quả — an toàn.
+            leftover = [t for t in pending if not t.done()]
+            for task in leftover:
+                task.cancel()
+            if leftover:
+                await asyncio.gather(*leftover, return_exceptions=True)
+
+        if winner is not None:
+            answer, label, idx = winner
+            if idx > 0:
+                self._stats["failover_count"] += 1
+            self._stats["hedge_wins"] += 1
+            logger.info(
+                "[S21 HEDGE] race won by %s sau %.2fs (first_provider_won=%s, hedge_fires=%d)",
+                label, time.monotonic() - start, idx == 0, self._stats["hedge_fires"],
+            )
+            return answer, label
+
+        self._stats["failures"] += 1
+        if cap_hit:
+            self._stats["hedge_caps"] += 1
+            logger.error(
+                "[S21 HEDGE] cap %.0fs vượt quá sau %.2fs — fail-closed (không answer); lỗi các attempt: %s",
+                hedge_cap, time.monotonic() - start, "; ".join(errors) or "no-attempt-error",
+            )
+            return None, "hedge_cap_exceeded"
+        logger.error(
+            "[S21 HEDGE] tất cả provider trong race đều lỗi: %s",
+            "; ".join(errors) or "unknown",
+        )
         return None, "none"
 
     def chat_sync(
