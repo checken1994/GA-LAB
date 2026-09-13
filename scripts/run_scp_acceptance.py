@@ -61,8 +61,23 @@ def wait_port_free(port: int, timeout: float = 15.0) -> bool:
     return not port_open(port)
 
 
-def stable_task_id(idempotency_key: str) -> str:
-    return "ask-" + hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:24]
+def stable_task_id(idempotency_key: str, payload: dict[str, Any]) -> str:
+    # [S19 mirror sync 2026-09-13] Derive the durable ask identity through the
+    # product function (AskKernelAdapter.task_id_for) instead of a private
+    # re-implementation of the hash formula. The old copy mirrored the
+    # pre-fix server bug ("key replaces the question hash"); a mirror that
+    # re-implements derivation is exactly how harness and product drift
+    # apart. Assertions stay equally strict — same exact-ID lookup, same
+    # journal verification.
+    from scp.ask_kernel_adapter import AskKernelAdapter
+
+    return AskKernelAdapter.task_id_for(
+        payload["question"],
+        list(payload.get("contexts") or []),
+        str(payload.get("retrieved_context") or ""),
+        payload.get("session_id"),
+        idempotency_key,
+    )
 
 
 class ProviderController:
@@ -440,22 +455,28 @@ class AcceptanceSuite:
         status = "PASS" if record["passed"] else "FAIL"
         print(f"[{status}] {scenario_id} {title}", flush=True)
 
-    def _task(self, idempotency_key: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    def _task(self, idempotency_key: str, payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         from scp.task_kernel import TaskKernel
 
         kernel = TaskKernel(self.runtime.db_path)
         try:
-            task_id = stable_task_id(idempotency_key)
+            task_id = stable_task_id(idempotency_key, payload)
             task = kernel.get_task(task_id)
             journal = kernel.verify_journal(task_id)
             return task, journal
         finally:
             kernel.close()
 
-    def _wait_task(self, idempotency_key: str, states: set[str], timeout: float = 15.0) -> dict[str, Any]:
+    def _wait_task(
+        self,
+        idempotency_key: str,
+        states: set[str],
+        payload: dict[str, Any],
+        timeout: float = 15.0,
+    ) -> dict[str, Any]:
         from scp.task_kernel import TaskKernel
 
-        task_id = stable_task_id(idempotency_key)
+        task_id = stable_task_id(idempotency_key, payload)
         deadline = time.time() + timeout
         last: dict[str, Any] | None = None
         while time.time() < deadline:
@@ -484,6 +505,20 @@ class AcceptanceSuite:
             "ai_answer": context,
             "ground_truth": context,
             "session_id": session,
+        }
+
+    @staticmethod
+    def contradiction_payload() -> dict[str, Any]:
+        """Exact payload for SCP-A04; also used by A12 to derive the expected
+        durable task id through the same product identity function."""
+        context = "Water freezes at zero degrees Celsius at standard atmospheric pressure."
+        return {
+            "question": "At standard atmospheric pressure, at what temperature does water freeze?",
+            "rag_enabled": True,
+            "contexts": [context],
+            "retrieved_context": context,
+            "ai_answer": "Water freezes at 100 degrees Celsius at standard atmospheric pressure.",
+            "session_id": "a04",
         }
 
     def run(self) -> bool:
@@ -535,17 +570,18 @@ class AcceptanceSuite:
             def a03() -> dict[str, Any]:
                 self.provider.controller.configure("pass")
                 key = "scp-a03-verified-rag"
+                payload = self.verified_payload("a03")
                 response = self.runtime.request(
                     "POST",
                     "/ask",
-                    payload=self.verified_payload("a03"),
+                    payload=payload,
                     idempotency_key=key,
                 )
                 require(response["status"] == 200, f"verified ask HTTP failure: {response}")
                 body = response["body"] or {}
                 require(body.get("verdict") == "PASS", f"verified evidence did not PASS: {body}")
                 require(not str(body.get("final_answer", "")).startswith("[SCP:"), f"verified answer was withheld: {body}")
-                task, journal = self._task(key)
+                task, journal = self._task(key, payload)
                 require(task.get("state") == "COMPLETED", f"verified task not completed: {task}")
                 require(journal.get("hash_chain_valid") is True, f"journal invalid: {journal}")
                 return {"response": body, "task": task, "journal": journal}
@@ -555,21 +591,13 @@ class AcceptanceSuite:
             def a04() -> dict[str, Any]:
                 self.provider.controller.configure("semantic")
                 key = "scp-a04-contradiction"
-                context = "Water freezes at zero degrees Celsius at standard atmospheric pressure."
-                payload = {
-                    "question": "At standard atmospheric pressure, at what temperature does water freeze?",
-                    "rag_enabled": True,
-                    "contexts": [context],
-                    "retrieved_context": context,
-                    "ai_answer": "Water freezes at 100 degrees Celsius at standard atmospheric pressure.",
-                    "session_id": "a04",
-                }
+                payload = self.contradiction_payload()
                 response = self.runtime.request("POST", "/ask", payload=payload, idempotency_key=key)
                 require(response["status"] == 200, f"contradiction ask HTTP failure: {response}")
                 body = response["body"] or {}
                 require(body.get("verdict") != "PASS", f"contradiction escaped as PASS: {body}")
                 require(str(body.get("final_answer", "")).startswith("[SCP:"), f"contradicted answer was exposed: {body}")
-                task, journal = self._task(key)
+                task, journal = self._task(key, payload)
                 require(task.get("state") != "COMPLETED", f"contradicted task completed: {task}")
                 require(journal.get("hash_chain_valid") is True, f"journal invalid: {journal}")
                 return {"response": body, "task": task}
@@ -579,13 +607,14 @@ class AcceptanceSuite:
             def a05() -> dict[str, Any]:
                 self.provider.controller.configure("fail_primary")
                 key = "scp-a05-provider-failover"
+                payload = self.verified_payload("a05")
                 response = self.runtime.request(
-                    "POST", "/ask", payload=self.verified_payload("a05"), idempotency_key=key, timeout=60
+                    "POST", "/ask", payload=payload, idempotency_key=key, timeout=60
                 )
                 body = response["body"] or {}
                 require(response["status"] == 200, f"provider failover HTTP failure: {response}")
                 require(body.get("verdict") == "PASS", f"fallback did not preserve verified behavior: {body}")
-                task, _journal = self._task(key)
+                task, _journal = self._task(key, payload)
                 require(task.get("state") == "COMPLETED", f"failover task not completed: {task}")
                 calls = self.provider.controller.call_summary()
                 require(any("primary" in str(call.get("model")) for call in calls), f"no primary attempt recorded: {calls}")
@@ -604,7 +633,7 @@ class AcceptanceSuite:
                 body = response["body"] or {}
                 require(body.get("verdict") != "PASS", f"provider outage fabricated PASS: {body}")
                 require(str(body.get("final_answer", "")).startswith("[SCP:"), f"provider outage exposed unverified answer: {body}")
-                task, _journal = self._task(key)
+                task, _journal = self._task(key, payload)
                 require(task.get("state") != "COMPLETED", f"provider outage completed task: {task}")
                 return {"response": body, "task": task, "provider_calls": self.provider.controller.call_summary()}
 
@@ -617,7 +646,7 @@ class AcceptanceSuite:
                 payload["image_url"] = f"http://127.0.0.1:{self.provider_port}/private"
                 response = self.runtime.request("POST", "/ask", payload=payload, idempotency_key=key)
                 require(response["status"] == 400, f"loopback SSRF was not rejected: {response}")
-                task, journal = self._task(key)
+                task, journal = self._task(key, payload)
                 require(task.get("state") == "FAILED", f"rejected request left unsafe task state: {task}")
                 require(journal.get("hash_chain_valid") is True, f"journal invalid: {journal}")
                 return {"http_status": response["status"], "task": task}
@@ -639,7 +668,7 @@ class AcceptanceSuite:
                 verdicts = [(response["body"] or {}).get("verdict") for response in responses]
                 require(verdicts.count("PASS") == 1, f"idempotent race did not produce exactly one accepted execution: {responses}")
                 require(verdicts.count("FAIL") == 1, f"duplicate was not rejected safely: {responses}")
-                task, journal = self._task(key)
+                task, journal = self._task(key, payload)
                 require(task.get("state") == "COMPLETED", f"winner task not completed: {task}")
                 require(journal.get("hash_chain_valid") is True, f"journal invalid: {journal}")
                 return {"verdicts": verdicts, "task": task}
@@ -662,13 +691,13 @@ class AcceptanceSuite:
 
                 worker = threading.Thread(target=request_worker, daemon=True)
                 worker.start()
-                before = self._wait_task(key, {"RUNNING", "VERIFYING"}, timeout=12)
+                before = self._wait_task(key, {"RUNNING", "VERIFYING"}, payload, timeout=12)
                 self.runtime.stop(force=True)
                 worker.join(timeout=10)
                 self.provider.controller.configure("pass")
                 self.runtime.start()
-                recovered = self._wait_task(key, {"HUMAN_REVIEW"}, timeout=15)
-                task, journal = self._task(key)
+                recovered = self._wait_task(key, {"HUMAN_REVIEW"}, payload, timeout=15)
+                task, journal = self._task(key, payload)
                 require(task.get("state") == "HUMAN_REVIEW", f"hard-crash task not recovered safely: {task}")
                 require(journal.get("hash_chain_valid") is True, f"recovered journal invalid: {journal}")
                 return {"before_kill": before, "after_restart": recovered, "transport": outcome, "journal": journal}
@@ -724,7 +753,10 @@ class AcceptanceSuite:
                 require(not failures, f"concurrent verified asks failed: {failures}")
                 invalid_journals = []
                 for index in range(count):
-                    task, journal = self._task(f"scp-a11-concurrent-{index}")
+                    task, journal = self._task(
+                        f"scp-a11-concurrent-{index}",
+                        self.verified_payload(f"a11-{index}"),
+                    )
                     if task.get("state") != "COMPLETED" or journal.get("hash_chain_valid") is not True:
                         invalid_journals.append({"index": index, "task": task, "journal": journal})
                 require(not invalid_journals, f"concurrency damaged durable state: {invalid_journals}")
@@ -747,9 +779,9 @@ class AcceptanceSuite:
                             invalid.append({"task_id": row["task_id"], "state": row["state"], "journal": verification})
                     require(not invalid, f"main acceptance journal contains invalid chains: {invalid}")
                     expected_review_ids = {
-                        stable_task_id("scp-a04-contradiction"),
-                        stable_task_id("scp-a06-provider-outage"),
-                        stable_task_id("scp-a09-hard-crash"),
+                        stable_task_id("scp-a04-contradiction", self.contradiction_payload()),
+                        stable_task_id("scp-a06-provider-outage", self.verified_payload("a06")),
+                        stable_task_id("scp-a09-hard-crash", self.verified_payload("a09")),
                     }
                     observed_nonterminal = {
                         (row["task_id"], row["state"])

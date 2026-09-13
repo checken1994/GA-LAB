@@ -34,6 +34,11 @@ except Exception:  # pragma: no cover - standalone kernel tests do not need API 
 
 _TRACE_LOCK = threading.Lock()
 _TERMINAL = {"COMPLETED", "FAILED", "CANCELLED"}
+# States in which the in-process ask attempt still holds execution authority
+# over the task. Anything else that is non-terminal means the watchdog,
+# boot-recovery, lease expiry or a previous escalation already moved the
+# task out of the happy path — finalize must route, not assume.
+_ASK_LIFECYCLE_INTACT_STATES = {"RUNNING", "VERIFYING"}
 
 
 def _dump(obj: Any) -> dict[str, Any]:
@@ -105,23 +110,8 @@ class AskKernelAdapter:
             return False
         return existing.get("state") not in AskKernelAdapter._IN_FLIGHT_STATES
 
-    def _task_id(
-        self,
-        question: str,
-        contexts: list[str],
-        retrieved_context: str,
-        session_id: str | None,
-        request_id: str | None,
-    ) -> str:
-        input_hash = self._input_hash(question, contexts, retrieved_context)
-        # A client idempotency key is preferred. Without one, the canonical
-        # request identity is stable across transport retries for the same
-        # session/question/evidence tuple; it deliberately does not use time or
-        # UUID, so a retry cannot silently dispatch the handler twice.
-        identity = request_id or f"{session_id or ''}|{input_hash}"
-        return "ask-" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
-
-    def _input_hash(self, question: str, contexts: list[str], retrieved_context: str) -> str:
+    @staticmethod
+    def canonical_input_hash(question: str, contexts: list[str], retrieved_context: str) -> str:
         raw = json_bytes(
             {
                 "question": question,
@@ -130,6 +120,51 @@ class AskKernelAdapter:
             }
         )
         return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+    @classmethod
+    def task_id_for(
+        cls,
+        question: str,
+        contexts: list[str],
+        retrieved_context: str,
+        session_id: str | None,
+        request_id: str | None,
+    ) -> str:
+        """Durable identity for one logical ask. Exposed as a classmethod so
+        harnesses derive the SAME id instead of mirroring (and drifting from)
+        the private formula.
+
+        [S19 BUG-2 fix 2026-09-13] The canonical question/evidence hash is
+        ALWAYS part of the identity. The previous derivation let a client
+        idempotency key REPLACE the hash entirely
+        (``identity = request_id or f"{session}|{hash}"``), so a client that
+        reuses one key (per-run key, per-provider key, benchmark replay) mapped
+        EVERY different question onto the FIRST ask's task; create_task then
+        collided and every later request died fail-closed with
+        "stable logical ask already exists" — the endpoint locked after the
+        first question. Idempotency semantics: a key (or session) dedupes
+        REPEATS OF THE SAME question+evidence (transport retries), it must not
+        act as a global mutex over unrelated questions. The key/session stays
+        the retry SCOPE discriminator; the input hash stays the PER-QUESTION
+        discriminator; a retry with the same key and same body still maps to
+        the same durable id.
+        """
+        input_hash = cls.canonical_input_hash(question, contexts, retrieved_context)
+        scope = request_id or session_id or ""
+        return "ask-" + hashlib.sha256(f"{scope}|{input_hash}".encode("utf-8")).hexdigest()[:24]
+
+    def _task_id(
+        self,
+        question: str,
+        contexts: list[str],
+        retrieved_context: str,
+        session_id: str | None,
+        request_id: str | None,
+    ) -> str:
+        return self.task_id_for(question, contexts, retrieved_context, session_id, request_id)
+
+    def _input_hash(self, question: str, contexts: list[str], retrieved_context: str) -> str:
+        return self.canonical_input_hash(question, contexts, retrieved_context)
 
     @staticmethod
     def _request_id(request: Any) -> str | None:
@@ -355,6 +390,56 @@ class AskKernelAdapter:
                 return data
         return data
 
+    def _escalate_to_human_review(
+        self,
+        task_id: str,
+        reason: str,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Move a task to HUMAN_REVIEW idempotently — never raise.
+
+        [S19/W2 BUG-1 fix 2026-09-13] The W2 witness observed HTTP 500 from
+        ``InvalidTransition: HUMAN_REVIEW->HUMAN_REVIEW`` when a task already
+        sat in HUMAN_REVIEW (lease expiry sweeps VERIFYING->HUMAN_REVIEW, boot
+        recovery moves RUNNING/VERIFYING->HUMAN_REVIEW) and finalize escalated
+        again. A second escalation of the SAME decision is an idempotent
+        no-op: the outcome (answer withheld, human required) is already
+        recorded — re-raising would only crash the client request. A raced
+        state move (concurrent watchdog, released/expired lease) is likewise
+        skipped with a log; the lifecycle decision belongs to the recovery
+        machinery, not to this request path.
+        """
+        current = self.kernel.get_task(task_id)
+        if current["state"] in _TERMINAL:
+            return current
+        if current["state"] == "HUMAN_REVIEW":
+            logger.info(
+                "[ask-kernel] HUMAN_REVIEW escalation for %s is already recorded "
+                "(idempotent no-op): %s",
+                task_id,
+                reason,
+            )
+            return current
+        try:
+            return self.kernel.transition(
+                task_id,
+                "HUMAN_REVIEW",
+                actor="ask-kernel-adapter",
+                reason=reason,
+                payload=payload,
+            )
+        except KernelError as exc:  # InvalidTransition / StaleLease / OptimisticLockError
+            logger.warning(
+                "[ask-kernel] HUMAN_REVIEW escalation skipped for %s in state %s "
+                "(%s: %s): %s",
+                task_id,
+                current["state"],
+                type(exc).__name__,
+                exc,
+                reason,
+            )
+            return self.kernel.get_task(task_id)
+
     async def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
         task_id, lease_id = task["task_id"], task["lease_id"]
 
@@ -393,13 +478,77 @@ class AskKernelAdapter:
         if current_task["state"] in _TERMINAL:
             return _terminal_result(current_task)
 
+        def _stale_lifecycle_result(stale_task: dict[str, Any], reason: str) -> dict[str, Any]:
+            """[S19 BUG-1 fix 2026-09-13] The response was observed after the
+            kernel had already moved this task out of the happy path
+            (RECONCILING via boot-replay/watchdog — the runtime crash
+            ``InvalidTransition: RECONCILING->VERIFYING`` at ask_response_
+            observed; also RECOVERING/UNKNOWN/HUMAN_REVIEW and friends).
+
+            Design decision (b): route by current state instead of widening
+            ALLOWED_TRANSITIONS with RECONCILING->VERIFYING. Adding that edge
+            would let a stale attempt auto-complete work whose execution
+            authority was already revoked: enter_reconciling/auto_reconcile
+            release the lease (fencing), and the reconcile contract
+            (recovery_decision 'human_review_if_unknown', reconcile_unknown
+            'without auto-completing') deliberately exits RECONCILING to
+            HUMAN_REVIEW, not to VERIFYING. Fail-closed honesty wins: the
+            client gets an explicit withheld result (HTTP 200, no 500), the
+            task lands in HUMAN_REVIEW via a legal edge for the reconcile/
+            human flow, and the journal records that a response WAS observed.
+            """
+            verification = {
+                "verdict": "INSUFFICIENT",
+                "verifier_id": "scp-ask-kernel-lifecycle-race-v1",
+                "evidence_ref": f"ask://{task_id}/lifecycle/{str(stale_task['state']).lower()}",
+                "failures": [reason],
+                "checked": {"kernel_execution_authority": False},
+            }
+            response_data = _dump(response)
+            final_task = self._escalate_to_human_review(
+                task_id,
+                reason=reason,
+                payload={"verification": verification},
+            )
+            with _TRACE_LOCK:
+                self.trace.append(
+                    task_id=task_id,
+                    attempt_id=task.get("attempt_id"),
+                    step_id="rag-read",
+                    lease_id=lease_id,
+                    checkpoint_id=task.get("checkpoint_id"),
+                    verifier_id=verification["verifier_id"],
+                    evidence_ref=verification["evidence_ref"],
+                    run_id=response_data.get("run_id"),
+                    trace_id=response_data.get("trace_id"),
+                    outcome=final_task["state"],
+                    verdict=verification["verdict"],
+                    reason=reason,
+                    response_elapsed_ms=response_data.get("elapsed_ms"),
+                )
+            return {
+                "task": final_task,
+                "verification": verification,
+                "safe_response": self._safe_response(response, verification),
+            }
+
+        if current_task["state"] not in _ASK_LIFECYCLE_INTACT_STATES:
+            return _stale_lifecycle_result(
+                current_task,
+                f"lifecycle_authority_lost:{current_task['state']}",
+            )
+
         try:
-            self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
+            if current_task["state"] == "RUNNING":
+                self.kernel.transition(task_id, "VERIFYING", actor="ask-kernel-adapter", reason="ask_response_observed")
         except InvalidTransition:
             current_task = self.kernel.get_task(task_id)
             if current_task["state"] in _TERMINAL:
                 return _terminal_result(current_task)
-            raise
+            return _stale_lifecycle_result(
+                current_task,
+                f"verifying_transition_raced:{current_task['state']}",
+            )
 
         verification = await self.verify_response(req, response, task)
         if verification["verdict"] == "VERIFIED":
@@ -416,16 +565,25 @@ class AskKernelAdapter:
             verification["task_id"] = task_id
             verification["issued_at"] = receipt.issued_at
             verification["signature"] = receipt.signature
-            final_task = self.kernel.commit_verification_result(task_id, lease_id, receipt)
+            try:
+                final_task = self.kernel.commit_verification_result(task_id, lease_id, receipt)
+            except KernelError:
+                # [S19/W2 family] A slow verification can outlive the 60s ask
+                # lease: expire_leases sweeps VERIFYING->HUMAN_REVIEW while the
+                # judge runs, so commit hits a stale lease or an illegal
+                # source state. That must not 500 the request either — the
+                # evidence was verified but the execution authority is gone:
+                # route through the same lifecycle-race path.
+                current_task = self.kernel.get_task(task_id)
+                if current_task["state"] in _TERMINAL:
+                    return _terminal_result(current_task)
+                return _stale_lifecycle_result(current_task, "commit_raced_lease_or_state")
         else:
-            self.kernel.transition(
+            final_task = self._escalate_to_human_review(
                 task_id,
-                "HUMAN_REVIEW",
-                actor="ask-kernel-adapter",
                 reason="ask_evidence_insufficient_or_contradicted",
                 payload={"verification": verification},
             )
-            final_task = self.kernel.get_task(task_id)
         response_data = _dump(response)
         with _TRACE_LOCK:
             self.trace.append(
