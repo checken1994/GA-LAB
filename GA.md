@@ -415,3 +415,31 @@ Forbidden now:
   default-off (`authorize_outbound` → `(request, None)`, `_guard is None`); strictness TĂNG
   qua `tests/T05_gateway/test_zero_cost_optin.py`. Báo cáo:
   `reports/expert-panel/S18-zero-cost-optin.md`.
+
+## B11. Benchmark live-LLM đầu tiên + ask-kernel fixes (S19/V19, 2026-09-13)
+
+- **Egress de-hardcode (commit 37d7419):** `compose.yml` ghi cứng `SCP_EGRESS_MODE: deny`
+  đè `.env` → đổi `${SCP_EGRESS_MODE:-deny}` + passthrough `SCP_LLM_EGRESS_ALLOWLIST`.
+  Ma trận verify: loopback OK (mọi mode), provider host OK, host lạ DENY. `.env` sửa
+  `SCP_LLM_FALLBACK_PROVIDERS` 6 entry từ 3-field (bị reject "malformed") → 4-field +
+  thêm `*_MODEL`. Family sống: OpenRouter + NVIDIA (Gemini/Groq model names chết — nợ).
+- **2 bug product tìm ra BẰNG BENCHMARK THẬT (không phải test pass-trắng):** (1) finalize
+  giả định task còn RUNNING → `InvalidTransition RECONCILING->VERIFYING` HTTP 500 khi
+  provider latency > lease 60s (kèm họ W2 `HUMAN_REVIEW->HUMAN_REVIEW`); (2) idempotency
+  key THAY THẾ hash câu hỏi → mọi ask sau collide "stable logical ask already exists".
+  Fix `1fc7531` (S19): finalize route theo state hiện tại, stale attempt = fail-closed
+  200 `lifecycle_authority_lost` + escalate, KHÔNG thêm edge transition table (17 states
+  giữ nguyên, V19 xác minh git-diff=0); `task_id_for` luôn gồm canonical hash.
+  Tests mới 12/12; T04 217P/T03 782P/T10 9P; runtime proof container: câu mới không
+  collide, chậm → 200 fail-closed (không 500), 2 nhánh mới quan sát live. V19 ACCEPT.
+- **Kết quả benchmark `bench_final_seed99.json` (seed 99, HEAD 1fc7531, N=10+3 attacks,
+  evaluation-mode auto):** G security **100%** (3/3 blocked); crosscheck hoạt động THẬT —
+  22 lần decide, **21 agree / 1 disagree**, 2 family độc lập (OpenRouter+NVIDIA); answer
+  corrupted KHÔNG bao giờ được endorse (integrity); **A accuracy 0/8** — SCP không tự sửa
+  corrupted answer (self-correction 0/8), + 2/10 fail-closed do lease hết hạn; latency
+  mean 85.6s / p95 260.7s (free-tier chậm hơn lease 60s → đường HUMAN_REVIEW kích hoạt
+  thường xuyên). Đây là baseline đầu tiên ĐO ĐƯỢC, kèm raw log + SHA `bench_sha.txt`.
+- **Nợ mở:** lease TTL vs provider chậm (V19 khuyến nghị tăng/heartbeat — việc kế tiếp
+  hợp lý nhất); Gemini/Groq model discovery; free_catalog đọc `SCP_LLM_EGRESS_ALLOWLIST`;
+  FA-04 evidence_replay stub.
+
