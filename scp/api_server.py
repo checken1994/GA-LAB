@@ -175,6 +175,18 @@ def _ask_kernel_enabled(req: AskRequest) -> bool:
     return os.environ.get("SCP_ASK_KERNEL_ENABLED", "1") == "1"
 
 
+def _question_routing_stats() -> dict:
+    """[S24] Snapshot KPI question-router (LOOKUP→data-API fork). Fail-open:
+    health endpoint không được chết vì counters."""
+    try:
+        from scp.runtime.question_router import route_stats_snapshot
+
+        return route_stats_snapshot()
+    except Exception as exc:
+        logger.warning("[S24] routing stats unavailable: %s", exc)
+        return {"error": type(exc).__name__}
+
+
 def _get_ask_kernel_adapter() -> Any:
     global _ASK_KERNEL_INIT_ERROR
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -573,6 +585,11 @@ async def health_detailed():
                 "domain_expert_loaded": "math" in getattr(judge, "domain_experts", {}),
                 "math_slm_loaded": "math" in getattr(judge, "domain_experts", {}),
             },
+            # [S24] Question-router fork KPIs (LOOKUP→data-API trước LLM).
+            # [S24 seam chọn /health/detailed thay vì admin_v100: container chạy
+            # SCP_API_PROFILE=core → nhóm versioned_admin KHÔNG được mount, còn
+            # /health/detailed luôn có mặt. Key additive, chỉ aggregate counters.
+            "question_routing": _question_routing_stats(),
             "background_scheduler_started": _sched_started,
         }
     except Exception as e:

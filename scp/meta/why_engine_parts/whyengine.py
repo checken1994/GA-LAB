@@ -257,9 +257,12 @@ class WhyEngine:
         deprecated (Bug #16/#22), LocalDB is the authoritative fallback.
         """
         try:
-            from scp.runtime.slms import GeographySLM
+            # [S26 2026-09-13] GeographySLM (cây cũ slms.py/slm_impls, đã xóa)
+            # → Geography (cây mới scp/runtime/experts/ — cùng `_local` cache
+            # 231 keys, WHY-GATE hermetic so cũ/mới: 6/6 case MATCH).
+            from scp.runtime.experts.humanities import Geography
             if not hasattr(self, '_geo_slm_for_queries'):
-                self._geo_slm_for_queries = GeographySLM()
+                self._geo_slm_for_queries = Geography()
             geo = self._geo_slm_for_queries
             target_lower = target.lower().strip()
             if target_lower in geo._local:

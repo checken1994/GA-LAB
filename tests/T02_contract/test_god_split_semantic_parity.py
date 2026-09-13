@@ -26,7 +26,11 @@ TARGET_MODULES = (
     "scp.data_sources.domain_registry",
     "scp.knowledge.antibody_system",
     "scp.meta.why_engine",
-    "scp.runtime.judge_parts.judgecore_mixin",
+    # [S26 2026-09-13] "scp.runtime.judge_parts.judgecore_mixin" removed:
+    # judge_parts/ (god-split thế hệ cũ) đã bị xóa sau audit — 0 caller sống
+    # (judge.py hiện hành = RealityJudge tier1+LLM, không import judge_parts;
+    # điểm import code duy nhất chính là entry này). Xóa MODULE PRODUCT trước,
+    # xóa contract entry theo sau — không phải hạ chuẩn cho module còn sống.
     "scp.task_kernel",
 )
 
@@ -266,7 +270,13 @@ def test_split_facades_keep_public_callable_identity() -> None:
         assert exported_callable.__module__ == expected_module
 
 
-def test_judge_core_preserves_public_judge_contract() -> None:
-    from scp.runtime.judge_parts.judgecore_mixin import JudgeCoreMixin
+# [S26 2026-09-13] test_judge_core_preserves_public_judge_contract removed:
+# subject (scp/runtime/judge_parts/judgecore_mixin.py) deleted as dead code —
+# see TARGET_MODULES note above. 11/12 god-split parity contracts remain.
+def test_judge_parts_dead_code_stays_dead() -> None:
+    """Guard ngược: judge_parts không được hồi sinh ngầm (re-import phải fail)."""
+    import importlib.util
+    import sys
 
-    assert callable(getattr(JudgeCoreMixin, "judge", None))
+    assert importlib.util.find_spec("scp.runtime.judge_parts") is None
+    assert "scp.runtime.judge_parts" not in sys.modules

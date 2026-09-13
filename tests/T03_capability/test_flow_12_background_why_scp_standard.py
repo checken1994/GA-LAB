@@ -659,7 +659,9 @@ class TestFlow12BackgroundWhy:
         # Case 3: source returns an empty value (LocalDB entry present but
         # holding no facts) while the AI answer is non-empty — empty
         # "evidence" must not verify anything.
-        from scp.runtime.slms import GeographySLM
+        # [S26 2026-09-13] GeographySLM (cây cũ slms.py, đã xóa) → Geography
+        # (cây mới scp/runtime/experts/) — cùng `_local` cache contract.
+        from scp.runtime.experts.humanities import Geography as GeographySLM
 
         geo = GeographySLM()
         geo._local["m12probeland"] = {}  # entry exists but holds no facts

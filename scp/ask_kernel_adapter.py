@@ -90,6 +90,14 @@ def _dump(obj: Any) -> dict[str, Any]:
     return dict(vars(obj))
 
 
+def t2_fork_enabled() -> bool:
+    """[S24] Mirror of scp.runtime.question_router.t2_fork_enabled, defined
+    locally so run_rag's kill-switch check works even if the router module
+    fails to import (fork off = old behavior, never a crash)."""
+    raw = os.environ.get("SCP_T2_ROUTER", "").strip().lower() or "1"
+    return raw not in {"0", "false", "off", "no"}
+
+
 class AskKernelAdapter:
     """Durable lifecycle gate around the existing context-backed /ask path.
 
@@ -334,6 +342,12 @@ class AskKernelAdapter:
         answer = str(data.get("final_answer") or "")
         verdict = str(data.get("verdict") or "")
         governance = str(data.get("governance_decision") or "")
+        # [S24] LOOKUP fork evidence: với answer compose từ data-API, payload
+        # thô của API CHÍNH LÀ input context mà answer được tạo từ — đưa vào
+        # cùng grounding/judge check (THÊM bằng chứng; không bỏ/nới check nào).
+        fork_evidence = str(data.get("data_api_evidence") or "").strip()
+        if fork_evidence:
+            contexts.append(fork_evidence)
         provenance_value = (data.get("v98_classification") or {}).get("provenance")
         provenance = str(provenance_value or "")
         evidence_ref = f"ask://{task['task_id']}/response/{data.get('trace_id') or 'no-trace'}"
@@ -796,7 +810,30 @@ class AskKernelAdapter:
         if ask_lease_heartbeat_enabled():
             heartbeat = asyncio.create_task(self._lease_heartbeat(task, stop))
         try:
-            response = await handler(req, request)
+            # [S24 2026-09-13] LOOKUP→data-API fork TRƯỚC generation (owner
+            # directive: "hơn 1000 API để lấy thông tin. LLM CHỈ dùng khi 1000
+            # API không có" — trước S24 mọi câu bay thẳng LLM, see
+            # reports/benchmark-2026-09-12/bench_combined_seed2026.json).
+            # Fork trả None → generation path cũ chạy nguyên vẹn. Bất kỳ lỗi
+            # nào trong fork cũng phải fallback về handler (fork không được
+            # phép phá /ask). Answer fork vẫn đi qua finalize/verify bên dưới
+            # — cùng verification/governance path, không có check nào bị bỏ.
+            fork_response: Any = None
+            if t2_fork_enabled():
+                try:
+                    from scp.runtime.question_router import attempt_lookup_fork
+
+                    fork_response = await attempt_lookup_fork(req)
+                except Exception as exc:
+                    logger.warning(
+                        "[S24] lookup fork errored (%s: %s) — falling back to LLM handler",
+                        type(exc).__name__, exc,
+                    )
+                    fork_response = None
+            if fork_response is not None:
+                response = fork_response
+            else:
+                response = await handler(req, request)
             result = await self.finalize(task, response, req)
             return result["safe_response"]
         except Exception:
