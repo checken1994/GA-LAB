@@ -443,3 +443,21 @@ Forbidden now:
   hợp lý nhất); Gemini/Groq model discovery; free_catalog đọc `SCP_LLM_EGRESS_ALLOWLIST`;
   FA-04 evidence_replay stub.
 
+## B12. Hedge + heartbeat campaign — latency -89.5% (S21/V21, 2026-09-13)
+
+- **S21 hedged-LLM race `41f2135`** (owner design): attempt deadline 10s → bắn song song
+  provider kế, first-result-wins (tie-break theo chain), cap 90s fail-closed, kill-switch
+  `SCP_LLM_HEDGE=off`. Seam `client.py:chat()` — 690 insertions/0 deletions. V21 ACCEPT
+  (spot-check độc lập 2 câu /ask thật; 690/0; crosscheck đi provider.chat trực tiếp nên
+  hedge không đụng 2-family judge).
+- **Benchmark tổng hợp `bench_combined_seed2026.json`** (seed 2026, HEAD 283fb52, N=10+3):
+  latency **mean 85.6s → 9.02s (giảm 89.5%)**, p95 260.7s → 19.4s; security 100% (3/3);
+  0 câu chết lease (S20 heartbeat). Accuracy 0/8 — root cause ĐỊNH VỊ ĐƯỢC: crosscheck
+  26/26 `missing_distinct_providers` (secondary family không đóng góp) → verdict_pass/
+  judge_pass/governance_uphold đều False → withhold. S22 đang xử lý.
+- **Dọc-slice arch audit ĐÓNG ĐỦ (worker→verifier riêng từng cái):** S20 heartbeat
+  `925592c` (TTL 2s sống 207.5s, renew x307), B-S1 KB-wire `9ba7828` (judge consult KB,
+  GAP: data/knowledge rỗng cần nạp data), C-S2 world-state hook `433dcea` (X08
+  evidence_refs=[run_id]).
+- **Pre-existing RED ghi nhận 3 lần độc lập:** `test_ws_chat_fail_closed` (T02) —
+  environmental (.env thật keys vs `_disable_openrouter`), không phải regression S20/S21.
