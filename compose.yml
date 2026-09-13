@@ -27,6 +27,7 @@ services:
       SCP_EGRESS_MODE: ${SCP_EGRESS_MODE:-deny}
       # LLM operator allowlist is deployment config (.env), not compose code:
       # the gateway passes it as extra_allowed_hosts to the generic egress gate.
+      SCP_EGRESS_ALLOWLIST: ${SCP_EGRESS_ALLOWLIST:-}
       SCP_LLM_EGRESS_ALLOWLIST: ${SCP_LLM_EGRESS_ALLOWLIST:-}
       # No TLS gateway exists in this stack; FORCE_HTTPS=1 redirected every
       # request (incl. /health) to https://host:port that nothing serves.
