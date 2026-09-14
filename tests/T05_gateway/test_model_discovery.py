@@ -18,12 +18,14 @@ from typing import Any, ClassVar
 import httpx
 import pytest
 
+from scp.llm_gateway.client import CircuitBreaker, LLMGateway
 from scp.llm_gateway.discovery import (
     LocalEndpointScanner,
     ModelDiscoveryStore,
     ModelLifecycleScheduler,
     ModelLifecycleState,
     create_model_lifecycle_scheduler,
+    is_provider_model_eligible,
 )
 
 # Capture original httpx send functions at module import time before any fixture runs
@@ -162,6 +164,60 @@ def test_discovery_store_crud(tmp_path) -> None:
     assert active_models[0]["model_id"] == "m2"
     assert active_models[0]["endpoint"] == "http://127.0.0.1:9000"
 
+    store.close()
+
+
+def test_routing_boundary_requires_active_and_preserves_unknown_cloud(tmp_path) -> None:
+    store = ModelDiscoveryStore(tmp_path / "routing.sqlite")
+    local_endpoint = "http://127.0.0.1:8124"
+    store.upsert_model(local_endpoint, "local-model", ModelLifecycleState.DISCOVERED)
+    for state in (
+        ModelLifecycleState.DISCOVERED,
+        ModelLifecycleState.QUARANTINED,
+        ModelLifecycleState.QUALIFIED,
+        ModelLifecycleState.COOLDOWN,
+        ModelLifecycleState.STALE,
+        ModelLifecycleState.RETIRED,
+    ):
+        store.upsert_model(local_endpoint, "local-model", state)
+        assert not is_provider_model_eligible(store, local_endpoint, "local-model")
+
+    store.upsert_model(local_endpoint, "local-model", ModelLifecycleState.ACTIVE)
+    assert is_provider_model_eligible(store, f"{local_endpoint}/v1", "local-model")
+    assert not is_provider_model_eligible(store, f"{local_endpoint}/v1", "other-model")
+    assert is_provider_model_eligible(store, "https://cloud.example/v1", "cloud-model")
+    store.close()
+
+
+def test_gateway_provider_fallback_skips_non_active_local_provider(tmp_path, monkeypatch) -> None:
+    store = ModelDiscoveryStore(tmp_path / "fallback.sqlite")
+    local_endpoint = "http://127.0.0.1:8125"
+    store.upsert_model(local_endpoint, "blocked-model", ModelLifecycleState.STALE)
+    gateway = LLMGateway(discovery_store=store)
+
+    class Provider:
+        PROVIDER_NAME = "local"
+        enabled = True
+        model = "blocked-model"
+        base_url = local_endpoint
+        _breaker = CircuitBreaker()
+
+        async def chat(self, *args, **kwargs):
+            raise AssertionError("inactive local provider must not be called")
+
+    class CloudProvider:
+        PROVIDER_NAME = "cloud"
+        enabled = True
+        model = "cloud-model"
+        base_url = "https://cloud.example/v1"
+        _breaker = CircuitBreaker()
+
+        async def chat(self, *args, **kwargs):
+            return "cloud-answer", "cloud:cloud-model"
+
+    monkeypatch.setattr(gateway, "_provider_chain", lambda _task: [Provider(), CloudProvider()])
+    answer, label = asyncio.run(gateway.chat("question", task="chat"))
+    assert (answer, label) == ("cloud-answer", "cloud:cloud-model")
     store.close()
 
 

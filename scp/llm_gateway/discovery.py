@@ -31,6 +31,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -226,6 +227,11 @@ class ModelDiscoveryStore:
             (endpoint,),
         )
 
+    def is_model_active(self, endpoint: str, model_id: str) -> bool:
+        """Return whether a discovered endpoint/model is currently routable."""
+        row = self.get_model(endpoint, model_id)
+        return bool(row and row["state"] == ModelLifecycleState.ACTIVE.value)
+
     def get_models_by_state(
         self, state: ModelLifecycleState
     ) -> list[dict[str, Any]]:
@@ -289,6 +295,75 @@ def _operator_endpoint(value: Any) -> str | None:
         logger.warning("Ignoring configured model endpoint with credentials/query/fragment")
         return None
     return endpoint
+
+
+def _provider_endpoint_variants(endpoint: Any) -> set[str]:
+    """Return safe root/API variants for matching provider configuration.
+
+    Discovery stores the operator endpoint root (``https://host``), while an
+    OpenAI-compatible provider commonly configures ``https://host/v1``.  Only
+    these deterministic variants are considered; no endpoint is derived from
+    a prompt, model response, or request body.
+    """
+    normalized = _operator_endpoint(endpoint)
+    if not normalized:
+        return set()
+    variants = {normalized}
+    try:
+        parsed = urlparse(normalized)
+        path = parsed.path.rstrip("/")
+        if path.endswith("/v1"):
+            root = parsed._replace(path=path[:-3] or "", query="", fragment="").geturl().rstrip("/")
+            if root:
+                variants.add(root)
+    except (TypeError, ValueError):
+        return variants
+    return variants
+
+
+def is_provider_model_eligible(
+    store: ModelDiscoveryStore | None,
+    endpoint: str,
+    model_id: str,
+    *,
+    configured_local_endpoints: list[str] | None = None,
+) -> bool:
+    """Enforce S35 lifecycle state at the provider routing boundary.
+
+    If discovery has durable rows for an endpoint, only the exact model in
+    ``ACTIVE`` state is eligible.  An explicitly configured local endpoint with
+    no rows is also denied until discovery/probing establishes ``ACTIVE``.
+    Cloud providers that are not in the operator local-endpoint registry keep
+    their existing eligibility behavior.
+    """
+    variants = _provider_endpoint_variants(endpoint)
+    model = model_id.strip() if isinstance(model_id, str) else ""
+    # Test/dynamic provider implementations may intentionally expose only a
+    # model label and rely on their own transport seam.  They are not local
+    # discovery entries; preserve their existing routing behavior and let the
+    # concrete egress guard authorize/deny the actual destination.
+    if not variants:
+        return bool(model)
+    if not model:
+        return False
+
+    durable_rows: list[dict[str, Any]] = []
+    if store is not None:
+        for candidate in variants:
+            durable_rows.extend(store.get_models_by_endpoint(candidate))
+    if durable_rows:
+        return any(
+            row.get("model_id") == model
+            and row.get("state") == ModelLifecycleState.ACTIVE.value
+            for row in durable_rows
+        )
+
+    configured = {
+        candidate
+        for raw in (configured_local_endpoints or [])
+        for candidate in _provider_endpoint_variants(raw)
+    }
+    return not variants.intersection(configured)
 
 
 class LocalEndpointScanner:
