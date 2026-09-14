@@ -73,6 +73,14 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    # Liveness only: /health deliberately does not assert judge readiness.
+    # Readiness remains the separate /ready endpoint and is not faked here.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
   # The scheduler performs POST /v105/autofix/run-audit. It is deliberately

@@ -370,12 +370,32 @@ class TestFlow01BootBackground:
 
     def test_health_detailed_endpoint_returns_full_status(self):
         """
-        [HEALTH-2] /health/detailed returns full subsystem status.
+        [HEALTH-2] Production /health/detailed requires admin auth.
+
+        The unauthenticated probe must be rejected before diagnostics are
+        evaluated; a JWT minted from the test-only environment fixture must
+        still receive the diagnostic payload.
         """
         with TestClient(app) as client:
-            response = client.get("/health/detailed")
-            # May return 200 or 503 depending on subsystems
-            assert response.status_code in [200, 503]
+            unauthenticated = client.get("/health/detailed")
+            assert unauthenticated.status_code == 401
+
+            token_response = client.post(
+                "/auth/token",
+                json={"admin_key": os.environ["SCP_ADMIN_KEY"]},
+            )
+            assert token_response.status_code == 200
+            token = token_response.json()["access_token"]
+            authenticated = client.get(
+                "/health/detailed",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert authenticated.status_code == 200
+            payload = authenticated.json()
+            assert isinstance(payload, dict)
+            assert payload["status"] in {"ok", "initializing"}
+            assert "version" in payload
+            assert "routes" in payload
 
     # =========================================================================
     # 5. SHUTDOWN — Clean Stop

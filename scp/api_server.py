@@ -55,6 +55,7 @@ from scp.meta.simple_explainer import SimpleExplainer
 from scp.observability.telemetry import setup_telemetry
 from scp.runtime.judge import RealityJudge
 from scp.security.attack_crawler import AttackCrawler
+from scp.security.auth import verify_admin
 from scp.security.cross_language_learner import CrossLanguageLearner
 from scp.security.image_voice_detector import ImageJailbreakDetector, VoiceJailbreakDetector
 from scp.security.jwt_guard import get_current_user
@@ -332,6 +333,10 @@ except ImportError as e:
 
 from scp.api.route_profile import resolve_api_profile, route_group_enabled
 _API_PROFILE = resolve_api_profile()
+_PRODUCTION_MODE = (
+    os.environ.get("SCP_PRODUCTION_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+    or os.environ.get("SCP_MODE", "").strip().lower() == "production"
+)
 
 
 def _route_enabled(group: str) -> bool:
@@ -343,6 +348,11 @@ app = FastAPI(
     description=f"{DOMAIN_EXPERT_ENSEMBLE_TERM} + FalsificationEngine + Governance + Chat + Evolution",
     version=_SCP_VERSION,
     lifespan=lifespan,
+    # Production must not publish an unauthenticated schema/documentation
+    # surface.  Developer profiles retain FastAPI's normal docs behavior.
+    docs_url=None if _PRODUCTION_MODE else "/docs",
+    redoc_url=None if _PRODUCTION_MODE else "/redoc",
+    openapi_url=None if _PRODUCTION_MODE else "/openapi.json",
 )
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -353,7 +363,7 @@ except Exception as e:
     logger.warning("Telemetry setup skipped: %s", e)
 
 
-@app.get("/metrics")
+@app.get("/metrics", dependencies=[Depends(verify_admin)] if _PRODUCTION_MODE else None)
 async def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
@@ -497,9 +507,10 @@ def login_for_access_token(req: TokenRequest, request: Request):
     # verified live 2026-08-29). Unconfigured auth is a 401 authorization
     # failure, matching the canonical verify_admin contract in
     # scp/security/auth.py (no dev-mode bypass).
-    expected_key = os.environ.get("SCP_ADMIN_KEY", "")
+    expected_key = os.environ.get("SCP_ADMIN_KEY", "").strip()
     import secrets as _secrets
-    if not expected_key or not _secrets.compare_digest(req.admin_key.encode(), expected_key.encode()):
+    provided_key = req.admin_key
+    if not expected_key or not _secrets.compare_digest(provided_key, expected_key):
         raise HTTPException(status_code=401, detail="Incorrect admin key")
     from scp.security.jwt_guard import create_access_token
     access_token = create_access_token(data={"sub": "admin"})
@@ -553,7 +564,7 @@ async def health():
     }
 
 
-@app.get("/health/detailed")
+@app.get("/health/detailed", dependencies=[Depends(verify_admin)] if _PRODUCTION_MODE else None)
 async def health_detailed():
     try:
         judge = get_judge()
