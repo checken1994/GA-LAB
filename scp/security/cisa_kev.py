@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+import os
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -28,7 +31,34 @@ logger = logging.getLogger("scp.security.cisa_kev")
 CISA_KEV_URL = "https://raw.githubusercontent.com/cisagov/kev-data/main/known_exploited_vulnerabilities.json"
 CISA_KEV_URL_FALLBACK = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 CACHE_TTL_SECONDS = 6 * 3600  # 6 hours — CISA updates multiple times/week
+DEFAULT_FETCH_TIMEOUT_SECONDS = 5.0
+MAX_FETCH_TIMEOUT_SECONDS = 30.0
+DEFAULT_FAILURE_RETRY_SECONDS = 60.0
+MAX_FAILURE_RETRY_SECONDS = 300.0
 _CISA_ALLOWED_HOSTS = {"raw.githubusercontent.com", "www.cisa.gov"}
+
+
+def _configured_failure_retry_seconds() -> float:
+    raw = os.environ.get("SCP_CISA_KEV_FAILURE_RETRY_SECONDS", "").strip()
+    try:
+        value = float(raw) if raw else DEFAULT_FAILURE_RETRY_SECONDS
+    except (TypeError, ValueError):
+        return DEFAULT_FAILURE_RETRY_SECONDS
+    if not math.isfinite(value) or value <= 0 or value > MAX_FAILURE_RETRY_SECONDS:
+        return DEFAULT_FAILURE_RETRY_SECONDS
+    return value
+
+
+def _configured_fetch_timeout() -> float:
+    """Return a finite transport timeout; malformed config fails closed."""
+    raw = os.environ.get("SCP_CISA_KEV_TIMEOUT_SECONDS", "").strip()
+    try:
+        value = float(raw) if raw else DEFAULT_FETCH_TIMEOUT_SECONDS
+    except (TypeError, ValueError):
+        return DEFAULT_FETCH_TIMEOUT_SECONDS
+    if not math.isfinite(value) or value <= 0 or value > MAX_FETCH_TIMEOUT_SECONDS:
+        return DEFAULT_FETCH_TIMEOUT_SECONDS
+    return value
 
 
 def _open_cisa_feed(url: str):
@@ -54,7 +84,27 @@ def _open_cisa_feed(url: str):
     # SCP_EGRESS_MODE gate + SSRF validation) instead of raw
     # urllib.request.urlopen. The fixed host/path allowlist above stays as
     # defense in depth.
-    return safe_urlopen(request, timeout=30)  # nosec B310 — URL validated by SCP
+    return safe_urlopen(request, timeout=_configured_fetch_timeout())  # nosec B310 — URL validated by SCP
+
+
+_FEED_SINGLETON: CisaKevFeed | None = None
+_FEED_SINGLETON_LOCK = threading.Lock()
+
+
+def get_cisa_kev_feed(data_dir: str = "data") -> CisaKevFeed:
+    """Return the process-scoped KEV feed cache.
+
+    The predictor is on a verdict-adjacent hot path.  Constructing a feed per
+    CVE reloads the durable cache and makes each verdict eligible for network
+    I/O.  A singleton keeps the local catalog in memory and lets ``refresh``
+    enforce one shared TTL/refresh lock without widening the egress boundary.
+    """
+    global _FEED_SINGLETON
+    if _FEED_SINGLETON is None:
+        with _FEED_SINGLETON_LOCK:
+            if _FEED_SINGLETON is None:
+                _FEED_SINGLETON = CisaKevFeed(data_dir=data_dir)
+    return _FEED_SINGLETON
 
 
 class CisaKevFeed:
@@ -74,6 +124,8 @@ class CisaKevFeed:
         self.cache_file = self.data_dir / "cisa_kev.json"
         self._vulns: dict[str, dict] = {}  # cveID -> record
         self._last_refresh = 0
+        self._last_failure = 0.0
+        self._refresh_lock = threading.Lock()
         self._load_cache()
 
     def _load_cache(self):
@@ -88,41 +140,75 @@ class CisaKevFeed:
                 logger.warning(f"[CISA KEV] Cache load error: {e}")
 
     def refresh(self, force: bool = False) -> dict:
-        """Fetch latest from CISA. Returns summary dict.
+        """Fetch latest from CISA with a shared lock and finite timeout.
 
-        Args:
-            force: If True, ignore cache TTL.
+        The lock prevents concurrent verdicts from stampeding the feed.  A
+        failed refresh leaves the last known local cache untouched and returns
+        ``failed``; callers must treat that as unavailable rather than inventing
+        a positive match or confidence boost.
         """
-        if not force and time.time() - self._last_refresh < CACHE_TTL_SECONDS:
+        now = time.time()
+        if not force and now - self._last_refresh < CACHE_TTL_SECONDS:
             return {"action": "skipped", "reason": "cache fresh", "count": len(self._vulns)}
 
-        try:
-            with _open_cisa_feed(CISA_KEV_URL) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+        with self._refresh_lock:
+            # Re-check after waiting: another caller may have refreshed it.
+            now = time.time()
+            if not force and now - self._last_refresh < CACHE_TTL_SECONDS:
+                return {"action": "skipped", "reason": "cache fresh", "count": len(self._vulns)}
+            if (
+                not force
+                and self._last_failure
+                and now - self._last_failure < _configured_failure_retry_seconds()
+            ):
+                return {"action": "failed", "error": "retry_backoff"}
+            try:
+                with _open_cisa_feed(CISA_KEV_URL) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                vulns = data.get("vulnerabilities", [])
+                if not isinstance(vulns, list):
+                    raise ValueError("invalid CISA KEV vulnerabilities payload")
+                refreshed_at = time.time()
+                new_vulns = {
+                    str(v.get("cveID", "")).upper(): v
+                    for v in vulns
+                    if isinstance(v, dict) and v.get("cveID")
+                }
+                self._vulns = new_vulns
+                self._last_refresh = refreshed_at
+                self._last_failure = 0.0
 
-            vulns = data.get("vulnerabilities", [])
-            self._vulns = {v.get("cveID", ""): v for v in vulns}
-            self._last_refresh = time.time()
-
-            # Save cache
-            self.cache_file.write_text(
-                json.dumps({"timestamp": self._last_refresh, "vulnerabilities": vulns}, ensure_ascii=False),
-                encoding="utf-8",
-            )
-
-            logger.info(f"[CISA KEV] Refreshed: {len(self._vulns)} vulns")
-            return {"action": "refreshed", "count": len(self._vulns), "catalog_version": data.get("catalogVersion", "")}
-        except Exception as e:
-            logger.warning(f"[CISA KEV] Refresh failed: {e}")
-            return {"action": "failed", "error": str(e)}
+                self.cache_file.write_text(
+                    json.dumps(
+                        {"timestamp": refreshed_at, "vulnerabilities": vulns},
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+                logger.info("[CISA KEV] Refreshed: %d vulns", len(self._vulns))
+                return {
+                    "action": "refreshed",
+                    "count": len(self._vulns),
+                    "catalog_version": data.get("catalogVersion", ""),
+                }
+            except Exception as exc:
+                self._last_failure = time.time()
+                logger.warning("[CISA KEV] Refresh failed (%s): %s", type(exc).__name__, exc)
+                return {"action": "failed", "error": type(exc).__name__}
 
     def is_exploited(self, cve_id: str) -> bool:
         """Check if a CVE is in CISA KEV (actively exploited)."""
-        return cve_id.upper() in self._vulns
+        if not isinstance(cve_id, str):
+            return False
+        with self._refresh_lock:
+            return cve_id.upper() in self._vulns
 
     def get_vuln(self, cve_id: str) -> dict | None:
         """Get full record for a CVE."""
-        return self._vulns.get(cve_id.upper())
+        if not isinstance(cve_id, str):
+            return None
+        with self._refresh_lock:
+            return self._vulns.get(cve_id.upper())
 
     def get_recent(self, limit: int = 10) -> list[dict]:
         """Get most recently added vulnerabilities."""

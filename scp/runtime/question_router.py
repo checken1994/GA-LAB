@@ -379,6 +379,8 @@ class RouteStats:
         self.generation_calls_count = 0
         self.classifier_llm_calls = 0
         self.classifier_llm_failures = 0
+        self.verifier_calls = 0
+        self.verifier_failures = 0
         self.lookup_attempts = 0
         self.lookup_success = 0
         self.lookup_fail = 0
@@ -416,6 +418,15 @@ class RouteStats:
             self.generation_calls_count += 1
         _prom_inc("scp_ask_generation_calls_total")
 
+    def record_verifier_call(self, ok: bool) -> None:
+        with self._lock:
+            self.verifier_calls += 1
+            if not ok:
+                self.verifier_failures += 1
+        _prom_inc("scp_ask_verifier_calls_total")
+        if not ok:
+            _prom_inc("scp_ask_verifier_failures_total")
+
     def record_lookup_attempt(self) -> None:
         with self._lock:
             self.lookup_attempts += 1
@@ -449,8 +460,11 @@ class RouteStats:
                 # actual handler invocations and lookup_* for the data path.
                 "llm_calls_count": self.llm_calls_count,
                 "generation_calls_count": self.generation_calls_count,
+                "generation_llm_calls": self.generation_calls_count,
                 "classifier_llm_calls": self.classifier_llm_calls,
                 "classifier_llm_failures": self.classifier_llm_failures,
+                "verifier_calls": self.verifier_calls,
+                "verifier_failures": self.verifier_failures,
                 "lookup_attempts": self.lookup_attempts,
                 "lookup_success": self.lookup_success,
                 "lookup_fail": self.lookup_fail,
@@ -499,13 +513,13 @@ def route_stats_snapshot() -> dict[str, Any]:
 
 
 def record_generation_call() -> None:
-    """Record an actual generation-handler invocation.
-
-    This is deliberately separate from ``record_llm_call``: the latter is a
-    legacy fallback-selection counter, while this counter is emitted at the
-    adapter boundary immediately before the generation handler is called.
-    """
+    """Record an actual generation-handler invocation."""
     _stats.record_generation_call()
+
+
+def record_verifier_call(ok: bool) -> None:
+    """Record an observed verifier invocation and outcome."""
+    _stats.record_verifier_call(ok=ok)
 
 
 # ---------------------------------------------------------------------------
@@ -545,11 +559,24 @@ _KNOWLEDGE_DOMAINS = frozenset(
 )
 
 
-def _catalog_candidates(terms: list[str]) -> tuple[list[dict[str, Any]], str]:
-    """Progressive FreeAPICatalog.search — trả (entries, query_used).
+def _catalog_entry_is_auth_free(entry: Any) -> bool:
+    """Return True only for an explicitly keyless catalog entry.
 
-    (1) toàn bộ terms + auth='No'; (2) toàn bộ terms; (3) term đầu + auth='No'.
-    Catalog lỗi/empty → ([], '').
+    Missing/unknown auth metadata is intentionally unsafe here.  The owner
+    directive is data-API-first *without hidden credential acquisition*; an
+    entry that might require a key must never reach the transport path.
+    """
+    return str((entry or {}).get("auth", "")).strip().lower() == "no"
+
+
+def _catalog_candidates(terms: list[str]) -> tuple[list[dict[str, Any]], str]:
+    """Search only the catalog's explicitly ``auth=No`` entries.
+
+    The previous progressive fallback used ``auth=None`` after the keyless
+    search.  That made an auth-required API look selectable and allowed the
+    generic fetcher to call it without a credential.  Every query now remains
+    constrained to ``auth=No`` and results are filtered again at this boundary
+    because test doubles/alternate catalog implementations may ignore filters.
     """
     if not terms:
         return [], ""
@@ -557,16 +584,23 @@ def _catalog_candidates(terms: list[str]) -> tuple[list[dict[str, Any]], str]:
         from scp.data_sources.free_api_catalog import get_catalog
 
         catalog = get_catalog()
-        for query, auth in (
-            (" ".join(terms), "No"),
-            (" ".join(terms), None),
-            (terms[0], "No"),
-        ):
-            entries = catalog.search(query=query, auth=auth, limit=10)
-            if entries:
-                return list(entries), f"{query}|auth={auth or 'any'}"
+        saw_auth_required = False
+        for query in (" ".join(terms), terms[0]):
+            entries = list(catalog.search(query=query, auth="No", limit=10) or [])
+            safe_entries = []
+            for entry in entries:
+                if _catalog_entry_is_auth_free(entry):
+                    safe_entries.append(entry)
+                else:
+                    saw_auth_required = True
+            if safe_entries:
+                return safe_entries, f"{query}|auth=No"
+        if saw_auth_required:
+            _stats.record_fallback("auth_required_catalog_entry_skipped")
+            logger.info("[S24] skipped auth-required catalog entries; no safe auth=No match")
     except Exception as exc:
         logger.warning("[S24] catalog search failed (%s: %s)", type(exc).__name__, exc)
+        _stats.record_fallback(f"catalog_search_error:{type(exc).__name__}")
         return [], ""
     return [], ""
 
@@ -918,6 +952,7 @@ __all__ = [
     "route_question_async",
     "route_stats_snapshot",
     "record_generation_call",
+    "record_verifier_call",
     "lookup_timeout_seconds",
     "t2_fork_enabled",
     "t2_min_confidence",

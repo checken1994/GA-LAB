@@ -9,8 +9,9 @@ import sqlite3
 import threading
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from scp.core.verifier_receipt import VerifierReceipt, sign_verifier_receipt
 
@@ -198,7 +199,7 @@ class AskKernelAdapter:
         """
         input_hash = cls.canonical_input_hash(question, contexts, retrieved_context)
         scope = request_id or session_id or ""
-        return "ask-" + hashlib.sha256(f"{scope}|{input_hash}".encode("utf-8")).hexdigest()[:24]
+        return "ask-" + hashlib.sha256(f"{scope}|{input_hash}".encode()).hexdigest()[:24]
 
     def _task_id(
         self,
@@ -371,19 +372,31 @@ class AskKernelAdapter:
                 ctx_text = " ".join(contexts).lower()
                 overlap = sum(1 for w in ans_words if w in ctx_text)
                 grounded_ratio = overlap / len(ans_words)
-            
+
         # --- Wire RealityJudge into production (Q1: A) ---
         # [ROOT FIX] Real LLM Semantic Judge is used. Context is passed to judge factual grounding.
         try:
             from scp.runtime.judge import RealityJudge
             judge = RealityJudge()
             judge_res = await judge.judge_async(
-                question=str(getattr(req, "question", "")), 
-                ai_answer=answer, 
+                question=str(getattr(req, "question", "")),
+                ai_answer=answer,
                 context=" ".join(contexts)
             )
+            try:
+                from scp.runtime.question_router import record_verifier_call
+
+                record_verifier_call(ok=True)
+            except Exception as exc:
+                logger.debug("[KPI] verifier outcome counter unavailable: %s", exc)
             judge_pass = (judge_res["verdict"] == "PASS")
         except Exception:
+            try:
+                from scp.runtime.question_router import record_verifier_call
+
+                record_verifier_call(ok=False)
+            except Exception as exc:
+                logger.debug("[KPI] verifier failure counter unavailable: %s", exc)
             logger.warning('AskKernelAdapter.verify_response: Exception not handled', exc_info=True)
             judge_pass = False
 

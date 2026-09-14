@@ -417,6 +417,42 @@ async def test_resolve_lookup_data_uses_catalog_entry(monkeypatch):
     assert snap["lookup_fetch_ok"] >= 1
 
 
+async def test_resolve_lookup_data_skips_auth_required_entry(monkeypatch):
+    """Catalog search must not fetch a candidate that needs credentials."""
+    from scp.runtime import question_router as qr
+
+    calls = []
+
+    class UnsafeCatalog:
+        def search(self, query="", category=None, auth=None, limit=25):
+            calls.append((query, auth))
+            return [{
+                "name": "CredentialAPI",
+                "url": LOOPBACK_BASE + "/private",
+                "description": "capital data",
+                "auth": "apiKey",
+                "category": "Geocoding",
+            }]
+
+    import scp.data_sources.free_api_catalog as cat_mod
+
+    monkeypatch.setattr(cat_mod, "get_catalog", lambda data_dir="data": UnsafeCatalog())
+    monkeypatch.setattr(qr, "_wiki_lookup", lambda question, terms: None)
+    monkeypatch.setattr(
+        qr,
+        "_fetch_url_text",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("auth-required catalog entry must not be fetched")
+        ),
+    )
+
+    result = qr.resolve_lookup_data("What is the capital of France?", domain="finance")
+    assert result is None
+    assert calls and all(auth == "No" for _, auth in calls)
+    snap = qr.route_stats_snapshot()
+    assert snap["fallback_reasons"]["auth_required_catalog_entry_skipped"] >= 1
+
+
 async def test_resolve_lookup_data_blocked_host_falls_back(monkeypatch):
     from scp.runtime import question_router as qr
 
@@ -477,6 +513,9 @@ async def test_resolve_lookup_data_wiki_provider_for_knowledge_domain(monkeypatc
 # (c) Provenance/evidence — cùng verification path
 # ---------------------------------------------------------------------------
 async def test_verify_response_includes_fork_evidence_and_verifies(judge_gate):
+    from scp.runtime import question_router as qr
+
+    before = qr.route_stats_snapshot()
     adapter = AskKernelAdapter(db_path=":memory:", trace_path="/tmp")
     req = ForkReq()
     fork_response = {
@@ -497,6 +536,8 @@ async def test_verify_response_includes_fork_evidence_and_verifies(judge_gate):
     assert result["grounded_ratio"] > 0.5
     assert result["checked"]["provenance_compatible"] is True
     assert result["checked"]["rag_evidence_bound"] is True
+    after = qr.route_stats_snapshot()
+    assert after["verifier_calls"] == before["verifier_calls"] + 1
 
 
 async def test_fork_answer_with_failing_judge_is_withheld(judge_gate):

@@ -224,6 +224,22 @@ def test_t2_min_confidence_parse_failsafe(monkeypatch):
 # ---------------------------------------------------------------------------
 # (f) KPI counters
 # ---------------------------------------------------------------------------
+def test_kpi_counters_separate_generation_classifier_and_verifier():
+    from scp.runtime.question_router import _stats
+
+    before = route_stats_snapshot()
+    _stats.record_generation_call()
+    _stats.record_classifier_llm(ok=True)
+    _stats.record_verifier_call(ok=False)
+    after = route_stats_snapshot()
+    assert after["generation_llm_calls"] == before["generation_llm_calls"] + 1
+    assert after["generation_calls_count"] == before["generation_calls_count"] + 1
+    assert after["classifier_llm_calls"] == before["classifier_llm_calls"] + 1
+    assert after["verifier_calls"] == before["verifier_calls"] + 1
+    assert after["verifier_failures"] == before["verifier_failures"] + 1
+    assert "total_outbound_llm_calls" not in after
+
+
 def test_kpi_counters_count_real_deltas():
     before = route_stats_snapshot()
     decision = RouteDecision(LOOKUP, "geography", 0.75, "l0-keyword", "test")
