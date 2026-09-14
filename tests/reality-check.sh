@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
-PYTHON_BIN="${SCP_PYTHON_BIN:-python3}"
+if [ -n "${SCP_PYTHON_BIN:-}" ]; then
+  PYTHON_BIN="$SCP_PYTHON_BIN"
+elif command -v python3 >/dev/null 2>&1 && python3 -c 'import sys' >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+else
+  # Windows Git Bash may expose a non-runnable WindowsApps python3 shim;
+  # fall back to the installed `python` command instead of misclassifying
+  # every Phase 2 reality test as a failure.
+  PYTHON_BIN="python"
+fi
 REALITY_TEST_TIMEOUT_SECONDS="${SCP_REALITY_TEST_TIMEOUT_SECONDS:-90}"
 export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 # ============================================================
@@ -238,8 +247,22 @@ echo ""
 echo "▶ PHASE 2 — Static source assertions"
 echo ""
 
-assert_not_in_code "4-b-002" "$SCP_DIR/runtime/judge_parts/judgecore_mixin.py" 'ground_truth\[_slm_name\] = _slm_resp.get' \
-  "4-b-002: SLM answer no longer added to ground_truth (self-verify removed)"
+# S26 replaced the dead JudgeCoreMixin tree with the canonical RealityJudge.
+if [ -e "$SCP_DIR/runtime/judge_parts" ]; then
+  echo -e "  ${RED}✗ 4-b-002a${NC} deleted judge_parts tree still exists"
+  FAIL=$((FAIL + 1))
+else
+  echo -e "  ${GREEN}✓ 4-b-002a${NC} deleted judge_parts tree is absent"
+  PASS=$((PASS + 1))
+fi
+assert_contains "4-b-002b" "$SCP_DIR/runtime/judge.py" "class RealityJudge" \
+  "4-b-002: canonical RealityJudge path is present"
+assert_contains "4-b-002c" "$SCP_DIR/runtime/judge.py" "IndependentVerifier" \
+  "4-b-002: canonical judge owns the independent verifier"
+assert_not_in_code "4-b-002d" "$SCP_DIR/runtime/judge.py" "JudgeCoreMixin" \
+  "4-b-002: canonical judge no longer references deleted JudgeCoreMixin"
+assert_not_in_code "4-b-002e" "$SCP_DIR/runtime/judge.py" 'ground_truth\[_slm_name\]' \
+  "4-b-002: deleted SLM self-ground-truth assignment stays absent"
 assert_contains "4-b-003" "$SCP_DIR/meta/external_trust.py" "HUMAN_APPROVED_BY" \
   "4-b-003: strict line-1 HUMAN_APPROVED_BY marker (not substring)"
 assert_not_in_code "4-b-004" "$SCP_DIR/meta/policy_applier.py" 'threshold_adjustment"\]?\s*=\s*-0\.' \
