@@ -39,10 +39,14 @@ Kill switch: SCP_T2_ROUTER=0 tắt toàn bộ fork (trở lại hành vi cũ).
 """
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import logging
+import math
 import os
 import re
+import threading
 import time
 import urllib.parse
 import uuid
@@ -55,6 +59,26 @@ LOOKUP = "LOOKUP"
 REASONING = "REASONING"
 
 DEFAULT_MIN_CONFIDENCE = 0.6
+DEFAULT_LOOKUP_TIMEOUT_SECONDS = 8.0
+MAX_LOOKUP_TIMEOUT_SECONDS = 30.0
+
+
+def lookup_timeout_seconds() -> float:
+    """Return the bounded total LOOKUP-fork budget in seconds.
+
+    The data path is synchronous internally, so the async fork must put a
+    finite ceiling around the *whole* catalog/fetch/provider cascade. Invalid,
+    non-finite, non-positive, or unreasonably large values fail closed to the
+    conservative default instead of allowing an unbounded lease hold.
+    """
+    raw = os.environ.get("SCP_LOOKUP_TIMEOUT_SECONDS", "").strip()
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_LOOKUP_TIMEOUT_SECONDS
+    if not math.isfinite(value) or value <= 0 or value > MAX_LOOKUP_TIMEOUT_SECONDS:
+        return DEFAULT_LOOKUP_TIMEOUT_SECONDS
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -233,10 +257,13 @@ _L2_SYSTEM_PROMPT = (
 
 
 def classify_l2(question: str, gateway: Any = None) -> RouteDecision:
-    """L2 zero-shot qua LLMGateway (SYNC gateway — test/hermetic injection).
+    """L2 zero-shot qua synchronous ``LLMGateway.chat_sync``.
 
-    Production dùng classify_l2_async (LLMGateway.chat là async).
-    Parse fail-safe → REASONING/general.
+    ``LLMGateway.chat`` is async in production.  Calling it from this sync
+    entrypoint would only create an un-awaited coroutine and could classify the
+    coroutine repr rather than the model response.  The sync contract therefore
+    requires ``chat_sync``; a gateway exposing only async ``chat`` fails closed
+    without invoking it.  Production /ask uses :func:`classify_l2_async`.
     """
     domain = _domain_hint(question)
     try:
@@ -244,12 +271,30 @@ def classify_l2(question: str, gateway: Any = None) -> RouteDecision:
             from scp.llm_gateway import get_gateway
 
             gateway = get_gateway()
-        answer, provider = gateway.chat(
+        chat_sync = getattr(gateway, "chat_sync", None)
+        if not callable(chat_sync):
+            raise TypeError(
+                "sync L2 classifier requires gateway.chat_sync; "
+                "use classify_l2_async for an async gateway"
+            )
+        result = chat_sync(
             (question or "")[:500],
             context="",
             system_prompt=_L2_SYSTEM_PROMPT,
             task="route",
         )
+        if inspect.isawaitable(result):
+            close = getattr(result, "close", None)
+            if callable(close):
+                close()
+            raise TypeError("gateway.chat_sync returned an awaitable")
+        answer, provider = result
+        if inspect.isawaitable(answer) or inspect.isawaitable(provider):
+            for value in (answer, provider):
+                close = getattr(value, "close", None)
+                if inspect.isawaitable(value) and callable(close):
+                    close()
+            raise TypeError("gateway.chat_sync returned an awaitable")
     except Exception as exc:
         return _l2_failsafe(question, domain, exc)
     _stats.record_classifier_llm(ok=bool(answer))
@@ -279,7 +324,8 @@ async def classify_l2_async(question: str, gateway: Any = None) -> RouteDecision
 def _l2_failsafe(question: str, domain: str, exc: Exception) -> RouteDecision:
     logger.warning("[S24] L2 classifier LLM call failed (%s: %s)", type(exc).__name__, exc)
     _stats.record_classifier_llm(ok=False)
-    return RouteDecision(REASONING, domain or "general", 0.5, "l2-failsafe", "llm_error")
+    reason = "sync_contract_error" if isinstance(exc, TypeError) and "chat_sync" in str(exc) else "llm_error"
+    return RouteDecision(REASONING, domain or "general", 0.5, "l2-failsafe", reason)
 
 
 def _parse_l2_answer(answer_text: str, provider: Any, domain: str) -> RouteDecision:
@@ -319,62 +365,107 @@ async def route_question_async(question: str, gateway: Any = None) -> RouteDecis
 # KPI counters — in-memory + prometheus. Expose qua /v100/routing/stats.
 # ---------------------------------------------------------------------------
 class RouteStats:
-    """Thread-unsafe-by-design counter snapshot (đọc qua admin route)."""
+    """Thread-safe counter snapshot (đọc qua admin route)."""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self.route_counts: dict[str, int] = {}
         self.fallback_reasons: dict[str, int] = {}
         self.llm_bypassed_count = 0
+        # Legacy counter: number of LOOKUP decisions that selected the
+        # generation fallback path.  ``generation_calls_count`` below records
+        # the actual handler invocation at the adapter boundary.
         self.llm_calls_count = 0
+        self.generation_calls_count = 0
         self.classifier_llm_calls = 0
         self.classifier_llm_failures = 0
+        self.lookup_attempts = 0
+        self.lookup_success = 0
+        self.lookup_fail = 0
+        # Per-transport counters are intentionally kept separate: one lookup
+        # can inspect multiple catalog entries before the overall result fails.
         self.lookup_fetch_ok = 0
         self.lookup_fetch_fail = 0
+        self.lookup_timeout_count = 0
 
     def record_route(self, decision: RouteDecision) -> None:
         key = f"{decision.via}:{decision.intent}"
-        self.route_counts[key] = self.route_counts.get(key, 0) + 1
+        with self._lock:
+            self.route_counts[key] = self.route_counts.get(key, 0) + 1
         _prom_inc("scp_ask_route_decisions_total", {"via": decision.via, "intent": decision.intent})
 
     def record_classifier_llm(self, ok: bool) -> None:
-        self.classifier_llm_calls += 1
-        if not ok:
-            self.classifier_llm_failures += 1
+        with self._lock:
+            self.classifier_llm_calls += 1
+            if not ok:
+                self.classifier_llm_failures += 1
 
     def record_bypass(self) -> None:
-        self.llm_bypassed_count += 1
+        with self._lock:
+            self.llm_bypassed_count += 1
         _prom_inc("scp_ask_llm_bypassed_total")
 
     def record_llm_call(self) -> None:
-        self.llm_calls_count += 1
+        # Kept as the existing fallback-path KPI for compatibility.
+        with self._lock:
+            self.llm_calls_count += 1
         _prom_inc("scp_ask_llm_calls_total")
+
+    def record_generation_call(self) -> None:
+        with self._lock:
+            self.generation_calls_count += 1
+        _prom_inc("scp_ask_generation_calls_total")
+
+    def record_lookup_attempt(self) -> None:
+        with self._lock:
+            self.lookup_attempts += 1
+
+    def record_lookup_result(self, ok: bool, *, timed_out: bool = False) -> None:
+        with self._lock:
+            if ok:
+                self.lookup_success += 1
+            else:
+                self.lookup_fail += 1
+            if timed_out:
+                self.lookup_timeout_count += 1
 
     def record_fallback(self, reason: str) -> None:
         key = str(reason)[:80]
-        self.fallback_reasons[key] = self.fallback_reasons.get(key, 0) + 1
+        with self._lock:
+            self.fallback_reasons[key] = self.fallback_reasons.get(key, 0) + 1
 
     def record_fetch(self, ok: bool) -> None:
-        if ok:
-            self.lookup_fetch_ok += 1
-        else:
-            self.lookup_fetch_fail += 1
+        with self._lock:
+            if ok:
+                self.lookup_fetch_ok += 1
+            else:
+                self.lookup_fetch_fail += 1
 
     def snapshot(self) -> dict[str, Any]:
-        return {
-            "llm_bypassed_count": self.llm_bypassed_count,
-            "llm_calls_count": self.llm_calls_count,
-            "classifier_llm_calls": self.classifier_llm_calls,
-            "classifier_llm_failures": self.classifier_llm_failures,
-            "lookup_fetch_ok": self.lookup_fetch_ok,
-            "lookup_fetch_fail": self.lookup_fetch_fail,
-            "route_counts": dict(self.route_counts),
-            "fallback_reasons": dict(self.fallback_reasons),
-            "bypass_ratio": round(
-                self.llm_bypassed_count
-                / max(1, self.llm_bypassed_count + self.llm_calls_count),
-                4,
-            ),
-        }
+        with self._lock:
+            snapshot = {
+                "llm_bypassed_count": self.llm_bypassed_count,
+                # Legacy fallback-path counter.  Use generation_calls_count for
+                # actual handler invocations and lookup_* for the data path.
+                "llm_calls_count": self.llm_calls_count,
+                "generation_calls_count": self.generation_calls_count,
+                "classifier_llm_calls": self.classifier_llm_calls,
+                "classifier_llm_failures": self.classifier_llm_failures,
+                "lookup_attempts": self.lookup_attempts,
+                "lookup_success": self.lookup_success,
+                "lookup_fail": self.lookup_fail,
+                "lookup_timeout_count": self.lookup_timeout_count,
+                "lookup_fetch_ok": self.lookup_fetch_ok,
+                "lookup_fetch_fail": self.lookup_fetch_fail,
+                "route_counts": dict(self.route_counts),
+                "fallback_reasons": dict(self.fallback_reasons),
+            }
+        snapshot["bypass_ratio"] = round(
+            snapshot["llm_bypassed_count"]
+            / max(1, snapshot["llm_bypassed_count"] + snapshot["llm_calls_count"]),
+            4,
+        )
+        return snapshot
 
 
 _stats = RouteStats()
@@ -405,6 +496,16 @@ def _prom_inc(name: str, labels: dict[str, str] | None = None) -> None:
 def route_stats_snapshot() -> dict[str, Any]:
     """Snapshot KPI cho admin stats route (seam sạch, đã auth)."""
     return _stats.snapshot()
+
+
+def record_generation_call() -> None:
+    """Record an actual generation-handler invocation.
+
+    This is deliberately separate from ``record_llm_call``: the latter is a
+    legacy fallback-selection counter, while this counter is emitted at the
+    adapter boundary immediately before the generation handler is called.
+    """
+    _stats.record_generation_call()
 
 
 # ---------------------------------------------------------------------------
@@ -554,8 +655,13 @@ def _generic_entry_lookup(entries: list[dict[str, Any]], terms: list[str]) -> di
     for entry in entries:
         url = str(entry.get("url") or "").strip()
         name = str(entry.get("name") or "unknown")
-        if not url.lower().startswith("https://"):
+        try:
+            parsed = urllib.parse.urlsplit(url)
+        except ValueError:
+            parsed = None
+        if parsed is None or parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
             _stats.record_fetch(ok=False)
+            _stats.record_fallback(f"invalid_url:{name[:40]}")
             continue
         if not _host_allowed(url):
             _stats.record_fetch(ok=False)
@@ -707,8 +813,45 @@ async def attempt_lookup_fork(req: Any) -> dict[str, Any] | None:
         return None
 
     started = time.time()
-    data = resolve_lookup_data(question, domain=decision.domain, decision=decision)
+    _stats.record_lookup_attempt()
+    lookup_budget = lookup_timeout_seconds()
+    try:
+        # ``resolve_lookup_data`` is intentionally synchronous because the
+        # catalog and canonical clients expose blocking APIs.  Never call it
+        # directly from this async path: one slow DNS/HTTP call would pause
+        # both the request and the S20 lease heartbeat on the event loop.
+        data = await asyncio.wait_for(
+            asyncio.to_thread(
+                resolve_lookup_data,
+                question,
+                domain=decision.domain,
+                decision=decision,
+            ),
+            timeout=lookup_budget,
+        )
+    except asyncio.TimeoutError:
+        _stats.record_lookup_result(False, timed_out=True)
+        _stats.record_fallback("lookup_timeout")
+        _stats.record_llm_call()
+        logger.warning(
+            "[S24] LOOKUP fork timed out after %.3fs (via=%s domain=%s) → LLM fallback",
+            lookup_budget, decision.via, decision.domain,
+        )
+        return None
+    except Exception as exc:
+        # The fork is an optional read path.  Any worker/transport failure is
+        # fail-closed for the lookup and falls back to the existing generation
+        # handler; the exception must not escape and break /ask.
+        _stats.record_lookup_result(False)
+        _stats.record_fallback(f"lookup_error:{type(exc).__name__}")
+        _stats.record_llm_call()
+        logger.warning(
+            "[S24] LOOKUP fork failed (%s: %s) → LLM fallback",
+            type(exc).__name__, exc,
+        )
+        return None
     if data is None:
+        _stats.record_lookup_result(False)
         _stats.record_llm_call()
         logger.info(
             "[S24] LOOKUP fork miss (via=%s domain=%s reason=%s) → LLM fallback",
@@ -716,6 +859,7 @@ async def attempt_lookup_fork(req: Any) -> dict[str, Any] | None:
         )
         return None
 
+    _stats.record_lookup_result(True)
     _stats.record_bypass()
     # Provenance suffix là PHẦN CỦA answer; evidence đưa vào verification phải
     # chứa cả suffix, nếu không Tier-1 grounding của judge REJECT vì các từ
@@ -773,6 +917,8 @@ __all__ = [
     "route_question",
     "route_question_async",
     "route_stats_snapshot",
+    "record_generation_call",
+    "lookup_timeout_seconds",
     "t2_fork_enabled",
     "t2_min_confidence",
 ]

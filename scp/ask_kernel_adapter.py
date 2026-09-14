@@ -826,6 +826,14 @@ class AskKernelAdapter:
             if fork_response is not None:
                 response = fork_response
             else:
+                # KPI boundary: this is the actual generation-handler call,
+                # distinct from classifier calls and lookup fallback intent.
+                try:
+                    from scp.runtime.question_router import record_generation_call
+
+                    record_generation_call()
+                except Exception as exc:
+                    logger.debug("[S24] generation KPI unavailable: %s", exc)
                 response = await handler(req, request)
             result = await self.finalize(task, response, req)
             return result["safe_response"]
