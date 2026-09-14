@@ -69,12 +69,28 @@ REQUEST_COUNT = Counter("scp_request_count", "Total SCP Requests", ["method", "e
 REQUEST_LATENCY = Histogram("scp_request_latency_seconds", "Request latency", ["endpoint"])
 
 _CACHED_COMMIT: str | None = None
+_CACHED_COMMIT_SOURCE: str | None = None
 _CACHED_CONFIG_HASH: str | None = None
+
+
+def _is_exact_git_sha(value: str) -> bool:
+    import re as _re
+
+    return bool(_re.fullmatch(r"[0-9a-fA-F]{40}", value.strip()))
+
+
+def _identity_requires_exact_sha() -> bool:
+    """Release/production profiles must expose a verifiable source identity."""
+    production = os.environ.get("SCP_PRODUCTION_MODE", "").strip().lower()
+    profile = os.environ.get("SCP_RELEASE_PROFILE", "").strip().lower()
+    return production in {"1", "true", "yes", "on"} or profile in {
+        "1", "true", "yes", "on", "release", "production"
+    }
 
 
 def _scp_service_identity() -> dict:
     """Expose bounded runtime identity for local service/port verification."""
-    global _CACHED_COMMIT, _CACHED_CONFIG_HASH
+    global _CACHED_COMMIT, _CACHED_COMMIT_SOURCE, _CACHED_CONFIG_HASH
     import hashlib as _hashlib
     import subprocess as _subprocess
     from pathlib import Path as _Path
@@ -110,13 +126,14 @@ def _scp_service_identity() -> dict:
     _mode = os.environ.get("SCP_MODE")
     if not _mode:
         _mode = "production" if _port == 8000 else "test" if _port == 8001 else "unknown"
-    if _CACHED_COMMIT is None:
+    _current_env_sha = os.environ.get("SCP_GIT_SHA", "").strip()
+    if _CACHED_COMMIT is None or _CACHED_COMMIT_SOURCE != _current_env_sha:
         # [MACH1-FIX-6] Docker images have no .git — prefer the build-time
         # SCP_GIT_SHA ARG (baked into the image ENV) so the running container
         # can bind its runtime evidence to the exact source SHA.
         _env_sha = os.environ.get("SCP_GIT_SHA", "").strip()
-        if _env_sha and _env_sha != "unknown":
-            _commit = _env_sha
+        if _is_exact_git_sha(_env_sha):
+            _commit = _env_sha.lower()
         else:
             try:
                 _creationflags = getattr(_subprocess, "CREATE_NO_WINDOW", 0) if _sys.platform == "win32" else 0
@@ -128,9 +145,12 @@ def _scp_service_identity() -> dict:
                     creationflags=_creationflags,
                 ).strip()
             except Exception:
-                logger.warning('_scp_service_identity: Exception not handled', exc_info=True)
+                logger.warning('_scp_service_identity: source SHA unavailable', exc_info=True)
+                _commit = "unknown"
+            if not _is_exact_git_sha(_commit):
                 _commit = "unknown"
         _CACHED_COMMIT = _commit or "unknown"
+        _CACHED_COMMIT_SOURCE = _current_env_sha
     if _CACHED_CONFIG_HASH is None:
         _env_path = _Path(os.environ.get("SCP_ENV_FILE", _Path(__file__).resolve().parent.parent / ".env"))
         _config_hash = os.environ.get("SCP_CONFIG_HASH")
@@ -553,9 +573,19 @@ async def dashboard():
 
 @app.get("/health")
 async def health():
+    identity = _scp_service_identity()
+    if _identity_requires_exact_sha() and not _is_exact_git_sha(identity.get("commit", "")):
+        return JSONResponse(
+            {
+                "status": "unavailable",
+                "service_identity": identity,
+                "reason": "source_identity_unavailable",
+            },
+            status_code=503,
+        )
     return {
         "status": "ok",
-        "service_identity": _scp_service_identity(),
+        "service_identity": identity,
         "version": _SCP_VERSION,
         "release": public_release_metadata(),
         "routes": len(app.routes),
@@ -620,17 +650,25 @@ async def health_detailed():
 async def readiness():
     judge_ready = bool(getattr(app.state, "judge_ready", False))
     scheduler_started = bool(getattr(app.state, "background_scheduler_started", False))
+    scheduler_status = getattr(app.state, "background_scheduler_status", "unknown")
+    identity = _scp_service_identity()
+    identity_ready = not _identity_requires_exact_sha() or _is_exact_git_sha(identity.get("commit", ""))
+    # Readiness must require both the judge and the real background registry.
+    # A missing/failed legacy scheduler cannot be reported as ready. Production
+    # and release profiles also require a verifiable source identity.
+    is_ready = judge_ready and scheduler_started and identity_ready
     payload = {
-        "status": "ready" if judge_ready else "initializing",
+        "status": "ready" if is_ready else "initializing",
         "service": "scp-api",
         "version": _SCP_VERSION,
         "checks": {
             "judge": "ok" if judge_ready else "pending",
-            "background_scheduler": "ok" if scheduler_started else "pending",
+            "background_scheduler": "ok" if scheduler_started else scheduler_status,
+            "source_identity": "ok" if identity_ready else "unavailable",
         },
         "reason": getattr(app.state, "readiness_reason", None),
     }
-    return JSONResponse(payload, status_code=200 if judge_ready else 503)
+    return JSONResponse(payload, status_code=200 if is_ready else 503)
 
 
 @app.get("/")

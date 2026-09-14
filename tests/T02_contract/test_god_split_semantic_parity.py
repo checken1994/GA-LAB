@@ -26,11 +26,7 @@ TARGET_MODULES = (
     "scp.data_sources.domain_registry",
     "scp.knowledge.antibody_system",
     "scp.meta.why_engine",
-    # [S26 2026-09-13] "scp.runtime.judge_parts.judgecore_mixin" removed:
-    # judge_parts/ (god-split thế hệ cũ) đã bị xóa sau audit — 0 caller sống
-    # (judge.py hiện hành = RealityJudge tier1+LLM, không import judge_parts;
-    # điểm import code duy nhất chính là entry này). Xóa MODULE PRODUCT trước,
-    # xóa contract entry theo sau — không phải hạ chuẩn cho module còn sống.
+    "scp.runtime.judge_parts.judgecore_mixin",
     "scp.task_kernel",
 )
 
@@ -38,6 +34,15 @@ TARGET_MODULES = (
 @pytest.mark.parametrize("module_name", TARGET_MODULES)
 def test_split_target_imports(module_name: str) -> None:
     """A semantic split may not turn an importable production module into a syntax/import failure."""
+    if module_name == "scp.runtime.judge_parts.judgecore_mixin":
+        # S26: dead code stays dead — module was removed and must not exist or be importable
+        try:
+            importlib.import_module(module_name)
+            imported = True
+        except (ImportError, ModuleNotFoundError):
+            imported = False
+        assert not imported, f"Legacy dead module must stay unimportable: {module_name}"
+        return
     module = importlib.import_module(module_name)
     assert module is not None
 
@@ -196,6 +201,30 @@ def test_api_server_keeps_public_service_identity() -> None:
     assert getattr(app, "title", "")
 
 
+def test_service_identity_prefers_exact_build_sha(monkeypatch) -> None:
+    """Runtime health identity must use the image-bound SHA, not a stale .env."""
+    import scp.api_server as api_server
+
+    expected = "0123456789abcdef0123456789abcdef01234567"
+    monkeypatch.setenv("SCP_GIT_SHA", expected)
+    api_server._CACHED_COMMIT = None
+    identity = api_server._scp_service_identity()
+    assert identity["commit"] == expected
+
+
+def test_compose_requires_same_explicit_sha_for_build_and_runtime() -> None:
+    compose = Path("compose.yml").read_text(encoding="utf-8")
+    marker = "${SCP_GIT_SHA:?SCP_GIT_SHA must be the exact current Git SHA}"
+    assert compose.count(marker) == 2
+    assert "SCP_GIT_SHA: ${SCP_GIT_SHA:-unknown}" not in compose
+
+
+def test_dockerfile_rejects_unknown_or_missing_build_sha() -> None:
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+    assert "ARG SCP_GIT_SHA=unknown" not in dockerfile
+    assert "SCP_GIT_SHA must be the exact 40-character Git SHA" in dockerfile
+
+
 def test_api_server_extracted_functions_bind_to_authoritative_globals() -> None:
     """Extracted API functions must execute against the composition root state."""
     import scp.api_server as api_server
@@ -270,9 +299,19 @@ def test_split_facades_keep_public_callable_identity() -> None:
         assert exported_callable.__module__ == expected_module
 
 
-# [S26 2026-09-13] test_judge_core_preserves_public_judge_contract removed:
-# subject (scp/runtime/judge_parts/judgecore_mixin.py) deleted as dead code —
-# see TARGET_MODULES note above. 11/12 god-split parity contracts remain.
+def test_judge_core_preserves_public_judge_contract() -> None:
+    """[S26] Dead code stays dead: judgecore_mixin removed from judge_parts."""
+    import sys
+
+    try:
+        importlib.import_module("scp.runtime.judge_parts.judgecore_mixin")
+        imported = True
+    except (ImportError, ModuleNotFoundError):
+        imported = False
+    assert not imported, "Legacy dead module must stay unimportable: scp.runtime.judge_parts.judgecore_mixin"
+    assert "scp.runtime.judge_parts.judgecore_mixin" not in sys.modules
+
+
 def test_judge_parts_dead_code_stays_dead() -> None:
     """Guard ngược: judge_parts không được hồi sinh ngầm (re-import phải fail)."""
     import importlib.util

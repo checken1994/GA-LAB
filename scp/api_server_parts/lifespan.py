@@ -50,7 +50,6 @@ logger = logging.getLogger("scp.api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _background_task
     logger.info('=' * 60)
     logger.info(f'{RELEASE_LABEL} API Server starting...')
     logger.info('=' * 60)
@@ -88,20 +87,13 @@ async def lifespan(app: FastAPI):
     import threading as _threading_r20
 
     def _init_judge_background_r20():
-        """Init judge in background │Ă¢â€\x9aÂ¬Ă¢â‚¬Â\x9d /ask returns 503 until ready, /health returns 200.
+        """Initialize the judge without claiming a legacy scheduler exists.
 
-        [SCP-DNA-FIX 4-a-001] TÄ‚Â¡Ă‚ÂºĂ‚Â\xa0I SAO: previously this thread function did
-        two things that both failed silently:
-          1. `asyncio.create_task(judge.schedule_background_jobs())` raised
-             `RuntimeError: no running event loop` (thread is not async) →
-             swallowed by `except Exception` → background scheduler never ran.
-          2. `judge` was a LOCAL variable, never propagated back to module
-             scope → the post-yield block referenced `judge` → NameError →
-             swallowed → scheduler never ran from there either.
-        Reality (DNA #26): ThreatSimulator (6h) + IntelCrawler (12h) NEVER ran.
-        Fix: (a) remove the broken in-thread create_task, (b) set the
-        module-level `_judge` so the lifespan post-yield block (which runs
-        inside the running event loop) can schedule the job correctly.
+        RealityJudge is the canonical judge implementation and does not expose
+        the removed ThreatSimulator/IntelCrawler scheduler hook.  The real
+        background scheduler contract is the BackgroundJobRegistry started
+        later in this lifespan; judge initialization only controls the judge
+        readiness check.
         """
         global _judge
         try:
@@ -109,7 +101,8 @@ async def lifespan(app: FastAPI):
             _judge = judge
             app.state.judge_ready = True
             app.state.startup_status = 'ready'
-            app.state.readiness_reason = None
+            if getattr(app.state, 'background_scheduler_started', False):
+                app.state.readiness_reason = None
             logger.info(f"[R20-ROOT-FIX-REAL] Judge ready: {len(getattr(judge, 'domain_experts', []))} SLMs")
             logger.info(f'[R20-ROOT-FIX-REAL] V98 status: {judge.get_v98_status()}')
         except Exception as e:
@@ -129,32 +122,13 @@ async def lifespan(app: FastAPI):
     _judge_launch_task = asyncio.create_task(_launch_judge_deferred())
     logger.info('[R20-ROOT-FIX-REAL] Judge init dispatched to background thread')
     logger.info('[R20-ROOT-FIX-REAL] Yielding NOW │Ă¢â€\x9aÂ¬Ă¢â‚¬Â\x9d port 8000 binds immediately')
+    # Readiness is owned by the real BackgroundJobRegistry below; do not
+    # create a task for the removed RealityJudge scheduler hook or mark it
+    # started merely because asyncio.create_task() returned.
     app.state.background_scheduler_started = False
-
-    async def _start_background_scheduler():
-        try:
-            for _ in range(60):
-                if _judge is not None:
-                    break
-                await asyncio.sleep(0.5)
-            if _judge is not None:
-                global _background_task
-
-                def _run_scheduler_offloop():
-                    asyncio.run(_judge.schedule_background_jobs())
-                _background_task = asyncio.create_task(asyncio.to_thread(_run_scheduler_offloop))
-                app.state.background_scheduler_started = True
-                logger.info('Background scheduler started (ThreatSimulator 6h + IntelCrawler 12h)')
-            else:
-                app.state.background_scheduler_started = False
-                logger.error('[4-a-001] Background scheduler NOT started: _judge is None after 30s')
-        except asyncio.CancelledError:
-            app.state.background_scheduler_started = False
-            raise
-        except Exception as e:
-            app.state.background_scheduler_started = False
-            logger.error(f'[4-a-001] Background scheduler failed: {e}', exc_info=True)
-    _scheduler_bootstrap_task = asyncio.create_task(_start_background_scheduler())
+    app.state.background_scheduler_status = 'pending'
+    app.state.background_scheduler_error = None
+    app.state.readiness_reason = 'background_scheduler_pending'
     app.state.evolution_initialized = False
 
     async def _start_evolution_runtime():
@@ -404,11 +378,58 @@ async def lifespan(app: FastAPI):
     try:
         from scp.api.background_jobs import registry as _bg_registry
         _bg_registry.start_all()
+        _registry_status = _bg_registry.status()
+        _required_not_started = [
+            name for name, status in _registry_status.items()
+            if status.get('required') and not status.get('started')
+        ]
+        if _required_not_started:
+            raise RuntimeError(
+                'required background jobs not running: ' + ', '.join(sorted(_required_not_started))
+            )
+        app.state.background_scheduler_started = True
+        app.state.background_scheduler_status = 'running'
+        app.state.background_scheduler_error = None
+        # Judge readiness is set by the judge-init thread.  Preserve a pending
+        # or failed judge reason rather than erasing it at registry startup.
+        if getattr(app.state, 'judge_ready', False):
+            app.state.readiness_reason = None
         logger.info('[MACH1-FIX-1] Background job registry started (%d jobs: %s)', len(_bg_registry._jobs), ', '.join(sorted(_bg_registry._jobs)))
     except Exception as exc:
         # Required-job failure must abort boot — re-raise, do not swallow.
-        logger.error('[MACH1-FIX-1] Background job registry failed to start: %s', exc)
+        app.state.background_scheduler_started = False
+        app.state.background_scheduler_status = 'failed'
+        app.state.background_scheduler_error = type(exc).__name__
+        app.state.readiness_reason = 'background_scheduler_failed'
+        logger.error('[MACH1-FIX-1] Background job registry failed to start: %s', type(exc).__name__, exc_info=True)
         raise
+
+    async def _monitor_background_registry():
+        """Observe the real registry and revoke readiness on required failure."""
+        try:
+            while True:
+                await asyncio.sleep(1.0)
+                _statuses = _bg_registry.status()
+                _failed_required = [
+                    name for name, status in _statuses.items()
+                    if status.get('required') and (
+                        not status.get('started') or status.get('error_count', 0) > 0
+                    )
+                ]
+                if _failed_required:
+                    app.state.background_scheduler_started = False
+                    app.state.background_scheduler_status = 'failed'
+                    app.state.background_scheduler_error = 'required_job_failed'
+                    app.state.readiness_reason = 'background_scheduler_failed'
+                    logger.error(
+                        '[MACH1-FIX-1] Required background job failed after startup: %s',
+                        ', '.join(sorted(_failed_required)),
+                    )
+                    return
+        except asyncio.CancelledError:
+            raise
+
+    _background_registry_monitor_task = asyncio.create_task(_monitor_background_registry())
 
     # --- [S23-DISCOVERY] Free discovery scheduler — owner directive "tự động
     # tìm và cập nhật hơn 1000 API". Blueprint scp/core/free_discovery_scheduler.py
@@ -519,7 +540,7 @@ async def lifespan(app: FastAPI):
             logger.info('[S35-LIFECYCLE] model lifecycle scheduler stopped cleanly')
         except Exception as exc:
             logger.warning('[S35-LIFECYCLE] scheduler stop failed (non-fatal): %s', exc)
-    for _task in (_scheduler_bootstrap_task, _evolution_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
+    for _task in (_background_registry_monitor_task, _evolution_bootstrap_task, _startup_gate_task, _judge_launch_task):
         if _task is not None and (not _task.done()):
             _task.cancel()
     try:
