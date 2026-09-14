@@ -429,6 +429,30 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning('[S23-DISCOVERY] scheduler failed to start (non-fatal): %s', exc)
 
+    # --- [S35-LIFECYCLE] Operator-configured local model lifecycle scheduler.
+    # This is deliberately a separate scheduler so S23's free-catalog cadence
+    # and kill-switch contract remain unchanged.  No endpoint is accepted from
+    # prompts, requests, or discovery responses: create_model_lifecycle_scheduler
+    # reads only SCP_LOCAL_ENDPOINTS and re-checks egress at every HTTP call.
+    try:
+        from scp.llm_gateway.discovery import create_model_lifecycle_scheduler
+
+        _model_lifecycle = create_model_lifecycle_scheduler()
+        app.state.model_lifecycle_scheduler = _model_lifecycle
+        if _model_lifecycle is None:
+            logger.info('[S35-LIFECYCLE] not started (no operator-configured SCP_LOCAL_ENDPOINTS)')
+        else:
+            _lifecycle_task = _model_lifecycle.start()
+            if _lifecycle_task is None:
+                logger.info('[S35-LIFECYCLE] not started (kill-switch/profile policy)')
+            else:
+                logger.info('[S35-LIFECYCLE] model discovery/lifecycle scheduler wired')
+    except Exception as exc:
+        # Discovery is optional and must not turn an otherwise valid boot into
+        # a half-started process.  The scanner itself remains fail-closed.
+        app.state.model_lifecycle_scheduler = None
+        logger.warning('[S35-LIFECYCLE] scheduler failed to start (non-fatal): %s', exc)
+
     # --- [Tripwire 5 / R2] DomainKnowledgeStore baseline verification on startup ---
     try:
         from scp.knowledge.domain_store import DomainKnowledgeStore
@@ -488,6 +512,13 @@ async def lifespan(app: FastAPI):
             logger.info('[S23-DISCOVERY] FreeDiscoveryScheduler stopped cleanly')
         except Exception as exc:
             logger.warning('[S23-DISCOVERY] scheduler stop failed (non-fatal): %s', exc)
+    _model_lifecycle = getattr(app.state, 'model_lifecycle_scheduler', None)
+    if _model_lifecycle is not None:
+        try:
+            await _model_lifecycle.stop(timeout=5.0)
+            logger.info('[S35-LIFECYCLE] model lifecycle scheduler stopped cleanly')
+        except Exception as exc:
+            logger.warning('[S35-LIFECYCLE] scheduler stop failed (non-fatal): %s', exc)
     for _task in (_scheduler_bootstrap_task, _evolution_bootstrap_task, _background_task, _startup_gate_task, _judge_launch_task):
         if _task is not None and (not _task.done()):
             _task.cancel()

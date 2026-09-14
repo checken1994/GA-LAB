@@ -27,7 +27,9 @@ install_free_only_provider_router(_client.OpenRouterProvider)
 from scp.llm_gateway.discovery import (
     LocalEndpointScanner,
     ModelDiscoveryStore,
+    ModelLifecycleScheduler,
     ModelLifecycleState,
+    create_model_lifecycle_scheduler,
 )
 from scp.llm_gateway.prober import ContractProber
 
@@ -43,4 +45,6 @@ __all__ = [
     "ModelLifecycleState",
     "ModelDiscoveryStore",
     "LocalEndpointScanner",
+    "ModelLifecycleScheduler",
+    "create_model_lifecycle_scheduler",
 ]
