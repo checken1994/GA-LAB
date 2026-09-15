@@ -1006,6 +1006,108 @@ class AskKernelAdapter:
                 )
                 return
 
+    async def _attach_canonical_evidence(self, req: Any, request: Any) -> None:
+        """[F-2 2026-09-15] Wire CanonicalRetriever vào /ask (seam duy nhất).
+
+        Khi một ask KHÔNG mang bằng chứng từ client (contexts/retrieved_context
+        rỗng) mà L0 phân loại là LOOKUP, retrieve BM25 trên canonical corpus và
+        nạp vào ``req.contexts``. Mutate trên chính req để CÙNG một bằng chứng
+        đi vào cả (a) judge grounding trong handler ``_ask_impl`` (tier1
+        REJECT_GROUNDING + LLM-judge context) lẫn (b) canonical
+        ``verify_response`` bên dưới — verifier và generator chấm trên cùng
+        nguồn bằng chứng thật, không ai tự sinh bằng chứng cho mình:
+        hit được chọn theo QUESTION (BM25), không theo candidate answer.
+
+        Bất biến fail-closed (mọi nhánh lỗi đều trả về mà KHÔNG sửa req):
+          * client đã gửi contexts/retrieved_context → không retrieve (không
+            double-retrieval, evidence của client thắng);
+          * S24 fork thắng → path này không chạy (fork tự có
+            data_api_evidence), xem call site;
+          * retriever empty / mọi hit dưới min-score / lỗi / timeout →
+            hành vi y hệt trước khi nối;
+          * corpus prod absent trong checkout này → retrieve() trả [] → không
+            đổi gì (đúng vì vậy e2e không thể tăng khi chưa có corpus — đã
+            ghi nhận Q08 F-3, report F2 nêu giới hạn).
+
+        Bằng chứng có cấu trúc được stash vào ``request.state`` để
+        ``_ask_impl`` surface vào ``slm_trace`` (provenance audit được; metric
+        evidence_recall của benchmark đọc đúng field đó). Đây là TRINH BÀY lại
+        bằng chứng judge đã chấm, không phải input mới cho bất kỳ quyết định
+        nào — chống vòng lặp tự-duyệt.
+        """
+        if list(getattr(req, "contexts", None) or []) or str(
+            getattr(req, "retrieved_context", "") or ""
+        ).strip():
+            return  # client-supplied evidence wins — no auto-retrieval, no double
+        question = str(getattr(req, "question", "") or "")
+        if not question.strip():
+            return
+        try:
+            from scp.runtime.question_router import (
+                ask_retrieval_timeout_seconds,
+                attempt_canonical_retrieval,
+                format_canonical_context,
+            )
+        except Exception as exc:  # pragma: no cover - router must always import
+            logger.debug("[F-2] question_router unavailable: %s", exc)
+            return
+        budget = ask_retrieval_timeout_seconds()
+        try:
+            # BM25 là sync (cold corpus load + score); chạy trong to_thread với
+            # wait_for để không block event loop / không giữ lease vô hạn
+            # (scp-safe-latency-optimizer: đo được ~1.75ms/query fixture, nhưng
+            # corpus prod chưa đo — trần cứng 10s, quá hạn fail-closed).
+            hits = await asyncio.wait_for(
+                asyncio.to_thread(attempt_canonical_retrieval, question),
+                timeout=budget,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "[F-2] canonical auto-retrieval exceeded %.1fs — ask continues WITHOUT evidence "
+                "(fail-closed, identical to pre-wiring behavior)",
+                budget,
+            )
+            return
+        except Exception as exc:
+            logger.warning(
+                "[F-2] canonical auto-retrieval errored (%s: %s) — ask continues WITHOUT evidence",
+                type(exc).__name__, exc,
+            )
+            return
+        if not hits:
+            return
+        try:
+            req.contexts = [format_canonical_context(hit) for hit in hits]
+        except Exception as exc:
+            logger.warning(
+                "[F-2] could not attach retrieved contexts (%s: %s) — continuing without evidence",
+                type(exc).__name__, exc,
+            )
+            return
+        state = getattr(request, "state", None)
+        if state is not None:
+            try:
+                state.scp_ask_auto_evidence = [
+                    {
+                        "chunk_id": hit.get("chunk_id"),
+                        "document_id": hit.get("document_id"),
+                        "source_url": hit.get("source_url"),
+                        "source_title": hit.get("source_title"),
+                        "retrieval_score": hit.get("retrieval_score"),
+                        "term_coverage": hit.get("term_coverage"),
+                        "matched_bigrams": hit.get("matched_bigrams"),
+                        "text": hit.get("text", ""),
+                    }
+                    for hit in hits
+                ]
+            except Exception as exc:  # state marker là best-effort observability
+                logger.debug("[F-2] request.state marker unavailable: %s", exc)
+        logger.info(
+            "[F-2] LOOKUP ask auto-grounded with %d canonical chunk(s) (first=%s)",
+            len(hits),
+            str(hits[0].get("source_url") or hits[0].get("chunk_id"))[:120],
+        )
+
     async def run_rag(
         self,
         req: Any,
@@ -1055,6 +1157,16 @@ class AskKernelAdapter:
             if fork_response is not None:
                 response = fork_response
             else:
+                # [F-2 2026-09-15] LOOKUP ask thiếu-context → auto-retrieve
+                # canonical BM25 evidence vào req.contexts TRƯỚC handler, sao
+                # cho cùng bằng chứng đi vào cả grounding judge của _ask_impl
+                # lẫn canonical verify_response bên dưới. Đặt SAU fork: fork
+                # thắng đã có data_api_evidence riêng (data-API-first per S24
+                # owner directive) — không bao giờ double-retrieve; đặt SAU
+                # begin: durable identity/input_hash giữ đúng danh tính ask do
+                # client gửi lên, evidence tự nạp không đổi task id.
+                # Mọi lỗi/empty/timeout = hành vi cũ (fail-closed).
+                await self._attach_canonical_evidence(req, request)
                 # KPI boundary: this is the actual generation-handler call,
                 # distinct from classifier calls and lookup fallback intent.
                 try:

@@ -398,6 +398,30 @@ class RouteStats:
         self.correction_success = 0
         self.correction_fail = 0
         self.correction_timeout = 0
+        # [F-2 2026-09-15] Auto-retrieval KPI — đếm ĐÚNG ngữ nghĩa: attempt =
+        # một LOOKUP-ask thiếu-context đã qua gate và gọi retrieve; hit = có
+        # >=1 chunk trên floor được nạp; empty = retrieve trả 0 hoặc toàn bộ
+        # dưới floor (fail-closed, KHÔNG bịa evidence); error = retriever/
+        # corpus hỏng. Expose qua /v100/routing/stats (admin).
+        self.ask_retrieval_attempts = 0
+        self.ask_retrieval_hits = 0
+        self.ask_retrieval_empty = 0
+        self.ask_retrieval_errors = 0
+
+    def record_ask_retrieval(self, outcome: str) -> None:
+        """[F-2] Route one auto-retrieval outcome into counters. Unknown
+        outcomes are recorded ONLY as prom labels (defensive: a future typo
+        must not silently corrupt the four KPI ints)."""
+        with self._lock:
+            if outcome == "attempt":
+                self.ask_retrieval_attempts += 1
+            elif outcome == "hit":
+                self.ask_retrieval_hits += 1
+            elif outcome == "empty":
+                self.ask_retrieval_empty += 1
+            elif outcome == "error":
+                self.ask_retrieval_errors += 1
+        _prom_inc("scp_ask_retrieval_total", {"outcome": outcome})
 
     def record_route(self, decision: RouteDecision) -> None:
         key = f"{decision.via}:{decision.intent}"
@@ -506,6 +530,10 @@ class RouteStats:
                 "correction_success": self.correction_success,
                 "correction_fail": self.correction_fail,
                 "correction_timeout": self.correction_timeout,
+                "ask_retrieval_attempts": self.ask_retrieval_attempts,
+                "ask_retrieval_hits": self.ask_retrieval_hits,
+                "ask_retrieval_empty": self.ask_retrieval_empty,
+                "ask_retrieval_errors": self.ask_retrieval_errors,
                 "route_counts": dict(self.route_counts),
                 "fallback_reasons": dict(self.fallback_reasons),
             }
@@ -991,15 +1019,183 @@ async def attempt_lookup_fork(req: Any) -> dict[str, Any] | None:
     }
 
 
+# ---------------------------------------------------------------------------
+# [F-2 2026-09-15] Auto-retrieval cho LOOKUP ask thiếu-context — wire
+# CanonicalRetriever (Q08 BM25) vào đúng grounding/verify path của /ask.
+#
+# TẠI SAO (F-2 HIGH, Q08 report): retriever đã recall@5=0.98 trên fixture
+# corpus nhưng /ask KHÔNG gọi nó ở đâu cả — evidence_recall e2e (bench
+# 2026-09-12: 0.3846) do đó bất kể chất lượng retriever. Seam này nạp bằng
+# chứng corpus cho CÙNG grounding check đã tồn tại (tier1 REJECT_GROUNDING +
+# judge context + AskKernelAdapter.verify_response) — THÊM bằng chứng, không
+# bỏ/nới bất kỳ check nào.
+#
+# Bất biến chống vòng lặp xác nhận:
+#   * bằng chứng được chọn theo QUESTION (BM25 lexical), không theo answer —
+#     verifier không thể tự duyệt context do chính candidate answer sinh ra;
+#   * answer vẫn đi qua đúng judge + governance + canonical verify cũ;
+#   * empty corpus / mọi hit dưới min-score / lỗi / timeout → [] — KHÔNG bịa
+#     evidence, hành vi y hệt trước khi nối (fail-closed). Khi corpus prod
+#     absent (checkout này), đây chính là đường đi mặc định.
+# Hệ quả SIẾT (không phải nới): với LOOKUP có bằng chứng, is_rag_ask flip ->
+# True và tier1 check_grounding trở nên ÁP DỤNG (context rỗng trước đó khiến
+# nó bị bỏ qua) — answer không được corpus đỡ sẽ bị REJECT_GROUNDING.
+# Vector/hybrid: không — cùng dependency-policy đã chốt ở Q08.
+# ---------------------------------------------------------------------------
+DEFAULT_ASK_RETRIEVAL_K = 5
+MAX_ASK_RETRIEVAL_K = 8
+DEFAULT_ASK_RETRIEVAL_MIN_SCORE = 1.0
+DEFAULT_ASK_RETRIEVAL_TIMEOUT_SECONDS = 10.0
+MAX_ASK_RETRIEVAL_TIMEOUT_SECONDS = 30.0
+# Budget nạp vào judge/verify context (scp-safe-latency-optimizer: không phình
+# prompt): mỗi chunk cắt theo trần đơn, tổng các chunk bị trần tổng chặn.
+ASK_RETRIEVAL_CHUNK_MAX_CHARS = 2400
+ASK_RETRIEVAL_TOTAL_MAX_CHARS = 8000
+
+
+def ask_retrieval_enabled() -> bool:
+    """Kill switch SCP_ASK_RETRIEVAL=0|false|off|no — tắt auto-retrieval, /ask
+    trở lại đúng hành vi trước F-2 (không retrieve, không thêm contexts)."""
+    raw = os.environ.get("SCP_ASK_RETRIEVAL", "").strip().lower() or "1"
+    return raw not in {"0", "false", "off", "no"}
+
+
+def ask_retrieval_k() -> int:
+    """SCP_ASK_RETRIEVAL_K (default 5, clamp 1..8 — cùng cap retriever.k)."""
+    raw = os.environ.get("SCP_ASK_RETRIEVAL_K", "").strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_ASK_RETRIEVAL_K
+    if value < 1 or value > MAX_ASK_RETRIEVAL_K:
+        return DEFAULT_ASK_RETRIEVAL_K
+    return value
+
+
+def ask_retrieval_min_score() -> float:
+    """BM25 floor — hit dưới ngưỡng bị coi là không phải bằng chứng.
+
+    Chọn theo SỐ, không đoán: Lucene-idf ``ln(1+(N-df+0.5)/(df+0.5))`` đạt
+    ~0.69 ngay cả khi term phủ ~50% corpus (worst-case term phổ biến nhất);
+    floor 1.0 chặn các hit chỉ-do-token-chung. Đo trên fixture Q08 (266
+    chunks / 319 probes, 2026-09-15): min top-1 score mọi nhóm = 5.51 →
+    floor 1.0 giữ 319/319 probe, cách xa mép dưới thật. corpus prod có N lớn
+    hơn chỉ làm idf của term ĐẶC TRƯNG cao hơn, không thấp hơn. Env
+    rác/âm/inf/nan/quá khổ → fail-closed về default; 0 hợp lệ (chặn
+    empty-hit vẫn còn guard bên dưới)."""
+    raw = os.environ.get("SCP_ASK_RETRIEVAL_MIN_SCORE", "").strip()
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_ASK_RETRIEVAL_MIN_SCORE
+    if not math.isfinite(value) or value < 0 or value > 1_000_000:
+        return DEFAULT_ASK_RETRIEVAL_MIN_SCORE
+    return value
+
+
+def ask_retrieval_timeout_seconds() -> float:
+    """Trần thời gian cho MỘT lượt auto-retrieval (cold corpus load trên
+    corpus prod lớn là rủi ro thật). Invalid/out-of-range → default 10s;
+    quá hạn → caller (adapter) fail-closed về hành vi không-evidence."""
+    raw = os.environ.get("SCP_ASK_RETRIEVAL_TIMEOUT_SECONDS", "").strip()
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_ASK_RETRIEVAL_TIMEOUT_SECONDS
+    if not math.isfinite(value) or value <= 0 or value > MAX_ASK_RETRIEVAL_TIMEOUT_SECONDS:
+        return DEFAULT_ASK_RETRIEVAL_TIMEOUT_SECONDS
+    return value
+
+
+def format_canonical_context(hit: dict[str, Any]) -> str:
+    """Canonical evidence string — cùng format với ``CanonicalRetriever.contexts()``
+    (``[chunk_id=...] source_url=...\\n<text>``) để một nguồn sự thật duy nhất."""
+    return f"[chunk_id={hit.get('chunk_id')}] source_url={hit.get('source_url')}\n{hit.get('text', '')}"
+
+
+def attempt_canonical_retrieval(question: str) -> list[dict[str, Any]]:
+    """[F-2] BM25 hits trên canonical corpus cho một LOOKUP ask thiếu-context.
+
+    Trả về list hit (đã lọc score-floor, đã cắt budget) hoặc [] =
+    fail-closed — [] trả về khi: kill-switch off, L0 không/DƯỚI intent
+    LOOKUP hoặc confidence < SCP_T2_MIN_CONFIDENCE, retriever empty, mọi hit
+    dưới floor, hoặc exception. KHÔNG gọi L2 LLM cho quyết định này (thêm
+    30-260s latency + chi phí cho một read path phụ — sai
+    scp-safe-latency-optimizer). Retriever-level KPI qua RouteStats.
+    """
+    if not ask_retrieval_enabled():
+        return []
+    text = (question or "").strip()
+    if not text:
+        return []
+    decision = classify_l0(text)
+    if (
+        decision is None
+        or decision.intent != LOOKUP
+        or decision.confidence < t2_min_confidence()
+    ):
+        return []
+    _stats.record_ask_retrieval("attempt")
+    try:
+        from scp.rag.canonical_retriever import get_canonical_retriever
+
+        hits = get_canonical_retriever().retrieve(text, k=ask_retrieval_k())
+    except Exception as exc:
+        logger.warning(
+            "[F-2] canonical retrieval failed (%s: %s) — ask continues WITHOUT evidence (fail-closed)",
+            type(exc).__name__, exc,
+        )
+        _stats.record_ask_retrieval("error")
+        return []
+    floor = ask_retrieval_min_score()
+    kept: list[dict[str, Any]] = []
+    total = 0
+    for hit in hits or []:
+        try:
+            score = float(hit.get("retrieval_score") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if score < floor:
+            continue
+        body = str(hit.get("text") or "").strip()
+        if not body:
+            continue
+        body = _trim(body, ASK_RETRIEVAL_CHUNK_MAX_CHARS)
+        if total + len(body) > ASK_RETRIEVAL_TOTAL_MAX_CHARS:
+            break
+        total += len(body)
+        kept.append({**hit, "text": body})
+    if kept:
+        _stats.record_ask_retrieval("hit")
+        logger.info(
+            "[F-2] auto-retrieved %d/%d canonical chunk(s) (via=%s floor=%.2f top_score=%s)",
+            len(kept), len(hits or []), decision.via, floor,
+            (kept[0].get("retrieval_score") if kept else None),
+        )
+    else:
+        _stats.record_ask_retrieval("empty")
+        logger.info(
+            "[F-2] canonical retrieval returned no above-threshold evidence (hits=%d floor=%.2f) — NO fabricated evidence",
+            len(hits or []), floor,
+        )
+    return kept
+
+
 __all__ = [
     "LOOKUP",
     "REASONING",
     "RouteDecision",
+    "attempt_canonical_retrieval",
     "attempt_lookup_fork",
+    "ask_retrieval_enabled",
+    "ask_retrieval_k",
+    "ask_retrieval_min_score",
+    "ask_retrieval_timeout_seconds",
     "classify_l0",
     "classify_l2",
     "classify_l2_async",
     "extract_salient_terms",
+    "format_canonical_context",
     "resolve_lookup_data",
     "route_question",
     "route_question_async",
