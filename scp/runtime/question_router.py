@@ -389,6 +389,15 @@ class RouteStats:
         self.lookup_fetch_ok = 0
         self.lookup_fetch_fail = 0
         self.lookup_timeout_count = 0
+        # [Q07 2026-09-15] Controlled self-correction (Reflection) counters —
+        # shared KPI cho benchmark F_self_correction + dashboard. Một attempt
+        # = finalize gặp epistemic hold (canonical verify FAIL/UNKNOWN) VÀ thử
+        # đúng 1 vòng critique->regenerate. success = round-2 qua CÙNG canonical
+        # verify_response (Reflection không tự approve).
+        self.correction_attempts = 0
+        self.correction_success = 0
+        self.correction_fail = 0
+        self.correction_timeout = 0
 
     def record_route(self, decision: RouteDecision) -> None:
         key = f"{decision.via}:{decision.intent}"
@@ -426,6 +435,28 @@ class RouteStats:
         _prom_inc("scp_ask_verifier_calls_total")
         if not ok:
             _prom_inc("scp_ask_verifier_failures_total")
+
+    def record_correction_attempt(self) -> None:
+        """[Q07] Ghi nhận một vòng self-refine đã được BẮT ĐẦU (epistemic hold
+        gặp phải và budget còn). Không có nghĩa answer đã được sửa."""
+        with self._lock:
+            self.correction_attempts += 1
+        _prom_inc("scp_ask_correction_attempts_total")
+
+    def record_correction_result(self, ok: bool, *, timed_out: bool = False) -> None:
+        """[Q07] Kết quả của vòng self-refine DUY NHẤT. ok=True khi round-2 qua
+        CÙNG canonical verify_response (gate không nới); False khi vẫn fail
+        (withhold như cũ) — fail-closed, Reflection không tự approve."""
+        with self._lock:
+            if ok:
+                self.correction_success += 1
+            else:
+                self.correction_fail += 1
+            if timed_out:
+                self.correction_timeout += 1
+        _prom_inc("scp_ask_correction_total", {"outcome": "success" if ok else "fail"})
+        if timed_out:
+            _prom_inc("scp_ask_correction_timeouts_total")
 
     def record_lookup_attempt(self) -> None:
         with self._lock:
@@ -471,6 +502,10 @@ class RouteStats:
                 "lookup_timeout_count": self.lookup_timeout_count,
                 "lookup_fetch_ok": self.lookup_fetch_ok,
                 "lookup_fetch_fail": self.lookup_fetch_fail,
+                "correction_attempts": self.correction_attempts,
+                "correction_success": self.correction_success,
+                "correction_fail": self.correction_fail,
+                "correction_timeout": self.correction_timeout,
                 "route_counts": dict(self.route_counts),
                 "fallback_reasons": dict(self.fallback_reasons),
             }
@@ -478,6 +513,14 @@ class RouteStats:
             snapshot["llm_bypassed_count"]
             / max(1, snapshot["llm_bypassed_count"] + snapshot["llm_calls_count"]),
             4,
+        )
+        # [Q07] correction_success_rate phản ánh ĐÚNG semantic benchmark
+        # F_self_correction chỉ trên các attempt đã diễn ra (không phải trên
+        # tổng mọi ask). Khi chưa có attempt nào -> None (không phải 0.0), để
+        # dashboard không nhầm "0%" với "chưa đo".
+        attempts = snapshot["correction_attempts"]
+        snapshot["correction_success_rate"] = (
+            round(snapshot["correction_success"] / attempts, 4) if attempts else None
         )
         return snapshot
 
@@ -520,6 +563,16 @@ def record_generation_call() -> None:
 def record_verifier_call(ok: bool) -> None:
     """Record an observed verifier invocation and outcome."""
     _stats.record_verifier_call(ok=ok)
+
+
+def record_correction_attempt() -> None:
+    """[Q07] Module seam cho scp/ask_kernel_adapter: một vòng self-refine bắt đầu."""
+    _stats.record_correction_attempt()
+
+
+def record_correction_result(ok: bool, *, timed_out: bool = False) -> None:
+    """[Q07] Module seam: kết quả vòng self-refine (canonical re-verify)."""
+    _stats.record_correction_result(ok=ok, timed_out=timed_out)
 
 
 # ---------------------------------------------------------------------------
@@ -953,6 +1006,8 @@ __all__ = [
     "route_stats_snapshot",
     "record_generation_call",
     "record_verifier_call",
+    "record_correction_attempt",
+    "record_correction_result",
     "lookup_timeout_seconds",
     "t2_fork_enabled",
     "t2_min_confidence",

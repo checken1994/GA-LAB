@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import math
 import os
 import sqlite3
 import threading
@@ -79,6 +80,67 @@ def ask_lease_heartbeat_enabled() -> bool:
     """
     raw = os.environ.get("SCP_ASK_LEASE_HEARTBEAT", "").strip().lower() or "1"
     return raw not in {"0", "false", "off", "no"}
+
+
+# [Q07 2026-09-15] Controlled self-correction (Reflection) wiring.
+# Budget là best-effort: mỗi bước (regenerate, canonical re-verify) bị chặn
+# riêng bởi giá trị này; khi vượt, withhold fail-closed. Free-tier provider có
+# p50 generate 5-30s nhưng p95 tới hàng trăm giây; default cũ 25s khiến vòng
+# self-refine timeout thầm lặng trên provider trung bình-chậm -> feature gần như
+# tắt ngầm, F_self_correction không tăng. N default = 40s phản ánh latency generate
+# thực tế đo được, vẫn <= lease TTL 60s (heartbeat S20 giữ lease sống trong lúc
+# regen) và <= MAX; provider cực chậm vẫn timeout->withhold (đúng, chỉ không tăng
+# được recall). Muốn rộng hơn cho air-gapped model nhanh: chỉnh qua env.
+DEFAULT_ASK_REFLECTION_TIMEOUT_SECONDS = 40.0
+MAX_ASK_REFLECTION_TIMEOUT_SECONDS = 60.0
+
+
+def ask_reflection_enabled() -> bool:
+    """Kill switch SCP_ASK_REFLECTION=0|false|off|no tắt vòng self-refine.
+
+    Mặc định BẬT. Khi tắt, finalize giữ NGUYÊN hành vi cũ (FAIL/UNKNOWN ->
+    withhold -> HUMAN_REVIEW) — không có LLM call thêm nào. Đây là van an toàn
+    để tắt gấp nếu vòng regenerate làm chậm/pipeline lỗi ở production."""
+    raw = os.environ.get("SCP_ASK_REFLECTION", "").strip().lower() or "1"
+    return raw not in {"0", "false", "off", "no"}
+
+
+def ask_reflection_timeout_seconds() -> float:
+    """Budget tường minh cho MỘT vòng critique->regenerate + canonical re-verify.
+
+    Invalid / non-finite / non-positive / quá lớn -> fail-closed về default
+    (giống lookup_timeout_seconds): một giá trị env rác không được phép mở
+    đường cho vòng regenerate chạy vô hạn và giữ lease quá lâu. Trần cứng
+    MAX_ASK_REFLECTION_TIMEOUT_SECONDS để tổng thời gian finalize vẫn nằm
+    trong cửa sổ HTTP /ask (benchmark timeout=120s)."""
+    raw = os.environ.get("SCP_ASK_REFLECTION_TIMEOUT_SECONDS", "").strip()
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_ASK_REFLECTION_TIMEOUT_SECONDS
+    if not math.isfinite(value) or value <= 0 or value > MAX_ASK_REFLECTION_TIMEOUT_SECONDS:
+        return DEFAULT_ASK_REFLECTION_TIMEOUT_SECONDS
+    return value
+
+
+def _record_correction_attempt() -> None:
+    """[Q07] KPI seam fail-safe — reflection metrics là observability, không
+    được phép làm hỏng đường /ask. Import lỗi -> debug log, continue."""
+    try:
+        from scp.runtime.question_router import record_correction_attempt
+
+        record_correction_attempt()
+    except Exception as exc:
+        logger.debug("[Q07] correction-attempt KPI unavailable: %s", exc)
+
+
+def _record_correction_result(ok: bool, *, timed_out: bool = False) -> None:
+    try:
+        from scp.runtime.question_router import record_correction_result
+
+        record_correction_result(ok, timed_out=timed_out)
+    except Exception as exc:
+        logger.debug("[Q07] correction-result KPI unavailable: %s", exc)
 
 
 def _dump(obj: Any) -> dict[str, Any]:
@@ -509,8 +571,138 @@ class AskKernelAdapter:
             )
             return self.kernel.get_task(task_id)
 
-    async def finalize(self, task: dict[str, Any], response: Any, req: Any) -> dict[str, Any]:
+    # ------------------------------------------------------------------
+    # [Q07 2026-09-15] Controlled self-correction (Reflection) — epistemic hold
+    # ------------------------------------------------------------------
+    def _clone_for_reflection(self, req: Any, response: Any, verification: dict[str, Any]) -> Any | None:
+        """Shape a regenerate request for the primary handler.
+
+        critique->regenerate: câu trả lời thất bại + lý do từ canonical verifier
+        (KHÔNG phải claim đúng/sai của Reflection) được nhét vào conversation
+        history làm CONTEXT; ai_answer được XÓA để handler sinh lại answer mới.
+        question/contexts/retrieved_context giữ NGUYÊN để round-2 đi qua đúng
+        cùng gate. Trả về None nếu không clone được an toàn (-> skip reflection,
+        withhold như cũ — fail-closed, không bao giờ phá request)."""
+        try:
+            from scp.ai_patterns import Reflection
+
+            data = _dump(response)
+            failed_answer = str(data.get("final_answer") or "")
+            question = str(getattr(req, "question", "") or "")
+            critique = Reflection.critique_turns(question, failed_answer, verification)
+            history = list(getattr(req, "conversation_history", None) or [])
+            merged = (history + critique)[-8:]  # AskRequest.conversation_history max_length=8
+        except Exception as exc:  # pragma: no cover - defensive: never break /ask
+            logger.debug("[Q07] critique shaping failed, skipping reflection: %s", exc)
+            return None
+        try:
+            if hasattr(req, "model_copy"):  # pydantic AskRequest
+                return req.model_copy(update={"ai_answer": "", "conversation_history": merged})
+        except Exception as exc:
+            logger.debug("[Q07] pydantic clone failed, trying attribute copy: %s", exc)
+        try:
+            import copy as _copy
+
+            clone = _copy.copy(req)  # shallow: question/contexts giữ nguyên tham chiếu
+            for name, value in (("ai_answer", ""), ("conversation_history", merged)):
+                try:
+                    setattr(clone, name, value)
+                except Exception:
+                    object.__setattr__(clone, name, value)
+            return clone
+        except Exception as exc:
+            logger.debug("[Q07] generic clone failed, skipping reflection: %s", exc)
+            return None
+
+    async def _self_refine_once(
+        self,
+        task: dict[str, Any],
+        response: Any,
+        req: Any,
+        verification: dict[str, Any],
+        handler: Any,
+        request: Any,
+    ) -> tuple[Any, dict[str, Any], dict[str, Any]] | None:
+        """Chạy TỐI ĐA MỘT vòng self-refine khi canonical verify FAIL/UNKNOWN.
+
+        Bất biến an toàn (Q07):
+          * Reflection KHÔNG tự approve. Answer mới chỉ được nhận nếu nó qua
+            LẠI đúng canonical ``verify_response`` (cùng 5 check, không nới).
+          * Budget=1: hàm này được finalize gọi đúng một lần trong nhánh
+            epistemic-hold; ``Reflection.MAX_REFLECTIONS`` = 1 là hợp đồng.
+          * Timeout: regenerate + re-verify bọc trong wait_for; quá hạn ->
+            skip, withhold như cũ (fail-closed). Không có vòng lặp vô hạn.
+          * Handler bắt buộc (primary pipeline chạy LẠI đầy đủ governance/
+            attack/multimodal cho answer mới) — nếu thiếu handler thì KHÔNG
+            reflection, giữ nguyên hành vi cũ (call-site legacy/test).
+        Trả về (refined_response, verification2, meta) khi round-2 VERIFIED,
+        ngược lại None (finalize sẽ escalate như trước)."""
+        meta = {"attempted": False, "accepted": False, "outcome": "not_attempted"}
+        if handler is None:
+            return None
+        try:
+            from scp.ai_patterns import Reflection
+
+            if not Reflection.should_reflect(verification):
+                return None
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("[Q07] reflection predicate unavailable: %s", exc)
+            return None
+        if not ask_reflection_enabled():
+            meta["outcome"] = "disabled"
+            return None
+
+        meta["attempted"] = True
+        _record_correction_attempt()
+        retry_req = self._clone_for_reflection(req, response, verification)
+        if retry_req is None:
+            meta["outcome"] = "clone_failed"
+            _record_correction_result(False)
+            return None
+
+        budget = ask_reflection_timeout_seconds()
+        try:
+            refined = await asyncio.wait_for(handler(retry_req, request), timeout=budget)
+            verification2 = await asyncio.wait_for(
+                self.verify_response(req, refined, task), timeout=budget
+            )
+        except asyncio.TimeoutError:
+            meta["outcome"] = "timeout"
+            _record_correction_result(False, timed_out=True)
+            logger.warning(
+                "[Q07] self-refine exceeded %.1fs for task %s — withholding (fail-closed, no gate change)",
+                budget, task.get("task_id"),
+            )
+            return None
+        except Exception as exc:
+            meta["outcome"] = f"error:{type(exc).__name__}"
+            _record_correction_result(False)
+            logger.warning(
+                "[Q07] self-refine errored (%s: %s) — withholding (fail-closed)",
+                type(exc).__name__, exc,
+            )
+            return None
+
+        # Canonical re-verification là duy nhất có quyền nhận answer mới.
+        if verification2.get("verdict") == "VERIFIED":
+            meta["accepted"] = True
+            meta["outcome"] = "accepted"
+            _record_correction_result(True)
+            return refined, verification2, meta
+        meta["outcome"] = "rejected"
+        _record_correction_result(False)
+        return None
+
+    async def finalize(
+        self,
+        task: dict[str, Any],
+        response: Any,
+        req: Any,
+        handler: Any = None,
+        request: Any = None,
+    ) -> dict[str, Any]:
         task_id, lease_id = task["task_id"], task["lease_id"]
+        reflection_meta: dict[str, Any] = {"attempted": False, "accepted": False, "outcome": "not_attempted"}
 
         def _terminal_result(current_task: dict[str, Any]) -> dict[str, Any]:
             verification = {
@@ -620,6 +812,16 @@ class AskKernelAdapter:
             )
 
         verification = await self.verify_response(req, response, task)
+        # [Q07] Epistemic hold (canonical verify FAIL/UNKNOWN): thử ĐÚNG MỘT
+        # vòng self-refine (critique->regenerate) với budget + timeout, rồi verify
+        # LẠI. Chỉ nhận answer nếu round-2 qua CÙNG canonical verify_response —
+        # gate không đổi, Reflection không tự approve. Vẫn fail -> withhold như cũ.
+        if verification["verdict"] != "VERIFIED" and handler is not None and ask_reflection_enabled():
+            refine_outcome = await self._self_refine_once(
+                task, response, req, verification, handler, request
+            )
+            if refine_outcome is not None:
+                response, verification, reflection_meta = refine_outcome
         if verification["verdict"] == "VERIFIED":
             receipt = sign_verifier_receipt(
                 VerifierReceipt(
@@ -654,6 +856,19 @@ class AskKernelAdapter:
                 payload={"verification": verification},
             )
         response_data = _dump(response)
+        if reflection_meta.get("attempted"):
+            # [Q07] Ghi riêng một bước reflection vào ledger để audit được
+            # attempts/success mà không lẫn vào outcome cuối của rag-read.
+            with _TRACE_LOCK:
+                self.trace.append(
+                    task_id=task_id,
+                    attempt_id=task.get("attempt_id"),
+                    step_id="reflection",
+                    lease_id=lease_id,
+                    checkpoint_id=task.get("checkpoint_id"),
+                    outcome=reflection_meta.get("outcome"),
+                    accepted=bool(reflection_meta.get("accepted")),
+                )
         with _TRACE_LOCK:
             self.trace.append(
                 task_id=task_id,
@@ -673,6 +888,7 @@ class AskKernelAdapter:
         return {
             "task": final_task,
             "verification": verification,
+            "reflection": reflection_meta,
             "safe_response": self._safe_response(response, verification),
         }
 
@@ -848,7 +1064,11 @@ class AskKernelAdapter:
                 except Exception as exc:
                     logger.debug("[S24] generation KPI unavailable: %s", exc)
                 response = await handler(req, request)
-            result = await self.finalize(task, response, req)
+            # [Q07] Truyền handler + request để finalize có thể chạy TỐI ĐA MỘT
+            # vòng self-refine khi canonical verify FAIL/UNKNOWN. Reflection
+            # regenerate qua chính primary pipeline này rồi bắt answer mới đi qua
+            # LẠI verify_response; không có handler thì finalize giữ hành vi cũ.
+            result = await self.finalize(task, response, req, handler=handler, request=request)
             return result["safe_response"]
         except Exception:
             self.fail(task, "ask_rag_exception")
