@@ -66,6 +66,11 @@ REDDIT_SUBREDDITS = [
 ]
 REDDIT_KEYWORDS = ["jailbreak", "prompt injection", "bypass", "unrestricted"]
 
+# [W2-observability] Human-readable labels for the three crawl sources, used by
+# the aggregate log. Keep keys stable — they are the tally buckets in crawl_all.
+CRAWL_SOURCES = ("github", "huggingface", "reddit")
+_SOURCE_LABELS = {"github": "GitHub", "huggingface": "HuggingFace", "reddit": "Reddit"}
+
 
 @dataclass
 class CrawledAttack:
@@ -90,6 +95,23 @@ class AttackCrawler:
             "new_attacks_found": 0,
             "by_source": {},
         }
+        # [W2-observability] source -> set of exception CLASS NAMES seen while
+        # fetching (e.g. {"EgressDeniedError"}). Only class names are stored so
+        # the aggregate log can never leak a URL/token from str(e). Reset each
+        # crawl_all() call. A source is "failed" when it returned 0 raw attacks
+        # while recording >=1 error — this is what distinguishes "genuinely no
+        # new attacks" from "the crawler is blind (egress denied)".
+        self._crawl_errors: dict[str, set[str]] = {name: set() for name in CRAWL_SOURCES}
+
+    def _record_crawl_error(self, source: str, exc: BaseException) -> None:
+        """Tally a fetch failure for honest aggregate logging.
+
+        Secret-safe: records only the exception CLASS NAME, never str(exc)
+        (EgressDeniedError and urllib HTTPError embed the full URL in their
+        message). This does NOT change crawl/egress behavior — callers keep
+        their existing control flow and per-source warnings.
+        """
+        self._crawl_errors.setdefault(source, set()).add(type(exc).__name__)
 
     def _load_seen(self) -> None:
         if self.attacks_file.exists():
@@ -105,24 +127,36 @@ class AttackCrawler:
     async def crawl_all(self) -> list[CrawledAttack]:
         new_attacks = []
         self._stats["crawl_cycles"] += 1
+        # Reset the honest-observability tally for this cycle.
+        self._crawl_errors = {name: set() for name in CRAWL_SOURCES}
+        raw_counts = {name: 0 for name in CRAWL_SOURCES}
 
         try:
             gh_attacks = self._crawl_github()
-            new_attacks.extend(gh_attacks)
-        except Exception as e:
-            logger.warning(f"GitHub crawl failed: {e}")
+        except Exception as e:  # source raised before returning anything
+            self._record_crawl_error("github", e)
+            logger.warning("AttackCrawler: GitHub crawl failed: %s", type(e).__name__)
+            gh_attacks = []
+        raw_counts["github"] = len(gh_attacks)
+        new_attacks.extend(gh_attacks)
 
         try:
             hf_attacks = self._crawl_huggingface()
-            new_attacks.extend(hf_attacks)
         except Exception as e:
-            logger.warning(f"HuggingFace crawl failed: {e}")
+            self._record_crawl_error("huggingface", e)
+            logger.warning("AttackCrawler: HuggingFace crawl failed: %s", type(e).__name__)
+            hf_attacks = []
+        raw_counts["huggingface"] = len(hf_attacks)
+        new_attacks.extend(hf_attacks)
 
         try:
             reddit_attacks = self._crawl_reddit()
-            new_attacks.extend(reddit_attacks)
         except Exception as e:
-            logger.warning(f"Reddit crawl failed: {e}")
+            self._record_crawl_error("reddit", e)
+            logger.warning("AttackCrawler: Reddit crawl failed: %s", type(e).__name__)
+            reddit_attacks = []
+        raw_counts["reddit"] = len(reddit_attacks)
+        new_attacks.extend(reddit_attacks)
 
         unique = []
         for attack in new_attacks:
@@ -135,11 +169,47 @@ class AttackCrawler:
                     self._stats["by_source"].get(attack.source, 0) + 1
                 )
 
+        # [W2-observability] Honest aggregate log. A source counts as FAILED when
+        # it returned no raw attacks yet recorded >=1 fetch error (e.g.
+        # EgressDeniedError swallowed deeper in _crawl_*). This separates "0 new
+        # because genuinely nothing new / all cached" (INFO) from "0 new because
+        # the sources could not be reached" (WARNING/ERROR) — so an operator can
+        # never mistake a blind crawler for an all-clear.
+        failed_sources = [
+            name for name in CRAWL_SOURCES
+            if raw_counts[name] == 0 and self._crawl_errors[name]
+        ]
+        degraded_note = ""
+        if failed_sources:
+            detail = "; ".join(
+                f"{_SOURCE_LABELS[name]}={'/'.join(sorted(self._crawl_errors[name]))}"
+                for name in failed_sources
+            )
+            degraded_note = f" | DEGRADED: {len(failed_sources)}/{len(CRAWL_SOURCES)} sources errored ({detail})"
+
         if unique:
             self._save_attacks(unique)
-            logger.info(f"AttackCrawler: found {len(unique)} new attacks "
-                       f"(GitHub={len(gh_attacks)}, HF={len(hf_attacks) if 'hf_attacks' in dir() else 0}, "
-                       f"Reddit={len(reddit_attacks) if 'reddit_attacks' in dir() else 0})")
+            breakdown = ", ".join(
+                f"{_SOURCE_LABELS[name]}={raw_counts[name]}" for name in CRAWL_SOURCES
+            )
+            logger.info(
+                "AttackCrawler: found %d new attacks (raw %s)%s",
+                len(unique), breakdown, degraded_note,
+            )
+        elif failed_sources:
+            # 0 results AND at least one source failed → do NOT claim "no new
+            # attacks". Fully-blind (all sources failed) escalates to ERROR.
+            n_failed, n_total = len(failed_sources), len(CRAWL_SOURCES)
+            message = (
+                "AttackCrawler: 0 new attacks but %d/%d crawl sources FAILED "
+                "(%s). 'no new attacks' is NOT trustworthy — the crawler may be "
+                "blind (e.g. egress denied). Only source names + error class "
+                "names are shown; no URLs/secrets logged."
+            ) % (n_failed, n_total, detail)
+            if n_failed == n_total:
+                logger.error(message)
+            else:
+                logger.warning(message)
         else:
             logger.info("AttackCrawler: no new attacks found")
 
@@ -186,6 +256,7 @@ class AttackCrawler:
                 # Update cache
                 cache[cache_key] = now
             except Exception as e:
+                self._record_crawl_error("github", e)
                 # [ROOT-FIX] Detect 403 rate limit — stop crawling remaining repos
                 if "403" in str(e) or "rate limit" in str(e).lower():
                     logger.warning(f"GitHub {repo} failed: {e} — STOPPING crawl (rate limit hit, will retry next cycle)")
@@ -206,6 +277,7 @@ class AttackCrawler:
                         )
                         attacks.extend(extracted)
             except Exception as e:
+                self._record_crawl_error("github", e)
                 if "403" in str(e) or "rate limit" in str(e).lower():
                     logger.warning(f"GitHub {repo} issues failed: {e} — STOPPING (rate limit)")
                     break
@@ -224,7 +296,8 @@ class AttackCrawler:
         attacks = []
         try:
             from datasets import load_dataset
-        except ImportError:
+        except ImportError as e:
+            self._record_crawl_error("huggingface", e)
             logger.warning("HuggingFace datasets library not installed — pip install datasets")
             return []
 
@@ -265,6 +338,7 @@ class AttackCrawler:
                         count += 1
                 logger.info(f"HuggingFace {ds_name} (split={used_split}): scanned {count} items")
             except Exception as e:
+                self._record_crawl_error("huggingface", e)
                 logger.warning(f"HuggingFace {ds_name} failed: {e}")
 
         return attacks
@@ -305,6 +379,7 @@ class AttackCrawler:
                                     attacks.extend(extracted)
                     break  # Thành công → thoát retry loop
                 except urllib.error.URLError as e:
+                    self._record_crawl_error("reddit", e)
                     # [FIX] Connection refused = skip subreddit (không spam)
                     if "10061" in str(e) or "Connection refused" in str(e):
                         logger.debug(f"Reddit r/{subreddit}: connection refused (firewall/VPN?) — skipping")
@@ -315,6 +390,7 @@ class AttackCrawler:
                     else:
                         logger.debug(f"Reddit r/{subreddit} failed after 3 retries: {e}")
                 except Exception as e:
+                    self._record_crawl_error("reddit", e)
                     if attempt < 2:
                         import time as _time
                         _time.sleep(2 ** attempt)
