@@ -237,6 +237,25 @@ def test_api_server_extracted_functions_bind_to_authoritative_globals() -> None:
     assert lifespan_raw.__globals__ is api_server.__dict__
 
 
+def test_required_scheduler_readiness_contract_is_fail_closed() -> None:
+    """Readiness must use successful execution, not only thread creation."""
+    from scp.api.background_jobs import REQUIRED_JOB_FAILURE_THRESHOLD, BackgroundJob
+
+    assert REQUIRED_JOB_FAILURE_THRESHOLD == 1
+    job = BackgroundJob(
+        name="contract-probe",
+        fn=lambda: None,
+        interval_seconds=1,
+        required=True,
+        initial_delay_seconds=1,
+    )
+    assert job.readiness_status()["ready"] is False
+    assert job.readiness_status()["first_execution_completed"] is False
+    assert job.readiness_status()["failure_threshold"] == 1
+    assert job.readiness_status()["last_failure_id"] is None
+    assert job.readiness_status()["readiness_revoked"] is False
+
+
 def test_api_server_keeps_detailed_health_contract() -> None:
     """The GOD split may not orphan or duplicate the detailed health endpoint."""
     import scp.api_server as api_server

@@ -445,15 +445,68 @@ class TestFlow01BootBackground:
         registry.stop_all()
         registry.start_all = original_start_all
 
-    def test_required_scheduler_runtime_errors_are_observed(self, monkeypatch):
-        """Five consecutive required-job errors revoke readiness in the live app."""
+    def test_readiness_waits_for_required_first_execution(self, monkeypatch):
+        """A live thread is not ready until its required body succeeds once."""
         from scp.api.background_jobs import BackgroundJob, registry
+        from scp.api_server import app
+
+        execution_started = threading.Event()
+        release_execution = threading.Event()
+
+        def blocked_required_job():
+            execution_started.set()
+            assert release_execution.wait(5), "test execution was not released"
+
+        pending = BackgroundJob(
+            name="required_first_execution_probe",
+            fn=blocked_required_job,
+            interval_seconds=60,
+            required=True,
+            initial_delay_seconds=0.01,
+        )
+        registry.add(pending)
+        monkeypatch.setenv("SCP_JUDGE_START_DELAY_SEC", "0")
+        try:
+            with TestClient(app) as client:
+                assert execution_started.wait(2), "required job thread never began execution"
+                before = client.get("/readiness")
+                before_payload = before.json()
+                assert before.status_code == 503, before_payload
+                assert before_payload["status"] != "ready"
+                assert before_payload["checks"]["background_scheduler"] == "starting"
+                assert registry.status()[pending.name]["first_execution_completed"] is False
+
+                release_execution.set()
+                deadline = time.time() + 5
+                payload = {}
+                response = None
+                while time.time() < deadline:
+                    response = client.get("/readiness")
+                    payload = response.json()
+                    if response.status_code == 200:
+                        break
+                    time.sleep(0.05)
+                assert response is not None and response.status_code == 200, payload
+                assert payload["status"] == "ready"
+                assert registry.status()[pending.name]["first_execution_completed"] is True
+        finally:
+            release_execution.set()
+            registry.stop_all()
+            registry._jobs.pop(pending.name, None)
+
+    def test_required_scheduler_runtime_errors_are_observed(self, monkeypatch, caplog):
+        """One consecutive required-job error revokes readiness fail-closed."""
+        from scp.api.background_jobs import (
+            REQUIRED_JOB_FAILURE_THRESHOLD,
+            BackgroundJob,
+            registry,
+        )
         from scp.api_server import app
 
         failing = BackgroundJob(
             name="required_runtime_failure_probe",
             fn=lambda: (_ for _ in ()).throw(RuntimeError("runtime scheduler failure")),
-            interval_seconds=0.01,
+            interval_seconds=60,
             required=True,
             initial_delay_seconds=0.01,
         )
@@ -467,14 +520,22 @@ class TestFlow01BootBackground:
                     payload = client.get("/readiness").json()
                     if payload["checks"]["background_scheduler"] == "failed":
                         break
-                    time.sleep(0.1)
+                    time.sleep(0.05)
                 assert payload["checks"]["background_scheduler"] == "failed", payload
                 assert payload["status"] != "ready"
                 assert getattr(app.state, "background_scheduler_started", False) is False
                 statuses = registry.status()
-                assert statuses[failing.name]["error_count"] >= 5
+                assert statuses[failing.name]["error_count"] == REQUIRED_JOB_FAILURE_THRESHOLD == 1
                 assert statuses[failing.name]["required"] is True
+                assert statuses[failing.name]["first_execution_completed"] is False
+                assert statuses[failing.name]["readiness_revoked"] is True
+                assert statuses[failing.name]["last_error_type"] == "RuntimeError"
+                failure_id = statuses[failing.name]["last_failure_id"]
+                assert isinstance(failure_id, str) and len(failure_id) == 32
+                assert payload["reason"] == "background_scheduler_failed"
+                assert failure_id in caplog.text
         finally:
+            registry.stop_all()
             registry._jobs.pop(failing.name, None)
 
     def test_lifespan_shutdown_cancels_background_tasks(self):

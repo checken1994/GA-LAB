@@ -664,6 +664,13 @@ async def readiness():
         "checks": {
             "judge": "ok" if judge_ready else "pending",
             "background_scheduler": "ok" if scheduler_started else scheduler_status,
+            # Q01: the lifespan monitor stores failed required-job names and
+            # bounded failure ids on app.state. Surface them so a revoked
+            # scheduler is a 503 with an operator-visible cause, not a silent
+            # green/blank. Empty lists are the healthy default; no raw exception
+            # payload is included.
+            "background_scheduler_failure_jobs": list(getattr(app.state, "background_scheduler_failure_jobs", []) or []),
+            "background_scheduler_failure_ids": dict(getattr(app.state, "background_scheduler_failure_ids", {}) or {}),
             "source_identity": "ok" if identity_ready else "unavailable",
         },
         "reason": getattr(app.state, "readiness_reason", None),

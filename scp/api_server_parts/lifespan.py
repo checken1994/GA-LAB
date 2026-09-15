@@ -387,14 +387,21 @@ async def lifespan(app: FastAPI):
             raise RuntimeError(
                 'required background jobs not running: ' + ', '.join(sorted(_required_not_started))
             )
-        app.state.background_scheduler_started = True
-        app.state.background_scheduler_status = 'running'
+        # ``background_scheduler_started`` is the existing readiness gate
+        # consumed by /readiness.  Keep it false until every required job has
+        # completed one successful execution; thread creation alone is not
+        # readiness evidence.  The monitor below promotes it after the first
+        # successful cycle and revokes it on the first required-job failure.
+        app.state.background_scheduler_started = False
+        app.state.background_scheduler_status = 'starting'
         app.state.background_scheduler_error = None
-        # Judge readiness is set by the judge-init thread.  Preserve a pending
-        # or failed judge reason rather than erasing it at registry startup.
-        if getattr(app.state, 'judge_ready', False):
-            app.state.readiness_reason = None
-        logger.info('[MACH1-FIX-1] Background job registry started (%d jobs: %s)', len(_bg_registry._jobs), ', '.join(sorted(_bg_registry._jobs)))
+        app.state.background_scheduler_failure_jobs = []
+        app.state.background_scheduler_failure_ids = {}
+        app.state.readiness_reason = 'background_scheduler_pending_first_execution'
+        _required_job_names = sorted(
+            name for name, status in _registry_status.items() if status.get('required')
+        )
+        logger.info('[MACH1-FIX-1] Background job registry started (%d jobs; awaiting required first execution: %s)', len(_bg_registry._jobs), ', '.join(_required_job_names))
     except Exception as exc:
         # Required-job failure must abort boot — re-raise, do not swallow.
         app.state.background_scheduler_started = False
@@ -405,27 +412,62 @@ async def lifespan(app: FastAPI):
         raise
 
     async def _monitor_background_registry():
-        """Observe the real registry and revoke readiness on required failure."""
+        """Promote readiness after first success; observe later required errors."""
+        _readiness_promoted = False
         try:
             while True:
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(0.25)
                 _statuses = _bg_registry.status()
+                _required = {
+                    name: status
+                    for name, status in _statuses.items()
+                    if status.get('required')
+                }
+                _not_ready_required = [
+                    name for name, status in _required.items()
+                    if not status.get('started') or not status.get('first_execution_completed')
+                ]
                 _failed_required = [
-                    name for name, status in _statuses.items()
-                    if status.get('required') and (
-                        not status.get('started') or status.get('error_count', 0) > 0
-                    )
+                    name for name, status in _required.items()
+                    if status.get('readiness_revoked')
+                    or status.get('error_count', 0) >= status.get('failure_threshold', 1)
                 ]
                 if _failed_required:
                     app.state.background_scheduler_started = False
                     app.state.background_scheduler_status = 'failed'
                     app.state.background_scheduler_error = 'required_job_failed'
+                    app.state.background_scheduler_failure_jobs = sorted(_failed_required)
+                    app.state.background_scheduler_failure_ids = {
+                        name: _required[name].get('last_failure_id')
+                        for name in _failed_required
+                    }
                     app.state.readiness_reason = 'background_scheduler_failed'
                     logger.error(
-                        '[MACH1-FIX-1] Required background job failed after startup: %s',
+                        '[MACH1-FIX-1] Required background job failed after startup; readiness revoked: %s (failure_ids=%s)',
                         ', '.join(sorted(_failed_required)),
+                        app.state.background_scheduler_failure_ids,
                     )
                     return
+                if _not_ready_required:
+                    app.state.background_scheduler_started = False
+                    app.state.background_scheduler_status = 'starting'
+                    app.state.background_scheduler_failure_jobs = []
+                    app.state.background_scheduler_failure_ids = {}
+                    app.state.readiness_reason = 'background_scheduler_pending_first_execution'
+                    _readiness_promoted = False
+                    continue
+                app.state.background_scheduler_started = True
+                app.state.background_scheduler_status = 'running'
+                app.state.background_scheduler_error = None
+                app.state.background_scheduler_failure_jobs = []
+                app.state.background_scheduler_failure_ids = {}
+                if getattr(app.state, 'judge_ready', False):
+                    app.state.readiness_reason = None
+                else:
+                    app.state.readiness_reason = 'judge_initialization_pending'
+                if not _readiness_promoted:
+                    logger.info('[MACH1-FIX-1] Required background jobs completed first execution; scheduler readiness promoted')
+                    _readiness_promoted = True
         except asyncio.CancelledError:
             raise
 
