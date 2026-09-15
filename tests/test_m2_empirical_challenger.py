@@ -15,6 +15,12 @@ import pytest
 from pathlib import Path
 
 
+@pytest.fixture(autouse=True)
+def isolate_challenger_env(monkeypatch):
+    monkeypatch.setenv("SCP_WHY_LLM_ENABLED", "0")
+    monkeypatch.setenv("SCP_EGRESS_MODE", "deny")
+
+
 # ============================================================
 # BLOCK 1: smart_classifier.learn_from_feedback
 # ============================================================
@@ -152,10 +158,10 @@ def test_cisa_kev_match_recent_negative_cases():
 
 def test_cisa_kev_predictor_integration():
     """Verify integration of cisa_kev_match_recent with threat predictor intel boost."""
-    from scp.security.predictor import _boost_confidence_with_intel, predict_cyber_attack
+    from scp.security.predictor import _boost_confidence_with_intel, AttackPredictor
 
-    # With known CVE
-    signals_with_known_cve = {"cve_id": "CVE-2023-38606"}
+    # With known CVE and positive attack signal
+    signals_with_known_cve = {"cve_id": "CVE-2023-38606", "payload_pattern_emergence": 0.85}
     boost_known = _boost_confidence_with_intel("zero_day", signals_with_known_cve, 0.5)
     # CISA KEV adds +0.40 boost
     assert boost_known >= 0.90
@@ -170,6 +176,11 @@ def test_cisa_kev_predictor_integration():
     boost_non_numeric = _boost_confidence_with_intel("zero_day", signals_with_string_vals, 0.5)
     assert boost_non_numeric >= 0.90
 
+    predictor = AttackPredictor()
+    forecast = predictor.predict_cyber_attack(signals_with_known_cve)
+    assert forecast is not None
+    assert forecast.confidence >= 0.90
+
 
 # ============================================================
 # BLOCK 3: callgraph_delta.get_callers_for
@@ -183,7 +194,12 @@ def test_get_callers_for_nominal():
     graph = get_call_graph()
 
     # Manually populate an edge in callgraph to test lookup
-    node = FileNode(path="scp/test_caller.py", calls=[CallEdge(caller_name="test_caller_func", target_name="target_target_func", target_file="scp/target.py", line_no=10)])
+    node = FileNode(
+        path="scp/test_caller.py",
+        sha="0123456789abcdef",
+        mtime=time.time(),
+        calls=[CallEdge(caller_file="scp/test_caller.py", target_name="target_target_func", line=10)],
+    )
     with graph._lock:
         graph._files["scp/test_caller.py"] = node
         graph._rebuild_indexes()
@@ -231,7 +247,12 @@ def test_blast_radius_fast_callgraph_integration():
     graph = get_call_graph()
 
     # Set up test edge
-    node = FileNode(path="scp/caller_mod.py", calls=[CallEdge(caller_name="caller_fn", target_name="target_blast_fn", target_file="scp/target_mod.py", line_no=42)])
+    node = FileNode(
+        path="scp/caller_mod.py",
+        sha="0123456789abcdef",
+        mtime=time.time(),
+        calls=[CallEdge(caller_file="scp/caller_mod.py", target_name="target_blast_fn", line=42)],
+    )
     with graph._lock:
         graph._files["scp/caller_mod.py"] = node
         graph._rebuild_indexes()

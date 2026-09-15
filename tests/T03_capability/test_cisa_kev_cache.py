@@ -57,10 +57,14 @@ def test_cisa_no_egress_is_neutral_and_backed_off(monkeypatch, tmp_path):
     monkeypatch.setattr(cisa_kev, "_open_cisa_feed", denied)
     monkeypatch.setenv("SCP_CISA_KEV_FAILURE_RETRY_SECONDS", "60")
     feed = cisa_kev.CisaKevFeed(data_dir=str(tmp_path))
+    # [Q02] Pin the process singleton to the tmp feed so the predictor probe
+    # below exercises the controlled transport instead of the repo data dir.
+    monkeypatch.setattr(cisa_kev, "_FEED_SINGLETON", feed)
     assert feed.refresh_feed()["action"] == "failed"
     assert feed.refresh_feed()["action"] == "failed"
     assert calls["n"] == 1
     assert predictor.cisa_kev_match_recent("CVE-2026-1234") is False
+    assert calls["n"] == 1
 
 
 def test_cisa_async_slow_transport_is_bounded_and_neutral(monkeypatch, tmp_path):
@@ -72,6 +76,10 @@ def test_cisa_async_slow_transport_is_bounded_and_neutral(monkeypatch, tmp_path)
 
     monkeypatch.setattr(cisa_kev, "_open_cisa_feed", slow)
     monkeypatch.setenv("SCP_CISA_KEV_LOOKUP_TIMEOUT_SECONDS", "0.02")
+    # [Q02] Pin the singleton to an empty tmp feed so the async lookup really
+    # reaches the slow transport instead of short-circuiting on the repo cache.
+    feed = cisa_kev.CisaKevFeed(data_dir=str(tmp_path / "async"))
+    monkeypatch.setattr(cisa_kev, "_FEED_SINGLETON", feed)
 
     async def probe():
         started = time.monotonic()
