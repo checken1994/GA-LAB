@@ -26,7 +26,11 @@ TARGET_MODULES = (
     "scp.data_sources.domain_registry",
     "scp.knowledge.antibody_system",
     "scp.meta.why_engine",
-    "scp.runtime.judge_parts.judgecore_mixin",
+    # [S26 2026-09-13] "scp.runtime.judge_parts.judgecore_mixin" removed:
+    # judge_parts/ (god-split thế hệ cũ) đã bị xóa sau audit — 0 caller sống
+    # (judge.py hiện hành = RealityJudge tier1+LLM, không import judge_parts;
+    # điểm import code duy nhất chính là entry này). Xóa MODULE PRODUCT trước,
+    # xóa contract entry theo sau — không phải hạ chuẩn cho module còn sống.
     "scp.task_kernel",
 )
 
