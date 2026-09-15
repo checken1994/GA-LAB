@@ -985,6 +985,36 @@ async def attempt_lookup_fork(req: Any) -> dict[str, Any] | None:
     final_answer = f"{relevant}\n\n{provenance_suffix}"
     evidence_text = f"{relevant}\n{provenance_suffix}"
     elapsed_ms = (time.time() - started) * 1000
+    # [R1 2026-09-15] Fix benchmark NF-1: fork CÓ provenance thật — payload
+    # data-API đã đi vào canonical verify_response qua ``data_api_evidence``
+    # — nhưng trước đây trả ``slm_trace: []``. HTTP serialization của
+    # AskResponse lại KHÔNG giữ field ``data_api_evidence`` (không có trong
+    # model; pydantic drop extra), nên surface bằng chứng duy nhất mà harness
+    # D_evidence_recall nhìn thấy là ``slm_trace`` → fork đóng góp 0 dù hệ
+    # retrieval/data-API hoạt động. Đây là TRINH BÀY lại đúng payload mà
+    # verifier đã chấm, theo ĐÚNG convention của _ask_impl (canonical_bm25:
+    # domain/slm_name/answer[:200]/confidence/source/evidence/
+    # processing_time_ms) — metric không phạt fork vì định dạng field.
+    # KHÔNG phải input mới cho bất kỳ quyết định nào (verdict đã chốt ở trên),
+    # KHÔNG thay đổi/suy yếu data_api_evidence path của verify_response.
+    # answer[:200] cùng trần cắt với canonical_bm25; text đầy đủ nằm trong
+    # evidence.text cho runner đọc cả payload (fold rule).
+    fork_slm_trace: list[dict[str, Any]] = []
+    if evidence_text.strip():
+        fork_slm_trace.append({
+            "domain": decision.domain,
+            "slm_name": "lookup_data_api",
+            "answer": evidence_text[:200],
+            "confidence": min(0.9, max(0.6, decision.confidence)),
+            "source": "data-api",
+            "evidence": {
+                "source_url": str(data.get("api_url") or ""),
+                "api_name": str(data.get("api_name") or ""),
+                "route": "lookup_data_api",
+                "text": evidence_text,
+            },
+            "processing_time_ms": round(elapsed_ms, 1),
+        })
     logger.info(
         "[S24] /ask forked to data-API (no LLM generation): via=%s domain=%s api=%s",
         decision.via, decision.domain, data["api_name"],
@@ -1009,7 +1039,7 @@ async def attempt_lookup_fork(req: Any) -> dict[str, Any] | None:
         # context mà answer được compose từ — đưa vào cùng grounding check.
         "data_api_evidence": evidence_text,
         "slm_responses": [],
-        "slm_trace": [],
+        "slm_trace": fork_slm_trace,
         "elapsed_ms": round(elapsed_ms, 1),
         "session_id": getattr(req, "session_id", None) or "ask-lookup-fork",
         "run_id": "run-lookup-" + uuid.uuid4().hex,
