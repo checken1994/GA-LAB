@@ -18,6 +18,10 @@ Routes:
 """
 from __future__ import annotations
 
+import os
+import subprocess
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 # Import shared deps from api_server (same pattern as api/chat.py)
@@ -162,6 +166,23 @@ async def h8_analyses(limit: int = 20):
 async def release_evidence():
     """Release evidence authority endpoint (Wave 1)."""
     from scp.release.evidence_authority import EvidenceAuthority as ReleaseEvidenceAuthority
-    auth = ReleaseEvidenceAuthority(Path("data") / "evidence.sqlite")
-    evidence = auth.generate_release_claim()
-    return {"evidence": evidence}
+
+    repo_root = Path(__file__).resolve().parents[3]
+    output_dir = repo_root / os.environ.get("SCP_DATA_DIR", "data")
+    output_path = output_dir / "release_evidence.json"
+
+    try:
+        auth = ReleaseEvidenceAuthority(repo_root)
+        env_sha = os.environ.get("SCP_GIT_SHA", "").strip()
+        if env_sha and len(env_sha) == 40:
+            tested_sha = auth._resolve_commit(env_sha)
+        else:
+            tested_sha = auth._resolve_commit("HEAD")
+
+        evidence = auth.generate_evidence(output=output_path, tested_sha=tested_sha)
+        return {"evidence": evidence}
+    except (subprocess.SubprocessError, OSError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Evidence generation unavailable: {exc}",
+        ) from exc
