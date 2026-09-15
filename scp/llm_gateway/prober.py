@@ -10,6 +10,8 @@ from typing import Any
 
 import httpx
 
+from scp.security.url_safety import enforce_egress_policy  # [EE-G1]
+
 logger = logging.getLogger("scp.llm_gateway.prober")
 
 
@@ -76,6 +78,7 @@ class ContractProber:
             "max_tokens": 100,
         }
 
+        enforce_egress_policy(self.endpoint_url)
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(self.endpoint_url, json=payload, headers=headers)
             resp.raise_for_status()

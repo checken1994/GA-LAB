@@ -723,5 +723,5 @@ async def rag_query(request: Request):
     
     # Init retriever (usually needs a path, defaulting to local)
     retriever = HybridRetriever()
-    results = retriever.search(query, top_k=limit)
+    results = retriever.retrieve(query, k=limit)
     return {"query": query, "results": results}
