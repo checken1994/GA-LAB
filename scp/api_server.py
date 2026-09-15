@@ -63,7 +63,28 @@ from scp.security.multi_turn_tracker import MultiTurnTracker
 from scp.web_control.internet_search import InternetSearch
 
 logger = logging.getLogger("scp.api")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s")
+
+
+# [Q12] Central logging bootstrap — replaces the old raw `logging.basicConfig`
+# with scp.core.logging_config.configure_logging, called ONCE at composition-root
+# import (the same point the basicConfig ran, covering both `python -m scp` and
+# `uvicorn "scp.api_server:app"` string imports; reload=False keeps one process).
+# configure_logging() carries its own fallback if structlog is not installed.
+# The root-handler guard preserves the legacy basicConfig semantics exactly:
+# basicConfig is a no-op when the root logger already has handlers, so a harness
+# (pytest capture) or parent process that configured logging first is never
+# clobbered by importing the app module.
+def _bootstrap_logging() -> None:
+    if logging.getLogger().handlers:
+        return
+    from scp.core.logging_config import configure_logging
+
+    _log_level = os.environ.get("SCP_LOG_LEVEL", "INFO").strip() or "INFO"
+    _log_json = os.environ.get("SCP_LOG_JSON", "").strip().lower() in {"1", "true", "yes", "on"}
+    configure_logging(log_level=_log_level, json_output=_log_json)
+
+
+_bootstrap_logging()
 
 REQUEST_COUNT = Counter("scp_request_count", "Total SCP Requests", ["method", "endpoint"])
 REQUEST_LATENCY = Histogram("scp_request_latency_seconds", "Request latency", ["endpoint"])

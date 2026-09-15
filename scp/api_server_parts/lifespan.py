@@ -58,8 +58,15 @@ async def lifespan(app: FastAPI):
     # try/except: a ConfigContractError must propagate and abort boot instead of
     # being swallowed into a half-initialized server.
     from scp.core.config_contract import validate_boot_config
-    validate_boot_config()
+    _validated_env = validate_boot_config()
     logger.info('[MACH1-FIX-2] Boot config contract validated (fail-closed)')
+    # [Q12] Typed-settings bridge — same fail-closed posture: config_contract
+    # remains the authority for required secrets; validate_boot_settings only
+    # adds type validation of SCP_* values + a consistency cross-check against
+    # the contract-validated view. ConfigContractError propagates, abort boot.
+    from scp.core.config import validate_boot_settings
+    validate_boot_settings(_validated_env)
+    logger.info('[Q12] Typed boot settings validated against config contract (fail-closed)')
     app.state.judge_ready = False
     app.state.startup_status = 'starting'
     app.state.readiness_reason = 'judge_initialization_pending'
