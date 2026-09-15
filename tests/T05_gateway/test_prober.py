@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -229,16 +230,17 @@ def test_prober_empty_response_allowed(prober_server) -> None:
 
 def test_prober_request_payload_and_auth_headers(prober_server) -> None:
     server, base_url = prober_server
+    api_key = secrets.token_urlsafe(32)
     prober = ContractProber(
         endpoint_url=f"{base_url}/v1/chat/completions",
-        api_key="secret-bearer-key-999",
+        api_key=api_key,
         model="safe-model",
     )
     result = asyncio.run(prober.probe_async())
     assert result is True
 
     # Verify physical HTTP request reached server with correct headers & body
-    assert server.last_headers.get("Authorization") == "Bearer secret-bearer-key-999"
+    assert server.last_headers.get("Authorization") == f"Bearer {api_key}"
     assert server.last_headers.get("Content-Type") == "application/json"
     req_body = json.loads(server.last_body.decode("utf-8"))
     assert req_body["model"] == "safe-model"
