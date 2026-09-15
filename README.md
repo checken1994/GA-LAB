@@ -107,6 +107,10 @@ python -m scp 8080
 
 hoặc đặt `SCP_PORT` / `SCP_HOST` trong môi trường.
 
+Đặc tả field request của `/ask` — gồm `contexts`, `retrieved_context`, auto-retrieval corpus
+(F-2), kill switches `SCP_ASK_RETRIEVAL` / `SCP_T2_MIN_CONFIDENCE` và provenance trong
+`slm_trace`: xem [docs/api/ask-request-fields.md](docs/api/ask-request-fields.md).
+
 ## Cấu hình LLM
 
 SCP hỗ trợ OpenRouter hoặc API tương thích OpenAI. Ví dụ:
